@@ -678,7 +678,7 @@ void NU_Draw_Node(struct Node* node, NVGcontext* vg, float screen_width, float s
         node->border_radius_tr,
         node->border_radius_bl,
         node->border_radius_br, 
-        (char)120, (char)140, (char)30,
+        (unsigned char)240, (unsigned char)140, (unsigned char)30,
         screen_width,
         screen_height
     );

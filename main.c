@@ -89,18 +89,15 @@ int main()
     };
 
     SDL_AddEventWatch(ResizingEventWatcher, &watcher_data);
+
+    NU_Render(&ui_tree, &windows, &gl_contexts, &nano_vg_contexts);
     
     // Application loop
     int isRunning = 1;
     while (isRunning)
     {
         isRunning = ProcessWindowEvents();
-        // Calculate element positions
-        // timer_start();
-        // start_measurement();
-        NU_Render(&ui_tree, &windows, &gl_contexts, &nano_vg_contexts);
-        // end_measurement();
-        // timer_stop();
+        SDL_Delay(16);
     }
 
     // Free Memory

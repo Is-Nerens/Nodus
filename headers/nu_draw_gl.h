@@ -143,7 +143,7 @@ void Draw_Varying_Rounded_Rect(
     float width, float height, 
     float border_top, float border_bottom, float border_left, float border_right, 
     float top_left_radius, float top_right_radius, float bottom_left_radius, float bottom_right_radius, 
-    char r, char g, char b, float screen_width, float screen_height)
+    uint8_t r, uint8_t g, uint8_t b, float screen_width, float screen_height)
 {
     float fl_r = (float)r / 255.0f;
     float fl_g = (float)g / 255.0f;

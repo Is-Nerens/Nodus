@@ -16,6 +16,7 @@
 #include <stdio.h>
 #include <errno.h>
 #include <string.h>
+#include <ctype.h>
 #include "performance.h"
 #include "vector.h"
 
@@ -23,23 +24,17 @@
 #include <nanovg.h>
 #include <nanovg_gl.h>
 
-#define PROPERTY_COUNT 13
-#define KEYWORD_COUNT 19
+#define PROPERTY_COUNT 31
+#define KEYWORD_COUNT 44
 
-const char* keywords[] = {
-    "id",
-    "dir",
-    "grow",
-    "overflowV",
-    "overflowH",
-    "width",
-    "minWidth",
-    "maxWidth",
-    "height", 
-    "minHeight",
-    "maxHeight",
-    "alignH",
-    "alignV",
+static const char* keywords[] = {
+    "id", "dir", "grow", "overflowV", "overflowH", "gap",
+    "width", "minWidth", "maxWidth", "height", "minHeight", "maxHeight", 
+    "alignH", "alignV",
+    "background", "borderColour",
+    "border", "borderTop", "borderBottom", "borderLeft", "borderRight",
+    "borderRadius", "borderTopLeftRadius", "borderTopRightRadius", "borderBottomLeftRadius", "borderBottomRightRadius",
+    "pad", "padTop", "padBottom", "padLeft", "padRight",
     "window",
     "rect",
     "button",
@@ -47,7 +42,16 @@ const char* keywords[] = {
     "text",
     "image"
 };
-const uint8_t keyword_lengths[] = { 2, 3, 4, 9, 9, 5, 8, 8, 6, 9, 9, 6, 6, 6, 4, 6, 4, 4, 5 };
+static const uint8_t keyword_lengths[] = { 
+    2, 3, 4, 9, 9, 3,
+    5, 8, 8, 6, 9, 9,      // width height
+    6, 6,                  // alignment
+    10, 12,                // background, border colour
+    6, 9, 12, 10, 11,      // border width
+    12, 19, 20, 22, 23,    // border radius
+    3, 6, 9, 7, 11,        // padding
+    6, 4, 6, 4, 4, 5       // selectors
+};
 enum NU_Token
 {
     ID_PROPERTY,
@@ -55,6 +59,7 @@ enum NU_Token
     GROW_PROPERTY,
     OVERFLOW_V_PROPERTY,
     OVERFLOW_H_PROPERTY,
+    GAP_PROPERTY,
     WIDTH_PROPERTY,
     MIN_WIDTH_PROPERTY,
     MAX_WIDTH_PROPERTY,
@@ -63,6 +68,23 @@ enum NU_Token
     MAX_HEIGHT_PROPERTY,
     ALIGN_H_PROPERTY,
     ALIGN_V_PROPERTY,
+    BACKGROUND_COLOUR_PROPERTY,
+    BORDER_COLOUR_PROPERTY,
+    BORDER_WIDTH_PROPERTY,
+    BORDER_TOP_WIDTH_PROPERTY,
+    BORDER_BOTTOM_WIDTH_PROPERTY,
+    BORDER_LEFT_WIDTH_PROPERTY,
+    BORDER_RIGHT_WIDTH_PROPERTY,
+    BORDER_RADIUS_PROPERTY,
+    BORDER_TOP_LEFT_RADIUS_PROPERTY,
+    BORDER_TOP_RIGHT_RADIUS_PROPERTY,
+    BORDER_BOTTOM_LEFT_RADIUS_PROPERTY,
+    BORDER_BOTTOM_RIGHT_RADIUS_PROPERTY,
+    PADDING_PROPERTY,
+    PADDING_TOP_PROPERTY,
+    PADDING_BOTTOM_PROPERTY,
+    PADDING_LEFT_PROPERTY,
+    PADDING_RIGHT_PROPERTY,
     WINDOW_TAG,
     RECT_TAG,
     BUTTON_TAG,
@@ -118,8 +140,8 @@ struct Node
     uint16_t pad_top, pad_bottom, pad_left, pad_right;
     uint16_t border_top, border_bottom, border_left, border_right;
     uint16_t border_radius_tl, border_radius_tr, border_radius_bl, border_radius_br;
-    char background_r, background_g, background_b, background_a;
-    char border_r, border_g, border_b, border_a;
+    uint8_t background_r, background_g, background_b, background_a;
+    uint8_t border_r, border_g, border_b, border_a;
     char layout_flags;
     char horizontal_alignment;
     char vertical_alignment;
@@ -148,13 +170,17 @@ struct Text_Arena
 struct Font_Resource
 {
     char* name;
-    unsigned char* data; 
+    uint8_t* data; 
     int size;  
 };
 
 struct Font_Registry {
     int* font_ids;  
     int count;      
+};
+
+struct RGB {
+    uint8_t r, g, b;
 };
 
 struct UI_Tree
@@ -530,6 +556,28 @@ static int AssertTagCloseStartGrammar(struct Vector* token_vector, int i, enum T
     return -1; // Failure
 }
 
+static int Hex_To_Int(char c) {
+    if (c >= '0' && c <= '9') return c - '0';
+    if (c >= 'a' && c <= 'f') return 10 + (c - 'a');
+    if (c >= 'A' && c <= 'F') return 10 + (c - 'A');
+    return -1; 
+}
+
+bool Parse_Hexcode(const char* string, int char_count, struct RGB* rgb) {
+    if (char_count != 7 || string[0] != '#') return false;
+    int r1 = Hex_To_Int(string[1]);
+    int r2 = Hex_To_Int(string[2]);
+    int g1 = Hex_To_Int(string[3]);
+    int g2 = Hex_To_Int(string[4]);
+    int b1 = Hex_To_Int(string[5]);
+    int b2 = Hex_To_Int(string[6]);
+    if (r1 < 0 || r2 < 0 || g1 < 0 || g2 < 0 || b1 < 0 || b2 < 0) return false;
+    rgb->r = (uint8_t)((r1 << 4) | r2);
+    rgb->g = (uint8_t)((g1 << 4) | g2);
+    rgb->b = (uint8_t)((b1 << 4) | b2);
+    return true;
+}
+
 static int NU_Generate_Tree(char* src_buffer, uint32_t src_length, struct UI_Tree* ui_tree, struct Vector* NU_Token_vector, struct Vector* ptext_ref_vector)
 {
     // Enforce root grammar
@@ -577,7 +625,7 @@ static int NU_Generate_Tree(char* src_buffer, uint32_t src_length, struct UI_Tre
                 new_node.vg = NULL;
                 new_node.preferred_width = 0.0f;
                 new_node.preferred_height = 0.0f;
-                new_node.gap = 1.0f;
+                new_node.gap = 5.0f;
                 new_node.max_width = 10e20f;
                 new_node.min_width = 0.0f;
                 new_node.pad_top = 8;
@@ -585,13 +633,19 @@ static int NU_Generate_Tree(char* src_buffer, uint32_t src_length, struct UI_Tre
                 new_node.pad_left = 8;
                 new_node.pad_right = 8;
                 new_node.border_top = 1;
-                new_node.border_bottom = 2;
+                new_node.border_bottom = 1;
                 new_node.border_left = 1;
-                new_node.border_right = 10;
+                new_node.border_right = 1;
                 new_node.border_radius_tl = 0;
-                new_node.border_radius_tr = 12;
-                new_node.border_radius_bl = 12;
+                new_node.border_radius_tr = 0;
+                new_node.border_radius_bl = 0;
                 new_node.border_radius_br = 0;
+                new_node.background_r = 180;
+                new_node.background_g = 180;
+                new_node.background_b = 180;
+                new_node.border_r = 180;
+                new_node.border_g = 180;
+                new_node.border_b = 180;
                 new_node.child_count = 0;
                 new_node.first_child_index = -1;
                 new_node.text_ref_index = -1;
@@ -681,6 +735,7 @@ static int NU_Generate_Tree(char* src_buffer, uint32_t src_length, struct UI_Tre
                 current_property_text = Vector_Get(ptext_ref_vector, property_text_index);
                 property_text_index += 1;
                 char c = src_buffer[current_property_text->src_index];
+                char* ptext = &src_buffer[current_property_text->src_index];
 
                 // Get the property value text
                 switch (NU_Token)
@@ -766,7 +821,7 @@ static int NU_Generate_Tree(char* src_buffer, uint32_t src_length, struct UI_Tre
 
                     // Set horizontal alignment
                     case ALIGN_H_PROPERTY:
-                        char* ptext = &src_buffer[current_property_text->src_index];
+                        if (current_property_text->char_count < 4) break;
                         if (memcmp(ptext, "left", 4) == 0) {
                             current_node->horizontal_alignment = 0;
                         } else if (memcmp(ptext, "center", 6) == 0) {
@@ -778,12 +833,32 @@ static int NU_Generate_Tree(char* src_buffer, uint32_t src_length, struct UI_Tre
 
                     // Set vertical alignment
                     case ALIGN_V_PROPERTY:
+                        if (current_property_text->char_count < 4) break;
                         if (memcmp(ptext, "left", 4) == 0) {
                             current_node->vertical_alignment = 0;
                         } else if (memcmp(ptext, "center", 6) == 0) {
                             current_node->vertical_alignment = 1;
                         } else if (memcmp(ptext, "right", 5) == 0) {
                             current_node->vertical_alignment = 2;
+                        }
+                        break;
+
+                    // Set background colour
+                    case BACKGROUND_COLOUR_PROPERTY:
+                        struct RGB rgb;
+                        if (Parse_Hexcode(ptext, current_property_text->char_count, &rgb)) {
+                            current_node->background_r = rgb.r;
+                            current_node->background_g = rgb.g;
+                            current_node->background_b = rgb.b;
+                        }
+                        break;
+
+                    // Set border colour
+                    case BORDER_COLOUR_PROPERTY:
+                        if (Parse_Hexcode(ptext, current_property_text->char_count, &rgb)) {
+                            current_node->border_r = rgb.r;
+                            current_node->border_g = rgb.g;
+                            current_node->border_b = rgb.b;
                         }
                         break;
                         

@@ -14,6 +14,12 @@
         "xutility": "cpp",
         "resources.h": "c",
         "nu_draw.h": "c",
-        "cmath": "c"
+        "cmath": "c",
+        "initializer_list": "c",
+        "list": "c",
+        "utility": "c",
+        "vector": "c",
+        "xhash": "c",
+        "xstring": "c"
     }
 }

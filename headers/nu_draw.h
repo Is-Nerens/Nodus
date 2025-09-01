@@ -204,7 +204,7 @@ void Draw_Varying_Rounded_Rect(
     float width, float height, 
     float border_top, float border_bottom, float border_left, float border_right, 
     float top_left_radius, float top_right_radius, float bottom_left_radius, float bottom_right_radius, 
-    unsigned char r, unsigned char g, unsigned char b, float screen_width, float screen_height)
+    uint8_t r, uint8_t g, uint8_t b, float screen_width, float screen_height)
 {
     float fl_r = (float)r / 255.0f;
     float fl_g = (float)g / 255.0f;
@@ -237,10 +237,10 @@ void Draw_Varying_Rounded_Rect(
     }
 
     // Find corner anchors
-    vec2 tl_a = { x + top_left_radius, y + top_left_radius };
-    vec2 tr_a = { x + width - top_right_radius, y + top_right_radius };
-    vec2 bl_a = { x + bottom_left_radius, y + height - bottom_left_radius };
-    vec2 br_a = { x + width - bottom_right_radius, y + height - bottom_right_radius };
+    vec2 tl_a = { floorf(x + top_left_radius), floorf(y + top_left_radius) };
+    vec2 tr_a = { floorf(x + width - top_right_radius), floorf(y + top_right_radius) };
+    vec2 bl_a = { floorf(x + bottom_left_radius), floorf(y + height - bottom_left_radius) };
+    vec2 br_a = { floorf(x + width - bottom_right_radius), floorf(y + height - bottom_right_radius) };
 
     // --- Allocate vertex and index arrays ---
     vertex vertices[(tl_corner_points + tr_corner_points + br_corner_points + bl_corner_points) * 2]; 
@@ -320,7 +320,7 @@ void Draw_Varying_Rounded_Rect(
     glBufferData(GL_ELEMENT_ARRAY_BUFFER, sizeof(indices), indices, GL_STATIC_DRAW);
     glVertexAttribPointer(0, 2, GL_FLOAT, GL_FALSE, sizeof(vertex), (void*)0); // x, y
     glEnableVertexAttribArray(0);
-    glVertexAttribPointer(1, 3, GL_UNSIGNED_BYTE, GL_TRUE, sizeof(vertex), (void*)(2 * sizeof(float))); // r,g,b
+    glVertexAttribPointer(1, 3, GL_FLOAT, GL_TRUE, sizeof(vertex), (void*)(2 * sizeof(float))); // r,g,b
     glEnableVertexAttribArray(1);
     glBindVertexArray(vao);
     glDrawElements(GL_TRIANGLES, index_count, GL_UNSIGNED_INT, 0);

@@ -113,20 +113,20 @@ static void NU_Calculate_Text_Min_Width(struct UI_Tree* ui_tree, struct Node* no
     // printf("node min width: %f\n", node->min_width);
 }
 
-static bool Text_Can_Wrap(struct UI_Tree* ui_tree, struct Text_Ref* text_ref) 
-{
-    char* text = ui_tree->text_arena.char_buffer.data + text_ref->buffer_index;
-    if (text_ref->char_count < 2) return false;
-    char last_c = ' ';
-    char c = text[0];
-    for (int i = 1; i < text_ref->char_count; i++) {
-        last_c = c;
-        c = text[i];
-        if ((c == ' ' && last_c != ' ') || (c != ' ' && last_c == ' '))
-            return true;
-    }
-    return false;
-}
+// static bool Text_Can_Wrap(struct UI_Tree* ui_tree, struct Text_Ref* text_ref) 
+// {
+//     char* text = ui_tree->text_arena.char_buffer.data + text_ref->buffer_index;
+//     if (text_ref->char_count < 2) return false;
+//     char last_c = ' ';
+//     char c = text[0];
+//     for (int i = 1; i < text_ref->char_count; i++) {
+//         last_c = c;
+//         c = text[i];
+//         if ((c == ' ' && last_c != ' ') || (c != ' ' && last_c == ' '))
+//             return true;
+//     }
+//     return false;
+// }
 
 static void NU_Calculate_Text_Fit_Size(struct UI_Tree* ui_tree, struct Node* node, struct Text_Ref* text_ref)
 {
@@ -279,7 +279,7 @@ static void NU_Calculate_Fit_Size_Heights(struct UI_Tree* ui_tree)
             if (!is_layout_horizontal) content_height += (parent->child_count - 1) * parent->gap;
             parent->content_height = content_height;
             if (parent->tag != WINDOW) {
-                parent->height = content_height + parent->border_top + parent->border_bottom + parent->pad_top + parent->pad_bottom;
+                parent->height += content_height;
             }
         }
     }
@@ -513,16 +513,13 @@ static void NU_Grow_Shrink_Heights(struct UI_Tree* ui_tree)
     }
 }
 
-static void NU_Calculate_Text_Wrap_Heights(struct UI_Tree* ui_tree, struct Vector* windows, struct Vector* gl_contexts, struct Vector* nano_vg_contexts)
+static void NU_Calculate_Text_Wrap_Heights(struct UI_Tree* ui_tree,
+                                           struct Vector* windows,
+                                           struct Vector* gl_contexts,
+                                           struct Vector* nano_vg_contexts)
 {
-    for (uint32_t i=0; i<ui_tree->text_arena.text_refs.size; i++)
-    {
+    for (uint32_t i = 0; i < ui_tree->text_arena.text_refs.size; i++) {
         struct Text_Ref* text_ref = (struct Text_Ref*) Vector_Get(&ui_tree->text_arena.text_refs, i);
-
-        // Skip if text cannot wrap
-        if (!Text_Can_Wrap(ui_tree, text_ref)) {
-            continue;
-        }
         
         // Get the corresponding node
         uint8_t node_depth = (uint8_t)(text_ref->node_ID >> 24);
@@ -532,24 +529,25 @@ static void NU_Calculate_Text_Wrap_Heights(struct UI_Tree* ui_tree, struct Vecto
 
         char* text = ui_tree->text_arena.char_buffer.data + text_ref->buffer_index;
 
-        // Make sure font/size is set first
+        // Configure font
         struct Vector* font_registry = Vector_Get(&ui_tree->font_registries, 0);
         int fontID = *(int*) Vector_Get(font_registry, 0);
         nvgFontFaceId(node->vg, fontID);   
         nvgFontSize(node->vg, 18);
 
-        // Calculate text height after wrapping
-        float asc, desc, lh;
-        nvgTextMetrics(node->vg, &asc, &desc, &lh);
-        NVGtextRow rows[128];
-        int nrows;
-        float total_height = 0;
-        char* start = text;  // start as a pointer
-        while ((nrows = nvgTextBreakLines(node->vg, start, NULL, node->width, rows, 128)) > 0) {
-            total_height += nrows * lh;
-            start = (char*) rows[nrows-1].end;  // continue from last break
-        }
-        node->height = node->border_top + node->border_bottom + node->pad_top + node->pad_bottom + total_height;
+        // Compute available inner width
+        float inner_width = node->width -
+                            node->border_left - node->border_right -
+                            node->pad_left - node->pad_right;
+
+        // Measure text the same way it's drawn
+        float bounds[4];
+        nvgTextBoxBounds(node->vg, 0, 0, inner_width, text, NULL, bounds);
+        float text_height = bounds[3] - bounds[1];
+
+        node->height = node->border_top + node->border_bottom +
+                       node->pad_top + node->pad_bottom +
+                       text_height;
     }
 }
 
@@ -560,7 +558,7 @@ static void NU_Horizontally_Place_Children(struct Node* parent, struct Vector* c
         for (int i=parent->first_child_index; i<parent->first_child_index + parent->child_count; i++)
         {
             struct Node* child = Vector_Get(child_layer, i);
-            float remaning_width = parent->width - child->width;
+            float remaning_width = (parent->width - parent->pad_left - parent->pad_right) - child->width;
             float x_align_offset = remaning_width * 0.5f * (float)parent->horizontal_alignment;
             child->x = child->border_left + child->pad_left + parent->x + x_align_offset;
         }
@@ -595,8 +593,8 @@ static void NU_Vertically_Place_Children(struct Node* parent, struct Vector* chi
         for (int i=parent->first_child_index; i<parent->first_child_index + parent->child_count; i++)
         {
             struct Node* child = Vector_Get(child_layer, i);
-            float remaning_height = parent->height - child->height;
-            float y_align_offset = remaning_height * 0.5f * (float)parent->vertical_alignment;
+            float remaining_height = (parent->height - parent->pad_top - parent->pad_bottom) - child->height;
+            float y_align_offset = remaining_height * 0.5f * (float)parent->vertical_alignment;
             child->y = child->border_top + child->pad_top + parent->y + y_align_offset;
         }
     }
@@ -678,7 +676,7 @@ void NU_Draw_Node(struct Node* node, NVGcontext* vg, float screen_width, float s
         node->border_radius_tr,
         node->border_radius_bl,
         node->border_radius_br, 
-        (unsigned char)240, (unsigned char)140, (unsigned char)30,
+        node->border_r, node->border_g, node->border_b,
         screen_width,
         screen_height
     );

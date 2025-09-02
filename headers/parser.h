@@ -33,7 +33,7 @@ static const char* keywords[] = {
     "alignH", "alignV",
     "background", "borderColour",
     "border", "borderTop", "borderBottom", "borderLeft", "borderRight",
-    "borderRadius", "borderTopLeftRadius", "borderTopRightRadius", "borderBottomLeftRadius", "borderBottomRightRadius",
+    "borderRadius", "borderRadiusTopLeft", "borderRadiusTopRight", "borderRadiusBottomLeft", "borderRadiusBottomRight",
     "pad", "padTop", "padBottom", "padLeft", "padRight",
     "window",
     "rect",
@@ -137,9 +137,9 @@ struct Node
     int text_ref_index;
     uint16_t child_capacity;
     uint16_t child_count;
-    uint16_t pad_top, pad_bottom, pad_left, pad_right;
-    uint16_t border_top, border_bottom, border_left, border_right;
-    uint16_t border_radius_tl, border_radius_tr, border_radius_bl, border_radius_br;
+    uint8_t pad_top, pad_bottom, pad_left, pad_right;
+    uint8_t border_top, border_bottom, border_left, border_right;
+    uint8_t border_radius_tl, border_radius_tr, border_radius_bl, border_radius_br;
     uint8_t background_r, background_g, background_b, background_a;
     uint8_t border_r, border_g, border_b, border_a;
     char layout_flags;
@@ -483,6 +483,25 @@ static int Property_Text_To_Float(float* result, char* src_buffer, struct Proper
     return 0;   
 }
 
+static int Property_Text_To_uint8_t(uint8_t* result, char* src_buffer, struct Property_Text_Ref* ptext_ref)
+{
+    *result = 0;
+    for (uint8_t i = 0; i < ptext_ref->char_count; i++) {
+        char c = src_buffer[ptext_ref->src_index + i];
+        if (c < '0' || c > '9') {
+            *result = 0;
+            return -1;
+        }
+        int digit = c - '0';
+        if (*result > (UINT8_MAX - digit) / 10) {
+            *result = 255; // limit to max uint8_t value
+        }
+        *result = (uint8_t)(*result * 10 + digit);
+    }
+    return 0;
+}
+
+
 static int AssertRootGrammar(struct Vector* token_vector)
 {
     // ENFORCE RULE: FIRST TOKEN MUST BE OPEN TAG
@@ -564,7 +583,7 @@ static int Hex_To_Int(char c) {
 }
 
 bool Parse_Hexcode(const char* string, int char_count, struct RGB* rgb) {
-    if (char_count != 7 || string[0] != '#') return false;
+    if ((char_count != 7 && char_count != 9) || string[0] != '#') return false;
     int r1 = Hex_To_Int(string[1]);
     int r2 = Hex_To_Int(string[2]);
     int g1 = Hex_To_Int(string[3]);
@@ -628,24 +647,56 @@ static int NU_Generate_Tree(char* src_buffer, uint32_t src_length, struct UI_Tre
                 new_node.gap = 5.0f;
                 new_node.max_width = 10e20f;
                 new_node.min_width = 0.0f;
-                new_node.pad_top = 8;
-                new_node.pad_bottom = 8;
-                new_node.pad_left = 8;
-                new_node.pad_right = 8;
-                new_node.border_top = 1;
-                new_node.border_bottom = 1;
-                new_node.border_left = 1;
-                new_node.border_right = 1;
-                new_node.border_radius_tl = 0;
-                new_node.border_radius_tr = 0;
-                new_node.border_radius_bl = 0;
-                new_node.border_radius_br = 0;
-                new_node.background_r = 180;
-                new_node.background_g = 180;
-                new_node.background_b = 180;
-                new_node.border_r = 180;
-                new_node.border_g = 180;
-                new_node.border_b = 180;
+                new_node.pad_top = 3;
+                new_node.pad_bottom = 3;
+                new_node.pad_left = 3;
+                new_node.pad_right = 3;
+                new_node.border_top = 0;
+                new_node.border_bottom = 0;
+                new_node.border_left = 0;
+                new_node.border_right = 0;
+                new_node.border_radius_tl = 5;
+                new_node.border_radius_tr = 5;
+                new_node.border_radius_bl = 5;
+                new_node.border_radius_br = 5;
+                if (new_node.tag == BUTTON) {
+                    new_node.background_r = 25;
+                    new_node.background_g = 25;
+                    new_node.background_b = 25;
+
+                    new_node.border_r = 69;
+                    new_node.border_g = 101;
+                    new_node.border_b = 153;
+
+                    new_node.border_top = 2;
+                    new_node.border_bottom = 2;
+                    new_node.border_left = 2;
+                    new_node.border_right = 2;
+                }
+                else if (new_node.tag == RECT)
+                {
+                    new_node.border_r = 50;
+                    new_node.border_g = 50;
+                    new_node.border_b = 50;
+
+                    new_node.background_r = 2;
+                    new_node.background_g = 2;
+                    new_node.background_b = 2;
+
+                    new_node.border_top = 1;
+                    new_node.border_bottom = 1;
+                    new_node.border_left = 1;
+                    new_node.border_right = 1;
+                }
+                else {
+                    new_node.background_r = 2;
+                    new_node.background_g = 2;
+                    new_node.background_b = 2;
+
+                    new_node.border_r = 156;
+                    new_node.border_g = 100;
+                    new_node.border_b = 5;
+                }
                 new_node.child_count = 0;
                 new_node.first_child_index = -1;
                 new_node.text_ref_index = -1;
@@ -776,6 +827,13 @@ static int NU_Generate_Tree(char* src_buffer, uint32_t src_length, struct UI_Tre
                             current_node->layout_flags |= OVERFLOW_HORIZONTAL_SCROLL;
                         break;
                     
+                    // Set gap 
+                    case GAP_PROPERTY:
+                        float gap;
+                        if (Property_Text_To_Float(&gap, src_buffer, current_property_text) == 0)
+                            current_node->gap = gap;
+                        break;
+                    
                     // Set preferred width
                     case WIDTH_PROPERTY:
                         float width; 
@@ -863,6 +921,92 @@ static int NU_Generate_Tree(char* src_buffer, uint32_t src_length, struct UI_Tre
                         break;
                         
                     default:
+                        break;
+
+                    // Set border width
+                    case BORDER_TOP_WIDTH_PROPERTY:
+                        uint8_t border_width;
+                        if (Property_Text_To_uint8_t(&border_width, src_buffer, current_property_text) == 0) {
+                            current_node->border_top = border_width;
+                        }
+                        break;
+                    case BORDER_BOTTOM_WIDTH_PROPERTY:
+                        if (Property_Text_To_uint8_t(&border_width, src_buffer, current_property_text) == 0) {
+                            current_node->border_bottom = border_width;
+                        }
+                        break;
+                    case BORDER_LEFT_WIDTH_PROPERTY:
+
+                        if (Property_Text_To_uint8_t(&border_width, src_buffer, current_property_text) == 0) {
+                            current_node->border_left = border_width;
+                        }
+                        break;
+                    case BORDER_RIGHT_WIDTH_PROPERTY:
+                        if (Property_Text_To_uint8_t(&border_width, src_buffer, current_property_text) == 0) {
+                            current_node->border_right = border_width;
+                        }
+                        break;
+
+                    // Set border radii
+                    case BORDER_RADIUS_PROPERTY:
+                        uint8_t border_radius;
+                        if (Property_Text_To_uint8_t(&border_radius, src_buffer, current_property_text) == 0) {
+                            current_node->border_radius_tl = border_radius;
+                            current_node->border_radius_tr = border_radius;
+                            current_node->border_radius_bl = border_radius;
+                            current_node->border_radius_br = border_radius;
+                        }
+                        break;
+                    case BORDER_TOP_LEFT_RADIUS_PROPERTY:
+                        if (Property_Text_To_uint8_t(&border_radius, src_buffer, current_property_text) == 0) {
+                            current_node->border_radius_tl = border_radius;
+                        }
+                        break;
+                    case BORDER_TOP_RIGHT_RADIUS_PROPERTY:
+                        if (Property_Text_To_uint8_t(&border_radius, src_buffer, current_property_text) == 0) {
+                            current_node->border_radius_tr = border_radius;
+                        }
+                        break;
+                    case BORDER_BOTTOM_LEFT_RADIUS_PROPERTY:
+                        if (Property_Text_To_uint8_t(&border_radius, src_buffer, current_property_text) == 0) {
+                            current_node->border_radius_bl = border_radius;
+                        }
+                        break;
+                    case BORDER_BOTTOM_RIGHT_RADIUS_PROPERTY:
+                        if (Property_Text_To_uint8_t(&border_radius, src_buffer, current_property_text) == 0) {
+                            current_node->border_radius_br = border_radius;
+                        }
+                        break;
+
+                    // Set padding
+                    case PADDING_PROPERTY:
+                        uint8_t pad;
+                        if (Property_Text_To_uint8_t(&pad, src_buffer, current_property_text) == 0) {
+                            current_node->pad_top    = pad;
+                            current_node->pad_bottom = pad;
+                            current_node->pad_left   = pad;
+                            current_node->pad_right  = pad;
+                        }
+                        break;
+                    case PADDING_TOP_PROPERTY:
+                        if (Property_Text_To_uint8_t(&pad, src_buffer, current_property_text) == 0) {
+                            current_node->pad_top = pad;
+                        }
+                        break;
+                    case PADDING_BOTTOM_PROPERTY:
+                        if (Property_Text_To_uint8_t(&pad, src_buffer, current_property_text) == 0) {
+                            current_node->pad_bottom = pad;
+                        }
+                        break;
+                    case PADDING_LEFT_PROPERTY:
+                        if (Property_Text_To_uint8_t(&pad, src_buffer, current_property_text) == 0) {
+                            current_node->pad_left = pad;
+                        }
+                        break;
+                    case PADDING_RIGHT_PROPERTY:
+                        if (Property_Text_To_uint8_t(&pad, src_buffer, current_property_text) == 0) {
+                            current_node->pad_right = pad;
+                        }
                         break;
                 }
 

@@ -236,7 +236,7 @@ static void NU_Tokenise(char* src_buffer, uint32_t src_length, struct Vector* NU
         char c = src_buffer[i];
 
         // Comment begins
-        if (i < src_length - 3 && c == '<' && src_buffer[i+1] == '!' && src_buffer[i+2] == '-' && src_buffer[i+3] == '-' && ctx == 0)
+        if (ctx == 0 && i < src_length - 3 && c == '<' && src_buffer[i+1] == '!' && src_buffer[i+2] == '-' && src_buffer[i+3] == '-')
         {
             ctx = 1;
             i+=4;
@@ -251,7 +251,7 @@ static void NU_Tokenise(char* src_buffer, uint32_t src_length, struct Vector* NU
             continue;
         }
 
-        // In comment
+        // In comment -> skip rest
         if (ctx == 1)
         {
             i+=1;
@@ -655,10 +655,10 @@ static int NU_Generate_Tree(char* src_buffer, uint32_t src_length, struct UI_Tre
                 new_node.border_bottom = 0;
                 new_node.border_left = 0;
                 new_node.border_right = 0;
-                new_node.border_radius_tl = 5;
-                new_node.border_radius_tr = 5;
-                new_node.border_radius_bl = 5;
-                new_node.border_radius_br = 5;
+                new_node.border_radius_tl = 0;
+                new_node.border_radius_tr = 0;
+                new_node.border_radius_bl = 0;
+                new_node.border_radius_br = 0;
                 if (new_node.tag == BUTTON) {
                     new_node.background_r = 25;
                     new_node.background_g = 25;

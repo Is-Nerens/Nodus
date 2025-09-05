@@ -63,7 +63,7 @@ int main()
         return -1;
     }
 
-    NU_Parse_CSS("test.css");
+    NU_Set_Style(&ui_tree, "test.css");
 
     end_measurement();
     timer_stop();

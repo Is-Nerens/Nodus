@@ -19,6 +19,7 @@
 #include <ctype.h>
 #include "performance.h"
 #include "vector.h"
+#include "nu_convert.h"
 
 #define NANOVG_GL3_IMPLEMENTATION
 #include <nanovg.h>
@@ -198,7 +199,7 @@ struct UI_Tree
 
 // Internal Functions ----------- //
 
-static enum NU_Token NU_Word_To_NU_Token(char word[], uint8_t word_char_count)
+static enum NU_Token NU_Word_To_Token(char word[], uint8_t word_char_count)
 {
     for (uint8_t i=0; i<KEYWORD_COUNT; i++) {
         size_t len = keyword_lengths[i];
@@ -318,7 +319,7 @@ static void NU_Tokenise(char* src_buffer, uint32_t src_length, struct Vector* NU
         if (ctx == 2 && i < src_length - 1 && c == '/' && src_buffer[i+1] == '>')
         {
             if (word_char_index > 0) {
-                enum NU_Token t = NU_Word_To_NU_Token(word, word_char_index);
+                enum NU_Token t = NU_Word_To_Token(word, word_char_index);
                 Vector_Push(NU_Token_vector, &t);
             }
             enum NU_Token t = CLOSE_END_TAG;
@@ -333,7 +334,7 @@ static void NU_Tokenise(char* src_buffer, uint32_t src_length, struct Vector* NU
         if (ctx == 2 && c == '>')
         {
             if (word_char_index > 0) {
-                enum NU_Token t = NU_Word_To_NU_Token(word, word_char_index);
+                enum NU_Token t = NU_Word_To_Token(word, word_char_index);
                 Vector_Push(NU_Token_vector, &t);
             }
             enum NU_Token t = CLOSE_TAG;
@@ -348,7 +349,7 @@ static void NU_Tokenise(char* src_buffer, uint32_t src_length, struct Vector* NU
         if (ctx == 2 && c == '=')
         {
             if (word_char_index > 0) {
-                enum NU_Token t = NU_Word_To_NU_Token(word, word_char_index);
+                enum NU_Token t = NU_Word_To_Token(word, word_char_index);
                 Vector_Push(NU_Token_vector, &t);
             }
             word_char_index = 0;
@@ -411,7 +412,7 @@ static void NU_Tokenise(char* src_buffer, uint32_t src_length, struct Vector* NU
         if (c == ' ' || c == '\t' || c == '\n')
         {
             if (word_char_index > 0) {
-                enum NU_Token t = NU_Word_To_NU_Token(word, word_char_index);
+                enum NU_Token t = NU_Word_To_Token(word, word_char_index);
                 Vector_Push(NU_Token_vector, &t);
             }
             word_char_index = 0;
@@ -430,7 +431,7 @@ static void NU_Tokenise(char* src_buffer, uint32_t src_length, struct Vector* NU
     }
 
     if (word_char_index > 0) {
-        enum NU_Token t = NU_Word_To_NU_Token(word, word_char_index);
+        enum NU_Token t = NU_Word_To_Token(word, word_char_index);
         Vector_Push(NU_Token_vector, &t);
     }
 }
@@ -439,68 +440,6 @@ static int NU_Is_Token_Property(enum NU_Token NU_Token)
 {
     return NU_Token < PROPERTY_COUNT;
 }
-
-static int Property_Text_To_Float(float* result, char* src_buffer, struct Property_Text_Ref* ptext_ref)
-{
-    *result = 0.0f;
-    float fraction_divider = 1.0f;
-    int decimal_found = 0;
-
-    for (uint8_t i = 0; i < ptext_ref->char_count; i++)
-    {
-        char c = src_buffer[ptext_ref->src_index + i];
-
-        if (c == '.')
-        {
-            if (decimal_found) 
-            {
-                *result = 0.0f;
-                return -1;
-            }
-            decimal_found = 1;
-            continue;
-        }
-
-        if (c < '0' || c > '9')
-        {
-            *result = 0.0f;
-            return -1;
-        }
-
-        int digit = c - '0';
-
-        if (!decimal_found)
-        {
-            *result = (*result * 10.0f) + digit;
-        }
-        else
-        {
-            fraction_divider *= 10.0f;
-            *result += digit / fraction_divider;
-        }
-    }
-
-    return 0;   
-}
-
-static int Property_Text_To_uint8_t(uint8_t* result, char* src_buffer, struct Property_Text_Ref* ptext_ref)
-{
-    *result = 0;
-    for (uint8_t i = 0; i < ptext_ref->char_count; i++) {
-        char c = src_buffer[ptext_ref->src_index + i];
-        if (c < '0' || c > '9') {
-            *result = 0;
-            return -1;
-        }
-        int digit = c - '0';
-        if (*result > (UINT8_MAX - digit) / 10) {
-            *result = 255; // limit to max uint8_t value
-        }
-        *result = (uint8_t)(*result * 10 + digit);
-    }
-    return 0;
-}
-
 
 static int AssertRootGrammar(struct Vector* token_vector)
 {
@@ -787,7 +726,11 @@ static int NU_Generate_Tree(char* src_buffer, uint32_t src_length, struct UI_Tre
                 property_text_index += 1;
                 char c = src_buffer[current_property_text->src_index];
                 char* ptext = &src_buffer[current_property_text->src_index];
+                char temp = src_buffer[current_property_text->src_index + current_property_text->char_count];
+                src_buffer[current_property_text->src_index + current_property_text->char_count] = '\0';
 
+                printf("%s\n", ptext);
+                
                 // Get the property value text
                 switch (NU_Token)
                 {
@@ -830,74 +773,72 @@ static int NU_Generate_Tree(char* src_buffer, uint32_t src_length, struct UI_Tre
                     // Set gap 
                     case GAP_PROPERTY:
                         float gap;
-                        if (Property_Text_To_Float(&gap, src_buffer, current_property_text) == 0)
+                        if (String_To_Float(&gap, ptext))
                             current_node->gap = gap;
                         break;
                     
                     // Set preferred width
                     case WIDTH_PROPERTY:
                         float width; 
-                        if (Property_Text_To_Float(&width, src_buffer, current_property_text) == 0) 
+                        if (String_To_Float(&width, ptext)) 
                             current_node->preferred_width = width;
                         break;
 
                     // Set min width
                     case MIN_WIDTH_PROPERTY:
                         float min_width;
-                        if (Property_Text_To_Float(&min_width, src_buffer, current_property_text) == 0) 
+                        if (String_To_Float(&min_width, ptext)) 
                             current_node->min_width = min_width;
                         break;
 
                     // Set max width
                     case MAX_WIDTH_PROPERTY:
                         float max_width;
-                        if (Property_Text_To_Float(&max_width, src_buffer, current_property_text) == 0) 
+                        if (String_To_Float(&max_width, ptext)) 
                             current_node->max_width = max_width;
                         break;
 
                     // Set preferred height
                     case HEIGHT_PROPERTY:
                         float height;
-                        if (Property_Text_To_Float(&height, src_buffer, current_property_text) == 0) 
+                        if (String_To_Float(&height, ptext)) 
                             current_node->preferred_height = height;
                         break;
 
                     // Set min height
                     case MIN_HEIGHT_PROPERTY:
                         float min_height;
-                        if (Property_Text_To_Float(&min_height, src_buffer, current_property_text) == 0) 
+                        if (String_To_Float(&min_height, ptext)) 
                             current_node->min_height = min_height;
                         break;
 
                     // Set max height
                     case MAX_HEIGHT_PROPERTY:
                         float max_height;
-                        if (Property_Text_To_Float(&max_height, src_buffer, current_property_text) == 0) {
+                        if (String_To_Float(&max_height, ptext)) {
                             current_node->min_height = max_height;
                         }
                         break;
 
                     // Set horizontal alignment
                     case ALIGN_H_PROPERTY:
-                        if (current_property_text->char_count < 4) break;
-                        if (memcmp(ptext, "left", 4) == 0) {
+                        if (current_property_text->char_count == 4 && memcmp(ptext, "left", 4)) {
                             current_node->horizontal_alignment = 0;
-                        } else if (memcmp(ptext, "center", 6) == 0) {
+                        } else if (current_property_text->char_count == 6 && memcmp(ptext, "center", 6)) {
                             current_node->horizontal_alignment = 1;
-                        } else if (memcmp(ptext, "right", 5) == 0) {
+                        } else if (current_property_text->char_count == 5 && memcmp(ptext, "right", 5)) {
                             current_node->horizontal_alignment = 2;
                         }
                         break;
 
                     // Set vertical alignment
                     case ALIGN_V_PROPERTY:
-                        if (current_property_text->char_count < 4) break;
-                        if (memcmp(ptext, "left", 4) == 0) {
+                        if (current_property_text->char_count == 3 && memcmp(ptext, "top", 3)) {
                             current_node->vertical_alignment = 0;
-                        } else if (memcmp(ptext, "center", 6) == 0) {
-                            current_node->vertical_alignment = 1;
-                        } else if (memcmp(ptext, "right", 5) == 0) {
+                        } else if (current_property_text->char_count == 6 && memcmp(ptext, "center", 6)) {
                             current_node->vertical_alignment = 2;
+                        } else if (current_property_text->char_count == 6 && memcmp(ptext, "bottom", 6)) {
+                            current_node->vertical_alignment = 1;
                         }
                         break;
 
@@ -919,30 +860,35 @@ static int NU_Generate_Tree(char* src_buffer, uint32_t src_length, struct UI_Tre
                             current_node->border_b = rgb.b;
                         }
                         break;
-                        
-                    default:
-                        break;
 
                     // Set border width
-                    case BORDER_TOP_WIDTH_PROPERTY:
+                    case BORDER_WIDTH_PROPERTY:
                         uint8_t border_width;
-                        if (Property_Text_To_uint8_t(&border_width, src_buffer, current_property_text) == 0) {
+                        if (String_To_uint8_t(&border_width, ptext)) {
+                            current_node->border_top = border_width;
+                            current_node->border_bottom = border_width;
+                            current_node->border_left = border_width;
+                            current_node->border_right = border_width;
+                        }
+                        break;
+                    case BORDER_TOP_WIDTH_PROPERTY:
+                        if (String_To_uint8_t(&border_width, ptext)) {
                             current_node->border_top = border_width;
                         }
                         break;
                     case BORDER_BOTTOM_WIDTH_PROPERTY:
-                        if (Property_Text_To_uint8_t(&border_width, src_buffer, current_property_text) == 0) {
+                        if (String_To_uint8_t(&border_width, ptext)) {
                             current_node->border_bottom = border_width;
                         }
                         break;
                     case BORDER_LEFT_WIDTH_PROPERTY:
 
-                        if (Property_Text_To_uint8_t(&border_width, src_buffer, current_property_text) == 0) {
+                        if (String_To_uint8_t(&border_width, ptext)) {
                             current_node->border_left = border_width;
                         }
                         break;
                     case BORDER_RIGHT_WIDTH_PROPERTY:
-                        if (Property_Text_To_uint8_t(&border_width, src_buffer, current_property_text) == 0) {
+                        if (String_To_uint8_t(&border_width, ptext)) {
                             current_node->border_right = border_width;
                         }
                         break;
@@ -950,7 +896,7 @@ static int NU_Generate_Tree(char* src_buffer, uint32_t src_length, struct UI_Tre
                     // Set border radii
                     case BORDER_RADIUS_PROPERTY:
                         uint8_t border_radius;
-                        if (Property_Text_To_uint8_t(&border_radius, src_buffer, current_property_text) == 0) {
+                        if (String_To_uint8_t(&border_radius, ptext)) {
                             current_node->border_radius_tl = border_radius;
                             current_node->border_radius_tr = border_radius;
                             current_node->border_radius_bl = border_radius;
@@ -958,22 +904,22 @@ static int NU_Generate_Tree(char* src_buffer, uint32_t src_length, struct UI_Tre
                         }
                         break;
                     case BORDER_TOP_LEFT_RADIUS_PROPERTY:
-                        if (Property_Text_To_uint8_t(&border_radius, src_buffer, current_property_text) == 0) {
+                        if (String_To_uint8_t(&border_radius, ptext)) {
                             current_node->border_radius_tl = border_radius;
                         }
                         break;
                     case BORDER_TOP_RIGHT_RADIUS_PROPERTY:
-                        if (Property_Text_To_uint8_t(&border_radius, src_buffer, current_property_text) == 0) {
+                        if (String_To_uint8_t(&border_radius, ptext)) {
                             current_node->border_radius_tr = border_radius;
                         }
                         break;
                     case BORDER_BOTTOM_LEFT_RADIUS_PROPERTY:
-                        if (Property_Text_To_uint8_t(&border_radius, src_buffer, current_property_text) == 0) {
+                        if (String_To_uint8_t(&border_radius, ptext)) {
                             current_node->border_radius_bl = border_radius;
                         }
                         break;
                     case BORDER_BOTTOM_RIGHT_RADIUS_PROPERTY:
-                        if (Property_Text_To_uint8_t(&border_radius, src_buffer, current_property_text) == 0) {
+                        if (String_To_uint8_t(&border_radius, ptext)) {
                             current_node->border_radius_br = border_radius;
                         }
                         break;
@@ -981,7 +927,7 @@ static int NU_Generate_Tree(char* src_buffer, uint32_t src_length, struct UI_Tre
                     // Set padding
                     case PADDING_PROPERTY:
                         uint8_t pad;
-                        if (Property_Text_To_uint8_t(&pad, src_buffer, current_property_text) == 0) {
+                        if (String_To_uint8_t(&pad, ptext)) {
                             current_node->pad_top    = pad;
                             current_node->pad_bottom = pad;
                             current_node->pad_left   = pad;
@@ -989,24 +935,27 @@ static int NU_Generate_Tree(char* src_buffer, uint32_t src_length, struct UI_Tre
                         }
                         break;
                     case PADDING_TOP_PROPERTY:
-                        if (Property_Text_To_uint8_t(&pad, src_buffer, current_property_text) == 0) {
+                        if (String_To_uint8_t(&pad, ptext)) {
                             current_node->pad_top = pad;
                         }
                         break;
                     case PADDING_BOTTOM_PROPERTY:
-                        if (Property_Text_To_uint8_t(&pad, src_buffer, current_property_text) == 0) {
+                        if (String_To_uint8_t(&pad, ptext)) {
                             current_node->pad_bottom = pad;
                         }
                         break;
                     case PADDING_LEFT_PROPERTY:
-                        if (Property_Text_To_uint8_t(&pad, src_buffer, current_property_text) == 0) {
+                        if (String_To_uint8_t(&pad, ptext)) {
                             current_node->pad_left = pad;
                         }
                         break;
                     case PADDING_RIGHT_PROPERTY:
-                        if (Property_Text_To_uint8_t(&pad, src_buffer, current_property_text) == 0) {
+                        if (String_To_uint8_t(&pad, ptext)) {
                             current_node->pad_right = pad;
                         }
+                        break;
+
+                    default:
                         break;
                 }
 
@@ -1055,10 +1004,10 @@ int NU_Parse(char* filepath, struct UI_Tree* ui_tree)
     struct Vector ptext_ref_vector;
 
     // Init vectors
-    Vector_Reserve(&NU_Token_vector, sizeof(enum NU_Token), 250000); // reserve ~1MB
-    Vector_Reserve(&ptext_ref_vector, sizeof(struct Property_Text_Ref), 100000); // reserve ~900KB
-    Vector_Reserve(&ui_tree->text_arena.free_list, sizeof(struct Arena_Free_Element), 100000); // reserve ~800KB
-    Vector_Reserve(&ui_tree->text_arena.text_refs, sizeof(struct Text_Ref), 100000); // reserve ~800KB
+    Vector_Reserve(&NU_Token_vector, sizeof(enum NU_Token), 50000); // reserve ~200KB
+    Vector_Reserve(&ptext_ref_vector, sizeof(struct Property_Text_Ref), 50000); // reserve ~450KB
+    Vector_Reserve(&ui_tree->text_arena.free_list, sizeof(struct Arena_Free_Element), 50000); // reserve ~400KB
+    Vector_Reserve(&ui_tree->text_arena.text_refs, sizeof(struct Text_Ref), 50000); // reserve ~400KB
     Vector_Reserve(&ui_tree->text_arena.char_buffer, sizeof(char), 1000000); // reserve ~1MB
 
     // Init UI tree layers -> reserve 100 nodes per stack layer = 384KB

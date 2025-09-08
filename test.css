@@ -1,16 +1,28 @@
 
 button, .bing-chilling {
-    background: #bd0606;
-    border: #f0f0f0;
+    background: #020730;
+    borderColour: #f0f0f0;
+    pad: 10;
+    height: 1000;
+    borderRadiusTopLeft: 5;
+    borderRadiusTopRight: 5;
 }
 .chart {
-    background: #4f4f4f;
+    background: #969696;
+}
+rect {
+    borderColour: #3164af;
+    background: #171f42;
+    borderTop: 10;
+    borderBottom: 10;
+    borderLeft: 5;
+    pad: 5;
 }
 #win {
 
 }
 window {
-
+    background: #bd0606;
 }
 .bing {
 

@@ -541,7 +541,7 @@ static void NU_Horizontally_Place_Children(struct Node* parent, struct Vector* c
             struct Node* child = Vector_Get(child_layer, i);
             float remaning_width = (parent->width - parent->pad_left - parent->pad_right - parent->border_left - parent->border_right) - child->width;
             float x_align_offset = remaning_width * 0.5f * (float)parent->horizontal_alignment;
-            child->x = child->border_left + parent->x + parent->pad_left + x_align_offset;
+            child->x = parent->x + parent->pad_left + parent->border_left + x_align_offset;
         }
     }
     else
@@ -561,7 +561,7 @@ static void NU_Horizontally_Place_Children(struct Node* parent, struct Vector* c
         {
             struct Node* child = Vector_Get(child_layer, i);
             float x_align_offset = remaining_width * 0.5f * (float)parent->horizontal_alignment;
-            child->x = child->border_left + parent->x + parent->pad_left + cursor_x + x_align_offset;
+            child->x = parent->x + parent->pad_left + parent->border_left + cursor_x + x_align_offset;
             cursor_x += child->width + parent->gap;
         }
     }
@@ -576,7 +576,7 @@ static void NU_Vertically_Place_Children(struct Node* parent, struct Vector* chi
             struct Node* child = Vector_Get(child_layer, i);
             float remaining_height = (parent->height - parent->pad_top - parent->pad_bottom - parent->border_top - parent->border_bottom) - child->height;
             float y_align_offset = remaining_height * 0.5f * (float)parent->vertical_alignment;
-            child->y = child->border_top + parent->y + parent->pad_top + y_align_offset;
+            child->y = parent->y + parent->pad_top + parent->border_top + y_align_offset;
         }
     }
     else
@@ -587,7 +587,7 @@ static void NU_Vertically_Place_Children(struct Node* parent, struct Vector* chi
         {
             struct Node* child = Vector_Get(child_layer, i);
             if (child->tag == WINDOW) remaining_height += parent->gap;
-            else remaining_height -= child->width;
+            else remaining_height -= child->height;
         }
 
         float cursor_y = 0.0f;
@@ -596,7 +596,7 @@ static void NU_Vertically_Place_Children(struct Node* parent, struct Vector* chi
         {
             struct Node* child = Vector_Get(child_layer, i);
             float y_align_offset = remaining_height * 0.5f * (float)parent->vertical_alignment;
-            child->y = child->border_top + parent->y + parent->pad_top + cursor_y + y_align_offset;
+            child->y = parent->y + parent->pad_top + parent->border_top + cursor_y + y_align_offset;
             cursor_y += child->height + parent->gap;
         }
     }

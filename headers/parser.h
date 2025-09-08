@@ -180,10 +180,6 @@ struct Font_Registry {
     int count;      
 };
 
-struct RGB {
-    uint8_t r, g, b;
-};
-
 struct UI_Tree
 {
     struct Vector tree_stack[MAX_TREE_DEPTH];
@@ -514,28 +510,6 @@ static int AssertTagCloseStartGrammar(struct Vector* token_vector, int i, enum T
     return -1; // Failure
 }
 
-static int Hex_To_Int(char c) {
-    if (c >= '0' && c <= '9') return c - '0';
-    if (c >= 'a' && c <= 'f') return 10 + (c - 'a');
-    if (c >= 'A' && c <= 'F') return 10 + (c - 'A');
-    return -1; 
-}
-
-bool Parse_Hexcode(const char* string, int char_count, struct RGB* rgb) {
-    if ((char_count != 7 && char_count != 9) || string[0] != '#') return false;
-    int r1 = Hex_To_Int(string[1]);
-    int r2 = Hex_To_Int(string[2]);
-    int g1 = Hex_To_Int(string[3]);
-    int g2 = Hex_To_Int(string[4]);
-    int b1 = Hex_To_Int(string[5]);
-    int b2 = Hex_To_Int(string[6]);
-    if (r1 < 0 || r2 < 0 || g1 < 0 || g2 < 0 || b1 < 0 || b2 < 0) return false;
-    rgb->r = (uint8_t)((r1 << 4) | r2);
-    rgb->g = (uint8_t)((g1 << 4) | g2);
-    rgb->b = (uint8_t)((b1 << 4) | b2);
-    return true;
-}
-
 static int NU_Generate_Tree(char* src_buffer, uint32_t src_length, struct UI_Tree* ui_tree, struct Vector* NU_Token_vector, struct Vector* ptext_ref_vector)
 {
     // Enforce root grammar
@@ -729,8 +703,6 @@ static int NU_Generate_Tree(char* src_buffer, uint32_t src_length, struct UI_Tre
                 char temp = src_buffer[current_property_text->src_index + current_property_text->char_count];
                 src_buffer[current_property_text->src_index + current_property_text->char_count] = '\0';
 
-                printf("%s\n", ptext);
-                
                 // Get the property value text
                 switch (NU_Token)
                 {

@@ -26,7 +26,7 @@ static const char* style_keywords[] = {
     "background",
     "borderColour",
     "border", "borderTop", "borderBottom", "borderLeft", "borderRight",
-    "borderRadius", "borderTopLeftRadius", "borderTopRightRadius", "borderBottomLeftRadius", "borderBottomRightRadius",
+    "borderRadius", "borderRadiusTopLeft", "borderRadiusTopRight", "borderRadiusBottomLeft", "borderRadiusBottomRight",
     "pad", "padTop", "padBottom", "padLeft", "padRight",
     "window", "rect", "button", "grid", "text", "image"
 };
@@ -85,41 +85,6 @@ enum NU_Style_Token
     STYLE_UNDEFINED
 };
 
-static const size_t property_data_sizes[] = {
-    1, // layout direction
-    1, // grow direction
-    1, // overflow v
-    1, // overflow h
-    4, // gap
-    4, // width
-    4, // min width
-    4, // max width
-    4, // height
-    4, // min height
-    4, // max height
-    1, // aligh h
-    1, // align v
-    3, // background colour
-    3, // border colour
-    1, // border top
-    1, // border bottom
-    1, // border left
-    1, // border right
-    1, // border top left radius
-    1, // border top right radius
-    1, // border bottom left radius
-    1, // border bottom right radius
-    1, // pad top
-    1, // pad bottom
-    1, // pad left
-    1  // pad right
-};
-
-static size_t Property_Token_To_Data_Size(enum NU_Style_Token token)
-{
-    return property_data_sizes[token];
-}
-
 static uint32_t Property_Token_To_Flag(enum NU_Style_Token token)
 {
     return (1u << token);
@@ -127,105 +92,29 @@ static uint32_t Property_Token_To_Flag(enum NU_Style_Token token)
 
 struct NU_Stylesheet
 {
-    void* items; 
-    void* property_data;
-    uint32_t item_count;
-    uint32_t item_capacity;
-    uint32_t item_size;
-    uint32_t property_data_consumed;
-    uint32_t property_data_capacity;
+    struct Vector items;
 };
 
 struct NU_Stylesheet_Item
 {
-    uint32_t property_flags;
-    uint32_t property_data_index;
-    uint32_t property_data_size;
-    uint8_t selector; // 0 = tag, 1 = class, 2 = id
+    uint64_t property_flags;
+    float preferred_width, preferred_height;
+    float min_width, max_width, min_height, max_height;
+    float gap;
+    uint8_t pad_top, pad_bottom, pad_left, pad_right;
+    uint8_t border_top, border_bottom, border_left, border_right;
+    uint8_t border_radius_tl, border_radius_tr, border_radius_bl, border_radius_br;
+    uint8_t background_r, background_g, background_b, background_a;
+    uint8_t border_r, border_g, border_b, border_a;
+    char layout_flags;
+    char horizontal_alignment;
+    char vertical_alignment;
+    uint8_t selector; // 0 = class, 1 = id, 2 - 8 = tag
 };
 
-static inline int property_bit_index(uint32_t flag) {
-    return __builtin_ctz(flag); // GCC/Clang, maps flag -> bit index
-}
-
-void NU_Stylesheet_Init(struct NU_Stylesheet* ss)
+static void Set_Stylesheet_Item_Property_Flag(enum NU_Style_Token token, struct NU_Stylesheet_Item* item)
 {
-    // item data
-    ss->item_size = (uint32_t)sizeof(struct NU_Stylesheet_Item);
-    ss->items = malloc(ss->item_size * 500); // ~6KB
-    ss->item_count = 0;
-    ss->item_capacity = 500;
-
-    // property data 
-    ss->property_data = malloc(32784); // 32KB
-    ss->property_data_consumed = 0;
-    ss->property_data_capacity = 32784;
-}
-
-void Stylesheet_New_Item(struct NU_Stylesheet* ss)
-{
-    ss->item_count += 1;
-    if (ss->item_count > ss->item_capacity) {
-        ss->item_capacity *= 2;
-        ss->items = realloc(ss->items, ss->item_capacity * ss->item_size);
-    }
-}
-
-void Stylesheet_Push_Property(struct NU_Stylesheet* ss, enum NU_Style_Token property_token, void* data)
-{
-    size_t size = Property_Token_To_Data_Size(property_token);
-    printf("%llu\n", size);
-
-    // --- Ensure we have enough space in the property_data buffer
-    if (ss->property_data_consumed + size > ss->property_data_capacity) {
-        // grow capacity (double strategy)
-        uint32_t new_capacity = ss->property_data_capacity * 2;
-        while (ss->property_data_consumed + size > new_capacity) {
-            new_capacity *= 2;
-        }
-
-        void* new_block = realloc(ss->property_data, new_capacity);
-        if (!new_block) {
-            fprintf(stderr, "Stylesheet realloc failed\n");
-            exit(1);
-        }
-
-        ss->property_data = new_block;
-        ss->property_data_capacity = new_capacity;
-    }
-
-    uint32_t property_flag = Property_Token_To_Flag(property_token);
-    struct NU_Stylesheet_Item* items = (struct NU_Stylesheet_Item*)ss->items;
-    struct NU_Stylesheet_Item* item  = &items[ss->item_count - 1];
-
-    uint8_t* base = (uint8_t*)ss->property_data;
-    uint8_t* item_start = base + item->property_data_index;
-    int new_bit = property_bit_index(property_flag);
-    uint32_t flags = item->property_flags;
-    uint32_t mask = 1u << new_bit;
-    if (flags & mask) {
-        return;
-    }
-
-    // Walk existing properties to find insertion offset
-    int insert_offset = 0;
-    uint8_t* cursor = item_start;
-    for (int bit = 0; bit < 32; bit++) {
-        if (flags & (1u << bit)) {
-            // measure property size somehow
-            // (requires knowing sizes per property type)
-            size_t existing_size = Property_Token_To_Data_Size(property_token);
-            if (bit > new_bit) break; // found insertion point
-            insert_offset += existing_size;
-            cursor += existing_size;
-        }
-    }
-
-    uint32_t tail_size = item->property_data_size - insert_offset;
-    memmove(cursor + size, cursor, tail_size);
-    memcpy(cursor, data, size);
-    item->property_flags |= property_flag;
-    ss->property_data_consumed += size;
+    item->property_flags |= (1 << (uint64_t)token);
 }
 
 struct Style_Text_Ref
@@ -588,6 +477,16 @@ static int AssertSelectionOpeningBraceGrammar(struct Vector* tokens, int i)
     return 0;
 }
 
+static int AssertSelectionClosingBraceGrammar(struct Vector* tokens, int i)
+{
+    // ENFORCE RULE: MUST BE LAST TOKEN OR NEXT TOKEN MUST BE A SELECTOR
+    if (i == tokens->size - 1) return 1;
+    enum NU_Style_Token next_token = *((enum NU_Style_Token*) Vector_Get(tokens, i+1));
+    if (next_token == STYLE_CLASS_SELECTOR || next_token == STYLE_ID_SELECTOR || NU_Is_Tag_Selector_Token(next_token)) return 1;
+    printf("%s", "[Generate Stylesheet] Error! Expected selector or end of file!");
+    return 0;
+}
+
 static int AssertSelectorGrammar(struct Vector* tokens, int i)
 {
     // ENFORCE RULE: NEXT TOKEN MUST BE A COMMA OR SELECTION OPENING BRACE
@@ -596,6 +495,18 @@ static int AssertSelectorGrammar(struct Vector* tokens, int i)
         enum NU_Style_Token next_token = *((enum NU_Style_Token*) Vector_Get(tokens, i+1));
         return next_token == STYLE_SELECTOR_COMMA || STYLE_SELECTOR_OPEN_BRACE;
     }
+    return 0;
+}
+
+static int AssertSelectorCommaGrammar(struct Vector* tokens, int i)
+{
+    // ENFORCE RULE: NEXT TOKEN MUST BE A SELECTOR
+    if (i < tokens->size - 1)
+    {
+        enum NU_Style_Token next_token = *((enum NU_Style_Token*) Vector_Get(tokens, i+1));
+        if (next_token == STYLE_CLASS_SELECTOR || next_token == STYLE_ID_SELECTOR || NU_Is_Tag_Selector_Token(next_token)) return 1;
+    }
+    printf("%s", "[Generate Stylesheet] Error! Expected selector after selector comma!");
     return 0;
 }
 
@@ -618,16 +529,40 @@ static int NU_Generate_Stylesheet(char* src_buffer, uint32_t src_length, struct 
     uint32_t text_index = 0;
     struct Style_Text_Ref* text_ref;
 
+    struct NU_Stylesheet_Item item;
+    item.property_flags = 0;
+
+    uint8_t selectors[64];
+    int selector_count = 0;
+
 
     int i = 0;
     while(i < tokens->size)
     {
         const enum NU_Style_Token token = *((enum NU_Style_Token*) Vector_Get(tokens, i));
 
+        // printfToken(token);
+
         if (token == STYLE_SELECTOR_OPEN_BRACE)
         {
             if (AssertSelectionOpeningBraceGrammar(tokens, i)) {
-                Stylesheet_New_Item(ss);
+                item.property_flags = 0;
+                i += 1;
+                continue;
+            } 
+            else {
+                return -1;
+            }
+        }
+
+        if (token == STYLE_SELECTOR_CLOSE_BRACE)
+        {
+            if (AssertSelectionClosingBraceGrammar(tokens, i)) {
+                for (int i=0; i<selector_count; i++) {
+                    item.selector = selectors[i];
+                    Vector_Push(&ss->items, &item);
+                }
+                selector_count = 0;
                 i += 1;
                 continue;
             } 
@@ -640,10 +575,12 @@ static int NU_Generate_Stylesheet(char* src_buffer, uint32_t src_length, struct 
         {
             if (AssertSelectorGrammar(tokens, i)) {
                 i += 1;
+                selectors[selector_count++] = (uint8_t)token - 30 + 2;
                 continue;
             }
             else
             {
+
                 return -1;
             }
         }
@@ -652,6 +589,8 @@ static int NU_Generate_Stylesheet(char* src_buffer, uint32_t src_length, struct 
         {
             if (AssertSelectorGrammar(tokens, i)) {
                 i += 1;
+                selectors[selector_count++] = 0;
+                text_index += 1;
                 continue;
             }
             else {
@@ -662,6 +601,23 @@ static int NU_Generate_Stylesheet(char* src_buffer, uint32_t src_length, struct 
         if (token == STYLE_ID_SELECTOR)
         {
             if (AssertSelectorGrammar(tokens, i)) {
+                i += 1;
+                selectors[selector_count++] = 1;
+                text_index += 1;
+                continue;
+            }
+            else {
+                return -1;
+            }
+        }
+
+        if (token == STYLE_SELECTOR_COMMA)
+        {
+            if (AssertSelectorCommaGrammar(tokens, i)) {
+                if (selector_count == 64) {
+                    printf("%s", "[Generate Stylesheet] Error! Too many selectors in one list! max = 64");
+                    return -1;
+                }
                 i += 1;
                 continue;
             }
@@ -684,127 +640,116 @@ static int NU_Generate_Stylesheet(char* src_buffer, uint32_t src_length, struct 
                 {
                     // Set layout direction
                     case STYLE_LAYOUT_DIRECTION_PROPERTY:
-                        uint8_t layout_dir;
                         if (c == 'h') 
-                            layout_dir = 0;    
+                            item.layout_flags |= LAYOUT_HORIZONTAL;
                         else 
-                            layout_dir = 1;
-                            Stylesheet_Push_Property(ss, token, &layout_dir);
+                            item.layout_flags |= LAYOUT_VERTICAL;
+                        item.property_flags |= 1 << 0;
                         break;
 
                     // Set growth 
                     case STYLE_GROW_PROPERTY:
-                        uint8_t grow;
                         switch(c)
                         {
                             case 'v':
-                                grow = 0;
+                                item.layout_flags |= GROW_VERTICAL;
                                 break;
                             case 'h':
-                                grow = 1;
+                                item.layout_flags |= GROW_HORIZONTAL;
                                 break;
                             case 'b':
-                                grow = 3;
+                                item.layout_flags |= (GROW_HORIZONTAL | GROW_VERTICAL);
                                 break;
                         }
-                        Stylesheet_Push_Property(ss, token, &grow);
+                        item.property_flags |= 1 << 1;
                         break;
                     
                     // Set overflow behaviour
                     case STYLE_OVERFLOW_V_PROPERTY:
                         if (c == 's') {
-                            uint8_t overflow_v = 1;
-                            Stylesheet_Push_Property(ss, token, &overflow_v);
+                            item.layout_flags |= OVERFLOW_VERTICAL_SCROLL;
+                            item.property_flags |= 1 << 2;
                         }
                         break;
                     
                     case STYLE_OVERFLOW_H_PROPERTY:
                         if (c == 's') {
-                            uint8_t overflow_h = 1;
-                            Stylesheet_Push_Property(ss, token, &overflow_h);
+                            item.layout_flags |= OVERFLOW_HORIZONTAL_SCROLL;
+                            item.property_flags |= 1 << 3;
                         }
                         break;
                     
                     // Set gap
                     case STYLE_GAP_PROPERTY:
-                        float gap;
-                        if (String_To_Float(&gap, text) == 0)
-                            Stylesheet_Push_Property(ss, token, &gap);
+                        if (String_To_Float(&item.gap, text) == 0)
+                            item.property_flags |= 1 << 4;
                         break;
 
                     // Set preferred width
                     case STYLE_WIDTH_PROPERTY:
-                        float width;
-                        if (String_To_Float(&width, text) == 0)
-                            Stylesheet_Push_Property(ss, token, &width);
+                        if (String_To_Float(&item.preferred_width, text) == 0)
+                            item.property_flags |= 1 << 5;
                         break;
 
                     // Set min width
                     case STYLE_MIN_WIDTH_PROPERTY:
-                        float min_width;
-                        if (String_To_Float(&min_width, text) == 0)
-                            Stylesheet_Push_Property(ss, token, &min_width);
+                        if (String_To_Float(&item.min_width, text) == 0)
+                            item.property_flags |= 1 << 6;
                         break;
                     
                     // Set max width
                     case STYLE_MAX_WIDTH_PROPERTY:
-                        float max_width;
-                        if (String_To_Float(&max_width, text) == 0)
-                            Stylesheet_Push_Property(ss, token, &max_width);
+                        if (String_To_Float(&item.max_width, text) == 0)
+                            item.property_flags |= 1 << 7;
                         break;
 
                     // Set preferred height
                     case STYLE_HEIGHT_PROPERTY:
-                        float height;
-                        if (String_To_Float(&height, text) == 0) 
-                            Stylesheet_Push_Property(ss, token, &height);
+                        if (String_To_Float(&item.preferred_height, text) == 0) 
+                            item.property_flags |= 1 << 8;
                         break;
 
                     // Set min height
                     case STYLE_MIN_HEIGHT_PROPERTY:
-                        float min_height;
-                        if (String_To_Float(&min_height, text) == 0) 
-                            Stylesheet_Push_Property(ss, token, &min_height);
+                        if (String_To_Float(&item.min_height, text) == 0) 
+                            item.property_flags |= 1 << 9;
                         break;
 
                     // Set max height
                     case STYLE_MAX_HEIGHT_PROPERTY:
-                        float max_height;
-                        if (String_To_Float(&max_height, text) == 0) 
-                            Stylesheet_Push_Property(ss, token, &max_height);
+                        if (String_To_Float(&item.max_height, text) == 0) 
+                            item.property_flags |= 1 << 10;
                         break;
 
                     // Set horizontal alignment
                     case STYLE_ALIGN_H_PROPERTY:
-                        uint8_t horizontal_alignment;
                         if (text_ref->char_count == 4 && memcmp(text, "left", 4) == 0) {
-                            horizontal_alignment = 0;
-                            Stylesheet_Push_Property(ss, token, &horizontal_alignment);
+                            item.horizontal_alignment = 0;
+                            item.property_flags |= 1 << 11;
                         }
                         if (text_ref->char_count == 6 && memcmp(text, "center", 6) == 0) {
-                            horizontal_alignment = 1;
-                            Stylesheet_Push_Property(ss, token, &horizontal_alignment);
+                            item.horizontal_alignment = 1;
+                            item.property_flags |= 1 << 11;
                         }
                         if (text_ref->char_count == 5 && memcmp(text, "right", 5) == 0) {
-                            horizontal_alignment = 2;
-                            Stylesheet_Push_Property(ss, token, &horizontal_alignment);
+                            item.horizontal_alignment = 2;
+                            item.property_flags |= 1 << 11;
                         }
                         break;
 
                     // Set vertical alignment
                     case STYLE_ALIGN_V_PROPERTY:
-                        uint8_t vertical_alignment;
                         if (text_ref->char_count == 3 && memcmp(text, "top", 3) == 0) {
-                            vertical_alignment = 0;
-                            Stylesheet_Push_Property(ss, token, &vertical_alignment);
+                            item.vertical_alignment = 0;
+                            item.property_flags |= 1 << 12;
                         }
                         if (text_ref->char_count == 6 && memcmp(text, "center", 6) == 0) {
-                            vertical_alignment = 1;
-                            Stylesheet_Push_Property(ss, token, &vertical_alignment);
+                            item.vertical_alignment = 1;
+                            item.property_flags |= 1 << 12;
                         }
                         if (text_ref->char_count == 6 && memcmp(text, "bottom", 6) == 0) {
-                            vertical_alignment = 2;
-                            Stylesheet_Push_Property(ss, token, &vertical_alignment);
+                            item.vertical_alignment = 2;
+                            item.property_flags |= 1 << 12;
                         }
                         break;
 
@@ -812,14 +757,20 @@ static int NU_Generate_Stylesheet(char* src_buffer, uint32_t src_length, struct 
                     case STYLE_BACKGROUND_COLOUR_PROPERTY:
                         struct RGB rgb;
                         if (Parse_Hexcode(text, text_ref->char_count, &rgb)) {
-                            Stylesheet_Push_Property(ss, token, &rgb);
+                            item.background_r = rgb.r;
+                            item.background_g = rgb.g;
+                            item.background_b = rgb.b;
+                            item.property_flags |= 1 << 13;
                         }
                         break;
 
                     // Set border colour
                     case STYLE_BORDER_COLOUR_PROPERTY:
                         if (Parse_Hexcode(text, text_ref->char_count, &rgb)) {
-                            Stylesheet_Push_Property(ss, token, &rgb);
+                            item.border_r = rgb.r;
+                            item.border_g = rgb.g;
+                            item.border_b = rgb.b;
+                            item.property_flags |= 1 << 14;
                         }
                         break;
                     
@@ -827,30 +778,34 @@ static int NU_Generate_Stylesheet(char* src_buffer, uint32_t src_length, struct 
                     case STYLE_BORDER_WIDTH_PROPERTY:
                         uint8_t border_width;
                         if (String_To_uint8_t(&border_width, text)) {
-                            Stylesheet_Push_Property(ss, STYLE_BORDER_TOP_WIDTH_PROPERTY, &border_width);
-                            Stylesheet_Push_Property(ss, STYLE_BORDER_BOTTOM_WIDTH_PROPERTY, &border_width);
-                            Stylesheet_Push_Property(ss, STYLE_BORDER_LEFT_WIDTH_PROPERTY, &border_width);
-                            Stylesheet_Push_Property(ss, STYLE_BORDER_RIGHT_WIDTH_PROPERTY, &border_width);
+                            item.border_top = border_width;
+                            item.border_bottom = border_width;
+                            item.border_left = border_width;
+                            item.border_right = border_width;
+                            item.property_flags |= 1 << 15;
+                            item.property_flags |= 1 << 16;
+                            item.property_flags |= 1 << 17;
+                            item.property_flags |= 1 << 18;
                         }
                         break;
                     case STYLE_BORDER_TOP_WIDTH_PROPERTY:
-                        if (String_To_uint8_t(&border_width, text)) {
-                            Stylesheet_Push_Property(ss, token, &border_width);
+                        if (String_To_uint8_t(&item.border_top, text)) {
+                            item.property_flags |= 1 << 15;
                         }
                         break;
                     case STYLE_BORDER_BOTTOM_WIDTH_PROPERTY:
-                        if (String_To_uint8_t(&border_width, text)) {
-                            Stylesheet_Push_Property(ss, token, &border_width);
+                        if (String_To_uint8_t(&item.border_bottom, text)) {
+                            item.property_flags |= 1 << 16;
                         }
                         break;
                     case STYLE_BORDER_LEFT_WIDTH_PROPERTY:
-                        if (String_To_uint8_t(&border_width, text)) {
-                            Stylesheet_Push_Property(ss, token, &border_width);
+                        if (String_To_uint8_t(&item.border_left, text)) {
+                            item.property_flags |= 1 << 17;
                         }
                         break;
                     case STYLE_BORDER_RIGHT_WIDTH_PROPERTY:
-                        if (String_To_uint8_t(&border_width, text)) {
-                            Stylesheet_Push_Property(ss, token, &border_width);
+                        if (String_To_uint8_t(&item.border_right, text)) {
+                            item.property_flags |= 1 << 18;
                         }
                         break;
 
@@ -858,68 +813,76 @@ static int NU_Generate_Stylesheet(char* src_buffer, uint32_t src_length, struct 
                     case STYLE_BORDER_RADIUS_PROPERTY:
                         uint8_t border_radius;
                         if (String_To_uint8_t(&border_radius, text)) {
-                            Stylesheet_Push_Property(ss, STYLE_BORDER_TOP_LEFT_RADIUS_PROPERTY, &border_radius);
-                            Stylesheet_Push_Property(ss, STYLE_BORDER_TOP_RIGHT_RADIUS_PROPERTY, &border_radius);
-                            Stylesheet_Push_Property(ss, STYLE_BORDER_BOTTOM_LEFT_RADIUS_PROPERTY, &border_radius);
-                            Stylesheet_Push_Property(ss, STYLE_BORDER_BOTTOM_RIGHT_RADIUS_PROPERTY, &border_radius);
+                            item.border_radius_tl = border_radius;
+                            item.border_radius_tr = border_radius;
+                            item.border_radius_bl = border_radius;
+                            item.border_radius_br = border_radius;
+                            item.property_flags |= 1 << 19;
+                            item.property_flags |= 1 << 20;
+                            item.property_flags |= 1 << 21;
+                            item.property_flags |= 1 << 22;
                         }
                         break;
                     case STYLE_BORDER_TOP_LEFT_RADIUS_PROPERTY:
-                        if (String_To_uint8_t(&border_radius, text)) {
-                            Stylesheet_Push_Property(ss, token, &border_radius);
+                        if (String_To_uint8_t(&item.border_radius_tl, text)) {
+                            item.property_flags |= 1 << 19;
                         }
                         break;
                     case STYLE_BORDER_TOP_RIGHT_RADIUS_PROPERTY:
-                        if (String_To_uint8_t(&border_radius, text)) {
-                            Stylesheet_Push_Property(ss, token, &border_radius);
+                        if (String_To_uint8_t(&item.border_radius_tr, text)) {
+                            item.property_flags |= 1 << 20;
                         }
                         break;
                     case STYLE_BORDER_BOTTOM_LEFT_RADIUS_PROPERTY:
-                        if (String_To_uint8_t(&border_radius, text)) {
-                            Stylesheet_Push_Property(ss, token, &border_radius);
+                        if (String_To_uint8_t(&item.border_radius_bl, text)) {
+                            item.property_flags |= 1 << 21;
                         }
                         break;
                     case STYLE_BORDER_BOTTOM_RIGHT_RADIUS_PROPERTY:
-                        if (String_To_uint8_t(&border_radius, text)) {
-                            Stylesheet_Push_Property(ss, token, &border_radius);
+                        if (String_To_uint8_t(&item.border_radius_br, text)) {
+                            item.property_flags |= 1 << 22;
                         }
                         break;
 
                     // Set padding
                     case STYLE_PADDING_PROPERTY:
                         uint8_t pad;
-                        if (String_To_uint8_t(&border_radius, text)) {
-                            Stylesheet_Push_Property(ss, STYLE_PADDING_TOP_PROPERTY, &pad);
-                            Stylesheet_Push_Property(ss, STYLE_PADDING_BOTTOM_PROPERTY, &pad);
-                            Stylesheet_Push_Property(ss, STYLE_PADDING_LEFT_PROPERTY, &pad);
-                            Stylesheet_Push_Property(ss, STYLE_PADDING_RIGHT_PROPERTY, &pad);
+                        if (String_To_uint8_t(&pad, text)) {
+                            item.pad_top = pad;
+                            item.pad_bottom = pad;
+                            item.pad_left = pad;
+                            item.pad_right = pad;
+                            item.property_flags |= 1 << 23;
+                            item.property_flags |= 1 << 24;
+                            item.property_flags |= 1 << 25;
+                            item.property_flags |= 1 << 26;
                         }
                         break;
                     case STYLE_PADDING_TOP_PROPERTY:
-                        if (String_To_uint8_t(&pad, text)) {
-                            Stylesheet_Push_Property(ss, token, &pad);
+                        if (String_To_uint8_t(&item.pad_top, text)) {
+                            item.property_flags |= 1 << 23;
                         }
                         break;
                     case STYLE_PADDING_BOTTOM_PROPERTY:
-                        if (String_To_uint8_t(&pad, text)) {
-                            Stylesheet_Push_Property(ss, token, &pad);
+                        if (String_To_uint8_t(&item.pad_bottom, text)) {
+                            item.property_flags |= 1 << 24;
                         }
                         break;
                     case STYLE_PADDING_LEFT_PROPERTY:
-                        if (String_To_uint8_t(&pad, text)) {
-                            Stylesheet_Push_Property(ss, token, &pad);
+                        if (String_To_uint8_t(&item.pad_left, text)) {
+                            item.property_flags |= 1 << 25;
                         }
                         break;
                     case STYLE_PADDING_RIGHT_PROPERTY:
-                        if (String_To_uint8_t(&pad, text)) {
-                            Stylesheet_Push_Property(ss, token, &pad);
+                        if (String_To_uint8_t(&item.pad_right, text)) {
+                            item.property_flags |= 1 << 26;
                         }
                         break;
 
                     default:
                         break;
                 }
-                
+
                 i += 3;
                 continue;
             }
@@ -934,13 +897,119 @@ static int NU_Generate_Stylesheet(char* src_buffer, uint32_t src_length, struct 
     return 0;
 }
 
-static void NU_Apply_Stylesheet(struct UI_Tree* ui_tree, struct NU_Stylesheet ss)
+static void NU_Apply_Stylesheet_To_Node(struct Node* node, struct NU_Stylesheet* ss)
 {
-    for (node)
+    // Find all the matching stylesheet items
+    for (int i=0; i<ss->items.size; i++) 
     {
-        check Tag
-        check _CLASS
-        check id
+        struct NU_Stylesheet_Item item = *(struct NU_Stylesheet_Item*)Vector_Get(&ss->items, i);
+        if (node->tag + 2 == item.selector) {
+
+            if (item.property_flags & (1 << 0)) node->layout_flags = (node->layout_flags & ~(1 << 0)) | (item.layout_flags & (1 << 0)); // Layout direction
+            if (item.property_flags & (1 << 1)) {
+                node->layout_flags = (node->layout_flags & ~(1 << 1)) | (item.layout_flags & (1 << 1)); // Grow horizontal
+                node->layout_flags = (node->layout_flags & ~(1 << 2)) | (item.layout_flags & (1 << 2)); // Grow vertical
+            }
+            if (item.property_flags & (1 << 2)) {
+                node->layout_flags = (node->layout_flags & ~(1 << 3)) | (item.layout_flags & (1 << 3)); // Overflow vertical scroll (or not)
+            }
+            if (item.property_flags & (1 << 3)) {
+                node->layout_flags = (node->layout_flags & ~(1 << 4)) | (item.layout_flags & (1 << 4)); // Overflow horizontal scroll (or not)
+            }
+            if (item.property_flags & (1 << 4)) {
+                node->gap = item.gap;
+            }
+            if (item.property_flags & (1 << 5)) {
+                node->preferred_width = item.preferred_width;
+            }
+            if (item.property_flags & (1 << 6)) {
+                node->min_width = item.min_width;
+            }
+            if (item.property_flags & (1 << 7)) {
+                node->max_width = item.max_width;
+            }
+            if (item.property_flags & (1 << 8)) {
+                node->preferred_height = item.preferred_height;
+            }
+            if (item.property_flags & (1 << 9)) {
+                node->min_height = item.min_height;
+            }
+            if (item.property_flags & (1 << 10)) {
+                node->max_height = item.max_height;
+            }
+            if (item.property_flags & (1 << 11)) {
+                node->horizontal_alignment = item.horizontal_alignment;
+            }
+            if (item.property_flags & (1 << 12)) {
+                node->vertical_alignment = item.vertical_alignment;
+            }
+            if (item.property_flags & (1 << 13)) {
+                node->background_r = item.background_r;
+                node->background_g = item.background_g;
+                node->background_b = item.background_b;
+            }
+            if (item.property_flags & (1 << 14)) {
+                node->border_r = item.border_r;
+                node->border_g = item.border_g;
+                node->border_b = item.border_b;
+            }
+            if (item.property_flags & (1 << 15)) {
+                node->border_top = item.border_top;
+            }
+            if (item.property_flags & (1 << 16)) {
+                node->border_bottom = item.border_bottom;
+            }
+            if (item.property_flags & (1 << 17)) {
+                node->border_left = item.border_left;
+            }
+            if (item.property_flags & (1 << 18)) {
+                node->border_right = item.border_right;
+            }
+            if (item.property_flags & (1 << 19)) {
+                node->border_radius_tl = item.border_radius_tl;
+            }
+            if (item.property_flags & (1 << 20)) {
+                node->border_radius_tr = item.border_radius_tr;
+            }
+            if (item.property_flags & (1 << 21)) {
+                node->border_radius_bl = item.border_radius_bl;
+            }
+            if (item.property_flags & (1 << 22)) {
+                node->border_radius_br = item.border_radius_br;
+            }
+            if (item.property_flags & (1 << 23)) {
+                node->pad_top = item.pad_top;
+            }
+            if (item.property_flags & (1 << 24)) {
+                node->pad_bottom = item.pad_bottom;
+            }
+            if (item.property_flags & (1 << 25)) {
+                node->pad_left = item.pad_left;
+            }
+            if (item.property_flags & (1 << 26)) {
+                node->pad_right = item.pad_right;
+            }
+        }
+    }
+}
+
+static void NU_Apply_Stylesheet(struct UI_Tree* ui_tree, struct NU_Stylesheet* ss)
+{
+    // For each layer
+    for (int l=0; l<=ui_tree->deepest_layer; l++)
+    {
+        struct Vector* parent_layer = &ui_tree->tree_stack[l];
+        struct Vector* child_layer = &ui_tree->tree_stack[l+1];
+
+        for (int p=0; p<parent_layer->size; p++)
+        {
+            struct Node* parent = Vector_Get(parent_layer, p);
+            for (int i=parent->first_child_index; i<parent->first_child_index + parent->child_count; i++)
+            {
+                struct Node* child = Vector_Get(child_layer, i);
+                NU_Apply_Stylesheet_To_Node(child, ss);
+            }
+        }
     }
 }
 
@@ -973,7 +1042,7 @@ int NU_Set_Style(struct UI_Tree* ui_tree, char* css_filepath)
     Vector_Reserve(&text_ref_vector, sizeof(struct Style_Text_Ref), 4000);
 
     struct NU_Stylesheet ss;
-    NU_Stylesheet_Init(&ss);
+    Vector_Reserve(&ss.items, sizeof(struct NU_Stylesheet_Item), 1000);
 
     
     NU_Style_Tokenise(src_buffer, src_length, &tokens, &text_ref_vector);
@@ -982,18 +1051,10 @@ int NU_Set_Style(struct UI_Tree* ui_tree, char* css_filepath)
         printf("CSS parsing failed!");
     }
 
-    for (int i=0; i<tokens.size; i++)
-    {
-        enum NU_Style_Token* token = Vector_Get(&tokens, i); 
-        printfToken(*token);
-    }
-
-    for (int i=0; i<ss.property_data_consumed; i++)
-    {
-        printf("%c", *(char*)&ss.property_data[i]);
-    }
+    NU_Apply_Stylesheet(ui_tree, &ss);
 
     Vector_Free(&tokens);
+    Vector_Free(&ss.items);
 
     return 1;
 }

@@ -11,11 +11,11 @@ button, .bing-chilling {
     background: #969696;
 }
 rect {
-    borderColour: #3164af;
-    background: #171f42;
+    borderColour: #af6e31;
+    background: #422a17;
     borderTop: 10;
     borderBottom: 10;
-    borderLeft: 5;
+    borderLeft: 3;
     pad: 5;
 }
 #win {
@@ -26,4 +26,12 @@ window {
 }
 .bing {
 
+}
+
+.fat {
+    background: #bd0606;
+    pad: 20;
+}
+#unique {
+    background: #2aeb44;
 }

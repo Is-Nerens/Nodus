@@ -20,6 +20,7 @@
         "utility": "c",
         "vector": "c",
         "xhash": "c",
-        "xstring": "c"
+        "xstring": "c",
+        "limits": "cpp"
     }
 }

@@ -40,7 +40,32 @@ void Vector_Push(struct Vector* vector, const void* element)
     vector->size += 1;
 }
 
+void Vector_Delete_Backfill(struct Vector* vector, uint32_t index)
+{
+    if (index >= vector->size) {
+        return; // out of bounds
+    }
+
+    uint32_t last_index = vector->size - 1;
+
+    if (index != last_index) {
+        // Copy last element into the deleted slot
+        void* dst = (char*)vector->data + index * vector->element_size;
+        void* src = (char*)vector->data + last_index * vector->element_size;
+        memcpy(dst, src, vector->element_size);
+    }
+
+    // Reduce size (no need to free memory here)
+    vector->size -= 1;
+}
+
 void* Vector_Get(struct Vector* vector, uint32_t index)
 {
     return (char*) vector->data + index * vector->element_size;
+}
+
+void Vector_Set(struct Vector* vector, uint32_t index, void* value) // Unsafe but very fast
+{
+    void* dst = (char*)vector->data + index * vector->element_size;
+    memcpy(dst, value, vector->element_size);
 }

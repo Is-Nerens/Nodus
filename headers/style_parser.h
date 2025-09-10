@@ -5,6 +5,7 @@
 #include <stdlib.h>
 #include <stdio.h>
 #include "nu_convert.h"
+#include "nu_stylesheet.h"
 
 #define STYLE_PROPERTY_COUNT 30
 #define STYLE_KEYWORD_COUNT 36
@@ -88,33 +89,6 @@ enum NU_Style_Token
 static uint32_t Property_Token_To_Flag(enum NU_Style_Token token)
 {
     return (1u << token);
-}
-
-struct NU_Stylesheet
-{
-    struct Vector items;
-};
-
-struct NU_Stylesheet_Item
-{
-    uint64_t property_flags;
-    float preferred_width, preferred_height;
-    float min_width, max_width, min_height, max_height;
-    float gap;
-    uint8_t pad_top, pad_bottom, pad_left, pad_right;
-    uint8_t border_top, border_bottom, border_left, border_right;
-    uint8_t border_radius_tl, border_radius_tr, border_radius_bl, border_radius_br;
-    uint8_t background_r, background_g, background_b, background_a;
-    uint8_t border_r, border_g, border_b, border_a;
-    char layout_flags;
-    char horizontal_alignment;
-    char vertical_alignment;
-    uint8_t selector; // 0 = class, 1 = id, 2 - 8 = tag
-};
-
-static void Set_Stylesheet_Item_Property_Flag(enum NU_Style_Token token, struct NU_Stylesheet_Item* item)
-{
-    item->property_flags |= (1 << (uint64_t)token);
 }
 
 struct Style_Text_Ref
@@ -524,6 +498,10 @@ static int AssertPropertyIdentifierGrammar(struct Vector* tokens, int i)
     return 0;
 }
 
+
+
+
+
 static int NU_Generate_Stylesheet(char* src_buffer, uint32_t src_length, struct Vector* tokens, struct NU_Stylesheet* ss, struct Vector* text_refs)
 {
     uint32_t text_index = 0;
@@ -532,16 +510,15 @@ static int NU_Generate_Stylesheet(char* src_buffer, uint32_t src_length, struct 
     struct NU_Stylesheet_Item item;
     item.property_flags = 0;
 
-    uint8_t selectors[64];
+    char* selector_classes[64];
+    char* selector_ids[64];
+    int selector_tags[64];
     int selector_count = 0;
-
 
     int i = 0;
     while(i < tokens->size)
     {
         const enum NU_Style_Token token = *((enum NU_Style_Token*) Vector_Get(tokens, i));
-
-        // printfToken(token);
 
         if (token == STYLE_SELECTOR_OPEN_BRACE)
         {
@@ -559,7 +536,10 @@ static int NU_Generate_Stylesheet(char* src_buffer, uint32_t src_length, struct 
         {
             if (AssertSelectionClosingBraceGrammar(tokens, i)) {
                 for (int i=0; i<selector_count; i++) {
-                    item.selector = selectors[i];
+                    item.class = selector_classes[i];
+                    item.id = selector_ids[i];
+                    item.tag = selector_tags[i];
+                    item.item_index = ss->items.size;
                     Vector_Push(&ss->items, &item);
                 }
                 selector_count = 0;
@@ -575,12 +555,14 @@ static int NU_Generate_Stylesheet(char* src_buffer, uint32_t src_length, struct 
         {
             if (AssertSelectorGrammar(tokens, i)) {
                 i += 1;
-                selectors[selector_count++] = (uint8_t)token - 30 + 2;
+                selector_classes[selector_count] = NULL;
+                selector_ids[selector_count] = NULL;
+                selector_tags[selector_count] = token - 30; // convert tag selector to tag
+                selector_count++;
                 continue;
             }
             else
             {
-
                 return -1;
             }
         }
@@ -589,7 +571,17 @@ static int NU_Generate_Stylesheet(char* src_buffer, uint32_t src_length, struct 
         {
             if (AssertSelectorGrammar(tokens, i)) {
                 i += 1;
-                selectors[selector_count++] = 0;
+
+                // Add class name to style sheet
+                text_ref = (struct Style_Text_Ref*)Vector_Get(text_refs, text_index);
+                char* classname = &src_buffer[text_ref->src_index];
+                src_buffer[text_ref->src_index + text_ref->char_count] = '\0';
+
+                selector_ids[selector_count] = NULL;
+                selector_classes[selector_count] = NU_Stylesheet_Add_Classname(ss, classname);
+                selector_tags[selector_count] = -1;
+                selector_count++;
+
                 text_index += 1;
                 continue;
             }
@@ -602,7 +594,17 @@ static int NU_Generate_Stylesheet(char* src_buffer, uint32_t src_length, struct 
         {
             if (AssertSelectorGrammar(tokens, i)) {
                 i += 1;
-                selectors[selector_count++] = 1;
+
+                // Add id to style sheet
+                text_ref = (struct Style_Text_Ref*)Vector_Get(text_refs, text_index);
+                char* id = &src_buffer[text_ref->src_index];
+                src_buffer[text_ref->src_index + text_ref->char_count] = '\0';
+     
+                selector_ids[selector_count] = NU_Stylesheet_Add_Id(ss, id);
+                selector_classes[selector_count] = NULL;
+                selector_tags[selector_count] = -1;
+                selector_count++;
+
                 text_index += 1;
                 continue;
             }
@@ -897,98 +899,150 @@ static int NU_Generate_Stylesheet(char* src_buffer, uint32_t src_length, struct 
     return 0;
 }
 
+static void NU_Stylesheet_Find_Match(struct Node* node, struct NU_Stylesheet* ss, int* match_index_list)
+{
+    int tag_match_index   = -1;
+    int class_match_index = -1;
+    int id_match_index    = -1;
+
+    for (int i = 0; i < ss->items.size; i++) { // Tag match
+        struct NU_Stylesheet_Item* item = (struct NU_Stylesheet_Item*)Vector_Get(&ss->items, i);
+        if (node->tag == item->tag) {
+            tag_match_index = i;
+            break; // stop at first match (assuming unique)
+        }
+    }
+
+    if (node->class != NULL) { // Class match
+        class_match_index = NU_Stylesheet_Get_Item_Index_From_Classname(ss, node->class);
+    }
+
+    if (node->id != NULL) { // Id match
+        id_match_index = NU_Stylesheet_Get_Item_Index_From_Id(ss, node->id);
+    }
+
+    // Collect non -1 results
+    int tmp[3];
+    int count = 0;
+    if (tag_match_index   != -1) tmp[count++] = tag_match_index;
+    if (class_match_index != -1) tmp[count++] = class_match_index;
+    if (id_match_index    != -1) tmp[count++] = id_match_index;
+
+    if (count == 0) return; // nothing matched
+
+    // Sort manually (since count ≤ 3)
+    if (count == 2) {
+        if (tmp[0] > tmp[1]) {
+            int t = tmp[0]; tmp[0] = tmp[1]; tmp[1] = t;
+        }
+    } else if (count == 3) {
+        if (tmp[0] > tmp[1]) { int t = tmp[0]; tmp[0] = tmp[1]; tmp[1] = t; }
+        if (tmp[1] > tmp[2]) { int t = tmp[1]; tmp[1] = tmp[2]; tmp[2] = t; }
+        if (tmp[0] > tmp[1]) { int t = tmp[0]; tmp[0] = tmp[1]; tmp[1] = t; }
+    }
+    for (int i = 0; i < count; i++) {
+        match_index_list[i] = tmp[i];
+    }
+    for (int i = count; i < 3; i++) {
+        match_index_list[i] = -1;
+    }
+}
+
+
 static void NU_Apply_Stylesheet_To_Node(struct Node* node, struct NU_Stylesheet* ss)
 {
-    // Find all the matching stylesheet items
-    for (int i=0; i<ss->items.size; i++) 
-    {
-        struct NU_Stylesheet_Item item = *(struct NU_Stylesheet_Item*)Vector_Get(&ss->items, i);
-        if (node->tag + 2 == item.selector) {
+    int match_index_list[3] = {-1, -1, -1};
+    NU_Stylesheet_Find_Match(node, ss, &match_index_list[0]);
 
-            if (item.property_flags & (1 << 0)) node->layout_flags = (node->layout_flags & ~(1 << 0)) | (item.layout_flags & (1 << 0)); // Layout direction
-            if (item.property_flags & (1 << 1)) {
-                node->layout_flags = (node->layout_flags & ~(1 << 1)) | (item.layout_flags & (1 << 1)); // Grow horizontal
-                node->layout_flags = (node->layout_flags & ~(1 << 2)) | (item.layout_flags & (1 << 2)); // Grow vertical
-            }
-            if (item.property_flags & (1 << 2)) {
-                node->layout_flags = (node->layout_flags & ~(1 << 3)) | (item.layout_flags & (1 << 3)); // Overflow vertical scroll (or not)
-            }
-            if (item.property_flags & (1 << 3)) {
-                node->layout_flags = (node->layout_flags & ~(1 << 4)) | (item.layout_flags & (1 << 4)); // Overflow horizontal scroll (or not)
-            }
-            if (item.property_flags & (1 << 4)) {
-                node->gap = item.gap;
-            }
-            if (item.property_flags & (1 << 5)) {
-                node->preferred_width = item.preferred_width;
-            }
-            if (item.property_flags & (1 << 6)) {
-                node->min_width = item.min_width;
-            }
-            if (item.property_flags & (1 << 7)) {
-                node->max_width = item.max_width;
-            }
-            if (item.property_flags & (1 << 8)) {
-                node->preferred_height = item.preferred_height;
-            }
-            if (item.property_flags & (1 << 9)) {
-                node->min_height = item.min_height;
-            }
-            if (item.property_flags & (1 << 10)) {
-                node->max_height = item.max_height;
-            }
-            if (item.property_flags & (1 << 11)) {
-                node->horizontal_alignment = item.horizontal_alignment;
-            }
-            if (item.property_flags & (1 << 12)) {
-                node->vertical_alignment = item.vertical_alignment;
-            }
-            if (item.property_flags & (1 << 13)) {
-                node->background_r = item.background_r;
-                node->background_g = item.background_g;
-                node->background_b = item.background_b;
-            }
-            if (item.property_flags & (1 << 14)) {
-                node->border_r = item.border_r;
-                node->border_g = item.border_g;
-                node->border_b = item.border_b;
-            }
-            if (item.property_flags & (1 << 15)) {
-                node->border_top = item.border_top;
-            }
-            if (item.property_flags & (1 << 16)) {
-                node->border_bottom = item.border_bottom;
-            }
-            if (item.property_flags & (1 << 17)) {
-                node->border_left = item.border_left;
-            }
-            if (item.property_flags & (1 << 18)) {
-                node->border_right = item.border_right;
-            }
-            if (item.property_flags & (1 << 19)) {
-                node->border_radius_tl = item.border_radius_tl;
-            }
-            if (item.property_flags & (1 << 20)) {
-                node->border_radius_tr = item.border_radius_tr;
-            }
-            if (item.property_flags & (1 << 21)) {
-                node->border_radius_bl = item.border_radius_bl;
-            }
-            if (item.property_flags & (1 << 22)) {
-                node->border_radius_br = item.border_radius_br;
-            }
-            if (item.property_flags & (1 << 23)) {
-                node->pad_top = item.pad_top;
-            }
-            if (item.property_flags & (1 << 24)) {
-                node->pad_bottom = item.pad_bottom;
-            }
-            if (item.property_flags & (1 << 25)) {
-                node->pad_left = item.pad_left;
-            }
-            if (item.property_flags & (1 << 26)) {
-                node->pad_right = item.pad_right;
-            }
+    int i = 0;
+    while (match_index_list[i] != -1) {
+        struct NU_Stylesheet_Item* item = (struct NU_Stylesheet_Item*)Vector_Get(&ss->items, (uint32_t)match_index_list[i]);
+        i += 1;
+
+        // --- Apply style ---
+        if (item->property_flags & (1 << 0)) node->layout_flags = (node->layout_flags & ~(1 << 0)) | (item->layout_flags & (1 << 0)); // Layout direction
+        if (item->property_flags & (1 << 1)) {
+            node->layout_flags = (node->layout_flags & ~(1 << 1)) | (item->layout_flags & (1 << 1)); // Grow horizontal
+            node->layout_flags = (node->layout_flags & ~(1 << 2)) | (item->layout_flags & (1 << 2)); // Grow vertical
+        }
+        if (item->property_flags & (1 << 2)) {
+            node->layout_flags = (node->layout_flags & ~(1 << 3)) | (item->layout_flags & (1 << 3)); // Overflow vertical scroll (or not)
+        }
+        if (item->property_flags & (1 << 3)) {
+            node->layout_flags = (node->layout_flags & ~(1 << 4)) | (item->layout_flags & (1 << 4)); // Overflow horizontal scroll (or not)
+        }
+        if (item->property_flags & (1 << 4)) {
+            node->gap = item->gap;
+        }
+        if (item->property_flags & (1 << 5)) {
+            node->preferred_width = item->preferred_width;
+        }
+        if (item->property_flags & (1 << 6)) {
+            node->min_width = item->min_width;
+        }
+        if (item->property_flags & (1 << 7)) {
+            node->max_width = item->max_width;
+        }
+        if (item->property_flags & (1 << 8)) {
+            node->preferred_height = item->preferred_height;
+        }
+        if (item->property_flags & (1 << 9)) {
+            node->min_height = item->min_height;
+        }
+        if (item->property_flags & (1 << 10)) {
+            node->max_height = item->max_height;
+        }
+        if (item->property_flags & (1 << 11)) {
+            node->horizontal_alignment = item->horizontal_alignment;
+        }
+        if (item->property_flags & (1 << 12)) {
+            node->vertical_alignment = item->vertical_alignment;
+        }
+        if (item->property_flags & (1 << 13)) {
+            node->background_r = item->background_r;
+            node->background_g = item->background_g;
+            node->background_b = item->background_b;
+        }
+        if (item->property_flags & (1 << 14)) {
+            node->border_r = item->border_r;
+            node->border_g = item->border_g;
+            node->border_b = item->border_b;
+        }
+        if (item->property_flags & (1 << 15)) {
+            node->border_top = item->border_top;
+        }
+        if (item->property_flags & (1 << 16)) {
+            node->border_bottom = item->border_bottom;
+        }
+        if (item->property_flags & (1 << 17)) {
+            node->border_left = item->border_left;
+        }
+        if (item->property_flags & (1 << 18)) {
+            node->border_right = item->border_right;
+        }
+        if (item->property_flags & (1 << 19)) {
+            node->border_radius_tl = item->border_radius_tl;
+        }
+        if (item->property_flags & (1 << 20)) {
+            node->border_radius_tr = item->border_radius_tr;
+        }
+        if (item->property_flags & (1 << 21)) {
+            node->border_radius_bl = item->border_radius_bl;
+        }
+        if (item->property_flags & (1 << 22)) {
+            node->border_radius_br = item->border_radius_br;
+        }
+        if (item->property_flags & (1 << 23)) {
+            node->pad_top = item->pad_top;
+        }
+        if (item->property_flags & (1 << 24)) {
+            node->pad_bottom = item->pad_bottom;
+        }
+        if (item->property_flags & (1 << 25)) {
+            node->pad_left = item->pad_left;
+        }
+        if (item->property_flags & (1 << 26)) {
+            node->pad_right = item->pad_right;
         }
     }
 }
@@ -1042,7 +1096,7 @@ int NU_Set_Style(struct UI_Tree* ui_tree, char* css_filepath)
     Vector_Reserve(&text_ref_vector, sizeof(struct Style_Text_Ref), 4000);
 
     struct NU_Stylesheet ss;
-    Vector_Reserve(&ss.items, sizeof(struct NU_Stylesheet_Item), 1000);
+    NU_Stylesheet_Init(&ss);
 
     
     NU_Style_Tokenise(src_buffer, src_length, &tokens, &text_ref_vector);

@@ -19,17 +19,18 @@
 #include <ctype.h>
 #include "performance.h"
 #include "vector.h"
+#include "string_arena.h"
 #include "nu_convert.h"
 
 #define NANOVG_GL3_IMPLEMENTATION
 #include <nanovg.h>
 #include <nanovg_gl.h>
 
-#define PROPERTY_COUNT 31
-#define KEYWORD_COUNT 44
+#define PROPERTY_COUNT 32
+#define KEYWORD_COUNT 45
 
 static const char* keywords[] = {
-    "id", "dir", "grow", "overflowV", "overflowH", "gap",
+    "id", "class", "dir", "grow", "overflowV", "overflowH", "gap",
     "width", "minWidth", "maxWidth", "height", "minHeight", "maxHeight", 
     "alignH", "alignV",
     "background", "borderColour",
@@ -44,7 +45,7 @@ static const char* keywords[] = {
     "image"
 };
 static const uint8_t keyword_lengths[] = { 
-    2, 3, 4, 9, 9, 3,
+    2, 5, 3, 4, 9, 9, 3,
     5, 8, 8, 6, 9, 9,      // width height
     6, 6,                  // alignment
     10, 12,                // background, border colour
@@ -56,6 +57,7 @@ static const uint8_t keyword_lengths[] = {
 enum NU_Token
 {
     ID_PROPERTY,
+    CLASS_PROPERTY,
     LAYOUT_DIRECTION_PROPERTY,
     GROW_PROPERTY,
     OVERFLOW_V_PROPERTY,
@@ -108,6 +110,7 @@ enum Tag
     BUTTON,
     GRID,
     TEXT,
+    IMAGE,
     NAT,
 };
 
@@ -128,6 +131,8 @@ struct Node
 {
     SDL_Window* window;
     NVGcontext* vg;
+    char* class;
+    char* id;
     uint32_t ID;
     enum Tag tag;
     float x, y, width, height, preferred_width, preferred_height;
@@ -187,6 +192,8 @@ struct UI_Tree
     uint16_t deepest_layer;
     struct Vector font_resources;
     struct Vector font_registries;
+    struct String_Arena class_arena;
+    struct String_Arena id_arena;
 };
 
 // Structs ---------------------- //
@@ -510,11 +517,19 @@ static int AssertTagCloseStartGrammar(struct Vector* token_vector, int i, enum T
     return -1; // Failure
 }
 
+static void NU_Tree_Init(struct UI_Tree* ui_tree)
+{
+    Vector_Reserve(&ui_tree->text_arena.free_list, sizeof(struct Arena_Free_Element), 25000); // reserve ~200KB
+    Vector_Reserve(&ui_tree->text_arena.text_refs, sizeof(struct Text_Ref), 25000); // reserve ~200KB
+    Vector_Reserve(&ui_tree->text_arena.char_buffer, sizeof(char), 100000); // reserve ~100KB
+    String_Arena_Init(&ui_tree->class_arena, 10000, 100, 100);
+    String_Arena_Init(&ui_tree->id_arena, 10000, 100, 100);
+}
+
 static int NU_Generate_Tree(char* src_buffer, uint32_t src_length, struct UI_Tree* ui_tree, struct Vector* NU_Token_vector, struct Vector* ptext_ref_vector)
 {
     // Enforce root grammar
-    if (AssertRootGrammar(NU_Token_vector) != 0) 
-    {
+    if (AssertRootGrammar(NU_Token_vector) != 0) {
         return -1; // Failure 
     }
 
@@ -551,6 +566,8 @@ static int NU_Generate_Tree(char* src_buffer, uint32_t src_length, struct UI_Tre
                 // Create a new node
                 struct Node new_node;
                 current_node_ID = ((uint32_t) (current_layer + 1) << 24) | (ui_tree->tree_stack[current_layer+1].size & 0xFFFFFF); // Max depth = 256, Max node index = 16,777,215
+                new_node.class = NULL;
+                new_node.id = NULL;
                 new_node.ID = current_node_ID;
                 new_node.tag = NU_Token_To_Tag(*((enum NU_Token*) Vector_Get(NU_Token_vector, i+1)));
                 new_node.window = NULL; 
@@ -706,6 +723,24 @@ static int NU_Generate_Tree(char* src_buffer, uint32_t src_length, struct UI_Tre
                 // Get the property value text
                 switch (NU_Token)
                 {
+                    // Set id
+                    case ID_PROPERTY:
+                        if (String_Arena_Get(&ui_tree->id_arena, ptext) == NULL) {
+                            current_node->id = String_Arena_Add(&ui_tree->id_arena, ptext);
+    
+                        }
+                        break;
+
+                    // Set class
+                    case CLASS_PROPERTY:
+                        char* class = String_Arena_Get(&ui_tree->class_arena, ptext);
+                        if (class == NULL) {
+                            current_node->class = String_Arena_Add(&ui_tree->class_arena, ptext);
+                        } else {
+                            current_node->class = class;
+                        }
+                        break;
+
                     // Set layout direction
                     case LAYOUT_DIRECTION_PROPERTY:
                         if (c == 'h') 
@@ -976,11 +1011,9 @@ int NU_Parse(char* filepath, struct UI_Tree* ui_tree)
     struct Vector ptext_ref_vector;
 
     // Init vectors
-    Vector_Reserve(&NU_Token_vector, sizeof(enum NU_Token), 50000); // reserve ~200KB
-    Vector_Reserve(&ptext_ref_vector, sizeof(struct Property_Text_Ref), 50000); // reserve ~450KB
-    Vector_Reserve(&ui_tree->text_arena.free_list, sizeof(struct Arena_Free_Element), 50000); // reserve ~400KB
-    Vector_Reserve(&ui_tree->text_arena.text_refs, sizeof(struct Text_Ref), 50000); // reserve ~400KB
-    Vector_Reserve(&ui_tree->text_arena.char_buffer, sizeof(char), 1000000); // reserve ~1MB
+    Vector_Reserve(&NU_Token_vector, sizeof(enum NU_Token), 25000); // reserve ~100KB
+    Vector_Reserve(&ptext_ref_vector, sizeof(struct Property_Text_Ref), 25000); // reserve ~225KB
+    NU_Tree_Init(ui_tree);
 
     // Init UI tree layers -> reserve 100 nodes per stack layer = 384KB
     Vector_Reserve(&ui_tree->tree_stack[0], sizeof(struct Node), 1); // 1 root element

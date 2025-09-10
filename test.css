@@ -1,0 +1,37 @@
+
+button, .bing-chilling {
+    background: #020730;
+    borderColour: #f0f0f0;
+    pad: 10;
+    height: 1000;
+    borderRadiusTopLeft: 5;
+    borderRadiusTopRight: 5;
+}
+.chart {
+    background: #969696;
+}
+rect {
+    borderColour: #af6e31;
+    background: #422a17;
+    borderTop: 10;
+    borderBottom: 10;
+    borderLeft: 3;
+    pad: 5;
+}
+#win {
+
+}
+window {
+    background: #bd0606;
+}
+.bing {
+
+}
+
+.fat {
+    background: #bd0606;
+    pad: 20;
+}
+#unique {
+    background: #2aeb44;
+}

@@ -5,6 +5,7 @@
 #include <SDL3/SDL.h>
 #include <GL/glew.h>
 #include "headers/parser.h"
+#include "headers/style_parser.h"
 #include "headers/layout.h"
 #include "headers/resources.h"
 #include <nu_draw.h>
@@ -61,6 +62,8 @@ int main()
     {
         return -1;
     }
+
+    NU_Set_Style(&ui_tree, "test.css");
 
     end_measurement();
     timer_stop();

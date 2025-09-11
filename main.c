@@ -55,14 +55,16 @@ int main()
     Vector_Push(&ui_tree.font_resources, &font2);
 
     timer_start();
-    start_measurement();
+
 
     // Parse xml into UI tree
     if (NU_Parse("test.xml", &ui_tree) != 0)
     {
         return -1;
-    }
+    }   
 
+
+    start_measurement();
     NU_Set_Style(&ui_tree, "test.css");
 
     end_measurement();
@@ -112,4 +114,3 @@ int main()
     // Close SDL
     SDL_Quit();
 }
-

@@ -19,7 +19,7 @@
 #include <ctype.h>
 #include "performance.h"
 #include "vector.h"
-#include "string_arena.h"
+#include "string_set.h"
 #include "nu_convert.h"
 
 #define NANOVG_GL3_IMPLEMENTATION
@@ -192,8 +192,8 @@ struct UI_Tree
     uint16_t deepest_layer;
     struct Vector font_resources;
     struct Vector font_registries;
-    struct String_Arena class_arena;
-    struct String_Arena id_arena;
+    struct String_Set class_string_set;
+    struct String_Set id_string_set;
 };
 
 // Structs ---------------------- //
@@ -522,8 +522,8 @@ static void NU_Tree_Init(struct UI_Tree* ui_tree)
     Vector_Reserve(&ui_tree->text_arena.free_list, sizeof(struct Arena_Free_Element), 25000); // reserve ~200KB
     Vector_Reserve(&ui_tree->text_arena.text_refs, sizeof(struct Text_Ref), 25000); // reserve ~200KB
     Vector_Reserve(&ui_tree->text_arena.char_buffer, sizeof(char), 100000); // reserve ~100KB
-    String_Arena_Init(&ui_tree->class_arena, 10000, 100, 100);
-    String_Arena_Init(&ui_tree->id_arena, 10000, 100, 100);
+    String_Set_Init(&ui_tree->class_string_set, 10000, 100, 100);
+    String_Set_Init(&ui_tree->id_string_set, 10000, 100, 100);
 }
 
 static int NU_Generate_Tree(char* src_buffer, uint32_t src_length, struct UI_Tree* ui_tree, struct Vector* NU_Token_vector, struct Vector* ptext_ref_vector)
@@ -574,13 +574,13 @@ static int NU_Generate_Tree(char* src_buffer, uint32_t src_length, struct UI_Tre
                 new_node.vg = NULL;
                 new_node.preferred_width = 0.0f;
                 new_node.preferred_height = 0.0f;
-                new_node.gap = 5.0f;
+                new_node.gap = 0.0f;
                 new_node.max_width = 10e20f;
                 new_node.min_width = 0.0f;
-                new_node.pad_top = 3;
-                new_node.pad_bottom = 3;
-                new_node.pad_left = 3;
-                new_node.pad_right = 3;
+                new_node.pad_top = 0;
+                new_node.pad_bottom = 0;
+                new_node.pad_left = 0;
+                new_node.pad_right = 0;
                 new_node.border_top = 0;
                 new_node.border_bottom = 0;
                 new_node.border_left = 0;
@@ -598,10 +598,10 @@ static int NU_Generate_Tree(char* src_buffer, uint32_t src_length, struct UI_Tre
                     new_node.border_g = 101;
                     new_node.border_b = 153;
 
-                    new_node.border_top = 2;
-                    new_node.border_bottom = 2;
-                    new_node.border_left = 2;
-                    new_node.border_right = 2;
+                    new_node.border_top = 1;
+                    new_node.border_bottom = 1;
+                    new_node.border_left = 1;
+                    new_node.border_right = 1;
                 }
                 else if (new_node.tag == RECT)
                 {
@@ -613,10 +613,10 @@ static int NU_Generate_Tree(char* src_buffer, uint32_t src_length, struct UI_Tre
                     new_node.background_g = 2;
                     new_node.background_b = 2;
 
-                    new_node.border_top = 1;
-                    new_node.border_bottom = 1;
-                    new_node.border_left = 1;
-                    new_node.border_right = 1;
+                    new_node.border_top = 0;
+                    new_node.border_bottom = 0;
+                    new_node.border_left = 0;
+                    new_node.border_right = 0;
                 }
                 else {
                     new_node.background_r = 2;
@@ -725,20 +725,12 @@ static int NU_Generate_Tree(char* src_buffer, uint32_t src_length, struct UI_Tre
                 {
                     // Set id
                     case ID_PROPERTY:
-                        if (String_Arena_Get(&ui_tree->id_arena, ptext) == NULL) {
-                            current_node->id = String_Arena_Add(&ui_tree->id_arena, ptext);
-    
-                        }
+                        current_node->id = String_Set_Add(&ui_tree->id_string_set, ptext);
                         break;
 
                     // Set class
                     case CLASS_PROPERTY:
-                        char* class = String_Arena_Get(&ui_tree->class_arena, ptext);
-                        if (class == NULL) {
-                            current_node->class = String_Arena_Add(&ui_tree->class_arena, ptext);
-                        } else {
-                            current_node->class = class;
-                        }
+                        current_node->class = String_Set_Add(&ui_tree->class_string_set, ptext);
                         break;
 
                     // Set layout direction

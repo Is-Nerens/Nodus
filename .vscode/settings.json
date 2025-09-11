@@ -21,6 +21,7 @@
         "vector": "c",
         "xhash": "c",
         "xstring": "c",
-        "limits": "cpp"
+        "limits": "cpp",
+        "xmemory": "c"
     }
 }

@@ -500,7 +500,12 @@ static int AssertPropertyIdentifierGrammar(struct Vector* tokens, int i)
 
 
 
-
+struct Selector_Info {
+    char* class;
+    char* id;
+    int tag;
+    int index;
+};
 
 static int NU_Generate_Stylesheet(char* src_buffer, uint32_t src_length, struct Vector* tokens, struct NU_Stylesheet* ss, struct Vector* text_refs)
 {
@@ -510,9 +515,7 @@ static int NU_Generate_Stylesheet(char* src_buffer, uint32_t src_length, struct 
     struct NU_Stylesheet_Item item;
     item.property_flags = 0;
 
-    char* selector_classes[64];
-    char* selector_ids[64];
-    int selector_tags[64];
+    struct Selector_Info selectors[64];
     int selector_count = 0;
 
     int i = 0;
@@ -536,11 +539,11 @@ static int NU_Generate_Stylesheet(char* src_buffer, uint32_t src_length, struct 
         {
             if (AssertSelectionClosingBraceGrammar(tokens, i)) {
                 for (int i=0; i<selector_count; i++) {
-                    item.class = selector_classes[i];
-                    item.id = selector_ids[i];
-                    item.tag = selector_tags[i];
-                    item.item_index = ss->items.size;
-                    Vector_Push(&ss->items, &item);
+                    struct Selector_Info* selector = &selectors[i];
+                    item.class = selector->class;
+                    item.id = selector->id;
+                    item.tag = selector->tag;
+                    Vector_Set(&ss->items, selector->index, &item); // update item
                 }
                 selector_count = 0;
                 i += 1;
@@ -555,9 +558,30 @@ static int NU_Generate_Stylesheet(char* src_buffer, uint32_t src_length, struct 
         {
             if (AssertSelectorGrammar(tokens, i)) {
                 i += 1;
-                selector_classes[selector_count] = NULL;
-                selector_ids[selector_count] = NULL;
-                selector_tags[selector_count] = token - 30; // convert tag selector to tag
+
+                int tag = token - 30;
+                void* found = Hashmap_Get(&ss->tag_item_hashmap, &tag);
+                if (found != NULL) { // Style item exists
+                    struct NU_Stylesheet_Item* found_item = Vector_Get(&ss->items, *(int*)found);
+                    struct Selector_Info selector;
+                    selector.class = NULL;
+                    selector.id = NULL;
+                    selector.tag = tag;
+                    selector.index = *(int*)found;
+                    selectors[selector_count] = selector;
+    
+                } else { // Style item does not exist -> add one
+                    struct NU_Stylesheet_Item temp_item;
+                    Vector_Push(&ss->items, &temp_item);
+                    struct Selector_Info selector;
+                    selector.class = NULL;
+                    selector.id = NULL;
+                    selector.tag = tag;
+                    selector.index = ss->items.size - 1;
+                    selectors[selector_count] = selector;
+                    Hashmap_Set(&ss->tag_item_hashmap, &tag, &selector.index); // Store item index
+                }
+
                 selector_count++;
                 continue;
             }
@@ -572,16 +596,35 @@ static int NU_Generate_Stylesheet(char* src_buffer, uint32_t src_length, struct 
             if (AssertSelectorGrammar(tokens, i)) {
                 i += 1;
 
-                // Add class name to style sheet
+                // Get class string
                 text_ref = (struct Style_Text_Ref*)Vector_Get(text_refs, text_index);
-                char* classname = &src_buffer[text_ref->src_index];
+                char* class = &src_buffer[text_ref->src_index];
                 src_buffer[text_ref->src_index + text_ref->char_count] = '\0';
 
-                selector_ids[selector_count] = NULL;
-                selector_classes[selector_count] = NU_Stylesheet_Add_Classname(ss, classname);
-                selector_tags[selector_count] = -1;
-                selector_count++;
+                // If style item exists
+                void* found = sHashmap_Find(&ss->class_item_hashmap, class);
+                if (found != NULL) {
+                    struct NU_Stylesheet_Item* found_item = Vector_Get(&ss->items, *(int*)found);
+                    struct Selector_Info selector;
+                    selector.class = found_item->class;
+                    selector.id = NULL;
+                    selector.tag = -1;
+                    selector.index = *(int*)found;
+                    selectors[selector_count] = selector;
+                } else { // does not exist -> add item and class
 
+                    struct NU_Stylesheet_Item temp_item;
+                    Vector_Push(&ss->items, &temp_item);
+                    struct Selector_Info selector;
+                    selector.class = String_Set_Get(&ss->class_string_set, class);
+                    selector.id = NULL;
+                    selector.tag = -1;
+                    selector.index = ss->items.size - 1;
+                    selectors[selector_count] = selector;
+                    sHashmap_Add(&ss->class_item_hashmap, class, &selector.index); // Store item index
+                }
+
+                selector_count++;
                 text_index += 1;
                 continue;
             }
@@ -590,21 +633,40 @@ static int NU_Generate_Stylesheet(char* src_buffer, uint32_t src_length, struct 
             }
         }
 
+
         if (token == STYLE_ID_SELECTOR)
         {
             if (AssertSelectorGrammar(tokens, i)) {
                 i += 1;
 
-                // Add id to style sheet
+                // Get id string
                 text_ref = (struct Style_Text_Ref*)Vector_Get(text_refs, text_index);
                 char* id = &src_buffer[text_ref->src_index];
                 src_buffer[text_ref->src_index + text_ref->char_count] = '\0';
-     
-                selector_ids[selector_count] = NU_Stylesheet_Add_Id(ss, id);
-                selector_classes[selector_count] = NULL;
-                selector_tags[selector_count] = -1;
-                selector_count++;
 
+                // If style item exists
+                void* found = sHashmap_Find(&ss->id_item_hashmap, id);
+                if (found != NULL) {
+                    struct NU_Stylesheet_Item* found_item = Vector_Get(&ss->items, *(int*)found);
+                    struct Selector_Info selector;
+                    selector.class = NULL;
+                    selector.id = found_item->id;
+                    selector.tag = -1;
+                    selector.index = *(int*)found;
+                    selectors[selector_count] = selector;
+                } else { // does not exist -> add item
+                    struct NU_Stylesheet_Item temp_item;
+                    Vector_Push(&ss->items, &temp_item);
+                    struct Selector_Info selector;
+                    selector.class = NULL;
+                    selector.id = String_Set_Get(&ss->id_string_set, id);
+                    selector.tag = -1;
+                    selector.index = ss->items.size - 1;
+                    selectors[selector_count] = selector;
+                    sHashmap_Add(&ss->id_item_hashmap, id, &selector.index); // Store item index
+                }
+
+                selector_count++;
                 text_index += 1;
                 continue;
             }
@@ -901,53 +963,30 @@ static int NU_Generate_Stylesheet(char* src_buffer, uint32_t src_length, struct 
 
 static void NU_Stylesheet_Find_Match(struct Node* node, struct NU_Stylesheet* ss, int* match_index_list)
 {
-    int tag_match_index   = -1;
-    int class_match_index = -1;
-    int id_match_index    = -1;
-
-    for (int i = 0; i < ss->items.size; i++) { // Tag match
-        struct NU_Stylesheet_Item* item = (struct NU_Stylesheet_Item*)Vector_Get(&ss->items, i);
-        if (node->tag == item->tag) {
-            tag_match_index = i;
-            break; // stop at first match (assuming unique)
-        }
-    }
-
-    if (node->class != NULL) { // Class match
-        class_match_index = NU_Stylesheet_Get_Item_Index_From_Classname(ss, node->class);
-    }
-
-    if (node->id != NULL) { // Id match
-        id_match_index = NU_Stylesheet_Get_Item_Index_From_Id(ss, node->id);
-    }
-
-    // Collect non -1 results
-    int tmp[3];
     int count = 0;
-    if (tag_match_index   != -1) tmp[count++] = tag_match_index;
-    if (class_match_index != -1) tmp[count++] = class_match_index;
-    if (id_match_index    != -1) tmp[count++] = id_match_index;
 
-    if (count == 0) return; // nothing matched
+    // Tag match first (lowest priority)
+    void* tag_found = Hashmap_Get(&ss->tag_item_hashmap, &node->tag); 
+    if (tag_found != NULL) { 
+        match_index_list[count++] = *(int*)tag_found;
+    }
 
-    // Sort manually (since count ≤ 3)
-    if (count == 2) {
-        if (tmp[0] > tmp[1]) {
-            int t = tmp[0]; tmp[0] = tmp[1]; tmp[1] = t;
+    // Class match second
+    if (node->class != NULL) { 
+        void* class_found = sHashmap_Find(&ss->class_item_hashmap, node->class);
+        if (class_found != NULL) {
+            match_index_list[count++] = *(int*)class_found;
         }
-    } else if (count == 3) {
-        if (tmp[0] > tmp[1]) { int t = tmp[0]; tmp[0] = tmp[1]; tmp[1] = t; }
-        if (tmp[1] > tmp[2]) { int t = tmp[1]; tmp[1] = tmp[2]; tmp[2] = t; }
-        if (tmp[0] > tmp[1]) { int t = tmp[0]; tmp[0] = tmp[1]; tmp[1] = t; }
     }
-    for (int i = 0; i < count; i++) {
-        match_index_list[i] = tmp[i];
-    }
-    for (int i = count; i < 3; i++) {
-        match_index_list[i] = -1;
+
+    // ID match last (highest priority)
+    if (node->id != NULL) { 
+        void* id_found = sHashmap_Find(&ss->id_item_hashmap, node->id);
+        if (id_found != NULL) {
+            match_index_list[count++] = *(int*)id_found;
+        }
     }
 }
-
 
 static void NU_Apply_Stylesheet_To_Node(struct Node* node, struct NU_Stylesheet* ss)
 {
@@ -1108,7 +1147,7 @@ int NU_Set_Style(struct UI_Tree* ui_tree, char* css_filepath)
     NU_Apply_Stylesheet(ui_tree, &ss);
 
     Vector_Free(&tokens);
-    Vector_Free(&ss.items);
+    NU_Stylesheet_Free(&ss);
 
     return 1;
 }

@@ -255,10 +255,10 @@ void Draw_Varying_Rounded_Rect(
     float right_radii_sum  = top_right_radius + bottom_right_radius;
     float top_radii_sum    = top_left_radius + top_right_radius;
     float bottom_radii_sum = bottom_left_radius + bottom_right_radius;
-    if (left_radii_sum > height) { float scale = height / left_radii_sum; top_left_radius *= scale; bottom_left_radius *= scale; }
-    if (right_radii_sum > height) { float scale = height / right_radii_sum; top_right_radius *= scale; bottom_right_radius *= scale; }
-    if (top_radii_sum > width) { float scale = width / top_radii_sum; top_left_radius *= scale; top_right_radius *= scale; }
-    if (bottom_radii_sum > width) { float scale = width / bottom_radii_sum; bottom_left_radius *= scale; bottom_right_radius *= scale; }
+    if (left_radii_sum   > height)  { float scale = height / left_radii_sum;   top_left_radius    *= scale; bottom_left_radius  *= scale; }
+    if (right_radii_sum  > height)  { float scale = height / right_radii_sum;  top_right_radius   *= scale; bottom_right_radius *= scale; }
+    if (top_radii_sum    > width )  { float scale = width  / top_radii_sum;    top_left_radius    *= scale; top_right_radius    *= scale; }
+    if (bottom_radii_sum > width )  { float scale = width  / bottom_radii_sum; bottom_left_radius *= scale; bottom_right_radius *= scale; }
 
     // --- Convert colors ---
     float border_r_fl     = (float)border_r / 255.0f;
@@ -269,25 +269,25 @@ void Draw_Varying_Rounded_Rect(
     float bg_b_fl         = (float)background_b / 255.0f;
 
     // --- Determine corner points ---
-    int max_pts = 64;
-    int tl_pts = top_left_radius  < 1.0f ? 1 : min((int)top_left_radius + 3, max_pts);
-    int tr_pts = top_right_radius < 1.0f ? 1 : min((int)top_right_radius + 3, max_pts);
-    int br_pts = bottom_right_radius < 1.0f ? 1 : min((int)bottom_right_radius + 3, max_pts);
-    int bl_pts = bottom_left_radius < 1.0f ? 1 : min((int)bottom_left_radius + 3, max_pts);
-    int total_pts = tl_pts + tr_pts + br_pts + bl_pts;
+    int max_pts           = 64;
+    int tl_pts            = top_left_radius     < 1.0f ? 1 : min((int)top_left_radius     + 3, max_pts);
+    int tr_pts            = top_right_radius    < 1.0f ? 1 : min((int)top_right_radius    + 3, max_pts);
+    int br_pts            = bottom_right_radius < 1.0f ? 1 : min((int)bottom_right_radius + 3, max_pts);
+    int bl_pts            = bottom_left_radius  < 1.0f ? 1 : min((int)bottom_left_radius  + 3, max_pts);
+    int total_pts         = tl_pts + tr_pts + br_pts + bl_pts;
 
     // --- Corner anchors ---
-    vec2 tl_a = { x + top_left_radius,             y + top_left_radius };
-    vec2 tr_a = { x + width - top_right_radius,    y + top_right_radius };
-    vec2 bl_a = { x + bottom_left_radius,          y + height - bottom_left_radius };
-    vec2 br_a = { x + width - bottom_right_radius, y + height - bottom_right_radius };
+    vec2 tl_a             = { x + top_left_radius,             y + top_left_radius };
+    vec2 tr_a             = { x + width - top_right_radius,    y + top_right_radius };
+    vec2 bl_a             = { x + bottom_left_radius,          y + height - bottom_left_radius };
+    vec2 br_a             = { x + width - bottom_right_radius, y + height - bottom_right_radius };
 
     // --- Allocate vertex and index arrays ---
     vertex vertices[total_pts * 3 + 4];  // each corner contributes 3*cp + 1 verts
     GLuint indices[(total_pts - 4) * 6   // curved edges
-                + 24                    // straight sides
+                + 24                     // straight sides
                 + (total_pts - 4) * 3    // corner background tris
-                + 30];                  // inner background tries
+                + 30];                   // inner background tries
     int vertex_offset = 0;
     int index_count = 0;
 
@@ -345,15 +345,11 @@ void Draw_Varying_Rounded_Rect(
 
 
 
-
-
-
-
     // --- Central connector vertex indices (the innermost background verts from each corner) ---
-    int TL_bg_connector = TL + 3*tl_pts; 
-    int TR_bg_connector = TR + 3*tr_pts;
-    int BR_bg_connector = BR + 3*br_pts;
-    int BL_bg_connector = BL + 3*bl_pts;
+    int TL_bg_connector = TL + 3 * tl_pts; 
+    int TR_bg_connector = TR + 3 * tr_pts;
+    int BR_bg_connector = BR + 3 * br_pts;
+    int BL_bg_connector = BL + 3 * bl_pts;
 
     // --- Central quad (made of 2 triangles) ---
     indices[index_count++] = TL_bg_connector; 
@@ -394,15 +390,6 @@ void Draw_Varying_Rounded_Rect(
     indices[index_count++] = BL_bg_connector;
     indices[index_count++] = TL + tl_pts * 2;
     indices[index_count++] = TL_bg_connector;
-
-
-
-
-
-
-
-
-
 
 
 

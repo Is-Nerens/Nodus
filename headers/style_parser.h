@@ -500,13 +500,6 @@ static int AssertPropertyIdentifierGrammar(struct Vector* tokens, int i)
 
 
 
-struct Selector_Info {
-    char* class;
-    char* id;
-    int tag;
-    int index;
-};
-
 static int NU_Generate_Stylesheet(char* src_buffer, uint32_t src_length, struct Vector* tokens, struct NU_Stylesheet* ss, struct Vector* text_refs)
 {
     uint32_t text_index = 0;
@@ -515,7 +508,7 @@ static int NU_Generate_Stylesheet(char* src_buffer, uint32_t src_length, struct 
     struct NU_Stylesheet_Item item;
     item.property_flags = 0;
 
-    struct Selector_Info selectors[64];
+    uint32_t selector_indexes[64];
     int selector_count = 0;
 
     int i = 0;
@@ -539,11 +532,36 @@ static int NU_Generate_Stylesheet(char* src_buffer, uint32_t src_length, struct 
         {
             if (AssertSelectionClosingBraceGrammar(tokens, i)) {
                 for (int i=0; i<selector_count; i++) {
-                    struct Selector_Info* selector = &selectors[i];
-                    item.class = selector->class;
-                    item.id = selector->id;
-                    item.tag = selector->tag;
-                    Vector_Set(&ss->items, selector->index, &item); // update item
+                    uint32_t item_index = selector_indexes[i];
+                    struct NU_Stylesheet_Item* curr_item = Vector_Get(&ss->items, item_index);
+                    curr_item->property_flags |= item.property_flags;
+                    if (item.property_flags & (1 << 0)) curr_item->layout_flags = (curr_item->layout_flags & ~(1 << 0)) | (item.layout_flags & (1 << 0)); // Layout direction
+                    if (item.property_flags & (1 << 1)) curr_item->layout_flags = (curr_item->layout_flags & ~((1 << 1) | (1 << 2))) | (item.layout_flags & ((1 << 1) | (1 << 2)));
+                    if (item.property_flags & (1 << 2 )) curr_item->layout_flags = (curr_item->layout_flags & ~(1 << 3)) | (item.layout_flags & (1 << 3)); // Overflow vertical scroll (or not)
+                    if (item.property_flags & (1 << 3 )) curr_item->layout_flags = (curr_item->layout_flags & ~(1 << 4)) | (item.layout_flags & (1 << 4)); // Overflow horizontal scroll (or not)
+                    if (item.property_flags & (1 << 4 )) curr_item->gap = item.gap;
+                    if (item.property_flags & (1 << 5 )) curr_item->preferred_width = item.preferred_width;
+                    if (item.property_flags & (1 << 6 )) curr_item->min_width = item.min_width;
+                    if (item.property_flags & (1 << 7 )) curr_item->max_width = item.max_width;
+                    if (item.property_flags & (1 << 8 )) curr_item->preferred_height = item.preferred_height;
+                    if (item.property_flags & (1 << 9 )) curr_item->min_height = item.min_height;
+                    if (item.property_flags & (1 << 10)) curr_item->max_height = item.max_height;
+                    if (item.property_flags & (1 << 11)) curr_item->horizontal_alignment = item.horizontal_alignment;
+                    if (item.property_flags & (1 << 12)) curr_item->vertical_alignment = item.vertical_alignment;
+                    if (item.property_flags & (1 << 13)) memcpy(&curr_item->background_r, &item.background_r, 4); // Copy rgba
+                    if (item.property_flags & (1 << 14)) memcpy(&curr_item->border_r, &item.border_r, 4); // Copy rgba
+                    if (item.property_flags & (1 << 15)) curr_item->border_top = item.border_top; 
+                    if (item.property_flags & (1 << 16)) curr_item->border_bottom = item.border_bottom; 
+                    if (item.property_flags & (1 << 17)) curr_item->border_left = item.border_left; 
+                    if (item.property_flags & (1 << 18)) curr_item->border_right = item.border_right; 
+                    if (item.property_flags & (1 << 19)) curr_item->border_radius_tl = item.border_radius_tl; 
+                    if (item.property_flags & (1 << 20)) curr_item->border_radius_tr = item.border_radius_tr; 
+                    if (item.property_flags & (1 << 21)) curr_item->border_radius_bl = item.border_radius_bl; 
+                    if (item.property_flags & (1 << 22)) curr_item->border_radius_br = item.border_radius_br; 
+                    if (item.property_flags & (1 << 23)) curr_item->pad_top = item.pad_top; 
+                    if (item.property_flags & (1 << 24)) curr_item->pad_bottom = item.pad_bottom; 
+                    if (item.property_flags & (1 << 25)) curr_item->pad_left = item.pad_left; 
+                    if (item.property_flags & (1 << 26)) curr_item->pad_right = item.pad_right; 
                 }
                 selector_count = 0;
                 i += 1;
@@ -562,24 +580,19 @@ static int NU_Generate_Stylesheet(char* src_buffer, uint32_t src_length, struct 
                 int tag = token - 30;
                 void* found = Hashmap_Get(&ss->tag_item_hashmap, &tag);
                 if (found != NULL) { // Style item exists
-                    struct NU_Stylesheet_Item* found_item = Vector_Get(&ss->items, *(int*)found);
-                    struct Selector_Info selector;
-                    selector.class = NULL;
-                    selector.id = NULL;
-                    selector.tag = tag;
-                    selector.index = *(int*)found;
-                    selectors[selector_count] = selector;
-    
-                } else { // Style item does not exist -> add one
-                    struct NU_Stylesheet_Item temp_item;
-                    Vector_Push(&ss->items, &temp_item);
-                    struct Selector_Info selector;
-                    selector.class = NULL;
-                    selector.id = NULL;
-                    selector.tag = tag;
-                    selector.index = ss->items.size - 1;
-                    selectors[selector_count] = selector;
-                    Hashmap_Set(&ss->tag_item_hashmap, &tag, &selector.index); // Store item index
+                    struct NU_Stylesheet_Item* found_item = Vector_Get(&ss->items, *(uint32_t*)found);
+                    selector_indexes[selector_count] = *(uint32_t*)found;
+                } 
+                else // Style item does not exist -> add one
+                { 
+                    struct NU_Stylesheet_Item new_item;
+                    new_item.class = NULL;
+                    new_item.id = NULL;
+                    new_item.tag = tag;
+                    new_item.property_flags = 0;
+                    Vector_Push(&ss->items, &new_item);
+                    selector_indexes[selector_count] = (uint32_t)(ss->items.size - 1);
+                    Hashmap_Set(&ss->tag_item_hashmap, &tag, &selector_indexes[selector_count]); // Store item index
                 }
 
                 selector_count++;
@@ -604,24 +617,19 @@ static int NU_Generate_Stylesheet(char* src_buffer, uint32_t src_length, struct 
                 // If style item exists
                 void* found = sHashmap_Find(&ss->class_item_hashmap, class);
                 if (found != NULL) {
-                    struct NU_Stylesheet_Item* found_item = Vector_Get(&ss->items, *(int*)found);
-                    struct Selector_Info selector;
-                    selector.class = found_item->class;
-                    selector.id = NULL;
-                    selector.tag = -1;
-                    selector.index = *(int*)found;
-                    selectors[selector_count] = selector;
-                } else { // does not exist -> add item and class
-
-                    struct NU_Stylesheet_Item temp_item;
-                    Vector_Push(&ss->items, &temp_item);
-                    struct Selector_Info selector;
-                    selector.class = String_Set_Get(&ss->class_string_set, class);
-                    selector.id = NULL;
-                    selector.tag = -1;
-                    selector.index = ss->items.size - 1;
-                    selectors[selector_count] = selector;
-                    sHashmap_Add(&ss->class_item_hashmap, class, &selector.index); // Store item index
+                    struct NU_Stylesheet_Item* found_item = Vector_Get(&ss->items, *(uint32_t*)found);
+                    selector_indexes[selector_count] = *(uint32_t*)found;
+                } 
+                else // does not exist -> add item and class
+                { 
+                    struct NU_Stylesheet_Item new_item;
+                    new_item.class = String_Set_Get(&ss->class_string_set, class);
+                    new_item.id = NULL;
+                    new_item.tag = -1;
+                    new_item.property_flags = 0;
+                    Vector_Push(&ss->items, &new_item);
+                    selector_indexes[selector_count] = (uint32_t)(ss->items.size - 1);
+                    sHashmap_Add(&ss->class_item_hashmap, class, &selector_indexes[selector_count]); // Store item index
                 }
 
                 selector_count++;
@@ -647,23 +655,19 @@ static int NU_Generate_Stylesheet(char* src_buffer, uint32_t src_length, struct 
                 // If style item exists
                 void* found = sHashmap_Find(&ss->id_item_hashmap, id);
                 if (found != NULL) {
-                    struct NU_Stylesheet_Item* found_item = Vector_Get(&ss->items, *(int*)found);
-                    struct Selector_Info selector;
-                    selector.class = NULL;
-                    selector.id = found_item->id;
-                    selector.tag = -1;
-                    selector.index = *(int*)found;
-                    selectors[selector_count] = selector;
-                } else { // does not exist -> add item
-                    struct NU_Stylesheet_Item temp_item;
-                    Vector_Push(&ss->items, &temp_item);
-                    struct Selector_Info selector;
-                    selector.class = NULL;
-                    selector.id = String_Set_Get(&ss->id_string_set, id);
-                    selector.tag = -1;
-                    selector.index = ss->items.size - 1;
-                    selectors[selector_count] = selector;
-                    sHashmap_Add(&ss->id_item_hashmap, id, &selector.index); // Store item index
+                    struct NU_Stylesheet_Item* found_item = Vector_Get(&ss->items, *(uint32_t*)found);
+                    selector_indexes[selector_count] = *(uint32_t*)found;
+                } 
+                else // does not exist -> add item
+                { 
+                    struct NU_Stylesheet_Item new_item;
+                    new_item.class = NULL;
+                    new_item.id = String_Set_Get(&ss->id_string_set, id);
+                    new_item.tag = -1;
+                    new_item.property_flags = 0;
+                    Vector_Push(&ss->items, &new_item);
+                    selector_indexes[selector_count] = (uint32_t)(ss->items.size - 1);
+                    sHashmap_Add(&ss->id_item_hashmap, id, &selector_indexes[selector_count]); // Store item index
                 }
 
                 selector_count++;
@@ -745,43 +749,43 @@ static int NU_Generate_Stylesheet(char* src_buffer, uint32_t src_length, struct 
                     
                     // Set gap
                     case STYLE_GAP_PROPERTY:
-                        if (String_To_Float(&item.gap, text) == 0)
+                        if (String_To_Float(&item.gap, text)) 
                             item.property_flags |= 1 << 4;
                         break;
 
                     // Set preferred width
                     case STYLE_WIDTH_PROPERTY:
-                        if (String_To_Float(&item.preferred_width, text) == 0)
+                        if (String_To_Float(&item.preferred_width, text))
                             item.property_flags |= 1 << 5;
                         break;
 
                     // Set min width
                     case STYLE_MIN_WIDTH_PROPERTY:
-                        if (String_To_Float(&item.min_width, text) == 0)
+                        if (String_To_Float(&item.min_width, text))
                             item.property_flags |= 1 << 6;
                         break;
                     
                     // Set max width
                     case STYLE_MAX_WIDTH_PROPERTY:
-                        if (String_To_Float(&item.max_width, text) == 0)
+                        if (String_To_Float(&item.max_width, text))
                             item.property_flags |= 1 << 7;
                         break;
 
                     // Set preferred height
                     case STYLE_HEIGHT_PROPERTY:
-                        if (String_To_Float(&item.preferred_height, text) == 0) 
+                        if (String_To_Float(&item.preferred_height, text)) 
                             item.property_flags |= 1 << 8;
                         break;
 
                     // Set min height
                     case STYLE_MIN_HEIGHT_PROPERTY:
-                        if (String_To_Float(&item.min_height, text) == 0) 
+                        if (String_To_Float(&item.min_height, text)) 
                             item.property_flags |= 1 << 9;
                         break;
 
                     // Set max height
                     case STYLE_MAX_HEIGHT_PROPERTY:
-                        if (String_To_Float(&item.max_height, text) == 0) 
+                        if (String_To_Float(&item.max_height, text)) 
                             item.property_flags |= 1 << 10;
                         break;
 

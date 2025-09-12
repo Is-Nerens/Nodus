@@ -24,5 +24,6 @@ clang -std=c99 main.c `
 -L"$cairoLib" `
 -L"$freetypeLib" `
 -lglew32 -lSDL3 -lopengl32 -lgdi32 -lfreetype -lcairo `
--o build/app.exe -Wno-deprecated-declarations
+-o build/app.exe -Wno-deprecated-declarations `
+
 

@@ -12,7 +12,7 @@
 // keys can be added in a linear fashion
 struct sHashmap 
 {
-    uint8_t* map; 
+    uint8_t* occupancy; 
     char* keybuffer; // text arena of keys
     char** keys; // partitions the key buffer into individual strings
     void* data; // packed vector of underlying data
@@ -26,14 +26,19 @@ struct sHashmap
 
 void sHashmap_Init(struct sHashmap* shmap, uint32_t item_size, uint32_t item_capacity)
 {
-    shmap->capacity = max(10, item_capacity * 2); // map array
-    shmap->map = calloc(shmap->capacity, 1);
+    
+    shmap->capacity = max(10, item_capacity * 2);
+
+    // Compute number of occupancy bytes
+    uint32_t occupancy_remainder = shmap->capacity & 7; // capacity % 8
+    uint32_t occupancy_bytes = shmap->capacity >> 3; // capacity / 8
+    if (occupancy_remainder != 0) occupancy_bytes += 1;
+    shmap->occupancy = calloc(occupancy_bytes, 1); 
 
     shmap->keybuffer_capacity = max(10, item_capacity) * 12; // expecting ~12 chars per key
     shmap->keybuffer_end = 0;
     shmap->keybuffer = malloc(shmap->keybuffer_capacity);
     shmap->keys = malloc(shmap->capacity * sizeof(char*));
-
     shmap->item_size = item_size;
     shmap->item_count = 0;
     shmap->max_probes = 0;
@@ -42,7 +47,7 @@ void sHashmap_Init(struct sHashmap* shmap, uint32_t item_size, uint32_t item_cap
 
 void sHashmap_Free(struct sHashmap* shmap)
 {
-    free(shmap->map);
+    free(shmap->occupancy);
     free(shmap->keybuffer);
     free(shmap->keys);
     free(shmap->data);
@@ -70,8 +75,11 @@ static void sHashmap_add(struct sHashmap* shmap, char* key, void* value)
     uint32_t hash = Hash_String(key);
     while (probes < shmap->capacity) {
         uint32_t i = (hash + probes) % shmap->capacity;
-        if (shmap->map[i] == 0) { // found empty slot
-            shmap->map[i] = 1; // mark used
+        uint32_t rem = i & 7; // i % 8
+        uint32_t occupancy_index = i >> 3; // i / 8
+
+        if (!(shmap->occupancy[occupancy_index] & (uint8_t)(1 << rem))) { // Found empty slot
+            shmap->occupancy[occupancy_index] |= (uint8_t)(1 << rem); // Mark occupied
 
             // set key
             size_t key_len = strlen(key) + 1; // +1 for '\0'
@@ -95,13 +103,16 @@ static void sHashmap_add(struct sHashmap* shmap, char* key, void* value)
 static void sHashmap_Resize(struct sHashmap* shmap)
 {
     uint32_t old_capacity = shmap->capacity;
-    uint8_t* old_map = shmap->map;
+    uint8_t* old_occupancy = shmap->occupancy;
     char** old_keys = shmap->keys;
     char* old_data = (char*)shmap->data;
 
     // Double capacity
     shmap->capacity *= 2;
-    shmap->map = calloc(shmap->capacity, 1);
+    uint32_t occupancy_remainder = shmap->capacity & 7; // hmap->capacity % 8
+    uint32_t occupancy_bytes = shmap->capacity >> 3; // hmap->capacity / 8
+    if (occupancy_remainder != 0) occupancy_bytes += 1;
+    shmap->occupancy = calloc(occupancy_bytes, 1);
     shmap->keys = malloc(shmap->capacity * sizeof(char*));
     shmap->data = malloc(shmap->capacity * shmap->item_size);
     shmap->max_probes = 0;
@@ -109,7 +120,9 @@ static void sHashmap_Resize(struct sHashmap* shmap)
 
     // Re-insert all old items
     for (uint32_t i=0; i<old_capacity; i++) {
-        if (old_map[i] == 1) {
+        uint32_t rem = i & 7; // i % 8
+        uint32_t occupancy_index = i >> 3; // i / 8
+        if (old_occupancy[occupancy_index] & (1u << rem)) {
             void* value = old_data + i * shmap->item_size;
             char* key = old_keys[i];
 
@@ -118,7 +131,7 @@ static void sHashmap_Resize(struct sHashmap* shmap)
         }
     }
 
-    free(old_map);
+    free(old_occupancy);
     free(old_keys);
     free(old_data);
 }
@@ -142,8 +155,11 @@ void sHashmap_Add(struct sHashmap* shmap, char* key, void* value)
     uint32_t hash = Hash_String(key);
     while (probes < shmap->capacity) {
         uint32_t i = (hash + probes) % shmap->capacity;
-        if (shmap->map[i] == 0) { // found empty slot
-            shmap->map[i] = 1; // mark used
+        uint32_t rem = i & 7; // i % 8
+        uint32_t occupancy_index = i >> 3; // i / 8
+
+        if (!(shmap->occupancy[occupancy_index] & (1u << rem))) { // Found empty slot
+            shmap->occupancy[occupancy_index] |= (uint8_t)(1 << rem); // Mark occupied
 
             // set key
             size_t key_len = strlen(key) + 1; // +1 for '\0'
@@ -171,7 +187,10 @@ void* sHashmap_Find(struct sHashmap* shmap, char* key)
     uint32_t max_searches = min(shmap->capacity, shmap->max_probes + 1);
     while (probes < max_searches) {
         uint32_t i = (hash + probes) % shmap->capacity;
-        if (shmap->map[i] == 1) { // found used
+        uint32_t rem = i & 7; // i % 8
+        uint32_t occupancy_index = i >> 3; // i / 8
+
+        if (shmap->occupancy[occupancy_index] & (1u << rem)) { // Found item
 
             // check if key matches
             char* item_key = shmap->keys[i];
@@ -200,7 +219,7 @@ void* sHashmap_Find(struct sHashmap* shmap, char* key)
 
 struct Hashmap
 {
-    uint8_t* presence;
+    uint8_t* occupancy;
     void* data;
     uint32_t key_size;
     uint32_t item_size;
@@ -224,12 +243,12 @@ void Hashmap_Init(struct Hashmap* hmap, uint32_t key_size, uint32_t item_size, u
 {
     capacity = max(capacity, 2);
 
-    // Compute number of presence bytes
-    uint32_t presence_remainder = capacity % 8;
-    uint32_t presence_bytes = capacity / 8;
-    if (presence_remainder != 0) presence_bytes += 1;
+    // Compute number of occupancy bytes
+    uint32_t occupancy_remainder = capacity & 7; // capacity % 8
+    uint32_t occupancy_bytes = capacity >> 3; // capacity / 8
+    if (occupancy_remainder != 0) occupancy_bytes += 1;
 
-    hmap->presence = calloc(presence_bytes, 1); 
+    hmap->occupancy = calloc(occupancy_bytes, 1); 
     hmap->data = malloc((key_size + item_size) * capacity);
     hmap->key_size = key_size;
     hmap->item_size = item_size;
@@ -243,10 +262,10 @@ static void Hashmap_Resize_Readd(struct Hashmap* hmap, void* key, void* value)
     while (probes < hmap->capacity) {
         uint32_t i = (hash + probes) % hmap->capacity;
         uint32_t rem = i & 7; // i % 8
-        uint32_t presence_index = i >> 3; // i / 8
+        uint32_t occupancy_index = i >> 3; // i / 8
 
-        if (!(hmap->presence[presence_index] & (uint8_t)(1 << rem))) { // Found empty slot
-            hmap->presence[presence_index] |= (uint8_t)(1 << rem); // Mark occupied
+        if (!(hmap->occupancy[occupancy_index] & (uint8_t)(1 << rem))) { // Found empty slot
+            hmap->occupancy[occupancy_index] |= (uint8_t)(1 << rem); // Mark occupied
 
             // --- Set key and data ---
             char* base = (char*)hmap->data + i * (hmap->key_size + hmap->item_size);
@@ -264,15 +283,15 @@ static void Hashmap_Resize_Readd(struct Hashmap* hmap, void* key, void* value)
 void Hashmap_Resize(struct Hashmap* hmap)
 {
     uint32_t old_capacity = hmap->capacity;
-    uint8_t* old_presence = hmap->presence;
+    uint8_t* old_occupancy = hmap->occupancy;
     void* old_data = hmap->data;
 
     // Resize
     hmap->capacity *= 2;
-    uint32_t presence_remainder = hmap->capacity & 7; // hmap->capacity % 8
-    uint32_t presence_bytes = hmap->capacity >> 3; // hmap->capacity / 8
-    if (presence_remainder != 0) presence_bytes += 1;
-    hmap->presence = calloc(presence_bytes, 1);
+    uint32_t occupancy_remainder = hmap->capacity & 7; // hmap->capacity % 8
+    uint32_t occupancy_bytes = hmap->capacity >> 3; // hmap->capacity / 8
+    if (occupancy_remainder != 0) occupancy_bytes += 1;
+    hmap->occupancy = calloc(occupancy_bytes, 1);
     hmap->data = malloc(hmap->capacity * (hmap->key_size + hmap->item_size));
     hmap->max_probes = 0;
     hmap->item_count = 0;
@@ -280,8 +299,8 @@ void Hashmap_Resize(struct Hashmap* hmap)
     // Re-insert all old items
     for (uint32_t i=0; i<old_capacity; i++) {
         uint32_t rem = i & 7; // i % 8
-        uint32_t presence_index = i >> 3; // i / 8
-        if (old_presence[presence_index] & (1u << rem)) // Found item
+        uint32_t occupancy_index = i >> 3; // i / 8
+        if (old_occupancy[occupancy_index] & (1u << rem)) // Found item
         { 
             char* base = (char*)old_data + i * (hmap->key_size + hmap->item_size);
             void* key = base;
@@ -290,7 +309,7 @@ void Hashmap_Resize(struct Hashmap* hmap)
         }
     }
 
-    free(old_presence);
+    free(old_occupancy);
     free(old_data);
 }
 
@@ -302,9 +321,9 @@ int Hashmap_Contains(struct Hashmap* hmap, void* key)
     while (probes < max_probes) {
         uint32_t i = (hash + probes) % hmap->capacity;
         uint32_t rem = i & 7; // i % 8
-        uint32_t presence_index = i >> 3; // i / 8
+        uint32_t occupancy_index = i >> 3; // i / 8
 
-        if (hmap->presence[presence_index] & (1u << rem)) { // Found item
+        if (hmap->occupancy[occupancy_index] & (1u << rem)) { // Found item
             
             // Check if key matches
             void* check_key = hmap->data + i * (hmap->key_size + hmap->item_size);
@@ -328,9 +347,9 @@ void* Hashmap_Get(struct Hashmap* hmap, void* key)
     while (probes < max_probes) {
         uint32_t i = (hash + probes) % hmap->capacity;
         uint32_t rem = i & 7; // i % 8
-        uint32_t presence_index = i >> 3; // i / 8
+        uint32_t occupancy_index = i >> 3; // i / 8
 
-        if (hmap->presence[presence_index] & (1u << rem)) { // Found item
+        if (hmap->occupancy[occupancy_index] & (1u << rem)) { // Found item
             
             // Check if key matches
             void* check_key = hmap->data + i * (hmap->key_size + hmap->item_size);
@@ -359,10 +378,10 @@ void Hashmap_Set(struct Hashmap* hmap, void* key, void* value)
     while (probes < hmap->capacity) {
         uint32_t i = (hash + probes) % hmap->capacity;
         uint32_t rem = i & 7; // i % 8
-        uint32_t presence_index = i >> 3; // i / 8
+        uint32_t occupancy_index = i >> 3; // i / 8
 
-        if (!(hmap->presence[presence_index] & (1u << rem))) { // Found empty slot
-            hmap->presence[presence_index] |= (uint8_t)(1 << rem); // Mark occupied
+        if (!(hmap->occupancy[occupancy_index] & (1u << rem))) { // Found empty slot
+            hmap->occupancy[occupancy_index] |= (uint8_t)(1 << rem); // Mark occupied
             
             // --- Set key and data ---
             char* base = (char*)hmap->data + i * (hmap->key_size + hmap->item_size);
@@ -377,7 +396,7 @@ void Hashmap_Set(struct Hashmap* hmap, void* key, void* value)
     hmap->max_probes = max(hmap->max_probes, probes);
 }
 
-void Hashmap_Delete(struct Hashmap* hmap, void* key, void* value)
+void Hashmap_Delete(struct Hashmap* hmap, void* key)
 {
     uint32_t probes = 0;
     uint32_t hash = Hash_Generic(key, hmap->key_size);
@@ -387,15 +406,15 @@ void Hashmap_Delete(struct Hashmap* hmap, void* key, void* value)
     while (probes < max_probes) {
         uint32_t i = (hash + probes) % hmap->capacity;
         uint32_t rem = i & 7; // i % 8
-        uint32_t presence_index = i >> 3; // i / 8
-        uint8_t is_present = hmap->presence[presence_index] & (1u << rem);
+        uint32_t occupancy_index = i >> 3; // i / 8
+        uint8_t is_present = hmap->occupancy[occupancy_index] & (1u << rem);
 
         if (found_index == -1 && is_present) { // Found item
             
             // Check if key matches
             void* check_key = hmap->data + i * (hmap->key_size + hmap->item_size);
             if (memcmp(check_key, key, hmap->key_size) == 0) { // Found correct item -> delete
-                hmap->presence[presence_index] &= ~(1u << rem); // Mark as free
+                hmap->occupancy[occupancy_index] &= ~(1u << rem); // Mark as free
                 found_index = (int)i;
                 hmap->item_count--;
             }
@@ -412,14 +431,14 @@ void Hashmap_Delete(struct Hashmap* hmap, void* key, void* value)
             { 
                 // Backfill data and exit
                 uint32_t rem_from = last_collision_match & 7;
-                uint32_t presence_index_from = last_collision_match >> 3;
+                uint32_t occupancy_index_from = last_collision_match >> 3;
                 uint32_t rem_to = found_index & 7;
-                uint32_t presence_index_to = found_index >> 3;
+                uint32_t occupancy_index_to = found_index >> 3;
                 memcpy((char*)hmap->data + found_index * (hmap->key_size + hmap->item_size),
                     (char*)hmap->data + last_collision_match * (hmap->key_size + hmap->item_size),
                     hmap->key_size + hmap->item_size);
-                hmap->presence[presence_index_from] &= ~(1u << rem_from); // old slot free
-                hmap->presence[presence_index_to] |= (1u << rem_to); 
+                hmap->occupancy[occupancy_index_from] &= ~(1u << rem_from); // old slot free
+                hmap->occupancy[occupancy_index_to] |= (1u << rem_to); 
                 return;
             }
         }
@@ -429,16 +448,22 @@ void Hashmap_Delete(struct Hashmap* hmap, void* key, void* value)
 
             // Backfill data and exit
             uint32_t rem_from = last_collision_match & 7;
-            uint32_t presence_index_from = last_collision_match >> 3;
+            uint32_t occupancy_index_from = last_collision_match >> 3;
             uint32_t rem_to = found_index & 7;
-            uint32_t presence_index_to = found_index >> 3;
+            uint32_t occupancy_index_to = found_index >> 3;
             memcpy((char*)hmap->data + found_index * (hmap->key_size + hmap->item_size),
                 (char*)hmap->data + last_collision_match * (hmap->key_size + hmap->item_size),
                 hmap->key_size + hmap->item_size);
-            hmap->presence[presence_index_from] &= ~(1u << rem_from); // old slot free
-            hmap->presence[presence_index_to] |= (1u << rem_to); 
+            hmap->occupancy[occupancy_index_from] &= ~(1u << rem_from); // old slot free
+            hmap->occupancy[occupancy_index_to] |= (1u << rem_to); 
             return;
         }
         probes++;
     }
+}
+
+void Hashmap_Free(struct Hashmap* hmap)
+{
+    free(hmap->occupancy);
+    free(hmap->data);
 }

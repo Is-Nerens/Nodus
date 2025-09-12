@@ -1,5 +1,6 @@
 #include <x86intrin.h>  
 #include <time.h>
+#include <stdio.h>
 
 unsigned long long _PERFORMANCE_start_cycles;
 static clock_t _PERFORMANCE_start_time;

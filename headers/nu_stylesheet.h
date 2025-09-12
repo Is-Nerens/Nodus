@@ -41,9 +41,9 @@ void NU_Stylesheet_Init(struct NU_Stylesheet* ss)
     Vector_Reserve(&ss->items, sizeof(struct NU_Stylesheet_Item), 500);
     String_Set_Init(&ss->class_string_set, 10000, 100, 100);
     String_Set_Init(&ss->id_string_set, 4000, 40, 40);
-    sHashmap_Init(&ss->class_item_hashmap, sizeof(int), 100);
-    sHashmap_Init(&ss->id_item_hashmap, sizeof(int), 100);
-    Hashmap_Init(&ss->tag_item_hashmap, sizeof(int), sizeof(int), 20);
+    sHashmap_Init(&ss->class_item_hashmap, sizeof(uint32_t), 100);
+    sHashmap_Init(&ss->id_item_hashmap, sizeof(uint32_t), 100);
+    Hashmap_Init(&ss->tag_item_hashmap, sizeof(int), sizeof(uint32_t), 20);
 }
 
 void NU_Stylesheet_Free(struct NU_Stylesheet* ss)
@@ -51,4 +51,7 @@ void NU_Stylesheet_Free(struct NU_Stylesheet* ss)
     Vector_Free(&ss->items);
     String_Set_Free(&ss->class_string_set);
     String_Set_Free(&ss->id_string_set);
+    sHashmap_Free(&ss->class_item_hashmap);
+    sHashmap_Free(&ss->id_item_hashmap);
+    Hashmap_Free(&ss->tag_item_hashmap);
 }

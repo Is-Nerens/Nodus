@@ -196,13 +196,9 @@ static void NU_Calculate_Fit_Size_Widths(struct UI_Tree* ui_tree)
                 if (child->tag == WINDOW) {
                     if (is_layout_horizontal) content_width -= parent->gap + child->width;
                 }   
-
-                // Dont' accumulate if parent is a window
                 if (is_layout_horizontal) { // Horizontal Layout
                     content_width += child->width;
-                }
-
-                if (!is_layout_horizontal) { // Vertical Layout
+                } else { // Vertical Layout
                     content_width = MAX(content_width, child->width);
                 }
             }
@@ -231,7 +227,7 @@ static void NU_Calculate_Fit_Size_Heights(struct UI_Tree* ui_tree)
         for (int p=0; p<parent_layer->size; p++)
         {   
             struct Node* parent = Vector_Get(parent_layer, p);
-            int is_layout_horizontal = (parent->layout_flags & 0x01) == LAYOUT_HORIZONTAL;
+            int is_layout_horizontal = !(parent->layout_flags & LAYOUT_VERTICAL);
 
             if (parent->child_count == 0) {
                 continue; // Skip acummulating child sizes (no children)
@@ -248,13 +244,9 @@ static void NU_Calculate_Fit_Size_Heights(struct UI_Tree* ui_tree)
                 if (child->tag == WINDOW) {
                     if (!is_layout_horizontal) content_height -= parent->gap + child->height;
                 }   
-
-                // Dont' accumulate if parent is a window
                 if (is_layout_horizontal) { // Horizontal Layout
                     content_height = MAX(content_height, child->height);
-                }
-
-                if (!is_layout_horizontal) { // Vertical Layout
+                } else { // Vertical Layout
                     content_height += child->height;
                 }
             }
@@ -402,8 +394,8 @@ static void NU_Grow_Shrink_Child_Node_Heights(struct Node* parent, struct Vector
         {
             struct Node* child = Vector_Get(child_layer, i);
             if (child->layout_flags & GROW_VERTICAL)
-            {
-                child->height = remaining_height; 
+            {   
+                child->height = remaining_height;
                 child->height = min(child->height, child->max_height);
                 child->height = max(child->height, child->min_height);
             }
@@ -422,43 +414,44 @@ static void NU_Grow_Shrink_Child_Node_Heights(struct Node* parent, struct Vector
         remaining_height -= (parent->child_count - 1) * parent->gap;
         if (growable_count == 0) return;
 
-        while (remaining_height > 0.001f)
+        while (remaining_height > 0.01f)
         {
             // Find smallest and second smallest
             float smallest = 1e20f;
-            for (int i = parent->first_child_index; i < parent->first_child_index + parent->child_count; i++) {
+            float second_smallest = 1e30f;
+            growable_count = 0;
+            for (int i=parent->first_child_index; i< parent->first_child_index + parent->child_count; i++) {
                 struct Node* child = Vector_Get(child_layer, i);
-                if ((child->layout_flags & GROW_VERTICAL) && child->tag != WINDOW) {
-                    smallest = child->height;
-                    break;
-                }
-            }
-            float second_smallest = 1e200;
-            float height_to_add = remaining_height;
-            for (int i=parent->first_child_index; i<parent->first_child_index + parent->child_count; i++) {
-                struct Node* child = Vector_Get(child_layer, i);
-                if (child->layout_flags & GROW_VERTICAL && child->tag != WINDOW) {
+                if ((child->layout_flags & GROW_VERTICAL) && child->tag != WINDOW && child->height < child->max_height) {
+                    growable_count++;
                     if (child->height < smallest) {
                         second_smallest = smallest;
                         smallest = child->height;
-                    }
-                    else if (child->height > smallest) {
-                        second_smallest = min(child->height, second_smallest);
-                        height_to_add = second_smallest - smallest;
+                    } else if (child->height < second_smallest) {
+                        second_smallest = child->height;
                     }
                 }
             }
-            height_to_add = min(height_to_add, remaining_height / growable_count);
+            
+            // Calculate height to add
+            float height_to_add = remaining_height / (float)growable_count;
+            if (second_smallest > smallest) { 
+                height_to_add = min(height_to_add, second_smallest - smallest);
+            }
 
             // for each child
             bool grew_any = false;
             for (int i=parent->first_child_index; i<parent->first_child_index + parent->child_count; i++) {
                 struct Node* child = Vector_Get(child_layer, i);
-                if (child->layout_flags & GROW_VERTICAL && child->tag != WINDOW) { // if child is growable
+                if (child->layout_flags & GROW_VERTICAL && child->tag != WINDOW && child->height < child->max_height) { // if child is growable
                     if (child->height == smallest) {
-                        child->height += height_to_add;
-                        remaining_height -= height_to_add;
-                        grew_any = true;
+                        float available = child->max_height - child->height;
+                        float grow = min(height_to_add, available);
+                        if (grow > 0.0f) {
+                            child->height += grow;
+                            remaining_height -= grow;
+                            grew_any = true;
+                        }
                     }
                 }
             }

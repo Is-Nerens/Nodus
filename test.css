@@ -1,30 +1,96 @@
-button, .bing-chilling {
-    background: #020730;
-    borderColour: #f0f0f0;
+button {
+    background: #000000;
+    borderColour: #434f7d;
     pad: 10;
     height: 1000;
     borderRadius: 5;
     borderRadius: 5;
-    gap: 5;
+    gap: 3;
 }
-.chart {
-    background: #969696;
-}
-rect {
-    borderColour: #af7431;
-    background: #1b1742;
-    borderTop: 10;
-    borderBottom: 1;
-    borderLeft: 3;
-    pad: 3;
-    gap: 5;
-}
-#win {
 
+#toolbar {
+    pad: 5;
+    gap: 3;
+    borderRadius: 5;
+    background: #22273b;
+    borderColour: #000000;
+}
+.toolbar-info {
+    border: 1;
+    borderColour: #7d6443;
+    borderRadius: 5;
+    borderRadius: 5;
+    pad: 10;
+}
+#symbol-search {
+    border: 1;
+    borderColour: #272727;
+    pad: 5;
+    borderRadius: 5;
+    borderRadius: 5;
+}
+.watchlist-item {
+    border: 1;
+    borderColour: #272727;
+    pad: 5;
+    borderRadius: 5;
+    borderRadius: 5;
+    gap: 3;
+    grow: h;
+}
+.hspacer {
+    grow: h;
+}
+#chart-container {
+    dir: h;
+    grow: b;
+}
+#chart {
+    background: #969696;
+    grow: b;
+    borderRadius: 5;
+    borderColour: #000000;
+}
+#drawing-toolbar {
+    dir: v;
+    grow: v;
+    alignH: center;
+    pad: 5;
+    padRight: 0;
+    gap: 2;
+}
+#trade-history {
+    background: #161925;
+    maxHeight: 300;
+    grow: b;
+    borderRadius: 5;  
+}
+#trade-history-toolbar {
+    borderBottom: 2;
+    borderRadiusTopLeft: 8; 
+    borderRadiusTopRight: 8; 
+    borderColour: #000000;
+    background: #292d41;
+    grow: h;
+    pad: 5;
+    gap: 3;
 }
 window {
-    background: #bd0606;
-    pad: 20;
+    background: #000000;
+    pad: 5;
+    gap: 3;
+}
+#sidebar {
+    background: #151823;
+    borderColour: #000000;
+    pad: 5;
+    gap: 2;
+    borderRadius: 5;
+}
+#rightbar {
+    dir: v;
+    grow: b;
+    gap: 3;
 }
 .bing {
 

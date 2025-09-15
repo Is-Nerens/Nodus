@@ -35,7 +35,7 @@ static const uint8_t style_keyword_lengths[] = {
     3, 4, 9, 9, 3, 5, 8, 8, 6, 9, 9, 6, 6, 10, 12,
     6, 9, 12, 10, 11,      // border width
     12, 19, 20, 22, 23,    // border radius
-    3, 6, 9, 7, 11,        // padding
+    3, 6, 9, 7, 8,        // padding
     6, 4, 6, 4, 4, 5       // selectors
 };
 enum NU_Style_Token 
@@ -520,6 +520,7 @@ static int NU_Generate_Stylesheet(char* src_buffer, uint32_t src_length, struct 
         {
             if (AssertSelectionOpeningBraceGrammar(tokens, i)) {
                 item.property_flags = 0;
+                item.layout_flags = 0;
                 i += 1;
                 continue;
             } 
@@ -535,8 +536,8 @@ static int NU_Generate_Stylesheet(char* src_buffer, uint32_t src_length, struct 
                     uint32_t item_index = selector_indexes[i];
                     struct NU_Stylesheet_Item* curr_item = Vector_Get(&ss->items, item_index);
                     curr_item->property_flags |= item.property_flags;
-                    if (item.property_flags & (1 << 0)) curr_item->layout_flags = (curr_item->layout_flags & ~(1 << 0)) | (item.layout_flags & (1 << 0)); // Layout direction
-                    if (item.property_flags & (1 << 1)) curr_item->layout_flags = (curr_item->layout_flags & ~((1 << 1) | (1 << 2))) | (item.layout_flags & ((1 << 1) | (1 << 2)));
+                    if (item.property_flags & (1 << 0) ) curr_item->layout_flags = (curr_item->layout_flags & ~(1 << 0)) | (item.layout_flags & (1 << 0)); // Layout direction
+                    if (item.property_flags & (1 << 1) ) curr_item->layout_flags = (curr_item->layout_flags & ~((1 << 1) | (1 << 2))) | (item.layout_flags & ((1 << 1) | (1 << 2))); // Grow
                     if (item.property_flags & (1 << 2 )) curr_item->layout_flags = (curr_item->layout_flags & ~(1 << 3)) | (item.layout_flags & (1 << 3)); // Overflow vertical scroll (or not)
                     if (item.property_flags & (1 << 3 )) curr_item->layout_flags = (curr_item->layout_flags & ~(1 << 4)) | (item.layout_flags & (1 << 4)); // Overflow horizontal scroll (or not)
                     if (item.property_flags & (1 << 4 )) curr_item->gap = item.gap;
@@ -1003,88 +1004,88 @@ static void NU_Apply_Stylesheet_To_Node(struct Node* node, struct NU_Stylesheet*
         i += 1;
 
         // --- Apply style ---
-        if (item->property_flags & (1 << 0)) node->layout_flags = (node->layout_flags & ~(1 << 0)) | (item->layout_flags & (1 << 0)); // Layout direction
-        if (item->property_flags & (1 << 1)) {
+        if (item->property_flags & (1 << 0) && !(node->inline_style_flags & (1 << 0))) node->layout_flags = (node->layout_flags & ~(1 << 0)) | (item->layout_flags & (1 << 0)); // Layout direction
+        if (item->property_flags & (1 << 1) && !(node->inline_style_flags & (1 << 1))) {
             node->layout_flags = (node->layout_flags & ~(1 << 1)) | (item->layout_flags & (1 << 1)); // Grow horizontal
             node->layout_flags = (node->layout_flags & ~(1 << 2)) | (item->layout_flags & (1 << 2)); // Grow vertical
         }
-        if (item->property_flags & (1 << 2)) {
+        if (item->property_flags & (1 << 2) && !(node->inline_style_flags & (1 << 2))) {
             node->layout_flags = (node->layout_flags & ~(1 << 3)) | (item->layout_flags & (1 << 3)); // Overflow vertical scroll (or not)
         }
-        if (item->property_flags & (1 << 3)) {
+        if (item->property_flags & (1 << 3) && !(node->inline_style_flags & (1 << 3))) {
             node->layout_flags = (node->layout_flags & ~(1 << 4)) | (item->layout_flags & (1 << 4)); // Overflow horizontal scroll (or not)
         }
-        if (item->property_flags & (1 << 4)) {
+        if (item->property_flags & (1 << 4) && !(node->inline_style_flags & (1 << 4))) {
             node->gap = item->gap;
         }
-        if (item->property_flags & (1 << 5)) {
+        if (item->property_flags & (1 << 5) && !(node->inline_style_flags & (1 << 5))) {
             node->preferred_width = item->preferred_width;
         }
-        if (item->property_flags & (1 << 6)) {
+        if (item->property_flags & (1 << 6) && !(node->inline_style_flags & (1 << 6))) {
             node->min_width = item->min_width;
         }
-        if (item->property_flags & (1 << 7)) {
+        if (item->property_flags & (1 << 7) && !(node->inline_style_flags & (1 << 7))) {
             node->max_width = item->max_width;
         }
-        if (item->property_flags & (1 << 8)) {
+        if (item->property_flags & (1 << 8) && !(node->inline_style_flags & (1 << 8))) {
             node->preferred_height = item->preferred_height;
         }
-        if (item->property_flags & (1 << 9)) {
+        if (item->property_flags & (1 << 9) && !(node->inline_style_flags & (1 << 9))) {
             node->min_height = item->min_height;
         }
-        if (item->property_flags & (1 << 10)) {
+        if (item->property_flags & (1 << 10) && !(node->inline_style_flags & (1 << 10))) {
             node->max_height = item->max_height;
         }
-        if (item->property_flags & (1 << 11)) {
+        if (item->property_flags & (1 << 11) && !(node->inline_style_flags & (1 << 11))) {
             node->horizontal_alignment = item->horizontal_alignment;
         }
-        if (item->property_flags & (1 << 12)) {
+        if (item->property_flags & (1 << 12) && !(node->inline_style_flags & (1 << 12))) {
             node->vertical_alignment = item->vertical_alignment;
         }
-        if (item->property_flags & (1 << 13)) {
+        if (item->property_flags & (1 << 13) && !(node->inline_style_flags & (1 << 13))) {
             node->background_r = item->background_r;
             node->background_g = item->background_g;
             node->background_b = item->background_b;
         }
-        if (item->property_flags & (1 << 14)) {
+        if (item->property_flags & (1 << 14) && !(node->inline_style_flags & (1 << 14))) {
             node->border_r = item->border_r;
             node->border_g = item->border_g;
             node->border_b = item->border_b;
         }
-        if (item->property_flags & (1 << 15)) {
+        if (item->property_flags & (1 << 15) && !(node->inline_style_flags & (1 << 15))) {
             node->border_top = item->border_top;
         }
-        if (item->property_flags & (1 << 16)) {
+        if (item->property_flags & (1 << 16) && !(node->inline_style_flags & (1 << 16))) {
             node->border_bottom = item->border_bottom;
         }
-        if (item->property_flags & (1 << 17)) {
+        if (item->property_flags & (1 << 17) && !(node->inline_style_flags & (1 << 17))) {
             node->border_left = item->border_left;
         }
-        if (item->property_flags & (1 << 18)) {
+        if (item->property_flags & (1 << 18) && !(node->inline_style_flags & (1 << 18))) {
             node->border_right = item->border_right;
         }
-        if (item->property_flags & (1 << 19)) {
+        if (item->property_flags & (1 << 19) && !(node->inline_style_flags & (1 << 19))) {
             node->border_radius_tl = item->border_radius_tl;
         }
-        if (item->property_flags & (1 << 20)) {
+        if (item->property_flags & (1 << 20) && !(node->inline_style_flags & (1 << 20))) {
             node->border_radius_tr = item->border_radius_tr;
         }
-        if (item->property_flags & (1 << 21)) {
+        if (item->property_flags & (1 << 21) && !(node->inline_style_flags & (1 << 21))) {
             node->border_radius_bl = item->border_radius_bl;
         }
-        if (item->property_flags & (1 << 22)) {
+        if (item->property_flags & (1 << 22) && !(node->inline_style_flags & (1 << 22))) {
             node->border_radius_br = item->border_radius_br;
         }
-        if (item->property_flags & (1 << 23)) {
+        if (item->property_flags & (1 << 23) && !(node->inline_style_flags & (1 << 23))) {
             node->pad_top = item->pad_top;
         }
-        if (item->property_flags & (1 << 24)) {
+        if (item->property_flags & (1 << 24) && !(node->inline_style_flags & (1 << 24))) {
             node->pad_bottom = item->pad_bottom;
         }
-        if (item->property_flags & (1 << 25)) {
+        if (item->property_flags & (1 << 25) && !(node->inline_style_flags & (1 << 25))) {
             node->pad_left = item->pad_left;
         }
-        if (item->property_flags & (1 << 26)) {
+        if (item->property_flags & (1 << 26) && !(node->inline_style_flags & (1 << 26))) {
             node->pad_right = item->pad_right;
         }
     }
@@ -1092,6 +1093,9 @@ static void NU_Apply_Stylesheet_To_Node(struct Node* node, struct NU_Stylesheet*
 
 static void NU_Apply_Stylesheet(struct UI_Tree* ui_tree, struct NU_Stylesheet* ss)
 {
+    struct Node* root_window = Vector_Get(&ui_tree->tree_stack[0], 0);
+    NU_Apply_Stylesheet_To_Node(root_window, ss);
+
     // For each layer
     for (int l=0; l<=ui_tree->deepest_layer; l++)
     {

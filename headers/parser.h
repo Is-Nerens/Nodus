@@ -131,6 +131,7 @@ struct Node
 {
     SDL_Window* window;
     NVGcontext* vg;
+    uint64_t inline_style_flags;
     char* class;
     char* id;
     uint32_t ID;
@@ -566,6 +567,7 @@ static int NU_Generate_Tree(char* src_buffer, uint32_t src_length, struct UI_Tre
                 // Create a new node
                 struct Node new_node;
                 current_node_ID = ((uint32_t) (current_layer + 1) << 24) | (ui_tree->tree_stack[current_layer+1].size & 0xFFFFFF); // Max depth = 256, Max node index = 16,777,215
+                new_node.inline_style_flags = 0;
                 new_node.class = NULL;
                 new_node.id = NULL;
                 new_node.ID = current_node_ID;
@@ -575,8 +577,10 @@ static int NU_Generate_Tree(char* src_buffer, uint32_t src_length, struct UI_Tre
                 new_node.preferred_width = 0.0f;
                 new_node.preferred_height = 0.0f;
                 new_node.gap = 0.0f;
-                new_node.max_width = 10e20f;
                 new_node.min_width = 0.0f;
+                new_node.max_width = 10e20f;
+                new_node.min_height = 0.0f;
+                new_node.max_height = 10e20f;
                 new_node.pad_top = 0;
                 new_node.pad_bottom = 0;
                 new_node.pad_left = 0;
@@ -735,10 +739,14 @@ static int NU_Generate_Tree(char* src_buffer, uint32_t src_length, struct UI_Tre
 
                     // Set layout direction
                     case LAYOUT_DIRECTION_PROPERTY:
-                        if (c == 'h') 
+                        if (c == 'h') {
+                            current_node->inline_style_flags |= 1 << 0;
                             current_node->layout_flags |= LAYOUT_HORIZONTAL;
-                        else 
+                        }  
+                        else {
+                            current_node->inline_style_flags |= 1 << 0;
                             current_node->layout_flags |= LAYOUT_VERTICAL;
+                        }
                         break;
 
                     // Set growth
@@ -746,12 +754,15 @@ static int NU_Generate_Tree(char* src_buffer, uint32_t src_length, struct UI_Tre
                         switch(c)
                         {
                             case 'v':
+                                current_node->inline_style_flags |= 1 << 1;
                                 current_node->layout_flags |= GROW_VERTICAL;
                                 break;
                             case 'h':
+                                current_node->inline_style_flags |= 1 << 1;
                                 current_node->layout_flags |= GROW_HORIZONTAL;
                                 break;
                             case 'b':
+                                current_node->inline_style_flags |= 1 << 1;
                                 current_node->layout_flags |= (GROW_HORIZONTAL | GROW_VERTICAL);
                                 break;
                         }
@@ -760,72 +771,87 @@ static int NU_Generate_Tree(char* src_buffer, uint32_t src_length, struct UI_Tre
                     
                     // Set overflow behaviour
                     case OVERFLOW_V_PROPERTY:
-                        if (c == 's') 
+                        if (c == 's') {
+                            current_node->inline_style_flags |= 1 << 2;
                             current_node->layout_flags |= OVERFLOW_VERTICAL_SCROLL;
+                        }
+                        
                         break;
                     
                     case OVERFLOW_H_PROPERTY:
-                        if (c == 's') 
+                        if (c == 's') {
+                            current_node->inline_style_flags |= 1 << 3;
                             current_node->layout_flags |= OVERFLOW_HORIZONTAL_SCROLL;
+                        }                
                         break;
                     
                     // Set gap 
                     case GAP_PROPERTY:
-                        float gap;
-                        if (String_To_Float(&gap, ptext))
-                            current_node->gap = gap;
+                        float property_float;
+                        if (String_To_Float(&property_float, ptext)) {
+                            current_node->inline_style_flags |= 1 << 4;
+                            current_node->gap = property_float;
+                        }
                         break;
                     
                     // Set preferred width
                     case WIDTH_PROPERTY:
-                        float width; 
-                        if (String_To_Float(&width, ptext)) 
-                            current_node->preferred_width = width;
+                        if (String_To_Float(&property_float, ptext)) {
+                            current_node->inline_style_flags |= 1 << 5;
+                            current_node->preferred_width = property_float;
+                        }
                         break;
 
                     // Set min width
                     case MIN_WIDTH_PROPERTY:
-                        float min_width;
-                        if (String_To_Float(&min_width, ptext)) 
-                            current_node->min_width = min_width;
+                        if (String_To_Float(&property_float, ptext)) {
+                            current_node->inline_style_flags |= 1 << 6;
+                            current_node->min_width = property_float;
+                        }
                         break;
 
                     // Set max width
                     case MAX_WIDTH_PROPERTY:
-                        float max_width;
-                        if (String_To_Float(&max_width, ptext)) 
-                            current_node->max_width = max_width;
+                        if (String_To_Float(&property_float, ptext)) {
+                            current_node->inline_style_flags |= 1 << 7;
+                           current_node->max_width = property_float; 
+                        }
                         break;
 
                     // Set preferred height
                     case HEIGHT_PROPERTY:
-                        float height;
-                        if (String_To_Float(&height, ptext)) 
-                            current_node->preferred_height = height;
+                        if (String_To_Float(&property_float, ptext)) {
+                            current_node->inline_style_flags |= 1 << 8;
+                            current_node->preferred_height = property_float;
+                        }
                         break;
 
                     // Set min height
                     case MIN_HEIGHT_PROPERTY:
-                        float min_height;
-                        if (String_To_Float(&min_height, ptext)) 
-                            current_node->min_height = min_height;
+                        if (String_To_Float(&property_float, ptext)) {
+                            current_node->inline_style_flags |= 1 << 9;
+                            current_node->min_height = property_float;
+                        }
                         break;
 
                     // Set max height
                     case MAX_HEIGHT_PROPERTY:
-                        float max_height;
-                        if (String_To_Float(&max_height, ptext)) {
-                            current_node->min_height = max_height;
+                        if (String_To_Float(&property_float, ptext)) {
+                            current_node->inline_style_flags |= 1 << 10;
+                            current_node->min_height = property_float;
                         }
                         break;
 
                     // Set horizontal alignment
                     case ALIGN_H_PROPERTY:
                         if (current_property_text->char_count == 4 && memcmp(ptext, "left", 4)) {
+                            current_node->inline_style_flags |= 1 << 11;
                             current_node->horizontal_alignment = 0;
                         } else if (current_property_text->char_count == 6 && memcmp(ptext, "center", 6)) {
+                            current_node->inline_style_flags |= 1 << 11;
                             current_node->horizontal_alignment = 1;
                         } else if (current_property_text->char_count == 5 && memcmp(ptext, "right", 5)) {
+                            current_node->inline_style_flags |= 1 << 11;
                             current_node->horizontal_alignment = 2;
                         }
                         break;
@@ -833,10 +859,13 @@ static int NU_Generate_Tree(char* src_buffer, uint32_t src_length, struct UI_Tre
                     // Set vertical alignment
                     case ALIGN_V_PROPERTY:
                         if (current_property_text->char_count == 3 && memcmp(ptext, "top", 3)) {
+                            current_node->inline_style_flags |= 1 << 12;
                             current_node->vertical_alignment = 0;
                         } else if (current_property_text->char_count == 6 && memcmp(ptext, "center", 6)) {
+                            current_node->inline_style_flags |= 1 << 12;
                             current_node->vertical_alignment = 2;
                         } else if (current_property_text->char_count == 6 && memcmp(ptext, "bottom", 6)) {
+                            current_node->inline_style_flags |= 1 << 12;
                             current_node->vertical_alignment = 1;
                         }
                         break;
@@ -845,6 +874,7 @@ static int NU_Generate_Tree(char* src_buffer, uint32_t src_length, struct UI_Tre
                     case BACKGROUND_COLOUR_PROPERTY:
                         struct RGB rgb;
                         if (Parse_Hexcode(ptext, current_property_text->char_count, &rgb)) {
+                            current_node->inline_style_flags |= 1 << 13;
                             current_node->background_r = rgb.r;
                             current_node->background_g = rgb.g;
                             current_node->background_b = rgb.b;
@@ -854,6 +884,7 @@ static int NU_Generate_Tree(char* src_buffer, uint32_t src_length, struct UI_Tre
                     // Set border colour
                     case BORDER_COLOUR_PROPERTY:
                         if (Parse_Hexcode(ptext, current_property_text->char_count, &rgb)) {
+                            current_node->inline_style_flags |= 1 << 14;
                             current_node->border_r = rgb.r;
                             current_node->border_g = rgb.g;
                             current_node->border_b = rgb.b;
@@ -862,95 +893,108 @@ static int NU_Generate_Tree(char* src_buffer, uint32_t src_length, struct UI_Tre
 
                     // Set border width
                     case BORDER_WIDTH_PROPERTY:
-                        uint8_t border_width;
-                        if (String_To_uint8_t(&border_width, ptext)) {
-                            current_node->border_top = border_width;
-                            current_node->border_bottom = border_width;
-                            current_node->border_left = border_width;
-                            current_node->border_right = border_width;
+                        uint8_t property_uint8;
+                        if (String_To_uint8_t(&property_uint8, ptext)) {
+                            current_node->inline_style_flags |= (1 << 15) | (1 << 16) | (1 << 17) | (1 << 18);
+                            current_node->border_top = property_uint8;
+                            current_node->border_bottom = property_uint8;
+                            current_node->border_left = property_uint8;
+                            current_node->border_right = property_uint8;
                         }
                         break;
                     case BORDER_TOP_WIDTH_PROPERTY:
-                        if (String_To_uint8_t(&border_width, ptext)) {
-                            current_node->border_top = border_width;
+                        if (String_To_uint8_t(&property_uint8, ptext)) {
+                            current_node->inline_style_flags |= 1 << 15;
+                            current_node->border_top = property_uint8;
                         }
                         break;
                     case BORDER_BOTTOM_WIDTH_PROPERTY:
-                        if (String_To_uint8_t(&border_width, ptext)) {
-                            current_node->border_bottom = border_width;
+                        if (String_To_uint8_t(&property_uint8, ptext)) {
+                            current_node->inline_style_flags |= 1 << 16;
+                            current_node->border_bottom = property_uint8;
                         }
                         break;
                     case BORDER_LEFT_WIDTH_PROPERTY:
 
-                        if (String_To_uint8_t(&border_width, ptext)) {
-                            current_node->border_left = border_width;
+                        if (String_To_uint8_t(&property_uint8, ptext)) {
+                            current_node->inline_style_flags |= 1 << 17;
+                            current_node->border_left = property_uint8;
                         }
                         break;
                     case BORDER_RIGHT_WIDTH_PROPERTY:
-                        if (String_To_uint8_t(&border_width, ptext)) {
-                            current_node->border_right = border_width;
+                        if (String_To_uint8_t(&property_uint8, ptext)) {
+                            current_node->inline_style_flags |= 1 << 18;
+                            current_node->border_right = property_uint8;
                         }
                         break;
 
                     // Set border radii
                     case BORDER_RADIUS_PROPERTY:
-                        uint8_t border_radius;
-                        if (String_To_uint8_t(&border_radius, ptext)) {
-                            current_node->border_radius_tl = border_radius;
-                            current_node->border_radius_tr = border_radius;
-                            current_node->border_radius_bl = border_radius;
-                            current_node->border_radius_br = border_radius;
+                        if (String_To_uint8_t(&property_uint8, ptext)) {
+                            current_node->inline_style_flags |= (1 << 19) | (1 << 20) | (1 << 21) | (1 << 22);
+                            current_node->border_radius_tl = property_uint8;
+                            current_node->border_radius_tr = property_uint8;
+                            current_node->border_radius_bl = property_uint8;
+                            current_node->border_radius_br = property_uint8;
                         }
                         break;
                     case BORDER_TOP_LEFT_RADIUS_PROPERTY:
-                        if (String_To_uint8_t(&border_radius, ptext)) {
-                            current_node->border_radius_tl = border_radius;
+                        if (String_To_uint8_t(&property_uint8, ptext)) {
+                            current_node->inline_style_flags |= (1 << 19);
+                            current_node->border_radius_tl = property_uint8;
                         }
                         break;
                     case BORDER_TOP_RIGHT_RADIUS_PROPERTY:
-                        if (String_To_uint8_t(&border_radius, ptext)) {
-                            current_node->border_radius_tr = border_radius;
+                        if (String_To_uint8_t(&property_uint8, ptext)) {
+                            current_node->inline_style_flags |= (1 << 20);
+                            current_node->border_radius_tr = property_uint8;
                         }
                         break;
                     case BORDER_BOTTOM_LEFT_RADIUS_PROPERTY:
-                        if (String_To_uint8_t(&border_radius, ptext)) {
-                            current_node->border_radius_bl = border_radius;
+                        if (String_To_uint8_t(&property_uint8, ptext)) {
+                            current_node->inline_style_flags |= (1 << 21);
+                            current_node->border_radius_bl = property_uint8;
                         }
                         break;
                     case BORDER_BOTTOM_RIGHT_RADIUS_PROPERTY:
-                        if (String_To_uint8_t(&border_radius, ptext)) {
-                            current_node->border_radius_br = border_radius;
+                        if (String_To_uint8_t(&property_uint8, ptext)) {
+                            current_node->inline_style_flags |= (1 << 22);
+                            current_node->border_radius_br = property_uint8;
                         }
                         break;
 
                     // Set padding
                     case PADDING_PROPERTY:
-                        uint8_t pad;
-                        if (String_To_uint8_t(&pad, ptext)) {
-                            current_node->pad_top    = pad;
-                            current_node->pad_bottom = pad;
-                            current_node->pad_left   = pad;
-                            current_node->pad_right  = pad;
+                        if (String_To_uint8_t(&property_uint8, ptext)) {
+                            current_node->inline_style_flags |= (1 << 23) | (1 << 24) | (1 << 25) | (1 << 26);
+                            current_node->pad_top    = property_uint8;
+                            current_node->pad_bottom = property_uint8;
+                            current_node->pad_left   = property_uint8;
+                            current_node->pad_right  = property_uint8;
                         }
                         break;
                     case PADDING_TOP_PROPERTY:
-                        if (String_To_uint8_t(&pad, ptext)) {
-                            current_node->pad_top = pad;
+                        if (String_To_uint8_t(&property_uint8, ptext)) {
+                            current_node->inline_style_flags |= (1 << 23);
+                            current_node->pad_top = property_uint8;
                         }
                         break;
                     case PADDING_BOTTOM_PROPERTY:
-                        if (String_To_uint8_t(&pad, ptext)) {
-                            current_node->pad_bottom = pad;
+                        if (String_To_uint8_t(&property_uint8, ptext)) {
+                            current_node->inline_style_flags |= (1 << 24);
+                            current_node->pad_bottom = property_uint8;
                         }
                         break;
                     case PADDING_LEFT_PROPERTY:
-                        if (String_To_uint8_t(&pad, ptext)) {
-                            current_node->pad_left = pad;
+                        if (String_To_uint8_t(&property_uint8, ptext)) {
+                            current_node->inline_style_flags |= (1 << 25);
+                            current_node->pad_left = property_uint8;
                         }
                         break;
                     case PADDING_RIGHT_PROPERTY:
-                        if (String_To_uint8_t(&pad, ptext)) {
-                            current_node->pad_right = pad;
+                        if (String_To_uint8_t(&property_uint8, ptext)) {
+                            current_node->inline_style_flags |= (1 << 26);
+                            current_node->pad_right = property_uint8;
                         }
                         break;
 

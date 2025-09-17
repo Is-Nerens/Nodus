@@ -43,10 +43,16 @@ int ProcessWindowEvents()
 
 int main()
 {
+    // Check if SDL initialised
+    if (!SDL_Init(SDL_INIT_VIDEO)) {
+        printf("SDL could not initialize! SDL_Error: %s\n", SDL_GetError());
+        return -1;
+    }
+
     // Create an enpty UI tree stack
     struct UI_Tree ui_tree;
+    NU_Tree_Init(&ui_tree);
 
-    Vector_Reserve(&ui_tree.font_resources, sizeof(struct Font_Resource), 4);
     struct Font_Resource font1;
     struct Font_Resource font2;
     Load_Font_Resource("./fonts/Inter/Inter_Variable_Weight.ttf", &font1);
@@ -54,48 +60,29 @@ int main()
     Vector_Push(&ui_tree.font_resources, &font1);
     Vector_Push(&ui_tree.font_resources, &font2);
 
-    timer_start();
-
 
     // Parse xml into UI tree
+    // timer_start();
     if (NU_Parse("test.xml", &ui_tree) != 0)
     {
         return -1;
     }   
+    // timer_stop();
 
-
+    timer_start();
     start_measurement();
     NU_Set_Style(&ui_tree, "test.css");
 
     end_measurement();
-    timer_stop();
-
-    // Check if SDL initialised
-    if (!SDL_Init(SDL_INIT_VIDEO)) {
-        printf("SDL could not initialize! SDL_Error: %s\n", SDL_GetError());
-        return -1;
-    }
-
-
-    // Create a vector window, opengl_context and nano_vg_context pointers
-    struct Vector windows;
-    struct Vector gl_contexts;
-    struct Vector nano_vg_contexts;
-    Vector_Reserve(&windows, sizeof(SDL_Window*), 16);
-    Vector_Reserve(&gl_contexts, sizeof(SDL_GLContext), 16);
-    Vector_Reserve(&nano_vg_contexts, sizeof(NVGcontext*), 16);
-    Vector_Reserve(&ui_tree.font_registries, sizeof(struct Vector), 16);
 
     struct NU_Watcher_Data watcher_data = {
-        .ui_tree = &ui_tree,
-        .windows = &windows,
-        .gl_contexts = &gl_contexts,
-        .nano_vg_contexts = &nano_vg_contexts
+        .ui_tree = &ui_tree
     };
 
     SDL_AddEventWatch(ResizingEventWatcher, &watcher_data);
 
-    NU_Render(&ui_tree, &windows, &gl_contexts, &nano_vg_contexts);
+    NU_Calculate(&ui_tree);
+    NU_Draw_Nodes(&ui_tree);
     
     // Application loop
     int isRunning = 1;
@@ -106,11 +93,9 @@ int main()
     }
 
     // Free Memory
-    NU_Free_UI_Tree_Memory(&ui_tree);
-    Vector_Free(&windows);
-    Vector_Free(&gl_contexts);
-    Vector_Free(&nano_vg_contexts);
+    NU_Tree_Cleanup(&ui_tree);
 
     // Close SDL
     SDL_Quit();
 }
+

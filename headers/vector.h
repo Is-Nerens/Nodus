@@ -61,6 +61,21 @@ void Vector_Delete_Backfill(struct Vector* vector, uint32_t index)
     vector->size -= 1;
 }
 
+void Vector_Delete_Backshift(struct Vector* vector, uint32_t index)
+{
+    if (index >= vector->size) {
+        return;
+    }
+    if (index < vector->size-1)
+    {
+        void* dest = (char*)vector->data + (index * vector->element_size);
+        void* src  = (char*)vector->data + ((index + 1) * vector->element_size);
+        size_t num_bytes_to_move = (vector->size - index - 1) * vector->element_size;
+        memmove(dest, src, num_bytes_to_move);
+    }
+    vector->size--;
+}
+
 void* Vector_Get(struct Vector* vector, uint32_t index)
 {
     return (char*) vector->data + index * vector->element_size;

@@ -9,8 +9,8 @@
 struct NU_Stylesheet
 {
     struct Vector items;
-    struct String_Set class_string_set;
-    struct String_Set id_string_set;
+    String_Set class_string_set;
+    String_Set id_string_set;
     struct sHashmap class_item_hashmap;
     struct sHashmap id_item_hashmap;
     struct Hashmap tag_item_hashmap;
@@ -39,8 +39,8 @@ struct NU_Stylesheet_Item
 void NU_Stylesheet_Init(struct NU_Stylesheet* ss)
 {
     Vector_Reserve(&ss->items, sizeof(struct NU_Stylesheet_Item), 500);
-    String_Set_Init(&ss->class_string_set, 10000, 100, 100);
-    String_Set_Init(&ss->id_string_set, 4000, 40, 40);
+    String_Set_Init(&ss->class_string_set, 1024, 100);
+    String_Set_Init(&ss->id_string_set, 1024, 100);
     sHashmap_Init(&ss->class_item_hashmap, sizeof(uint32_t), 100);
     sHashmap_Init(&ss->id_item_hashmap, sizeof(uint32_t), 100);
     Hashmap_Init(&ss->tag_item_hashmap, sizeof(int), sizeof(uint32_t), 20);

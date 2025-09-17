@@ -22,6 +22,11 @@
         "xhash": "c",
         "xstring": "c",
         "limits": "cpp",
-        "xmemory": "c"
+        "xmemory": "c",
+        "stb_image.h": "c",
+        "freetype.h": "c",
+        "xlocale": "c",
+        "chrono": "cpp",
+        "format": "cpp"
     }
 }

@@ -20,14 +20,18 @@
 #include "performance.h"
 #include "vector.h"
 #include "string_set.h"
+#include "hashmap.h"
 #include "nu_convert.h"
+#include "nu_image.h"
+#include "nu_font.h"
+#include "nu_draw.h"
 
 #define NANOVG_GL3_IMPLEMENTATION
 #include <nanovg.h>
 #include <nanovg_gl.h>
 
-#define PROPERTY_COUNT 32
-#define KEYWORD_COUNT 45
+#define PROPERTY_COUNT 33
+#define KEYWORD_COUNT 46
 
 static const char* keywords[] = {
     "id", "class", "dir", "grow", "overflowV", "overflowH", "gap",
@@ -37,6 +41,7 @@ static const char* keywords[] = {
     "border", "borderTop", "borderBottom", "borderLeft", "borderRight",
     "borderRadius", "borderRadiusTopLeft", "borderRadiusTopRight", "borderRadiusBottomLeft", "borderRadiusBottomRight",
     "pad", "padTop", "padBottom", "padLeft", "padRight",
+    "imageSrc",
     "window",
     "rect",
     "button",
@@ -52,6 +57,7 @@ static const uint8_t keyword_lengths[] = {
     6, 9, 12, 10, 11,      // border width
     12, 19, 20, 22, 23,    // border radius
     3, 6, 9, 7, 11,        // padding
+    8,                     // image src
     6, 4, 6, 4, 4, 5       // selectors
 };
 enum NU_Token
@@ -88,6 +94,7 @@ enum NU_Token
     PADDING_BOTTOM_PROPERTY,
     PADDING_LEFT_PROPERTY,
     PADDING_RIGHT_PROPERTY,
+    IMAGE_SOURCE_PROPERTY,
     WINDOW_TAG,
     RECT_TAG,
     BUTTON_TAG,
@@ -117,8 +124,9 @@ enum Tag
 
 
 
-
-// Structs ---------------------- //
+// ------------------------------ 
+// Structs ---------------------- 
+// ------------------------------ 
 struct Text_Ref
 {
     uint32_t node_ID;
@@ -134,8 +142,9 @@ struct Node
     uint64_t inline_style_flags;
     char* class;
     char* id;
-    uint32_t ID;
     enum Tag tag;
+    uint32_t ID;
+    GLuint gl_image_handle;
     float x, y, width, height, preferred_width, preferred_height;
     float min_width, max_width, min_height, max_height;
     float gap, content_width, content_height;
@@ -174,35 +183,26 @@ struct Text_Arena
     struct Vector char_buffer;
 };
 
-struct Font_Resource
-{
-    char* name;
-    uint8_t* data; 
-    int size;  
-};
-
-struct Font_Registry {
-    int* font_ids;  
-    int count;      
-};
-
 struct UI_Tree
 {
     struct Vector tree_stack[MAX_TREE_DEPTH];
+    struct Vector windows;
+    struct Vector nano_vg_contexts;
     struct Text_Arena text_arena;
-    uint16_t deepest_layer;
     struct Vector font_resources;
     struct Vector font_registries;
-    struct String_Set class_string_set;
-    struct String_Set id_string_set;
+    String_Set class_string_set;
+    String_Set id_string_set;
+    struct Vector hovered_nodes;
+    struct Node* hovered_node;
+    struct Node* mouse_down_node;
+    int16_t deepest_layer;
 };
 
-// Structs ---------------------- //
 
-
-
-// Internal Functions ----------- //
-
+// ------------------------------
+//--- Internal Functions --------
+// ------------------------------
 static enum NU_Token NU_Word_To_Token(char word[], uint8_t word_char_count)
 {
     for (uint8_t i=0; i<KEYWORD_COUNT; i++) {
@@ -225,7 +225,7 @@ static void NU_Tokenise(char* src_buffer, uint32_t src_length, struct Vector* NU
 {
     // Store current NU_Token word
     uint8_t word_char_index = 0;
-    char word[24];
+    char word[32];
 
     // Store global text char indexes
     uint32_t text_arena_buffer_index = 0;
@@ -520,11 +520,121 @@ static int AssertTagCloseStartGrammar(struct Vector* token_vector, int i, enum T
 
 static void NU_Tree_Init(struct UI_Tree* ui_tree)
 {
-    Vector_Reserve(&ui_tree->text_arena.free_list, sizeof(struct Arena_Free_Element), 25000); // reserve ~200KB
-    Vector_Reserve(&ui_tree->text_arena.text_refs, sizeof(struct Text_Ref), 25000); // reserve ~200KB
-    Vector_Reserve(&ui_tree->text_arena.char_buffer, sizeof(char), 100000); // reserve ~100KB
-    String_Set_Init(&ui_tree->class_string_set, 10000, 100, 100);
-    String_Set_Init(&ui_tree->id_string_set, 10000, 100, 100);
+    Vector_Reserve(&ui_tree->windows, sizeof(SDL_Window*), 8);
+    Vector_Reserve(&ui_tree->nano_vg_contexts, sizeof(NVGcontext*), 8);
+    Vector_Reserve(&ui_tree->font_resources, sizeof(struct Font_Resource), 4);
+    Vector_Reserve(&ui_tree->text_arena.free_list, sizeof(struct Arena_Free_Element), 100);
+    Vector_Reserve(&ui_tree->text_arena.text_refs, sizeof(struct Text_Ref), 100);
+    Vector_Reserve(&ui_tree->text_arena.char_buffer, sizeof(char), 25000); 
+    Vector_Reserve(&ui_tree->font_registries, sizeof(struct Vector), 8);
+    Vector_Reserve(&ui_tree->hovered_nodes, sizeof(struct Node*), 32);
+    String_Set_Init(&ui_tree->class_string_set, 1024, 100);
+    String_Set_Init(&ui_tree->id_string_set, 1024, 100);
+    ui_tree->hovered_node = NULL;
+    ui_tree->mouse_down_node = NULL;
+    ui_tree->deepest_layer = 0;
+}
+
+void NU_Tree_Cleanup(struct UI_Tree* ui_tree)
+{
+    Vector_Free(&ui_tree->windows);
+    Vector_Free(&ui_tree->nano_vg_contexts);
+    Vector_Free(&ui_tree->text_arena.free_list);
+    Vector_Free(&ui_tree->text_arena.text_refs);
+    Vector_Free(&ui_tree->text_arena.char_buffer);
+    Vector_Free(&ui_tree->font_resources);
+    Vector_Free(&ui_tree->font_registries);
+    Vector_Free(&ui_tree->hovered_nodes);
+    String_Set_Free(&ui_tree->class_string_set);
+    String_Set_Free(&ui_tree->id_string_set);
+    ui_tree->hovered_node = NULL;
+    ui_tree->mouse_down_node = NULL;
+    ui_tree->deepest_layer = 0;
+}
+
+static void NU_Create_Main_Window(struct UI_Tree* ui_tree, struct Node* window_node) 
+{
+    SDL_GL_SetAttribute(SDL_GL_CONTEXT_MAJOR_VERSION, 3);
+    SDL_GL_SetAttribute(SDL_GL_CONTEXT_MINOR_VERSION, 2);
+    SDL_GL_SetAttribute(SDL_GL_CONTEXT_PROFILE_MASK, SDL_GL_CONTEXT_PROFILE_CORE);
+    SDL_GL_SetAttribute(SDL_GL_MULTISAMPLEBUFFERS, 1);
+    SDL_GL_SetAttribute(SDL_GL_MULTISAMPLESAMPLES, 4);
+    SDL_Window* main_window = SDL_CreateWindow("window", 500, 400, SDL_WINDOW_OPENGL | SDL_WINDOW_RESIZABLE);
+
+    // Create OpenGL context for the main window
+    SDL_GLContext context = SDL_GL_CreateContext(main_window);
+    SDL_GL_MakeCurrent(main_window, context);
+    glEnable(GL_MULTISAMPLE);
+    glEnable(GL_BLEND);
+    glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+    glewInit();
+
+
+    // NanoVG context (per-window)
+    NVGcontext* new_nano_vg_context = nvgCreateGL3(NVG_STENCIL_STROKES);
+    
+
+    // Fonts for NanoVG
+    struct Vector font_registry;
+    Vector_Reserve(&font_registry, sizeof(int), 8);
+    for (int i=0; i<ui_tree->font_resources.size; i++) {
+        struct Font_Resource* font = Vector_Get(&ui_tree->font_resources, i);
+        int fontID = nvgCreateFontMem(new_nano_vg_context, font->name, font->data, font->size, 0);
+        Vector_Push(&font_registry, &fontID);
+    }
+
+    window_node->window = main_window;
+    window_node->vg = new_nano_vg_context;
+    Vector_Push(&ui_tree->windows, &main_window);
+    Vector_Push(&ui_tree->nano_vg_contexts, &new_nano_vg_context);
+    Vector_Push(&ui_tree->font_registries, &font_registry);
+    NU_Draw_Init();
+}
+
+static void NU_Apply_Node_Defaults(struct Node* node)
+{
+    node->window = NULL;
+    node->vg = NULL;
+    node->inline_style_flags = 0;
+    node->class = NULL;
+    node->id = NULL;
+    node->tag = NAT;
+    node->gl_image_handle = 0;
+    node->preferred_width = 0.0f;
+    node->preferred_height = 0.0f;
+    node->min_width = 0.0f;
+    node->max_width = 10e20f;
+    node->min_height = 0.0f;
+    node->max_height = 10e20f;
+    node->gap = 0.0f;
+    node->content_width = 0.0f;
+    node->content_height = 0.0f;
+    node->parent_index = -1;
+    node->first_child_index = -1;
+    node->text_ref_index = -1;
+    node->child_capacity = 0;
+    node->child_count = 0;
+    node->pad_top = 0;
+    node->pad_bottom = 0;
+    node->pad_left = 0;
+    node->pad_right = 0;
+    node->border_top = 0;
+    node->border_bottom = 0;
+    node->border_left = 0;
+    node->border_right = 0;
+    node->border_radius_tl = 0;
+    node->border_radius_tr = 0;
+    node->border_radius_bl = 0;
+    node->border_radius_br = 0;
+    node->background_r = 2;
+    node->background_g = 2;
+    node->background_b = 2;
+    node->border_r = 156;
+    node->border_g = 100;
+    node->border_b = 5;
+    node->layout_flags = 0;
+    node->horizontal_alignment = 0;
+    node->vertical_alignment = 0;
 }
 
 static int NU_Generate_Tree(char* src_buffer, uint32_t src_length, struct UI_Tree* ui_tree, struct Vector* NU_Token_vector, struct Vector* ptext_ref_vector)
@@ -534,141 +644,99 @@ static int NU_Generate_Tree(char* src_buffer, uint32_t src_length, struct UI_Tre
         return -1; // Failure 
     }
 
+    // -----------------------
+    // Create root window node
+    // -----------------------
+    struct Node root_node;
+    struct Vector* root_layer = &ui_tree->tree_stack[0];
+    Vector_Push(root_layer, &root_node);
+    struct Node* root_window_node = (struct Node*) Vector_Get(root_layer, root_layer->size-1);
+    NU_Apply_Node_Defaults(root_window_node); // Default styles
+    // Set the ID: upper 8 bits = depth (layer), lower 24 bits = index in layer
+    root_window_node->ID = ((uint32_t) (0) << 24) | (ui_tree->tree_stack[1].size & 0xFFFFFF); 
+    root_window_node->tag = WINDOW;
+    root_window_node->parent_index = -1; 
+    root_window_node->child_count = 0;
+    NU_Create_Main_Window(ui_tree, root_window_node);
+
+    // ---------------------------------
     // Get first property text reference
-    uint32_t property_text_index = 0;
+    // ---------------------------------
     struct Property_Text_Ref* current_property_text;
-    if (ptext_ref_vector->size > 0) current_property_text = Vector_Get(ptext_ref_vector, property_text_index);
-
-    // Get first text content reference
+    if (ptext_ref_vector->size > 0) current_property_text = Vector_Get(ptext_ref_vector, 0);
     uint32_t text_content_ref_index = 0;
+    uint32_t property_text_index = 0;
 
-    // Iterate over all NU_Tokens
-    int i = 0;
-    int current_layer = -1;
-    ui_tree->deepest_layer = 0;
-    struct Node* current_node = NULL;
-    uint32_t current_node_ID = 0;
+    // --------------------------
+    // (string -> int) ----------
+    // --------------------------
+    struct sHashmap image_filepath_to_handle_hmap;
+    sHashmap_Init(&image_filepath_to_handle_hmap, sizeof(GLuint), 20);
+
+    // ------------------------------------
+    // Iterate over all NU_Tokens ---------
+    // ------------------------------------
+    int i = 2; 
+    int current_layer = 0; 
+    struct Node* current_node = root_window_node;
     while (i < NU_Token_vector->size - 3)
     {
         const enum NU_Token NU_Token = *((enum NU_Token*) Vector_Get(NU_Token_vector, i));
 
+        // -------------------------
         // New tag -> Add a new node
+        // -------------------------
         if (NU_Token == OPEN_TAG)
         {
             if (AssertNewTagGrammar(NU_Token_vector, i) == 0)
             {
+                // ----------------------
                 // Enforce max tree depth
+                // ----------------------
                 if (current_layer+1 == MAX_TREE_DEPTH)
                 {
-                    printf("%s", "[Generate Tree] Error! Exceeded max tree depth of 64");
+                    printf("%s", "[Generate Tree] Error! Exceeded max tree depth of 32");
+                    sHashmap_Free(&image_filepath_to_handle_hmap);
                     return -1; // Failure
-                }
+                }   
 
-                // Create a new node
+                // ----------------------------------------
+                // Create a new node and add it to the tree
+                // ----------------------------------------
                 struct Node new_node;
-                current_node_ID = ((uint32_t) (current_layer + 1) << 24) | (ui_tree->tree_stack[current_layer+1].size & 0xFFFFFF); // Max depth = 256, Max node index = 16,777,215
-                new_node.inline_style_flags = 0;
-                new_node.class = NULL;
-                new_node.id = NULL;
-                new_node.ID = current_node_ID;
+                NU_Apply_Node_Defaults(&new_node); // Apply Default style
                 new_node.tag = NU_Token_To_Tag(*((enum NU_Token*) Vector_Get(NU_Token_vector, i+1)));
-                new_node.window = NULL; 
-                new_node.vg = NULL;
-                new_node.preferred_width = 0.0f;
-                new_node.preferred_height = 0.0f;
-                new_node.gap = 0.0f;
-                new_node.min_width = 0.0f;
-                new_node.max_width = 10e20f;
-                new_node.min_height = 0.0f;
-                new_node.max_height = 10e20f;
-                new_node.pad_top = 0;
-                new_node.pad_bottom = 0;
-                new_node.pad_left = 0;
-                new_node.pad_right = 0;
-                new_node.border_top = 0;
-                new_node.border_bottom = 0;
-                new_node.border_left = 0;
-                new_node.border_right = 0;
-                new_node.border_radius_tl = 0;
-                new_node.border_radius_tr = 0;
-                new_node.border_radius_bl = 0;
-                new_node.border_radius_br = 0;
-                if (new_node.tag == BUTTON) {
-                    new_node.background_r = 25;
-                    new_node.background_g = 25;
-                    new_node.background_b = 25;
-
-                    new_node.border_r = 69;
-                    new_node.border_g = 101;
-                    new_node.border_b = 153;
-
-                    new_node.border_top = 1;
-                    new_node.border_bottom = 1;
-                    new_node.border_left = 1;
-                    new_node.border_right = 1;
-                }
-                else if (new_node.tag == RECT)
-                {
-                    new_node.border_r = 50;
-                    new_node.border_g = 50;
-                    new_node.border_b = 50;
-
-                    new_node.background_r = 2;
-                    new_node.background_g = 2;
-                    new_node.background_b = 2;
-
-                    new_node.border_top = 0;
-                    new_node.border_bottom = 0;
-                    new_node.border_left = 0;
-                    new_node.border_right = 0;
-                }
-                else {
-                    new_node.background_r = 2;
-                    new_node.background_g = 2;
-                    new_node.background_b = 2;
-
-                    new_node.border_r = 156;
-                    new_node.border_g = 100;
-                    new_node.border_b = 5;
-                }
-                new_node.child_count = 0;
-                new_node.first_child_index = -1;
-                new_node.text_ref_index = -1;
-                new_node.layout_flags = 0;
-                new_node.parent_index = ui_tree->tree_stack[current_layer].size - 1; 
-
-                // Add node to tree
+                // Set the ID: upper 8 bits = depth (layer), lower 24 bits = index in layer
                 struct Vector* node_layer = &ui_tree->tree_stack[current_layer+1];
+                uint32_t node_index_in_layer = node_layer->size; 
+                new_node.ID = ((uint32_t)(current_layer + 1) << 24) | (node_index_in_layer & 0xFFFFFF);
+                new_node.parent_index = ui_tree->tree_stack[current_layer].size-1; ;
                 Vector_Push(node_layer, &new_node);
-                current_node = (struct Node*) Vector_Get(node_layer, node_layer->size -1);
-                if (current_layer != -1) // Only equals -1 for the root window node (optimisation would be to remove this check and append root node at beggining of function)
-                {
-                    // Inform parent that parent has new child
-                    struct Node* parentNode = (struct Node*) Vector_Get(&ui_tree->tree_stack[current_layer], new_node.parent_index);
-                    if (parentNode->child_count == 0)
-                    {
-                        parentNode->first_child_index = ui_tree->tree_stack[current_layer+1].size - 1;
-                    }
-                    parentNode->child_count += 1;
-                    parentNode->child_capacity += 1;
-                }
+                current_node = (struct Node*) Vector_Get(node_layer, node_layer->size-1);
 
-                // Move one layer deeper
-                current_layer++;
+                // -------------------------------
+                // Add node to parent's child list
+                // -------------------------------
+                struct Node* parentNode = Vector_Get(&ui_tree->tree_stack[current_layer], new_node.parent_index);
+                if (parentNode->child_count == 0) parentNode->first_child_index = ui_tree->tree_stack[current_layer+1].size-1;
+                parentNode->child_count += 1;
+                parentNode->child_capacity += 1;
 
+                current_layer++; // Move one layer deeper
                 ui_tree->deepest_layer = MAX(ui_tree->deepest_layer, current_layer);
-
-                // Increment NU_Token
-                i+=2;
+                i+=2; // Increment token index
                 continue;
             }
             else
             {
+                sHashmap_Free(&image_filepath_to_handle_hmap);
                 return -1;
             }
         }
 
+        // -----------------------------------------------
         // Open end tag -> tag closes -> move up one layer
+        // -----------------------------------------------
         if (NU_Token == OPEN_END_TAG)
         {
             if (current_layer < 0) break;
@@ -677,42 +745,42 @@ static int NU_Generate_Tree(char* src_buffer, uint32_t src_length, struct UI_Tre
             enum Tag openTag = ((struct Node*) Vector_Get(&ui_tree->tree_stack[current_layer], ui_tree->tree_stack[current_layer].size - 1))->tag;
             if (AssertTagCloseStartGrammar(NU_Token_vector, i, openTag) != 0)
             {
+                sHashmap_Free(&image_filepath_to_handle_hmap);
                 return -1; // Failure
             }
 
-            // Move one layer higher
-            current_layer--;
-
-            // Increment NU_Token
-            i+=3;
+            current_layer--; // Move one layer up (towards root)
+            i+=3; // Increment token index
             continue;
         }
 
+        // -----------------------------------------------------
         // Close end tag -> tag self closes -> move up one layer
+        // -----------------------------------------------------
         if (NU_Token == CLOSE_END_TAG)
         {
-            // Move one layer higher
-            current_layer--;
-
-            // Increment NU_Token
-            i+=1;
+            current_layer--; // Move one layer up (towards root)
+            i+=1; // Increment token index
             continue;
         }
 
-        // Text content
+        // --------------------
+        // Text content -------
+        // --------------------
         if (NU_Token == TEXT_CONTENT)
         {
             struct Text_Ref* text_ref = (struct Text_Ref*) Vector_Get(&ui_tree->text_arena.text_refs, text_content_ref_index);
-            text_ref->node_ID = current_node_ID;
+            text_ref->node_ID = current_node->ID;
             current_node->text_ref_index = text_content_ref_index;
             text_content_ref_index += 1;
 
-            // Increment NU_Token
-            i+=1;
+            i+=1; // Increment token index
             continue;
         }
 
+        // ---------------------------------------
         // Property tag -> assign property to node
+        // ---------------------------------------
         if (NU_Is_Token_Property(NU_Token))
         {
             if (AssertPropertyGrammar(NU_Token_vector, i) == 0)
@@ -721,7 +789,6 @@ static int NU_Generate_Tree(char* src_buffer, uint32_t src_length, struct UI_Tre
                 property_text_index += 1;
                 char c = src_buffer[current_property_text->src_index];
                 char* ptext = &src_buffer[current_property_text->src_index];
-                char temp = src_buffer[current_property_text->src_index + current_property_text->char_count];
                 src_buffer[current_property_text->src_index + current_property_text->char_count] = '\0';
 
                 // Get the property value text
@@ -998,6 +1065,20 @@ static int NU_Generate_Tree(char* src_buffer, uint32_t src_length, struct UI_Tre
                         }
                         break;
 
+                    case IMAGE_SOURCE_PROPERTY:
+                        void* found = sHashmap_Find(&image_filepath_to_handle_hmap, ptext);
+                        if (found == NULL) {
+                            GLuint image_handle = Image_Load(ptext);
+                            if (image_handle) {
+                                current_node->gl_image_handle = image_handle;
+                                sHashmap_Add(&image_filepath_to_handle_hmap, ptext, &image_handle);
+                            }
+                        } 
+                        else {
+                            current_node->gl_image_handle = *(GLuint*)found;
+                        }
+                        break;
+
                     default:
                         break;
                 }
@@ -1007,11 +1088,13 @@ static int NU_Generate_Tree(char* src_buffer, uint32_t src_length, struct UI_Tre
                 continue;
             }
             else {
+                sHashmap_Free(&image_filepath_to_handle_hmap);
                 return -1;
             }
         }
-        i+= 1;
+        i+=1; // Increment token index
     }
+    sHashmap_Free(&image_filepath_to_handle_hmap);
     return 0; // Success
 }
 
@@ -1049,7 +1132,6 @@ int NU_Parse(char* filepath, struct UI_Tree* ui_tree)
     // Init vectors
     Vector_Reserve(&NU_Token_vector, sizeof(enum NU_Token), 25000); // reserve ~100KB
     Vector_Reserve(&ptext_ref_vector, sizeof(struct Property_Text_Ref), 25000); // reserve ~225KB
-    NU_Tree_Init(ui_tree);
 
     // Init UI tree layers -> reserve 100 nodes per stack layer = 384KB
     Vector_Reserve(&ui_tree->tree_stack[0], sizeof(struct Node), 1); // 1 root element
@@ -1061,19 +1143,13 @@ int NU_Parse(char* filepath, struct UI_Tree* ui_tree)
     NU_Tokenise(src_buffer, src_length, &NU_Token_vector, &ptext_ref_vector, &ui_tree->text_arena);
 
     // Generate UI tree
+    timer_start();
     if (NU_Generate_Tree(src_buffer, src_length, ui_tree, &NU_Token_vector, &ptext_ref_vector) != 0) return -1; // Failure
+    timer_stop();
 
     // Free token and property text reference memory
     Vector_Free(&NU_Token_vector);
     Vector_Free(&ptext_ref_vector);
     return 0; // Success
 }
-
-void NU_Free_UI_Tree_Memory(struct UI_Tree* ui_tree)
-{
-    Vector_Free(&ui_tree->text_arena.free_list);
-    Vector_Free(&ui_tree->text_arena.text_refs);
-    Vector_Free(&ui_tree->text_arena.char_buffer);
-}
-
 // Public Functions ------------- //

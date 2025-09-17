@@ -11,19 +11,23 @@
 #include <freetype/freetype.h>
 
 // UI layout ------------------------------------------------------------
-static void NU_Create_New_Window(struct UI_Tree* ui_tree, struct Node* window_node, struct Vector* windows, struct Vector* gl_contexts, struct Vector* nano_vg_contexts)
+static void NU_Create_Subwindow(struct UI_Tree* ui_tree, struct Node* window_node)
 {
     SDL_GL_SetAttribute(SDL_GL_CONTEXT_MAJOR_VERSION, 3);
     SDL_GL_SetAttribute(SDL_GL_CONTEXT_MINOR_VERSION, 2);
     SDL_GL_SetAttribute(SDL_GL_CONTEXT_PROFILE_MASK, SDL_GL_CONTEXT_PROFILE_CORE);
-    SDL_GL_SetAttribute(SDL_GL_MULTISAMPLEBUFFERS, 1);  
+    SDL_GL_SetAttribute(SDL_GL_MULTISAMPLEBUFFERS, 1);
     SDL_GL_SetAttribute(SDL_GL_MULTISAMPLESAMPLES, 4);
     SDL_Window* new_window = SDL_CreateWindow("window", 500, 400, SDL_WINDOW_OPENGL | SDL_WINDOW_RESIZABLE);
-    SDL_GLContext new_gl_context = SDL_GL_CreateContext(new_window);
-    SDL_GL_MakeCurrent(new_window, new_gl_context);
+    SDL_GL_MakeCurrent(new_window, SDL_GL_GetCurrentContext());
+
     glEnable(GL_MULTISAMPLE);
     glewInit();
+
+    // NanoVG context (per-window)
     NVGcontext* new_nano_vg_context = nvgCreateGL3(NVG_STENCIL_STROKES);
+
+    // Fonts for NanoVG
     struct Vector font_registry;
     Vector_Reserve(&font_registry, sizeof(int), 8);
     for (int i=0; i<ui_tree->font_resources.size; i++) {
@@ -31,40 +35,41 @@ static void NU_Create_New_Window(struct UI_Tree* ui_tree, struct Node* window_no
         int fontID = nvgCreateFontMem(new_nano_vg_context, font->name, font->data, font->size, 0);
         Vector_Push(&font_registry, &fontID);
     }
-    Vector_Push(windows, &new_window);
-    Vector_Push(gl_contexts, &new_gl_context);
-    Vector_Push(nano_vg_contexts, &new_nano_vg_context);
+
+    // Push into vectors
+    Vector_Push(&ui_tree->windows, &new_window);
+    Vector_Push(&ui_tree->nano_vg_contexts, &new_nano_vg_context);
     Vector_Push(&ui_tree->font_registries, &font_registry);
+
+    // Assign to window node
     window_node->window = new_window;
     window_node->vg = new_nano_vg_context;
-    NU_Draw_Init();
 }
 
 static void NU_Reset_Node_size(struct Node* node)
 {
     node->x = 0.0f;
     node->y = 0.0f;
-    if (node->preferred_width == 0.0f) node->width = node->border_left + node->border_right + node->pad_left + node->pad_right;
-    else node->width = node->preferred_width;
-    node->height = node->border_top + node->border_bottom + node->pad_top + node->pad_bottom;
+    node->width = max(node->preferred_width, node->border_left + node->border_right + node->pad_left + node->pad_right);
+    node->height = max(node->preferred_height, node->border_top + node->border_bottom + node->pad_top + node->pad_bottom);
 }
 
-static void NU_Clear_Node_Sizes(struct UI_Tree* ui_tree, struct Vector* windows, struct Vector* gl_contexts, struct Vector* nano_vg_contexts)
+static void NU_Clear_Node_Sizes(struct UI_Tree* ui_tree)
 {
     // For each layer
     for (int l=0; l<=ui_tree->deepest_layer; l++)
     {
         struct Vector* parent_layer = &ui_tree->tree_stack[l];
         struct Vector* child_layer = &ui_tree->tree_stack[l+1];
-
+        
         for (int p=0; p<parent_layer->size; p++)
         {       
             // Iterate over layer
             struct Node* parent = Vector_Get(parent_layer, p);
 
             // If parent is window node and has no SDL window assigned to it -> create a new window and renderer
-            if (parent->tag == WINDOW && parent->window == NULL) {
-                NU_Create_New_Window(ui_tree, parent, windows, gl_contexts, nano_vg_contexts);
+            if (parent->tag == WINDOW && parent->window == NULL && l != 0) {
+                NU_Create_Subwindow(ui_tree, parent);
             }
 
             if (parent->child_count == 0) continue; // Skip acummulating child sizes (no children)
@@ -490,7 +495,7 @@ static void NU_Grow_Shrink_Heights(struct UI_Tree* ui_tree)
     }
 }
 
-static void NU_Calculate_Text_Wrap_Heights(struct UI_Tree* ui_tree, struct Vector* windows, struct Vector* gl_contexts, struct Vector* nano_vg_contexts)
+static void NU_Calculate_Text_Wrap_Heights(struct UI_Tree* ui_tree)
 {
     for (uint32_t i = 0; i < ui_tree->text_arena.text_refs.size; i++) {
         struct Text_Ref* text_ref = (struct Text_Ref*) Vector_Get(&ui_tree->text_arena.text_refs, i);
@@ -621,21 +626,130 @@ static void NU_Calculate_Positions(struct UI_Tree* ui_tree)
 
 
 
+// Interaction ---------------------------------------------------------
+
+// Checks against bounding rect
+static bool NU_Mouse_Over_Node_Bounds(struct Node* node, float mouse_x, float mouse_y)
+{
+    bool within_x_bound = mouse_x >= node->x && mouse_x <= node->x + node->width;
+    bool within_y_bound = mouse_y >= node->y && mouse_y <= node->y + node->height;
+    return (within_x_bound && within_y_bound);
+}
+
+// Checks against rounded corners
+static bool NU_Mouse_Over_Node(struct Node* node, float mouse_x, float mouse_y)
+{
+    bool within_x_bound = mouse_x >= node->x && mouse_x <= node->x + node->width;
+    bool within_y_bound = mouse_y >= node->y && mouse_y <= node->y + node->height;
+    if (within_x_bound && within_y_bound)
+    {
+        // Must also consider border radius
+        return true;
+    }
+    return false;
+}
+
+void NU_Mouse_Hover(struct UI_Tree* ui_tree)
+{
+    struct Node* root_node = Vector_Get(&ui_tree->tree_stack[0], 0);
+    if (root_node->window == NULL) return;
+
+    // Clear ui tree hovered nodes vector
+    ui_tree->hovered_nodes.size = 0;
+    if (ui_tree->hovered_node != NULL) {
+        ui_tree->hovered_node->background_r = 0;
+        ui_tree->hovered_node = NULL;
+    }
+
+    // Create a traversal stack and append root node
+    struct Vector stack;
+    Vector_Reserve(&stack, sizeof(struct Node*), 32);
+    Vector_Push(&stack, &root_node);
+
+    float mouse_x, mouse_y, rel_x, rel_y;
+    SDL_GetGlobalMouseState(&mouse_x, &mouse_y);
+
+    // Root-relative coords
+    int window_x, window_y;
+    SDL_GetWindowPosition(root_node->window, &window_x, &window_y);
+    rel_x = mouse_x - window_x;
+    rel_y = mouse_y - window_y;
+
+    // Add root node to ui hovered list if mouse over
+    if (NU_Mouse_Over_Node_Bounds(root_node, rel_x, rel_y)) {
+        Vector_Push(&ui_tree->hovered_nodes, &root_node);
+    }
+
+    bool break_loop = false;
+    while (stack.size > 0 && !break_loop) 
+    {
+        // Pop the stack
+        struct Node* current_node = *(struct Node**)Vector_Get(&stack, stack.size - 1);
+        stack.size -= 1;
+
+        // Get the relative mouse x, y for this node's window
+        if (current_node->tag == WINDOW)
+        {
+            int node_window_x, node_window_y;
+            SDL_GetWindowPosition(current_node->window, &node_window_x, &node_window_y);
+            rel_x = mouse_x - node_window_x;
+            rel_y = mouse_y - node_window_y;
+        }
+
+        // Iterate over node children
+        int32_t current_layer = ((current_node->ID >> 24) & 0xFF);
+        struct Vector* child_layer = &ui_tree->tree_stack[current_layer+1];
+        for (int i=current_node->first_child_index; i<current_node->first_child_index + current_node->child_count; i++)
+        {
+            struct Node* child = Vector_Get(child_layer, i);
+
+            // If child is a window node
+            if (child->tag == WINDOW) 
+            {
+                Vector_Push(&stack, &child);
+                int subwindow_x, subwindow_y;
+                SDL_GetWindowPosition(child->window, &subwindow_x, &subwindow_y);
+                float subwindow_rel_x = mouse_x - subwindow_x;
+                float subwindow_rel_y = mouse_y - subwindow_y;
+                if (NU_Mouse_Over_Node_Bounds(child, subwindow_rel_x, subwindow_rel_y)) {
+                    Vector_Push(&ui_tree->hovered_nodes, &child);
+                }
+                continue;
+            }
+
+            // Child is not a window node
+            if (NU_Mouse_Over_Node_Bounds(child, rel_x, rel_y)) 
+            {
+                ui_tree->hovered_node = child;
+                if (child->tag == BUTTON) {
+                    break_loop = true;
+                    break;
+                }
+
+                Vector_Push(&stack, &child);
+                Vector_Push(&ui_tree->hovered_nodes, &child);
+            }
+        }
+    }
+
+    // Set currently hovered node
+    if (ui_tree->hovered_node != NULL) 
+    {
+        ui_tree->hovered_node->background_r = 255;
+    } 
+
+    Vector_Free(&stack);
+}
+
+// Interaction ---------------------------------------------------------
+
+
+
 // UI rendering ---------------------------------------------------------
 void NU_Draw_Node(struct Node* node, NVGcontext* vg, float screen_width, float screen_height)
 {
     float inner_width  = node->width - node->border_left - node->border_right - node->pad_left - node->pad_right;
     float inner_height = node->height - node->border_top - node->border_bottom - node->pad_top - node->pad_bottom;
-
-    // Fill color based on tag
-    NVGcolor fillColor;
-    switch(node->tag)
-    {
-        case RECT:   fillColor = nvgRGB(120, 100, 100); break;
-        case BUTTON: fillColor = nvgRGB(50, 50, 50); break;
-        case WINDOW: fillColor = nvgRGB(60, 30, 255); break;
-        default:     fillColor = nvgRGB(100, 150, 120); break;
-    }
 
     Draw_Varying_Rounded_Rect(
         node->x, 
@@ -655,6 +769,10 @@ void NU_Draw_Node(struct Node* node, NVGcontext* vg, float screen_width, float s
         screen_width,
         screen_height
     );
+
+    if (node->gl_image_handle) {
+        Draw_Image(node->x, node->y, node->width, node->height, screen_width, screen_height, node->gl_image_handle);
+    }
 }
 
 void NU_Draw_Node_Text(struct UI_Tree* ui_tree, struct Node* node, char* text, NVGcontext* vg)
@@ -684,10 +802,10 @@ void NU_Draw_Node_Text(struct UI_Tree* ui_tree, struct Node* node, char* text, N
     nvgTextBox(vg, floorf(textPosX), floorf(textPosY), inner_width, text, NULL);
 }
 
-void NU_Draw_Nodes(struct UI_Tree* ui_tree, struct Vector* windows, struct Vector* gl_contexts, struct Vector* nano_vg_contexts)
+void NU_Draw_Nodes(struct UI_Tree* ui_tree)
 {
     struct Vector window_nodes_list[MAX_TREE_DEPTH];
-    for (int i=0; i<windows->size; i++) {
+    for (uint32_t i=0; i<ui_tree->windows.size; i++) {
         Vector_Reserve(&window_nodes_list[i], sizeof(struct Node*), 1000);
     }
 
@@ -698,9 +816,9 @@ void NU_Draw_Nodes(struct UI_Tree* ui_tree, struct Vector* windows, struct Vecto
         for (int n=0; n<layer->size; n++)
         {   
             struct Node* node = Vector_Get(layer, n);
-            for (int i=0; i<windows->size; i++)
+            for (uint32_t i=0; i<ui_tree->windows.size; i++)
             {
-                SDL_Window* window = *(SDL_Window**) Vector_Get(windows, i);
+                SDL_Window* window = *(SDL_Window**) Vector_Get(&ui_tree->windows, i);
                 if (window == node->window)
                 {
                     Vector_Push(&window_nodes_list[i], &node);
@@ -711,12 +829,10 @@ void NU_Draw_Nodes(struct UI_Tree* ui_tree, struct Vector* windows, struct Vecto
 
 
     // For each window
-    for (int i=0; i<windows->size; i++)
+    for (uint32_t i=0; i<ui_tree->windows.size; i++)
     {
-        SDL_Window* window = *(SDL_Window**) Vector_Get(windows, i);
-        SDL_GLContext gl_context = *(SDL_GLContext*) Vector_Get(gl_contexts, i);
-        NVGcontext* nano_vg_context = *(NVGcontext**) Vector_Get(nano_vg_contexts, i);
-        SDL_GL_MakeCurrent(window, gl_context);
+        SDL_Window* window = *(SDL_Window**) Vector_Get(&ui_tree->windows, i);
+        NVGcontext* nano_vg_context = *(NVGcontext**) Vector_Get(&ui_tree->nano_vg_contexts, i);
 
         // Clear the window
         int w, h;
@@ -731,7 +847,6 @@ void NU_Draw_Nodes(struct UI_Tree* ui_tree, struct Vector* windows, struct Vecto
         for (int n=0; n<window_nodes_list[i].size; n++)
         {
             struct Node* node = *(struct Node**) Vector_Get(&window_nodes_list[i], n);
-
             NU_Draw_Node(node, nano_vg_context, (float)w, (float)h);
 
             if (node->text_ref_index != -1)
@@ -746,34 +861,27 @@ void NU_Draw_Nodes(struct UI_Tree* ui_tree, struct Vector* windows, struct Vecto
             }
         }
 
-        // timer_start();
-        // for (int i=0; i<100000; i++)
-        // {
-        //     Draw_Varying_Rounded_Rect(100, 100, 500, 200, 10, 10, 10, 10, 20, 20, 20, 20, (char)255, (char)100, (char)100, (float)w, (float)h);
-        // }
-        // timer_stop();
-
         // Render to window
         nvgEndFrame(nano_vg_context);
         SDL_GL_SwapWindow(window); 
     }
 
-    for (int i=0; i<windows->size; i++) {
+    for (uint32_t i=0; i<ui_tree->windows.size; i++) {
         Vector_Free(&window_nodes_list[i]);
     }
 }
 
-void NU_Render(struct UI_Tree* ui_tree, struct Vector* windows, struct Vector* gl_contexts, struct Vector* nano_vg_contexts)
+void NU_Calculate(struct UI_Tree* ui_tree)
 {
-    NU_Clear_Node_Sizes(ui_tree, windows, gl_contexts, nano_vg_contexts);
+    NU_Clear_Node_Sizes(ui_tree);
     NU_Calculate_Text_Fit_Sizes(ui_tree);
     NU_Calculate_Fit_Size_Widths(ui_tree);
     NU_Grow_Shrink_Widths(ui_tree);
-    NU_Calculate_Text_Wrap_Heights(ui_tree, windows, gl_contexts, nano_vg_contexts);
+    NU_Calculate_Text_Wrap_Heights(ui_tree);
     NU_Calculate_Fit_Size_Heights(ui_tree);
     NU_Grow_Shrink_Heights(ui_tree);
     NU_Calculate_Positions(ui_tree);
-    NU_Draw_Nodes(ui_tree, windows, gl_contexts, nano_vg_contexts);
+    NU_Mouse_Hover(ui_tree);
 }
 // UI rendering ---------------------------------------------------------
 
@@ -782,19 +890,32 @@ void NU_Render(struct UI_Tree* ui_tree, struct Vector* windows, struct Vector* g
 // Window resize event handling -----------------------------------------
 struct NU_Watcher_Data {
     struct UI_Tree* ui_tree;
-    struct Vector* windows;
-    struct Vector* gl_contexts;
-    struct Vector* nano_vg_contexts;
 };
 
 bool ResizingEventWatcher(void* data, SDL_Event* event) 
 {
     struct NU_Watcher_Data* wd = (struct NU_Watcher_Data*)data;
 
-    if (event->type == SDL_EVENT_WINDOW_RESIZED) 
-    {
-        NU_Render(wd->ui_tree, wd->windows, wd->gl_contexts, wd->nano_vg_contexts);
-    }
+    switch (event->type) {
+        case SDL_EVENT_WINDOW_RESIZED:
+            NU_Calculate(wd->ui_tree);
+            NU_Draw_Nodes(wd->ui_tree);
+            break;
+        case SDL_EVENT_MOUSE_MOTION:
+            NU_Calculate(wd->ui_tree);
+            NU_Draw_Nodes(wd->ui_tree);
+            break;
+        case SDL_EVENT_MOUSE_BUTTON_DOWN:
+            wd->ui_tree->mouse_down_node = wd->ui_tree->hovered_node;
+            break;
+        case SDL_EVENT_MOUSE_BUTTON_UP:
+            if (wd->ui_tree->mouse_down_node == wd->ui_tree->hovered_node) {
+                printf("Node Clicked!");
+            }
+            break;
+        default:
+            break;
+    }    
     return true;
 }
 // Window resize event handling -----------------------------------------

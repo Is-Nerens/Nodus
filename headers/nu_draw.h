@@ -481,10 +481,12 @@ void PrintGLErrors()
 // -----------------------------------------------
 void Draw_Image(float x, float y, float w, float h, float screen_width, float screen_height, GLuint image_handle)
 {
-    x = roundf(x)  + 0.5f;;
-    y = roundf(y)  + 0.5f;;
-    w = roundf(w)  + 0.5f;;
-    h = roundf(h)  + 0.5f;;
+    glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+
+    x = roundf(x);
+    y = roundf(y);
+    w = roundf(w);
+    h = roundf(h);
 
     // Quad vertices 
     vertex_uv verts[6] = {

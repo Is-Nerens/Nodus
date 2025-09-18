@@ -56,6 +56,11 @@ static void NU_Reset_Node_size(struct Node* node)
 
 static void NU_Clear_Node_Sizes(struct UI_Tree* ui_tree)
 {
+    // Don't skip the root
+    struct Node* root = Vector_Get(&ui_tree->tree_stack[0], 0);
+    NU_Reset_Node_size(root);
+    SDL_SetWindowMinimumSize(root->window, root->min_width, root->min_height);
+
     // For each layer
     for (int l=0; l<=ui_tree->deepest_layer; l++)
     {
@@ -70,6 +75,7 @@ static void NU_Clear_Node_Sizes(struct UI_Tree* ui_tree)
             // If parent is window node and has no SDL window assigned to it -> create a new window and renderer
             if (parent->tag == WINDOW && parent->window == NULL && l != 0) {
                 NU_Create_Subwindow(ui_tree, parent);
+                SDL_SetWindowMinimumSize(parent->window, parent->min_width, parent->min_height);
             }
 
             if (parent->child_count == 0) continue; // Skip acummulating child sizes (no children)
@@ -277,9 +283,10 @@ static void NU_Grow_Shrink_Child_Node_Widths(struct Node* parent, struct Vector*
             struct Node* child = Vector_Get(child_layer, i);
             if (child->layout_flags & GROW_HORIZONTAL)
             {
+                float pad_and_border = child->pad_left + child->pad_right + child->border_left + child->border_right;
                 child->width = remaining_width; 
                 child->width = min(child->width, child->max_width);
-                child->width = max(child->width, child->min_width);
+                child->width = max(child->width, max(child->min_width, pad_and_border));
             }
         }
     }
@@ -331,6 +338,7 @@ static void NU_Grow_Shrink_Child_Node_Widths(struct Node* parent, struct Vector*
                         float available = child->max_width - child->width;
                         float grow = min(width_to_add, available);
                         if (grow > 0.0f) {
+                            parent->content_height += grow;
                             child->width += grow;
                             remaining_width -= grow;
                             grew_any = true;
@@ -377,6 +385,7 @@ static void NU_Grow_Shrink_Child_Node_Widths(struct Node* parent, struct Vector*
                         float available = child->width - child->min_width;
                         float shrink = min(width_to_subtract, available);
                         if (shrink > 0.0f) {
+                            parent->content_width -= shrink;
                             child->width -= shrink;
                             remaining_width += shrink;
                             shrunk_any = true;
@@ -386,6 +395,9 @@ static void NU_Grow_Shrink_Child_Node_Widths(struct Node* parent, struct Vector*
             }
             if (!shrunk_any) break;
         }
+
+        // Enforce min parent width based on content
+        parent->width = max(parent->width, parent->content_width + parent->pad_left + parent->pad_right + parent->border_left + parent->border_right);
     }
 }
 
@@ -400,9 +412,10 @@ static void NU_Grow_Shrink_Child_Node_Heights(struct Node* parent, struct Vector
             struct Node* child = Vector_Get(child_layer, i);
             if (child->layout_flags & GROW_VERTICAL)
             {   
-                child->height = remaining_height;
+                float pad_and_border = child->pad_top + child->pad_bottom + child->border_top + child->border_bottom;
+                child->height = remaining_height; 
                 child->height = min(child->height, child->max_height);
-                child->height = max(child->height, child->min_height);
+                child->height = max(child->height, max(child->min_height, pad_and_border));
             }
         }
     }
@@ -453,6 +466,7 @@ static void NU_Grow_Shrink_Child_Node_Heights(struct Node* parent, struct Vector
                         float available = child->max_height - child->height;
                         float grow = min(height_to_add, available);
                         if (grow > 0.0f) {
+                            parent->content_height += grow;
                             child->height += grow;
                             remaining_height -= grow;
                             grew_any = true;
@@ -462,6 +476,9 @@ static void NU_Grow_Shrink_Child_Node_Heights(struct Node* parent, struct Vector
             }
             if (!grew_any) break;
         }
+
+        // Enforce min parent height based on content
+        parent->height = max(parent->height, parent->content_height + parent->pad_top + parent->pad_bottom + parent->border_top + parent->border_bottom);
     }
 }
 
@@ -735,7 +752,7 @@ void NU_Mouse_Hover(struct UI_Tree* ui_tree)
     // Set currently hovered node
     if (ui_tree->hovered_node != NULL) 
     {
-        ui_tree->hovered_node->background_r = 255;
+        ui_tree->hovered_node->background_r = 80;
     } 
 
     Vector_Free(&stack);
@@ -771,7 +788,7 @@ void NU_Draw_Node(struct Node* node, NVGcontext* vg, float screen_width, float s
     );
 
     if (node->gl_image_handle) {
-        Draw_Image(node->x, node->y, node->width, node->height, screen_width, screen_height, node->gl_image_handle);
+        Draw_Image(node->x + node->border_left + node->pad_left, node->y + node->border_top + node->pad_top, inner_width, inner_height, screen_width, screen_height, node->gl_image_handle);
     }
 }
 

@@ -1,10 +1,9 @@
 button {
-    background: #000000;
+    background: #08090f;
     borderColour: #737c93;
     border: 1;
-    pad: 10;
-    borderRadius: 5;
-    borderRadius: 5;
+    pad: 5;
+    borderRadius: 3;
     gap: 3;
 }
 image {
@@ -17,27 +16,23 @@ image {
     background: #373c55;
     borderColour: #000000;
 }
-#toolbar-info-container {
-
-}
 .toolbar-info {
     border: 1;
-    borderColour: #7d6443;
-    pad: 10;
+    borderColour: #737c93;
+    background: #000000;
+    pad: 5;
+    borderRadius: 3;
 }
 #symbol-search {
     border: 1;
     borderColour: #737c93;
-    pad: 5;
-    borderRadius: 5;
-    borderRadius: 5;
+    pad: 8;
+    borderRadius: 3;
 }
 .watchlist-item {
     border: 1;
     borderColour: #737c93;
     pad: 5;
-    borderRadius: 5;
-    borderRadius: 5;
     gap: 3;
     grow: h;
 }
@@ -50,7 +45,7 @@ image {
     gap: 3;
 }
 #chart {
-    background: #969696;
+    background: #070707;
     grow: b;
     borderRadius: 5;
     borderColour: #000000;
@@ -65,8 +60,12 @@ image {
     borderRadius: 5;
 }
 .drawing-tool {
-    width: 30;
-    height: 30;
+    width: 42;
+    height: 42;
+    border: 1;
+    borderColour: #3f4f86;
+    borderRadius: 3;
+    pad: 5;
 }
 #trade-history {
     background: #1c243f;

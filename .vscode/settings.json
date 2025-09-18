@@ -27,6 +27,11 @@
         "freetype.h": "c",
         "xlocale": "c",
         "chrono": "cpp",
-        "format": "cpp"
+        "format": "cpp",
+        "locale": "c",
+        "xlocmes": "c",
+        "xlocmon": "c",
+        "xlocnum": "c",
+        "xloctime": "c"
     }
 }

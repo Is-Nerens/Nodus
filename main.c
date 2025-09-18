@@ -71,7 +71,10 @@ int main()
 
     timer_start();
     start_measurement();
-    NU_Set_Style(&ui_tree, "test.css");
+
+    struct NU_Stylesheet stylesheet;
+    NU_Stylesheet_Create(&stylesheet,"test.css"); 
+    NU_Stylesheet_Apply(&ui_tree, &stylesheet);
 
     end_measurement();
 

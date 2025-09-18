@@ -25,6 +25,7 @@
 #include "nu_image.h"
 #include "nu_font.h"
 #include "nu_draw.h"
+#include "nu_stylesheet.h"
 
 #define NANOVG_GL3_IMPLEMENTATION
 #include <nanovg.h>
@@ -197,6 +198,9 @@ struct UI_Tree
     struct Node* hovered_node;
     struct Node* mouse_down_node;
     int16_t deepest_layer;
+
+    // Styles
+    struct NU_Stylesheet* stylesheet;
 };
 
 
@@ -533,6 +537,7 @@ static void NU_Tree_Init(struct UI_Tree* ui_tree)
     ui_tree->hovered_node = NULL;
     ui_tree->mouse_down_node = NULL;
     ui_tree->deepest_layer = 0;
+    ui_tree->stylesheet = NULL;
 }
 
 void NU_Tree_Cleanup(struct UI_Tree* ui_tree)

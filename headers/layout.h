@@ -674,7 +674,7 @@ void NU_Mouse_Hover(struct UI_Tree* ui_tree)
     // Clear ui tree hovered nodes vector
     ui_tree->hovered_nodes.size = 0;
     if (ui_tree->hovered_node != NULL) {
-        ui_tree->hovered_node->background_r = 0;
+        NU_Apply_Stylesheet_To_Node(ui_tree->hovered_node, ui_tree->stylesheet);
         ui_tree->hovered_node = NULL;
     }
 
@@ -752,7 +752,7 @@ void NU_Mouse_Hover(struct UI_Tree* ui_tree)
     // Set currently hovered node
     if (ui_tree->hovered_node != NULL) 
     {
-        ui_tree->hovered_node->background_r = 80;
+        NU_Apply_Pseudo_Style_To_Node(ui_tree->hovered_node, ui_tree->stylesheet, PSEUDO_HOVER);
     } 
 
     Vector_Free(&stack);

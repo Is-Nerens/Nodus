@@ -8,7 +8,9 @@
 #include "nu_stylesheet.h"
 
 #define STYLE_PROPERTY_COUNT 30
-#define STYLE_KEYWORD_COUNT 36
+#define STYLE_KEYWORD_COUNT 39
+#define STYLE_TAG_SELECTOR_COUNT 6
+#define STYLE_PSEUDO_COUNT 3
 
 static const char* style_keywords[] = {
     "dir",
@@ -29,14 +31,16 @@ static const char* style_keywords[] = {
     "border", "borderTop", "borderBottom", "borderLeft", "borderRight",
     "borderRadius", "borderRadiusTopLeft", "borderRadiusTopRight", "borderRadiusBottomLeft", "borderRadiusBottomRight",
     "pad", "padTop", "padBottom", "padLeft", "padRight",
-    "window", "rect", "button", "grid", "text", "image"
+    "window", "rect", "button", "grid", "text", "image",
+    "hover", "press", "focus",
 };
 static const uint8_t style_keyword_lengths[] = { 
     3, 4, 9, 9, 3, 5, 8, 8, 6, 9, 9, 6, 6, 10, 12,
     6, 9, 12, 10, 11,      // border width
     12, 19, 20, 22, 23,    // border radius
-    3, 6, 9, 7, 8,        // padding
-    6, 4, 6, 4, 4, 5       // selectors
+    3, 6, 9, 7, 8,         // padding
+    6, 4, 6, 4, 4, 5,      // selectors
+    5, 5, 5                // pseudo classes
 };
 enum NU_Style_Token 
 {
@@ -76,8 +80,12 @@ enum NU_Style_Token
     STYLE_GRID_SELECTOR,
     STYLE_TEXT_SELECTOR,
     STYLE_IMAGE_SELECTOR,
+    STYLE_HOVER_PSEUDO,
+    STYLE_PRESS_PSEUDO,
+    STYLE_FOCUS_PSEUDO,
     STYLE_ID_SELECTOR,
     STYLE_CLASS_SELECTOR,
+    STYLE_PSEUDO_COLON,
     STYLE_SELECTOR_COMMA,
     STYLE_SELECTOR_OPEN_BRACE,
     STYLE_SELECTOR_CLOSE_BRACE,
@@ -85,6 +93,77 @@ enum NU_Style_Token
     STYLE_PROPERTY_VALUE,
     STYLE_UNDEFINED
 };
+
+enum NU_Pseudo_Class
+{
+    PSEUDO_HOVER,
+    PSEUDO_PRESS,
+    PSEUDO_FOCUS,
+    PSEUDO_UNDEFINED
+};
+
+#include <stdio.h>
+
+const char* NU_Style_TokenToString(enum NU_Style_Token token)
+{
+    switch (token)
+    {
+        case STYLE_LAYOUT_DIRECTION_PROPERTY:       return "STYLE_LAYOUT_DIRECTION_PROPERTY";
+        case STYLE_GROW_PROPERTY:                   return "STYLE_GROW_PROPERTY";
+        case STYLE_OVERFLOW_V_PROPERTY:             return "STYLE_OVERFLOW_V_PROPERTY";
+        case STYLE_OVERFLOW_H_PROPERTY:             return "STYLE_OVERFLOW_H_PROPERTY";
+        case STYLE_GAP_PROPERTY:                    return "STYLE_GAP_PROPERTY";
+        case STYLE_WIDTH_PROPERTY:                  return "STYLE_WIDTH_PROPERTY";
+        case STYLE_MIN_WIDTH_PROPERTY:              return "STYLE_MIN_WIDTH_PROPERTY";
+        case STYLE_MAX_WIDTH_PROPERTY:              return "STYLE_MAX_WIDTH_PROPERTY";
+        case STYLE_HEIGHT_PROPERTY:                 return "STYLE_HEIGHT_PROPERTY";
+        case STYLE_MIN_HEIGHT_PROPERTY:             return "STYLE_MIN_HEIGHT_PROPERTY";
+        case STYLE_MAX_HEIGHT_PROPERTY:             return "STYLE_MAX_HEIGHT_PROPERTY";
+        case STYLE_ALIGN_H_PROPERTY:                return "STYLE_ALIGN_H_PROPERTY";
+        case STYLE_ALIGN_V_PROPERTY:                return "STYLE_ALIGN_V_PROPERTY";
+        case STYLE_BACKGROUND_COLOUR_PROPERTY:      return "STYLE_BACKGROUND_COLOUR_PROPERTY";
+        case STYLE_BORDER_COLOUR_PROPERTY:          return "STYLE_BORDER_COLOUR_PROPERTY";
+        case STYLE_BORDER_WIDTH_PROPERTY:           return "STYLE_BORDER_WIDTH_PROPERTY";
+        case STYLE_BORDER_TOP_WIDTH_PROPERTY:       return "STYLE_BORDER_TOP_WIDTH_PROPERTY";
+        case STYLE_BORDER_BOTTOM_WIDTH_PROPERTY:    return "STYLE_BORDER_BOTTOM_WIDTH_PROPERTY";
+        case STYLE_BORDER_LEFT_WIDTH_PROPERTY:      return "STYLE_BORDER_LEFT_WIDTH_PROPERTY";
+        case STYLE_BORDER_RIGHT_WIDTH_PROPERTY:     return "STYLE_BORDER_RIGHT_WIDTH_PROPERTY";
+        case STYLE_BORDER_RADIUS_PROPERTY:          return "STYLE_BORDER_RADIUS_PROPERTY";
+        case STYLE_BORDER_TOP_LEFT_RADIUS_PROPERTY: return "STYLE_BORDER_TOP_LEFT_RADIUS_PROPERTY";
+        case STYLE_BORDER_TOP_RIGHT_RADIUS_PROPERTY:return "STYLE_BORDER_TOP_RIGHT_RADIUS_PROPERTY";
+        case STYLE_BORDER_BOTTOM_LEFT_RADIUS_PROPERTY:return "STYLE_BORDER_BOTTOM_LEFT_RADIUS_PROPERTY";
+        case STYLE_BORDER_BOTTOM_RIGHT_RADIUS_PROPERTY:return "STYLE_BORDER_BOTTOM_RIGHT_RADIUS_PROPERTY";
+        case STYLE_PADDING_PROPERTY:                return "STYLE_PADDING_PROPERTY";
+        case STYLE_PADDING_TOP_PROPERTY:            return "STYLE_PADDING_TOP_PROPERTY";
+        case STYLE_PADDING_BOTTOM_PROPERTY:         return "STYLE_PADDING_BOTTOM_PROPERTY";
+        case STYLE_PADDING_LEFT_PROPERTY:           return "STYLE_PADDING_LEFT_PROPERTY";
+        case STYLE_PADDING_RIGHT_PROPERTY:          return "STYLE_PADDING_RIGHT_PROPERTY";
+        case STYLE_WINDOW_SELECTOR:                 return "STYLE_WINDOW_SELECTOR";
+        case STYLE_RECT_SELECTOR:                   return "STYLE_RECT_SELECTOR";
+        case STYLE_BUTTON_SELECTOR:                 return "STYLE_BUTTON_SELECTOR";
+        case STYLE_GRID_SELECTOR:                   return "STYLE_GRID_SELECTOR";
+        case STYLE_TEXT_SELECTOR:                   return "STYLE_TEXT_SELECTOR";
+        case STYLE_IMAGE_SELECTOR:                  return "STYLE_IMAGE_SELECTOR";
+        case STYLE_HOVER_PSEUDO:                    return "STYLE_HOVER_PSEUDO";
+        case STYLE_PRESS_PSEUDO:                    return "STYLE_PRESS_PSEUDO";
+        case STYLE_FOCUS_PSEUDO:                    return "STYLE_FOCUS_PSEUDO";
+        case STYLE_ID_SELECTOR:                     return "STYLE_ID_SELECTOR";
+        case STYLE_CLASS_SELECTOR:                  return "STYLE_CLASS_SELECTOR";
+        case STYLE_PSEUDO_COLON:                    return "STYLE_PSEUDO_COLON";
+        case STYLE_SELECTOR_COMMA:                  return "STYLE_SELECTOR_COMMA";
+        case STYLE_SELECTOR_OPEN_BRACE:             return "STYLE_SELECTOR_OPEN_BRACE";
+        case STYLE_SELECTOR_CLOSE_BRACE:            return "STYLE_SELECTOR_CLOSE_BRACE";
+        case STYLE_PROPERTY_ASSIGNMENT:             return "STYLE_PROPERTY_ASSIGNMENT";
+        case STYLE_PROPERTY_VALUE:                  return "STYLE_PROPERTY_VALUE";
+        case STYLE_UNDEFINED:                       return "STYLE_UNDEFINED";
+        default:                                    return "UNKNOWN_TOKEN";
+    }
+}
+
+void PrintToken(enum NU_Style_Token token)
+{
+    printf("%s\n", NU_Style_TokenToString(token));
+}
 
 static uint32_t Property_Token_To_Flag(enum NU_Style_Token token)
 {
@@ -97,58 +176,6 @@ struct Style_Text_Ref
     uint32_t src_index;
     uint8_t char_count; 
 };
-
-static void printfToken(enum NU_Style_Token token)
-{
-    switch (token)
-    {
-        case STYLE_LAYOUT_DIRECTION_PROPERTY:      printf("LAYOUT_DIRECTION_PROPERTY\n"); break;
-        case STYLE_GROW_PROPERTY:                  printf("GROW_PROPERTY\n"); break;
-        case STYLE_OVERFLOW_V_PROPERTY:            printf("OVERFLOW_V_PROPERTY\n"); break;
-        case STYLE_OVERFLOW_H_PROPERTY:            printf("OVERFLOW_H_PROPERTY\n"); break;
-        case STYLE_GAP_PROPERTY:                   printf("GAP_PROPERTY\n"); break;
-        case STYLE_WIDTH_PROPERTY:                 printf("WIDTH_PROPERTY\n"); break;
-        case STYLE_MIN_WIDTH_PROPERTY:             printf("MIN_WIDTH_PROPERTY\n"); break;
-        case STYLE_MAX_WIDTH_PROPERTY:             printf("MAX_WIDTH_PROPERTY\n"); break;
-        case STYLE_HEIGHT_PROPERTY:                printf("HEIGHT_PROPERTY\n"); break;
-        case STYLE_MIN_HEIGHT_PROPERTY:            printf("MIN_HEIGHT_PROPERTY\n"); break;
-        case STYLE_MAX_HEIGHT_PROPERTY:            printf("MAX_HEIGHT_PROPERTY\n"); break;
-        case STYLE_ALIGN_H_PROPERTY:               printf("ALIGN_H_PROPERTY\n"); break;
-        case STYLE_ALIGN_V_PROPERTY:               printf("ALIGN_V_PROPERTY\n"); break;
-        case STYLE_BACKGROUND_COLOUR_PROPERTY:     printf("BACKGROUND_COLOUR_PROPERTY\n"); break;
-        case STYLE_BORDER_COLOUR_PROPERTY:         printf("BORDER_COLOUR_PROPERTY\n"); break;
-        case STYLE_BORDER_WIDTH_PROPERTY:          printf("BORDER_WIDTH_PROPERTY\n"); break;
-        case STYLE_BORDER_TOP_WIDTH_PROPERTY:      printf("BORDER_TOP_WIDTH_PROPERTY\n"); break;
-        case STYLE_BORDER_BOTTOM_WIDTH_PROPERTY:   printf("BORDER_BOTTOM_WIDTH_PROPERTY\n"); break;
-        case STYLE_BORDER_LEFT_WIDTH_PROPERTY:     printf("BORDER_LEFT_WIDTH_PROPERTY\n"); break;
-        case STYLE_BORDER_RIGHT_WIDTH_PROPERTY:    printf("BORDER_RIGHT_WIDTH_PROPERTY\n"); break;
-        case STYLE_BORDER_RADIUS_PROPERTY:         printf("BORDER_RADIUS_PROPERTY\n"); break;
-        case STYLE_BORDER_TOP_LEFT_RADIUS_PROPERTY:    printf("BORDER_TOP_LEFT_RADIUS_PROPERTY\n"); break;
-        case STYLE_BORDER_TOP_RIGHT_RADIUS_PROPERTY:   printf("BORDER_TOP_RIGHT_RADIUS_PROPERTY\n"); break;
-        case STYLE_BORDER_BOTTOM_LEFT_RADIUS_PROPERTY: printf("BORDER_BOTTOM_LEFT_RADIUS_PROPERTY\n"); break;
-        case STYLE_BORDER_BOTTOM_RIGHT_RADIUS_PROPERTY:printf("BORDER_BOTTOM_RIGHT_RADIUS_PROPERTY\n"); break;
-        case STYLE_PADDING_PROPERTY:               printf("PADDING_PROPERTY\n"); break;
-        case STYLE_PADDING_TOP_PROPERTY:           printf("PADDING_TOP_PROPERTY\n"); break;
-        case STYLE_PADDING_BOTTOM_PROPERTY:        printf("PADDING_BOTTOM_PROPERTY\n"); break;
-        case STYLE_PADDING_LEFT_PROPERTY:          printf("PADDING_LEFT_PROPERTY\n"); break;
-        case STYLE_PADDING_RIGHT_PROPERTY:         printf("PADDING_RIGHT_PROPERTY\n"); break;
-        case STYLE_WINDOW_SELECTOR:                printf("WINDOW_SELECTOR\n"); break;
-        case STYLE_RECT_SELECTOR:                  printf("RECT_SELECTOR\n"); break;
-        case STYLE_BUTTON_SELECTOR:                printf("BUTTON_SELECTOR\n"); break;
-        case STYLE_GRID_SELECTOR:                  printf("GRID_SELECTOR\n"); break;
-        case STYLE_TEXT_SELECTOR:                  printf("TEXT_SELECTOR\n"); break;
-        case STYLE_IMAGE_SELECTOR:                 printf("IMAGE_SELECTOR\n"); break;
-        case STYLE_ID_SELECTOR:                    printf("ID_SELECTOR\n"); break;
-        case STYLE_CLASS_SELECTOR:                 printf("CLASS_SELECTOR\n"); break;
-        case STYLE_SELECTOR_COMMA:                 printf("SELECTOR_COMMA\n"); break;
-        case STYLE_SELECTOR_OPEN_BRACE:            printf("SELECTOR_OPEN_BRACE\n"); break;
-        case STYLE_SELECTOR_CLOSE_BRACE:           printf("SELECTOR_CLOSE_BRACE\n"); break;
-        case STYLE_PROPERTY_ASSIGNMENT:            printf("PROPERTY_ASSIGNMENT\n"); break;
-        case STYLE_PROPERTY_VALUE:                 printf("PROPERTY_VALUE\n"); break;
-        case STYLE_UNDEFINED:                      printf("UNDEFINED\n"); break;
-        default:                             printf("UNKNOWN TOKEN (%d)\n", token); break;
-    }
-}
 
 static enum NU_Style_Token NU_Word_To_Style_Token(char* word, uint8_t word_char_count)
 {
@@ -163,7 +190,7 @@ static enum NU_Style_Token NU_Word_To_Style_Token(char* word, uint8_t word_char_
 
 static enum NU_Style_Token NU_Word_To_Property_Token(char* word, uint8_t word_char_count)
 {
-    for (int i=0; i<30; i++)
+    for (int i=0; i<STYLE_PROPERTY_COUNT; i++)
     {
         size_t len = style_keyword_lengths[i];
         if (len == word_char_count && memcmp(word, style_keywords[i], len) == 0) {
@@ -175,7 +202,9 @@ static enum NU_Style_Token NU_Word_To_Property_Token(char* word, uint8_t word_ch
 
 static enum NU_Style_Token NU_Word_To_Tag_Selector_Token(char* word, uint8_t word_char_count)
 {
-    for (int i=30; i<36; i++)
+    int start = STYLE_PROPERTY_COUNT;
+    int end = STYLE_PROPERTY_COUNT + STYLE_TAG_SELECTOR_COUNT;
+    for (int i=start; i<end; i++)
     {
         size_t len = style_keyword_lengths[i];
         if (len == word_char_count && memcmp(word, style_keywords[i], len) == 0) {
@@ -185,14 +214,36 @@ static enum NU_Style_Token NU_Word_To_Tag_Selector_Token(char* word, uint8_t wor
     return STYLE_UNDEFINED;
 }
 
+static enum NU_Style_Token NU_Word_To_Pseudo_Token(char* word, uint8_t word_char_count)
+{
+    int start = STYLE_PROPERTY_COUNT + STYLE_TAG_SELECTOR_COUNT;
+    int end = start + STYLE_PSEUDO_COUNT;
+    for (int i=start; i<end; i++)
+    {
+        size_t len = style_keyword_lengths[i];
+        if (len == word_char_count && memcmp(word, style_keywords[i], len) == 0) {
+            return i;
+        }
+    }
+    return STYLE_UNDEFINED;
+}
+
+static enum NU_Pseudo_Class Token_To_Pseudo_Class(enum NU_Style_Token token)
+{
+    return token - (STYLE_PROPERTY_COUNT + STYLE_TAG_SELECTOR_COUNT);
+}
+
 static void NU_Style_Tokenise(char* src_buffer, uint32_t src_length, struct Vector* NU_Token_vector, struct Vector* text_ref_vector)
 {
     // Store current NU_Token word;
     uint8_t word_char_index = 0;
-    char word[24];
+    char word[64];
 
     // Context
-    uint8_t ctx = 0; // 0 == globalspace, 1 == commentspace, 2 == selectorspace, 3 == propertyspace, 4 == class selector namespace, 5 == id selector name space 
+    uint8_t ctx = 0; 
+    // 0 == globalspace, 1 == commentspace, 2 == selectorspace, 
+    // 3 == propertyspace, 4 == class selector namespace, 5 == id selector name space 
+    // 6 == pseudo namespace
 
     // Iterate over src file
     uint32_t i = 0;
@@ -237,24 +288,6 @@ static void NU_Style_Tokenise(char* src_buffer, uint32_t src_length, struct Vect
         {
             word_char_index = 0;
             ctx = 5;
-            i += 1;
-            continue;
-        }
-
-        // Property assignment colon
-        if (ctx == 2 && c == ':')
-        {
-            // Property identifier word completed
-            if (word_char_index > 0) {
-                enum NU_Style_Token token = NU_Word_To_Property_Token(word, word_char_index);
-                Vector_Push(NU_Token_vector, &token);
-                word_char_index = 0;
-            }
-
-            enum NU_Style_Token token = STYLE_PROPERTY_ASSIGNMENT;
-            Vector_Push(NU_Token_vector, &token);
-
-            ctx = 3;
             i += 1;
             continue;
         }
@@ -348,7 +381,7 @@ static void NU_Style_Tokenise(char* src_buffer, uint32_t src_length, struct Vect
         }
 
         // Encountered separation character -> word is completed
-        if (c == ' ' || c == '\t' || c == '\n' || c == ',')
+        if (c == ' ' || c == '\t' || c == '\n' || c == ',' || c == ':')
         {
             // Tag selector word completed
             if (ctx == 0 && word_char_index > 0) {
@@ -358,7 +391,7 @@ static void NU_Style_Tokenise(char* src_buffer, uint32_t src_length, struct Vect
             }
 
             // Class selector word completed
-            if (ctx == 4 && word_char_index > 0) {
+            else if (ctx == 4 && word_char_index > 0) {
 
                 // Add text reference
                 struct Style_Text_Ref ref;
@@ -370,10 +403,11 @@ static void NU_Style_Tokenise(char* src_buffer, uint32_t src_length, struct Vect
                 enum NU_Style_Token token = STYLE_CLASS_SELECTOR;
                 Vector_Push(NU_Token_vector, &token);
                 word_char_index = 0;
+                ctx = 0;
             }
 
             // Id selector word completed
-            if (ctx == 5 && word_char_index > 0) {
+            else if (ctx == 5 && word_char_index > 0) {
 
                 // Add text reference
                 struct Style_Text_Ref ref;
@@ -385,17 +419,18 @@ static void NU_Style_Tokenise(char* src_buffer, uint32_t src_length, struct Vect
                 enum NU_Style_Token token = STYLE_ID_SELECTOR;
                 Vector_Push(NU_Token_vector, &token);
                 word_char_index = 0;
+                ctx = 0;
             }
 
             // Property identifier word completed
-            if (ctx == 2 && word_char_index > 0) {
+            else if (ctx == 2 && word_char_index > 0) {
                 enum NU_Style_Token token = NU_Word_To_Property_Token(word, word_char_index);
                 Vector_Push(NU_Token_vector, &token);
                 word_char_index = 0;
             }
 
             // Property value word completed
-            if (ctx == 3 && word_char_index > 0) {
+            else if (ctx == 3 && word_char_index > 0) {
 
                 // Add text reference
                 struct Style_Text_Ref ref;
@@ -406,6 +441,15 @@ static void NU_Style_Tokenise(char* src_buffer, uint32_t src_length, struct Vect
                 enum NU_Style_Token token = STYLE_PROPERTY_VALUE;
                 Vector_Push(NU_Token_vector, &token);
                 word_char_index = 0;
+                ctx = 2;
+            }
+
+            // Pseudo class word completed
+            else if (ctx == 6 && word_char_index > 0) {
+                enum NU_Style_Token token = NU_Word_To_Pseudo_Token(word, word_char_index);
+                Vector_Push(NU_Token_vector, &token);
+                word_char_index = 0;
+                ctx = 0;
             }
 
             if (c == ',') {
@@ -413,11 +457,26 @@ static void NU_Style_Tokenise(char* src_buffer, uint32_t src_length, struct Vect
                 Vector_Push(NU_Token_vector, &token);
             }
 
+            if (c == ':') {
+                // Style property assignment token
+                if (ctx == 2) {
+                    enum NU_Style_Token token = STYLE_PROPERTY_ASSIGNMENT;
+                    Vector_Push(NU_Token_vector, &token);
+                    ctx = 3;
+                }
+                // Pseudo class assignment token
+                else if (ctx == 0 || ctx == 4 || ctx == 5 ) {
+                    enum NU_Style_Token token = STYLE_PSEUDO_COLON;
+                    Vector_Push(NU_Token_vector, &token);
+                    ctx = 6;
+                }
+            }
+
             i += 1;
             continue;
         }
 
-        // Add char to word (if ctx == 0 || 2 || 3 || 4 || 5)
+        // Add char to word (if ctx == 0 || 2 || 3 || 4 || 5 || 6)
         if (ctx != 1)
         {
             word[word_char_index] = c;
@@ -430,13 +489,20 @@ static void NU_Style_Tokenise(char* src_buffer, uint32_t src_length, struct Vect
 
 static int NU_Is_Property_Identifier_Token(enum NU_Style_Token token)
 {
-    if (token < 30) return 1;
+    if (token < STYLE_PROPERTY_COUNT) return 1;
     return 0;
 }
 
 static int NU_Is_Tag_Selector_Token(enum NU_Style_Token token)
 {
-    return token > 29 && token < 36;
+    return token > (STYLE_PROPERTY_COUNT - 1) && token < STYLE_PROPERTY_COUNT + STYLE_TAG_SELECTOR_COUNT;
+}
+
+static int NU_Is_Pseudo_Token(enum NU_Style_Token token)
+{
+    int start = STYLE_PROPERTY_COUNT + STYLE_TAG_SELECTOR_COUNT - 1;
+    int end = start + STYLE_PSEUDO_COUNT + 1;
+    return token > start && token < end;
 }
 
 static int AssertSelectionOpeningBraceGrammar(struct Vector* tokens, int i)
@@ -467,7 +533,7 @@ static int AssertSelectorGrammar(struct Vector* tokens, int i)
     if (i < tokens->size - 1)
     {
         enum NU_Style_Token next_token = *((enum NU_Style_Token*) Vector_Get(tokens, i+1));
-        return next_token == STYLE_SELECTOR_COMMA || STYLE_SELECTOR_OPEN_BRACE;
+        return next_token == STYLE_SELECTOR_COMMA || next_token == STYLE_SELECTOR_OPEN_BRACE;
     }
     return 0;
 }
@@ -575,29 +641,76 @@ static int NU_Generate_Stylesheet(char* src_buffer, uint32_t src_length, struct 
 
         if (NU_Is_Tag_Selector_Token(token))
         {
-            if (AssertSelectorGrammar(tokens, i)) {
-                i += 1;
+            if (i < tokens->size - 1)
+            {
+                enum NU_Style_Token next_token = *((enum NU_Style_Token*) Vector_Get(tokens, i+1));
+                if (next_token == STYLE_SELECTOR_COMMA || next_token == STYLE_SELECTOR_OPEN_BRACE)    
+                {
+                    int tag = token - STYLE_PROPERTY_COUNT;
+                    void* found = Hashmap_Get(&ss->tag_item_hashmap, &tag);
+                    if (found != NULL) // Style item exists
+                    {
+                        struct NU_Stylesheet_Item* found_item = Vector_Get(&ss->items, *(uint32_t*)found);
+                        selector_indexes[selector_count] = *(uint32_t*)found;
+                    } 
+                    else // Style item does not exist -> add one
+                    { 
+                        struct NU_Stylesheet_Item new_item;
+                        new_item.class = NULL;
+                        new_item.id = NULL;
+                        new_item.tag = tag;
+                        new_item.property_flags = 0;
+                        Vector_Push(&ss->items, &new_item);
+                        selector_indexes[selector_count] = (uint32_t)(ss->items.size - 1);
+                        Hashmap_Set(&ss->tag_item_hashmap, &tag, &selector_indexes[selector_count]); // Store item index
+                    }
 
-                int tag = token - 30;
-                void* found = Hashmap_Get(&ss->tag_item_hashmap, &tag);
-                if (found != NULL) { // Style item exists
-                    struct NU_Stylesheet_Item* found_item = Vector_Get(&ss->items, *(uint32_t*)found);
-                    selector_indexes[selector_count] = *(uint32_t*)found;
-                } 
-                else // Style item does not exist -> add one
-                { 
-                    struct NU_Stylesheet_Item new_item;
-                    new_item.class = NULL;
-                    new_item.id = NULL;
-                    new_item.tag = tag;
-                    new_item.property_flags = 0;
-                    Vector_Push(&ss->items, &new_item);
-                    selector_indexes[selector_count] = (uint32_t)(ss->items.size - 1);
-                    Hashmap_Set(&ss->tag_item_hashmap, &tag, &selector_indexes[selector_count]); // Store item index
+                    i += 1;
+                    selector_count++;
+                    continue;
                 }
+                else if (next_token == STYLE_PSEUDO_COLON && i < tokens->size-3) 
+                {
+                    enum NU_Style_Token following_token = *((enum NU_Style_Token*) Vector_Get(tokens, i+2));
+                    enum NU_Style_Token third_token = *((enum NU_Style_Token*) Vector_Get(tokens, i+3));
+                    if (NU_Is_Pseudo_Token(following_token) && (third_token == STYLE_SELECTOR_COMMA || third_token == STYLE_SELECTOR_OPEN_BRACE)) 
+                    {
+                        int tag = token - STYLE_PROPERTY_COUNT;
+                        enum NU_Pseudo_Class pseudo_class = Token_To_Pseudo_Class(following_token);
+                        struct NU_Stylesheet_Tag_Pseudo_Pair key = { tag, pseudo_class };
+                        void* found = Hashmap_Get(&ss->tag_pseudo_item_hashmap, &key);
 
-                selector_count++;
-                continue;
+                        if (found != NULL) // Style item exists
+                        {
+                            struct NU_Stylesheet_Item* found_item = Vector_Get(&ss->items, *(uint32_t*)found);
+                            selector_indexes[selector_count] = *(uint32_t*)found;
+                        }
+                        else
+                        {
+                            struct NU_Stylesheet_Item new_item;
+                            new_item.class = NULL;
+                            new_item.id = NULL;
+                            new_item.tag = tag;
+                            new_item.property_flags = 0;
+                            Vector_Push(&ss->items, &new_item);
+                            selector_indexes[selector_count] = (uint32_t)(ss->items.size - 1);
+                            Hashmap_Set(&ss->tag_pseudo_item_hashmap, &key, &selector_indexes[selector_count]); // Store item index
+
+                        }
+                    }
+                    else 
+                    {
+                        return -1;
+                    }
+
+                    i += 3;
+                    selector_count++;
+                    continue;
+                }
+                else
+                {
+                    return -1;
+                }
             }
             else
             {
@@ -605,77 +718,192 @@ static int NU_Generate_Stylesheet(char* src_buffer, uint32_t src_length, struct 
             }
         }
 
+
+
         if (token == STYLE_CLASS_SELECTOR)
         {
-            if (AssertSelectorGrammar(tokens, i)) {
-                i += 1;
+            if (i < tokens->size - 1)
+            {
+                enum NU_Style_Token next_token = *((enum NU_Style_Token*) Vector_Get(tokens, i+1));
+                if (next_token == STYLE_SELECTOR_COMMA || next_token == STYLE_SELECTOR_OPEN_BRACE)  
+                {
+                    // Get class string
+                    text_ref = (struct Style_Text_Ref*)Vector_Get(text_refs, text_index);
+                    char* src_class = &src_buffer[text_ref->src_index];
+                    src_buffer[text_ref->src_index + text_ref->char_count] = '\0';
 
-                // Get class string
-                text_ref = (struct Style_Text_Ref*)Vector_Get(text_refs, text_index);
-                char* class = &src_buffer[text_ref->src_index];
-                src_buffer[text_ref->src_index + text_ref->char_count] = '\0';
+                    // Add class to set
+                    char* stored_class = String_Set_Add(&ss->class_string_set, src_class);
 
-                // If style item exists
-                void* found = sHashmap_Find(&ss->class_item_hashmap, class);
-                if (found != NULL) {
-                    struct NU_Stylesheet_Item* found_item = Vector_Get(&ss->items, *(uint32_t*)found);
-                    selector_indexes[selector_count] = *(uint32_t*)found;
-                } 
-                else // does not exist -> add item and class
-                { 
-                    struct NU_Stylesheet_Item new_item;
-                    new_item.class = String_Set_Get(&ss->class_string_set, class);
-                    new_item.id = NULL;
-                    new_item.tag = -1;
-                    new_item.property_flags = 0;
-                    Vector_Push(&ss->items, &new_item);
-                    selector_indexes[selector_count] = (uint32_t)(ss->items.size - 1);
-                    sHashmap_Add(&ss->class_item_hashmap, class, &selector_indexes[selector_count]); // Store item index
+                    // If style item exists
+                    void* found = Hashmap_Get(&ss->class_item_hashmap, &stored_class);
+                    if (found != NULL) 
+                    {
+                        struct NU_Stylesheet_Item* found_item = Vector_Get(&ss->items, *(uint32_t*)found);
+                        selector_indexes[selector_count] = *(uint32_t*)found;
+                    } 
+                    else // does not exist -> add item
+                    { 
+                        struct NU_Stylesheet_Item new_item;
+                        new_item.class = stored_class;
+                        new_item.id = NULL;
+                        new_item.tag = -1;
+                        new_item.property_flags = 0;
+                        Vector_Push(&ss->items, &new_item);
+                        selector_indexes[selector_count] = (uint32_t)(ss->items.size - 1);
+                        Hashmap_Set(&ss->class_item_hashmap, &stored_class, &selector_indexes[selector_count]); // Store item index
+                    }
+
+                    i += 1;
+                    selector_count++;
+                    text_index += 1;
+                    continue;
                 }
+                else if (next_token == STYLE_PSEUDO_COLON && i < tokens->size-3) 
+                {
+                    enum NU_Style_Token following_token = *((enum NU_Style_Token*) Vector_Get(tokens, i+2));
+                    enum NU_Style_Token third_token = *((enum NU_Style_Token*) Vector_Get(tokens, i+3));
+                    if (NU_Is_Pseudo_Token(following_token) && (third_token == STYLE_SELECTOR_COMMA || third_token == STYLE_SELECTOR_OPEN_BRACE)) 
+                    {
+                        enum NU_Pseudo_Class pseudo_class = Token_To_Pseudo_Class(following_token);
 
-                selector_count++;
-                text_index += 1;
-                continue;
+                        // Get class string
+                        text_ref = (struct Style_Text_Ref*)Vector_Get(text_refs, text_index);
+                        char* src_class = &src_buffer[text_ref->src_index];
+                        src_buffer[text_ref->src_index + text_ref->char_count] = '\0';
+
+                        // Add class to set
+                        char* stored_class = String_Set_Add(&ss->class_string_set, src_class);
+                        struct NU_Stylesheet_String_Pseudo_Pair key = { stored_class, pseudo_class };
+                        void* found = Hashmap_Get(&ss->class_pseudo_item_hashmap, &key);
+                        if (found != NULL) 
+                        {
+                            struct NU_Stylesheet_Item* found_item = Vector_Get(&ss->items, *(uint32_t*)found);
+                            selector_indexes[selector_count] = *(uint32_t*)found;
+                        }
+                        else // does not exist -> add item
+                        {
+                            struct NU_Stylesheet_Item new_item;
+                            new_item.class = stored_class;
+                            new_item.id = NULL;
+                            new_item.tag = -1;
+                            new_item.property_flags = 0;
+                            Vector_Push(&ss->items, &new_item);
+                            selector_indexes[selector_count] = (uint32_t)(ss->items.size - 1);
+                            Hashmap_Set(&ss->class_pseudo_item_hashmap, &key, &selector_indexes[selector_count]); // Store item index
+                        }
+                    }
+                    else 
+                    {
+                        return -1;
+                    }
+
+                    i += 1;
+                    selector_count++;
+                    text_index += 1;
+                    continue;
+                }
+                else
+                {
+                    return -1;
+                }
             }
-            else {
+            else 
+            {
                 return -1;
             }
         }
 
-
         if (token == STYLE_ID_SELECTOR)
         {
-            if (AssertSelectorGrammar(tokens, i)) {
-                i += 1;
+            if (i < tokens->size - 1)
+            {
+                enum NU_Style_Token next_token = *((enum NU_Style_Token*) Vector_Get(tokens, i+1));
+                if (next_token == STYLE_SELECTOR_COMMA || next_token == STYLE_SELECTOR_OPEN_BRACE)  
+                {
+                    // Get id string
+                    text_ref = (struct Style_Text_Ref*)Vector_Get(text_refs, text_index);
+                    char* src_id = &src_buffer[text_ref->src_index];
+                    src_buffer[text_ref->src_index + text_ref->char_count] = '\0';
 
-                // Get id string
-                text_ref = (struct Style_Text_Ref*)Vector_Get(text_refs, text_index);
-                char* id = &src_buffer[text_ref->src_index];
-                src_buffer[text_ref->src_index + text_ref->char_count] = '\0';
+                    // Add id to set
+                    char* stored_id = String_Set_Add(&ss->id_string_set, src_id);
 
-                // If style item exists
-                void* found = sHashmap_Find(&ss->id_item_hashmap, id);
-                if (found != NULL) {
-                    struct NU_Stylesheet_Item* found_item = Vector_Get(&ss->items, *(uint32_t*)found);
-                    selector_indexes[selector_count] = *(uint32_t*)found;
-                } 
-                else // does not exist -> add item
-                { 
-                    struct NU_Stylesheet_Item new_item;
-                    new_item.class = NULL;
-                    new_item.id = String_Set_Get(&ss->id_string_set, id);
-                    new_item.tag = -1;
-                    new_item.property_flags = 0;
-                    Vector_Push(&ss->items, &new_item);
-                    selector_indexes[selector_count] = (uint32_t)(ss->items.size - 1);
-                    sHashmap_Add(&ss->id_item_hashmap, id, &selector_indexes[selector_count]); // Store item index
+                    // If style item exists
+                    void* found = Hashmap_Get(&ss->id_item_hashmap, &stored_id);
+                    if (found != NULL)
+                    {
+                        struct NU_Stylesheet_Item* found_item = Vector_Get(&ss->items, *(uint32_t*)found);
+                        selector_indexes[selector_count] = *(uint32_t*)found;
+                    }
+                    else // does not exist -> add item
+                    {
+                        struct NU_Stylesheet_Item new_item;
+                        new_item.class = NULL;
+                        new_item.id = stored_id;
+                        new_item.tag = -1;
+                        new_item.property_flags = 0;
+                        Vector_Push(&ss->items, &new_item);
+                        selector_indexes[selector_count] = (uint32_t)(ss->items.size - 1);
+                        Hashmap_Set(&ss->id_item_hashmap, &stored_id, &selector_indexes[selector_count]); // Store item index
+                    }
+
+                    i += 1;
+                    selector_count++;
+                    text_index += 1;
+                    continue;
                 }
+                else if (next_token == STYLE_PSEUDO_COLON && i < tokens->size-3) 
+                {
+                    enum NU_Style_Token following_token = *((enum NU_Style_Token*) Vector_Get(tokens, i+2));
+                    enum NU_Style_Token third_token = *((enum NU_Style_Token*) Vector_Get(tokens, i+3));
+                    if (NU_Is_Pseudo_Token(following_token) && (third_token == STYLE_SELECTOR_COMMA || third_token == STYLE_SELECTOR_OPEN_BRACE)) 
+                    {
+                        enum NU_Pseudo_Class pseudo_class = Token_To_Pseudo_Class(following_token);
 
-                selector_count++;
-                text_index += 1;
-                continue;
+                        // Get id string
+                        text_ref = (struct Style_Text_Ref*)Vector_Get(text_refs, text_index);
+                        char* src_id = &src_buffer[text_ref->src_index];
+                        src_buffer[text_ref->src_index + text_ref->char_count] = '\0';
+
+                        // Add id to set
+                        char* stored_id = String_Set_Add(&ss->id_string_set, src_id);
+                        struct NU_Stylesheet_String_Pseudo_Pair key = { stored_id, pseudo_class };
+                        void* found = Hashmap_Get(&ss->id_pseudo_item_hashmap, &key);
+                        if (found != NULL) 
+                        {
+                            struct NU_Stylesheet_Item* found_item = Vector_Get(&ss->items, *(uint32_t*)found);
+                            selector_indexes[selector_count] = *(uint32_t*)found;
+                        }
+                        else // does not exist -> add item
+                        {
+                            struct NU_Stylesheet_Item new_item;
+                            new_item.class = NULL;
+                            new_item.id = stored_id;
+                            new_item.tag = -1;
+                            new_item.property_flags = 0;
+                            Vector_Push(&ss->items, &new_item);
+                            selector_indexes[selector_count] = (uint32_t)(ss->items.size - 1);
+                            Hashmap_Set(&ss->id_pseudo_item_hashmap, &key, &selector_indexes[selector_count]); // Store item index
+                        }
+                    }
+                    else 
+                    {
+                        return -1;
+                    }
+
+                    i += 1;
+                    selector_count++;
+                    text_index += 1;
+                    continue;
+                }
+                else
+                {
+                    return -1;
+                }
             }
-            else {
+            else 
+            {
                 return -1;
             }
         }
@@ -973,27 +1201,121 @@ static void NU_Stylesheet_Find_Match(struct Node* node, struct NU_Stylesheet* ss
     // Tag match first (lowest priority)
     void* tag_found = Hashmap_Get(&ss->tag_item_hashmap, &node->tag); 
     if (tag_found != NULL) { 
-        match_index_list[count++] = *(int*)tag_found;
+        match_index_list[count++] = (int)*(uint32_t*)tag_found;
     }
 
     // Class match second
     if (node->class != NULL) { 
-        void* class_found = sHashmap_Find(&ss->class_item_hashmap, node->class);
-        if (class_found != NULL) {
-            match_index_list[count++] = *(int*)class_found;
+        char* stored_class = String_Set_Get(&ss->class_string_set, node->class);
+        if (stored_class != NULL) {
+            void* class_found = Hashmap_Get(&ss->class_item_hashmap, &stored_class);
+            if (class_found != NULL) {
+                match_index_list[count++] = (int)*(uint32_t*)class_found;
+            }
         }
     }
 
     // ID match last (highest priority)
     if (node->id != NULL) { 
-        void* id_found = sHashmap_Find(&ss->id_item_hashmap, node->id);
-        if (id_found != NULL) {
-            match_index_list[count++] = *(int*)id_found;
+        char* stored_id = String_Set_Get(&ss->id_string_set, node->id);
+        if (stored_id != NULL) {
+            void* id_found = Hashmap_Get(&ss->id_item_hashmap, &stored_id);
+            if (id_found != NULL) {
+                match_index_list[count++] = (int)*(uint32_t*)id_found;
+            }
         }
     }
 }
 
-static void NU_Apply_Stylesheet_To_Node(struct Node* node, struct NU_Stylesheet* ss)
+static void NU_Apply_Style_Item_To_Node(struct Node* node, struct NU_Stylesheet_Item* item)
+{
+    if (item->property_flags & (1 << 0) && !(node->inline_style_flags & (1 << 0))) node->layout_flags = (node->layout_flags & ~(1 << 0)) | (item->layout_flags & (1 << 0)); // Layout direction
+    if (item->property_flags & (1 << 1) && !(node->inline_style_flags & (1 << 1))) {
+        node->layout_flags = (node->layout_flags & ~(1 << 1)) | (item->layout_flags & (1 << 1)); // Grow horizontal
+        node->layout_flags = (node->layout_flags & ~(1 << 2)) | (item->layout_flags & (1 << 2)); // Grow vertical
+    }
+    if (item->property_flags & (1 << 2) && !(node->inline_style_flags & (1 << 2))) {
+        node->layout_flags = (node->layout_flags & ~(1 << 3)) | (item->layout_flags & (1 << 3)); // Overflow vertical scroll (or not)
+    }
+    if (item->property_flags & (1 << 3) && !(node->inline_style_flags & (1 << 3))) {
+        node->layout_flags = (node->layout_flags & ~(1 << 4)) | (item->layout_flags & (1 << 4)); // Overflow horizontal scroll (or not)
+    }
+    if (item->property_flags & (1 << 4) && !(node->inline_style_flags & (1 << 4))) {
+        node->gap = item->gap;
+    }
+    if (item->property_flags & (1 << 5) && !(node->inline_style_flags & (1 << 5))) {
+        node->preferred_width = item->preferred_width;
+    }
+    if (item->property_flags & (1 << 6) && !(node->inline_style_flags & (1 << 6))) {
+        node->min_width = item->min_width;
+    }
+    if (item->property_flags & (1 << 7) && !(node->inline_style_flags & (1 << 7))) {
+        node->max_width = item->max_width;
+    }
+    if (item->property_flags & (1 << 8) && !(node->inline_style_flags & (1 << 8))) {
+        node->preferred_height = item->preferred_height;
+    }
+    if (item->property_flags & (1 << 9) && !(node->inline_style_flags & (1 << 9))) {
+        node->min_height = item->min_height;
+    }
+    if (item->property_flags & (1 << 10) && !(node->inline_style_flags & (1 << 10))) {
+        node->max_height = item->max_height;
+    }
+    if (item->property_flags & (1 << 11) && !(node->inline_style_flags & (1 << 11))) {
+        node->horizontal_alignment = item->horizontal_alignment;
+    }
+    if (item->property_flags & (1 << 12) && !(node->inline_style_flags & (1 << 12))) {
+        node->vertical_alignment = item->vertical_alignment;
+    }
+    if (item->property_flags & (1 << 13) && !(node->inline_style_flags & (1 << 13))) {
+        node->background_r = item->background_r;
+        node->background_g = item->background_g;
+        node->background_b = item->background_b;
+    }
+    if (item->property_flags & (1 << 14) && !(node->inline_style_flags & (1 << 14))) {
+        node->border_r = item->border_r;
+        node->border_g = item->border_g;
+        node->border_b = item->border_b;
+    }
+    if (item->property_flags & (1 << 15) && !(node->inline_style_flags & (1 << 15))) {
+        node->border_top = item->border_top;
+    }
+    if (item->property_flags & (1 << 16) && !(node->inline_style_flags & (1 << 16))) {
+        node->border_bottom = item->border_bottom;
+    }
+    if (item->property_flags & (1 << 17) && !(node->inline_style_flags & (1 << 17))) {
+        node->border_left = item->border_left;
+    }
+    if (item->property_flags & (1 << 18) && !(node->inline_style_flags & (1 << 18))) {
+        node->border_right = item->border_right;
+    }
+    if (item->property_flags & (1 << 19) && !(node->inline_style_flags & (1 << 19))) {
+        node->border_radius_tl = item->border_radius_tl;
+    }
+    if (item->property_flags & (1 << 20) && !(node->inline_style_flags & (1 << 20))) {
+        node->border_radius_tr = item->border_radius_tr;
+    }
+    if (item->property_flags & (1 << 21) && !(node->inline_style_flags & (1 << 21))) {
+        node->border_radius_bl = item->border_radius_bl;
+    }
+    if (item->property_flags & (1 << 22) && !(node->inline_style_flags & (1 << 22))) {
+        node->border_radius_br = item->border_radius_br;
+    }
+    if (item->property_flags & (1 << 23) && !(node->inline_style_flags & (1 << 23))) {
+        node->pad_top = item->pad_top;
+    }
+    if (item->property_flags & (1 << 24) && !(node->inline_style_flags & (1 << 24))) {
+        node->pad_bottom = item->pad_bottom;
+    }
+    if (item->property_flags & (1 << 25) && !(node->inline_style_flags & (1 << 25))) {
+        node->pad_left = item->pad_left;
+    }
+    if (item->property_flags & (1 << 26) && !(node->inline_style_flags & (1 << 26))) {
+        node->pad_right = item->pad_right;
+    }
+}
+
+void NU_Apply_Stylesheet_To_Node(struct Node* node, struct NU_Stylesheet* ss)
 {
     int match_index_list[3] = {-1, -1, -1};
     NU_Stylesheet_Find_Match(node, ss, &match_index_list[0]);
@@ -1004,118 +1326,54 @@ static void NU_Apply_Stylesheet_To_Node(struct Node* node, struct NU_Stylesheet*
         i += 1;
 
         // --- Apply style ---
-        if (item->property_flags & (1 << 0) && !(node->inline_style_flags & (1 << 0))) node->layout_flags = (node->layout_flags & ~(1 << 0)) | (item->layout_flags & (1 << 0)); // Layout direction
-        if (item->property_flags & (1 << 1) && !(node->inline_style_flags & (1 << 1))) {
-            node->layout_flags = (node->layout_flags & ~(1 << 1)) | (item->layout_flags & (1 << 1)); // Grow horizontal
-            node->layout_flags = (node->layout_flags & ~(1 << 2)) | (item->layout_flags & (1 << 2)); // Grow vertical
-        }
-        if (item->property_flags & (1 << 2) && !(node->inline_style_flags & (1 << 2))) {
-            node->layout_flags = (node->layout_flags & ~(1 << 3)) | (item->layout_flags & (1 << 3)); // Overflow vertical scroll (or not)
-        }
-        if (item->property_flags & (1 << 3) && !(node->inline_style_flags & (1 << 3))) {
-            node->layout_flags = (node->layout_flags & ~(1 << 4)) | (item->layout_flags & (1 << 4)); // Overflow horizontal scroll (or not)
-        }
-        if (item->property_flags & (1 << 4) && !(node->inline_style_flags & (1 << 4))) {
-            node->gap = item->gap;
-        }
-        if (item->property_flags & (1 << 5) && !(node->inline_style_flags & (1 << 5))) {
-            node->preferred_width = item->preferred_width;
-        }
-        if (item->property_flags & (1 << 6) && !(node->inline_style_flags & (1 << 6))) {
-            node->min_width = item->min_width;
-        }
-        if (item->property_flags & (1 << 7) && !(node->inline_style_flags & (1 << 7))) {
-            node->max_width = item->max_width;
-        }
-        if (item->property_flags & (1 << 8) && !(node->inline_style_flags & (1 << 8))) {
-            node->preferred_height = item->preferred_height;
-        }
-        if (item->property_flags & (1 << 9) && !(node->inline_style_flags & (1 << 9))) {
-            node->min_height = item->min_height;
-        }
-        if (item->property_flags & (1 << 10) && !(node->inline_style_flags & (1 << 10))) {
-            node->max_height = item->max_height;
-        }
-        if (item->property_flags & (1 << 11) && !(node->inline_style_flags & (1 << 11))) {
-            node->horizontal_alignment = item->horizontal_alignment;
-        }
-        if (item->property_flags & (1 << 12) && !(node->inline_style_flags & (1 << 12))) {
-            node->vertical_alignment = item->vertical_alignment;
-        }
-        if (item->property_flags & (1 << 13) && !(node->inline_style_flags & (1 << 13))) {
-            node->background_r = item->background_r;
-            node->background_g = item->background_g;
-            node->background_b = item->background_b;
-        }
-        if (item->property_flags & (1 << 14) && !(node->inline_style_flags & (1 << 14))) {
-            node->border_r = item->border_r;
-            node->border_g = item->border_g;
-            node->border_b = item->border_b;
-        }
-        if (item->property_flags & (1 << 15) && !(node->inline_style_flags & (1 << 15))) {
-            node->border_top = item->border_top;
-        }
-        if (item->property_flags & (1 << 16) && !(node->inline_style_flags & (1 << 16))) {
-            node->border_bottom = item->border_bottom;
-        }
-        if (item->property_flags & (1 << 17) && !(node->inline_style_flags & (1 << 17))) {
-            node->border_left = item->border_left;
-        }
-        if (item->property_flags & (1 << 18) && !(node->inline_style_flags & (1 << 18))) {
-            node->border_right = item->border_right;
-        }
-        if (item->property_flags & (1 << 19) && !(node->inline_style_flags & (1 << 19))) {
-            node->border_radius_tl = item->border_radius_tl;
-        }
-        if (item->property_flags & (1 << 20) && !(node->inline_style_flags & (1 << 20))) {
-            node->border_radius_tr = item->border_radius_tr;
-        }
-        if (item->property_flags & (1 << 21) && !(node->inline_style_flags & (1 << 21))) {
-            node->border_radius_bl = item->border_radius_bl;
-        }
-        if (item->property_flags & (1 << 22) && !(node->inline_style_flags & (1 << 22))) {
-            node->border_radius_br = item->border_radius_br;
-        }
-        if (item->property_flags & (1 << 23) && !(node->inline_style_flags & (1 << 23))) {
-            node->pad_top = item->pad_top;
-        }
-        if (item->property_flags & (1 << 24) && !(node->inline_style_flags & (1 << 24))) {
-            node->pad_bottom = item->pad_bottom;
-        }
-        if (item->property_flags & (1 << 25) && !(node->inline_style_flags & (1 << 25))) {
-            node->pad_left = item->pad_left;
-        }
-        if (item->property_flags & (1 << 26) && !(node->inline_style_flags & (1 << 26))) {
-            node->pad_right = item->pad_right;
-        }
+        NU_Apply_Style_Item_To_Node(node, item);
     }
 }
 
-static void NU_Apply_Stylesheet(struct UI_Tree* ui_tree, struct NU_Stylesheet* ss)
+void NU_Apply_Pseudo_Style_To_Node(struct Node* node, struct NU_Stylesheet* ss, enum NU_Pseudo_Class pseudo)
 {
-    struct Node* root_window = Vector_Get(&ui_tree->tree_stack[0], 0);
-    NU_Apply_Stylesheet_To_Node(root_window, ss);
+    // Tag pseudo style match and apply
+    struct NU_Stylesheet_Tag_Pseudo_Pair key = { node->tag, pseudo };
+    void* tag_pseudo_found = Hashmap_Get(&ss->tag_pseudo_item_hashmap, &key);
+    if (tag_pseudo_found != NULL) {
+        uint32_t index = *(uint32_t*)tag_pseudo_found;
+        struct NU_Stylesheet_Item* item = (struct NU_Stylesheet_Item*)Vector_Get(&ss->items, index);
+        NU_Apply_Style_Item_To_Node(node, item);
+    }
 
-    // For each layer
-    for (int l=0; l<=ui_tree->deepest_layer; l++)
-    {
-        struct Vector* parent_layer = &ui_tree->tree_stack[l];
-        struct Vector* child_layer = &ui_tree->tree_stack[l+1];
+    // Class pseudo style match and apply
+    if (node->class != NULL) {
+        char* stored_class = String_Set_Get(&ss->class_string_set, node->class);
+        if (stored_class != NULL) {
+            struct NU_Stylesheet_String_Pseudo_Pair key = { stored_class, pseudo };
+            void* class_pseudo_found = Hashmap_Get(&ss->class_pseudo_item_hashmap, &key);
+            if (class_pseudo_found != NULL) {
+                uint32_t index = *(uint32_t*)class_pseudo_found;
+                struct NU_Stylesheet_Item* item = (struct NU_Stylesheet_Item*)Vector_Get(&ss->items, index);
+                NU_Apply_Style_Item_To_Node(node, item);
+            }
+        }
+    }
 
-        for (int p=0; p<parent_layer->size; p++)
-        {
-            struct Node* parent = Vector_Get(parent_layer, p);
-            for (int i=parent->first_child_index; i<parent->first_child_index + parent->child_count; i++)
-            {
-                struct Node* child = Vector_Get(child_layer, i);
-                NU_Apply_Stylesheet_To_Node(child, ss);
+    // Id pseudo style match and apply
+    if (node->id != NULL) {
+        char* stored_id = String_Set_Get(&ss->id_string_set, node->id);
+        if (stored_id != NULL) {
+            struct NU_Stylesheet_String_Pseudo_Pair key = { stored_id, pseudo };
+            void* id_pseudo_found = Hashmap_Get(&ss->id_pseudo_item_hashmap, &key);
+            if (id_pseudo_found != NULL) {
+                uint32_t index = *(uint32_t*)id_pseudo_found;
+                struct NU_Stylesheet_Item* item = (struct NU_Stylesheet_Item*)Vector_Get(&ss->items, index);
+                NU_Apply_Style_Item_To_Node(node, item);
             }
         }
     }
 }
 
-int NU_Set_Style(struct UI_Tree* ui_tree, char* css_filepath)
+int NU_Stylesheet_Create(struct NU_Stylesheet* stylesheet, char* css_filepath)
 {
+    NU_Stylesheet_Init(stylesheet);
+
     // Open XML source file and load into buffer
     FILE* f = fopen(css_filepath, "r");
     if (!f) {
@@ -1137,25 +1395,44 @@ int NU_Set_Style(struct UI_Tree* ui_tree, char* css_filepath)
 
     // Init Token vector and reserve ~1MB
     struct Vector tokens;
-    Vector_Reserve(&tokens, sizeof(enum NU_Token), 50000); // reserve ~200KB
+    Vector_Reserve(&tokens, sizeof(enum NU_Style_Token), 50000); // reserve ~200KB
 
     struct Vector text_ref_vector;
     Vector_Reserve(&text_ref_vector, sizeof(struct Style_Text_Ref), 4000);
 
-    struct NU_Stylesheet ss;
-    NU_Stylesheet_Init(&ss);
 
-    
     NU_Style_Tokenise(src_buffer, src_length, &tokens, &text_ref_vector);
-    if (NU_Generate_Stylesheet(src_buffer, src_length, &tokens, &ss, &text_ref_vector) == -1)
+    if (NU_Generate_Stylesheet(src_buffer, src_length, &tokens, stylesheet, &text_ref_vector) == -1)
     {
         printf("CSS parsing failed!");
     }
 
-    NU_Apply_Stylesheet(ui_tree, &ss);
-
     Vector_Free(&tokens);
-    NU_Stylesheet_Free(&ss);
-
     return 1;
+}
+
+void NU_Stylesheet_Apply(struct UI_Tree* ui_tree, struct NU_Stylesheet* stylesheet)
+{
+    struct Node* root_window = Vector_Get(&ui_tree->tree_stack[0], 0);
+    NU_Apply_Stylesheet_To_Node(root_window, stylesheet);
+
+    // For each layer
+    for (int l=0; l<=ui_tree->deepest_layer; l++)
+    {
+        struct Vector* parent_layer = &ui_tree->tree_stack[l];
+        struct Vector* child_layer = &ui_tree->tree_stack[l+1];
+
+
+        for (int p=0; p<parent_layer->size; p++)
+        {
+            struct Node* parent = Vector_Get(parent_layer, p);
+            for (int i=parent->first_child_index; i<parent->first_child_index + parent->child_count; i++)
+            {
+                struct Node* child = Vector_Get(child_layer, i);
+                NU_Apply_Stylesheet_To_Node(child, stylesheet);
+            }
+        }
+    }
+
+    ui_tree->stylesheet = stylesheet;
 }

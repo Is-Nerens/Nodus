@@ -326,7 +326,8 @@ int Hashmap_Contains(struct Hashmap* hmap, void* key)
         if (hmap->occupancy[occupancy_index] & (1u << rem)) { // Found item
             
             // Check if key matches
-            void* check_key = hmap->data + i * (hmap->key_size + hmap->item_size);
+            char* base = (char*)hmap->data + i * (hmap->key_size + hmap->item_size);
+            void* check_key = base;
             if (memcmp(check_key, key, hmap->key_size) == 0) {
                 return 1;
             }
@@ -352,9 +353,10 @@ void* Hashmap_Get(struct Hashmap* hmap, void* key)
         if (hmap->occupancy[occupancy_index] & (1u << rem)) { // Found item
             
             // Check if key matches
-            void* check_key = hmap->data + i * (hmap->key_size + hmap->item_size);
+            char* base = (char*)hmap->data + i * (hmap->key_size + hmap->item_size);
+            void* check_key = base;
             if (memcmp(check_key, key, hmap->key_size) == 0) {
-                return hmap->data + i * (hmap->key_size + hmap->item_size) + hmap->item_size;
+                return base + hmap->key_size;
             }
         }
         else {

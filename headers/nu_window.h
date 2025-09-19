@@ -1,0 +1,49 @@
+#pragma once 
+
+#define NANOVG_GL3_IMPLEMENTATION
+#include <nanovg.h>
+#include <nanovg_gl.h>
+#include <SDL3/SDL.h>
+#include <GL/glew.h>
+
+#include "nu_draw.h"
+
+void NU_Create_Main_Window(struct NU_GUI* ngui) 
+{
+    SDL_GL_SetAttribute(SDL_GL_CONTEXT_MAJOR_VERSION, 3);
+    SDL_GL_SetAttribute(SDL_GL_CONTEXT_MINOR_VERSION, 2);
+    SDL_GL_SetAttribute(SDL_GL_CONTEXT_PROFILE_MASK, SDL_GL_CONTEXT_PROFILE_CORE);
+    SDL_GL_SetAttribute(SDL_GL_MULTISAMPLEBUFFERS, 1);
+    SDL_GL_SetAttribute(SDL_GL_MULTISAMPLESAMPLES, 4);
+    SDL_Window* main_window = SDL_CreateWindow("window", 500, 400, SDL_WINDOW_OPENGL | SDL_WINDOW_RESIZABLE);
+
+    // Create OpenGL context for the main window
+    SDL_GLContext context = SDL_GL_CreateContext(main_window);
+    SDL_GL_MakeCurrent(main_window, context);
+    glEnable(GL_MULTISAMPLE);
+    glEnable(GL_BLEND);
+    glewInit();
+
+    ngui->gl_ctx = context;
+    ngui->vg_ctx = nvgCreateGL3(NVG_STENCIL_STROKES);
+    Vector_Push(&ngui->windows, &main_window);
+    NU_Draw_Init();
+}
+
+void NU_Create_Subwindow(struct NU_GUI* ngui, struct Node* window_node)
+{
+    SDL_GL_SetAttribute(SDL_GL_CONTEXT_MAJOR_VERSION, 3);
+    SDL_GL_SetAttribute(SDL_GL_CONTEXT_MINOR_VERSION, 2);
+    SDL_GL_SetAttribute(SDL_GL_CONTEXT_PROFILE_MASK, SDL_GL_CONTEXT_PROFILE_CORE);
+    SDL_GL_SetAttribute(SDL_GL_MULTISAMPLEBUFFERS, 1);
+    SDL_GL_SetAttribute(SDL_GL_MULTISAMPLESAMPLES, 4);
+    SDL_Window* new_window = SDL_CreateWindow("window", 500, 400, SDL_WINDOW_OPENGL | SDL_WINDOW_RESIZABLE);
+    SDL_GL_MakeCurrent(new_window, SDL_GL_GetCurrentContext());
+
+    // Assign to window node
+    window_node->window = new_window;
+
+    // Push into vectors
+    Vector_Push(&ngui->windows, &new_window);
+    Vector_Push(&ngui->window_nodes, &window_node);
+}

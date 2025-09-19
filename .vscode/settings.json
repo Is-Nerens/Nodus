@@ -32,6 +32,13 @@
         "xlocmes": "c",
         "xlocmon": "c",
         "xlocnum": "c",
-        "xloctime": "c"
+        "xloctime": "c",
+        "nu_stylesheet.h": "c",
+        "nanovg_gl.h": "c",
+        "stdbool.h": "c",
+        "vector.h": "c",
+        "string_set.h": "c",
+        "text_arena.h": "c",
+        "hashmap.h": "c"
     }
 }

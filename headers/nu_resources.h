@@ -6,8 +6,6 @@
 #include <stdio.h>
 #include <errno.h>
 #include <string.h>
-#include "parser.h"
-#include "vector.h"
 
 unsigned char* Load_File(const char* filepath, int* size_out)
 {

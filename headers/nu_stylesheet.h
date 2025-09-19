@@ -2,9 +2,9 @@
 
 #include <stdint.h>
 #include <string.h>
-#include "vector.h"
-#include "string_set.h"
-#include "hashmap.h"
+#include "datastructures/vector.h"
+#include "datastructures/string_set.h"
+#include "datastructures/hashmap.h"
 
 struct NU_Stylesheet_Tag_Pseudo_Pair
 {

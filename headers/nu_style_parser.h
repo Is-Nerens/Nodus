@@ -1411,16 +1411,16 @@ int NU_Stylesheet_Create(struct NU_Stylesheet* stylesheet, char* css_filepath)
     return 1;
 }
 
-void NU_Stylesheet_Apply(struct UI_Tree* ui_tree, struct NU_Stylesheet* stylesheet)
+void NU_Stylesheet_Apply(struct NU_GUI* ngui, struct NU_Stylesheet* stylesheet)
 {
-    struct Node* root_window = Vector_Get(&ui_tree->tree_stack[0], 0);
+    struct Node* root_window = Vector_Get(&ngui->tree_stack[0], 0);
     NU_Apply_Stylesheet_To_Node(root_window, stylesheet);
 
     // For each layer
-    for (int l=0; l<=ui_tree->deepest_layer; l++)
+    for (int l=0; l<=ngui->deepest_layer; l++)
     {
-        struct Vector* parent_layer = &ui_tree->tree_stack[l];
-        struct Vector* child_layer = &ui_tree->tree_stack[l+1];
+        struct Vector* parent_layer = &ngui->tree_stack[l];
+        struct Vector* child_layer = &ngui->tree_stack[l+1];
 
 
         for (int p=0; p<parent_layer->size; p++)
@@ -1434,5 +1434,5 @@ void NU_Stylesheet_Apply(struct UI_Tree* ui_tree, struct NU_Stylesheet* styleshe
         }
     }
 
-    ui_tree->stylesheet = stylesheet;
+    ngui->stylesheet = stylesheet;
 }

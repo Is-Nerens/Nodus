@@ -5,8 +5,6 @@ $sdlInclude = "lib\SDL3\include"
 $glewInclude = "lib\glew\include"
 $glewLib = "lib\glew\lib"
 $nanovgInclude = "lib\nanoVG"
-$cairoInclude = "lib\cairo\include"
-$cairoLib = "lib\cairo\lib"
 $freetypeInclude = "lib\freetype\include"
 $freetypeLib = "lib\freetype\lib"
 
@@ -17,13 +15,11 @@ clang -std=c99 main.c `
 -I"$glewInclude" `
 -I"$sdlInclude" `
 -I"$nanovgInclude" `
--I"$cairoInclude" `
 -I"$freetypeInclude" `
 -L"$glewLib" `
 -L"$sdlLib" `
--L"$cairoLib" `
 -L"$freetypeLib" `
--lglew32 -lSDL3 -lopengl32 -lgdi32 -lfreetype -lcairo `
+-lglew32 -lSDL3 -lopengl32 -lgdi32 -lfreetype `
 -o build/app.exe -Wno-deprecated-declarations `
 
 

@@ -1,51 +1,18 @@
-#include <SDL3/SDL.h>
-#include <GL/glew.h>
-#include <stdbool.h>
-#include <math.h>
-
-#include <nu_draw.h>
-
 #define NANOVG_GL3_IMPLEMENTATION
 #include <nanovg.h>
 #include <nanovg_gl.h>
 #include <freetype/freetype.h>
+#include <SDL3/SDL.h>
+#include <GL/glew.h>
+#include <stdbool.h>
+#include <math.h>
+#include "nu_draw.h"
+#include "nu_window.h"
 
-// UI layout ------------------------------------------------------------
-static void NU_Create_Subwindow(struct UI_Tree* ui_tree, struct Node* window_node)
-{
-    SDL_GL_SetAttribute(SDL_GL_CONTEXT_MAJOR_VERSION, 3);
-    SDL_GL_SetAttribute(SDL_GL_CONTEXT_MINOR_VERSION, 2);
-    SDL_GL_SetAttribute(SDL_GL_CONTEXT_PROFILE_MASK, SDL_GL_CONTEXT_PROFILE_CORE);
-    SDL_GL_SetAttribute(SDL_GL_MULTISAMPLEBUFFERS, 1);
-    SDL_GL_SetAttribute(SDL_GL_MULTISAMPLESAMPLES, 4);
-    SDL_Window* new_window = SDL_CreateWindow("window", 500, 400, SDL_WINDOW_OPENGL | SDL_WINDOW_RESIZABLE);
-    SDL_GL_MakeCurrent(new_window, SDL_GL_GetCurrentContext());
 
-    glEnable(GL_MULTISAMPLE);
-    glewInit();
-
-    // NanoVG context (per-window)
-    NVGcontext* new_nano_vg_context = nvgCreateGL3(NVG_STENCIL_STROKES);
-
-    // Fonts for NanoVG
-    struct Vector font_registry;
-    Vector_Reserve(&font_registry, sizeof(int), 8);
-    for (int i=0; i<ui_tree->font_resources.size; i++) {
-        struct Font_Resource* font = Vector_Get(&ui_tree->font_resources, i);
-        int fontID = nvgCreateFontMem(new_nano_vg_context, font->name, font->data, font->size, 0);
-        Vector_Push(&font_registry, &fontID);
-    }
-
-    // Push into vectors
-    Vector_Push(&ui_tree->windows, &new_window);
-    Vector_Push(&ui_tree->nano_vg_contexts, &new_nano_vg_context);
-    Vector_Push(&ui_tree->font_registries, &font_registry);
-
-    // Assign to window node
-    window_node->window = new_window;
-    window_node->vg = new_nano_vg_context;
-}
-
+// ---------------------------
+// --- UI layout -------------
+// ---------------------------
 static void NU_Reset_Node_size(struct Node* node)
 {
     node->x = 0.0f;
@@ -54,18 +21,18 @@ static void NU_Reset_Node_size(struct Node* node)
     node->height = max(node->preferred_height, node->border_top + node->border_bottom + node->pad_top + node->pad_bottom);
 }
 
-static void NU_Clear_Node_Sizes(struct UI_Tree* ui_tree)
+static void NU_Clear_Node_Sizes(struct NU_GUI* ngui)
 {
     // Don't skip the root
-    struct Node* root = Vector_Get(&ui_tree->tree_stack[0], 0);
+    struct Node* root = Vector_Get(&ngui->tree_stack[0], 0);
     NU_Reset_Node_size(root);
     SDL_SetWindowMinimumSize(root->window, root->min_width, root->min_height);
 
     // For each layer
-    for (int l=0; l<=ui_tree->deepest_layer; l++)
+    for (int l=0; l<=ngui->deepest_layer; l++)
     {
-        struct Vector* parent_layer = &ui_tree->tree_stack[l];
-        struct Vector* child_layer = &ui_tree->tree_stack[l+1];
+        struct Vector* parent_layer = &ngui->tree_stack[l];
+        struct Vector* child_layer = &ngui->tree_stack[l+1];
         
         for (int p=0; p<parent_layer->size; p++)
         {       
@@ -74,7 +41,7 @@ static void NU_Clear_Node_Sizes(struct UI_Tree* ui_tree)
 
             // If parent is window node and has no SDL window assigned to it -> create a new window and renderer
             if (parent->tag == WINDOW && parent->window == NULL && l != 0) {
-                NU_Create_Subwindow(ui_tree, parent);
+                NU_Create_Subwindow(ngui, parent);
                 SDL_SetWindowMinimumSize(parent->window, parent->min_width, parent->min_height);
             }
 
@@ -88,7 +55,6 @@ static void NU_Clear_Node_Sizes(struct UI_Tree* ui_tree)
                 if (child->tag != WINDOW && child->window == NULL)
                 {
                     child->window = parent->window;
-                    child->vg = parent->vg;
                 }
 
                 NU_Reset_Node_size(child);
@@ -97,9 +63,9 @@ static void NU_Clear_Node_Sizes(struct UI_Tree* ui_tree)
     }
 }
 
-static void NU_Calculate_Text_Min_Width(struct UI_Tree* ui_tree, struct Node* node, struct Text_Ref* text_ref)
+static void NU_Calculate_Text_Min_Width(struct NU_GUI* ngui, struct Node* node, struct Text_Ref* text_ref)
 {
-    char* text = ui_tree->text_arena.char_buffer.data + text_ref->buffer_index;
+    char* text = ngui->text_arena.char_buffer.data + text_ref->buffer_index;
     int slice_start = 0;
     float max_word_width = 0.0f;
     for (int i=0; i<=text_ref->char_count; i++) {
@@ -107,7 +73,7 @@ static void NU_Calculate_Text_Min_Width(struct UI_Tree* ui_tree, struct Node* no
         if (c == ' ') {
             if (i > slice_start) {
                 float bounds[4];
-                nvgTextBounds(node->vg, 0, 0, text + slice_start, text + i, bounds); // measure slice
+                nvgTextBounds(ngui->vg_ctx, 0, 0, text + slice_start, text + i, bounds); // measure slice
                 float width = bounds[2] - bounds[0];
                 if (width > max_word_width) max_word_width = width;
             }
@@ -116,33 +82,32 @@ static void NU_Calculate_Text_Min_Width(struct UI_Tree* ui_tree, struct Node* no
     }
     if (max_word_width == 0.0f && text_ref->char_count > 0) { // If no spaces found, the whole text is one word
         float bounds[4];
-        nvgTextBounds(node->vg, 0, 0, text, text + text_ref->char_count, bounds);
+        nvgTextBounds(ngui->vg_ctx, 0, 0, text, text + text_ref->char_count, bounds);
         max_word_width = bounds[2] - bounds[0];
     }
     float text_controlled_min_width = max_word_width + node->pad_left + node->pad_right + node->border_left + node->border_right;
     node->min_width = max(node->min_width, text_controlled_min_width);
 }
 
-static void NU_Calculate_Text_Fit_Size(struct UI_Tree* ui_tree, struct Node* node, struct Text_Ref* text_ref)
+static void NU_Calculate_Text_Fit_Size(struct NU_GUI* ngui, struct Node* node, struct Text_Ref* text_ref)
 {
     // Extract pointer to text
-    char* text = ui_tree->text_arena.char_buffer.data + text_ref->buffer_index;
+    char* text = ngui->text_arena.char_buffer.data + text_ref->buffer_index;
 
     // Make sure the NanoVG context has the correct font/size set before measuring!
-    struct Vector* font_registry = Vector_Get(&ui_tree->font_registries, 0);
-    int fontID = *(int*) Vector_Get(font_registry, 0);
-    nvgFontFaceId(node->vg, fontID);   
-    nvgFontSize(node->vg, 18);
+    int fontID = *(int*) Vector_Get(&ngui->font_registry, 0);
+    nvgFontFaceId(ngui->vg_ctx, fontID);   
+    nvgFontSize(ngui->vg_ctx, 18);
 
     // Calculate text bounds
     float asc, desc, lh;
     float bounds[4];
-    nvgTextMetrics(node->vg, &asc, &desc, &lh);
-    nvgTextBounds(node->vg, 0, 0, text, text + text_ref->char_count, bounds);
+    nvgTextMetrics(ngui->vg_ctx, &asc, &desc, &lh);
+    nvgTextBounds(ngui->vg_ctx, 0, 0, text, text + text_ref->char_count, bounds);
     float text_width = bounds[2] - bounds[0];
     float text_height = lh;
     
-    NU_Calculate_Text_Min_Width(ui_tree, node, text_ref);
+    NU_Calculate_Text_Min_Width(ngui, node, text_ref);
     
     if (node->preferred_width == 0.0f) {
         node->width = text_width + node->pad_left + node->pad_right + node->border_left + node->border_right;
@@ -152,32 +117,32 @@ static void NU_Calculate_Text_Fit_Size(struct UI_Tree* ui_tree, struct Node* nod
     node->height += text_height;
 }
 
-static void NU_Calculate_Text_Fit_Sizes(struct UI_Tree* ui_tree)
+static void NU_Calculate_Text_Fit_Sizes(struct NU_GUI* ngui)
 {
-    for (uint32_t i=0; i<ui_tree->text_arena.text_refs.size; i++)
+    for (uint32_t i=0; i<ngui->text_arena.text_refs.size; i++)
     {
-        struct Text_Ref* text_ref = (struct Text_Ref*) Vector_Get(&ui_tree->text_arena.text_refs, i);
+        struct Text_Ref* text_ref = (struct Text_Ref*) Vector_Get(&ngui->text_arena.text_refs, i);
         
         // Get the corresponding node
         uint8_t node_depth = (uint8_t)(text_ref->node_ID >> 24);
         uint32_t node_index = text_ref->node_ID & 0x00FFFFFF;
-        struct Vector* layer = &ui_tree->tree_stack[node_depth];
+        struct Vector* layer = &ngui->tree_stack[node_depth];
         struct Node* node = Vector_Get(layer, node_index);
 
         // Calculate text size
-        NU_Calculate_Text_Fit_Size(ui_tree, node, text_ref);
+        NU_Calculate_Text_Fit_Size(ngui, node, text_ref);
     }
 }
 
-static void NU_Calculate_Fit_Size_Widths(struct UI_Tree* ui_tree)
+static void NU_Calculate_Fit_Size_Widths(struct NU_GUI* ngui)
 {
-    if (ui_tree->deepest_layer == 0) return;
+    if (ngui->deepest_layer == 0) return;
 
     // For each layer
-    for (int l=ui_tree->deepest_layer; l>=0; l--)
+    for (int l=ngui->deepest_layer; l>=0; l--)
     {
-        struct Vector* parent_layer = &ui_tree->tree_stack[l];
-        struct Vector* child_layer = &ui_tree->tree_stack[l+1];
+        struct Vector* parent_layer = &ngui->tree_stack[l];
+        struct Vector* child_layer = &ngui->tree_stack[l+1];
         
         // Iterate over layer
         for (int p=0; p<parent_layer->size; p++)
@@ -224,15 +189,15 @@ static void NU_Calculate_Fit_Size_Widths(struct UI_Tree* ui_tree)
     }
 }
 
-static void NU_Calculate_Fit_Size_Heights(struct UI_Tree* ui_tree)
+static void NU_Calculate_Fit_Size_Heights(struct NU_GUI* ngui)
 {
-    if (ui_tree->deepest_layer == 0) return;
+    if (ngui->deepest_layer == 0) return;
 
     // For each layer
-    for (int l=ui_tree->deepest_layer; l>=0; l--)
+    for (int l=ngui->deepest_layer; l>=0; l--)
     {
-        struct Vector* parent_layer = &ui_tree->tree_stack[l];
-        struct Vector* child_layer = &ui_tree->tree_stack[l+1];
+        struct Vector* parent_layer = &ngui->tree_stack[l];
+        struct Vector* child_layer = &ngui->tree_stack[l+1];
         
         // Iterate over layer
         for (int p=0; p<parent_layer->size; p++)
@@ -482,12 +447,12 @@ static void NU_Grow_Shrink_Child_Node_Heights(struct Node* parent, struct Vector
     }
 }
 
-static void NU_Grow_Shrink_Widths(struct UI_Tree* ui_tree)
+static void NU_Grow_Shrink_Widths(struct NU_GUI* ngui)
 {
-    for (int l=0; l<=ui_tree->deepest_layer; l++) // For each layer
+    for (int l=0; l<=ngui->deepest_layer; l++) // For each layer
     {
-        struct Vector* parent_layer = &ui_tree->tree_stack[l];
-        struct Vector* child_layer = &ui_tree->tree_stack[l+1];
+        struct Vector* parent_layer = &ngui->tree_stack[l];
+        struct Vector* child_layer = &ngui->tree_stack[l+1];
         
         for (int p=0; p<parent_layer->size; p++) // For node in layer
         {   
@@ -497,12 +462,12 @@ static void NU_Grow_Shrink_Widths(struct UI_Tree* ui_tree)
     }
 }
 
-static void NU_Grow_Shrink_Heights(struct UI_Tree* ui_tree)
+static void NU_Grow_Shrink_Heights(struct NU_GUI* ngui)
 {
-    for (int l=0; l<=ui_tree->deepest_layer; l++) // For each layer
+    for (int l=0; l<=ngui->deepest_layer; l++) // For each layer
     {
-        struct Vector* parent_layer = &ui_tree->tree_stack[l];
-        struct Vector* child_layer = &ui_tree->tree_stack[l+1];
+        struct Vector* parent_layer = &ngui->tree_stack[l];
+        struct Vector* child_layer = &ngui->tree_stack[l+1];
         
         for (int p=0; p<parent_layer->size; p++) // For node in layer
         {   
@@ -512,24 +477,23 @@ static void NU_Grow_Shrink_Heights(struct UI_Tree* ui_tree)
     }
 }
 
-static void NU_Calculate_Text_Wrap_Heights(struct UI_Tree* ui_tree)
+static void NU_Calculate_Text_Wrap_Heights(struct NU_GUI* ngui)
 {
-    for (uint32_t i = 0; i < ui_tree->text_arena.text_refs.size; i++) {
-        struct Text_Ref* text_ref = (struct Text_Ref*) Vector_Get(&ui_tree->text_arena.text_refs, i);
+    for (uint32_t i = 0; i < ngui->text_arena.text_refs.size; i++) {
+        struct Text_Ref* text_ref = (struct Text_Ref*) Vector_Get(&ngui->text_arena.text_refs, i);
         
         // Get the corresponding node
         uint8_t node_depth = (uint8_t)(text_ref->node_ID >> 24);
         uint32_t node_index = text_ref->node_ID & 0x00FFFFFF;
-        struct Vector* layer = &ui_tree->tree_stack[node_depth];
+        struct Vector* layer = &ngui->tree_stack[node_depth];
         struct Node* node = Vector_Get(layer, node_index);
 
-        char* text = ui_tree->text_arena.char_buffer.data + text_ref->buffer_index;
+        char* text = ngui->text_arena.char_buffer.data + text_ref->buffer_index;
 
         // Configure font
-        struct Vector* font_registry = Vector_Get(&ui_tree->font_registries, 0);
-        int fontID = *(int*) Vector_Get(font_registry, 0);
-        nvgFontFaceId(node->vg, fontID);   
-        nvgFontSize(node->vg, 18);
+        int fontID = *(int*) Vector_Get(&ngui->font_registry, 0);
+        nvgFontFaceId(ngui->vg_ctx, fontID);   
+        nvgFontSize(ngui->vg_ctx, 18);
 
         // Compute available inner width
         float inner_width = node->width -
@@ -538,7 +502,7 @@ static void NU_Calculate_Text_Wrap_Heights(struct UI_Tree* ui_tree)
 
         // Measure text the same way it's drawn
         float bounds[4];
-        nvgTextBoxBounds(node->vg, 0, 0, inner_width, text, NULL, bounds);
+        nvgTextBoxBounds(ngui->vg_ctx, 0, 0, inner_width, text, NULL, bounds);
         float text_height = bounds[3] - bounds[1];
 
         node->height = node->border_top + node->border_bottom +
@@ -617,12 +581,12 @@ static void NU_Vertically_Place_Children(struct Node* parent, struct Vector* chi
     }
 }
 
-static void NU_Calculate_Positions(struct UI_Tree* ui_tree)
+static void NU_Calculate_Positions(struct NU_GUI* ngui)
 {
-    for (int l=0; l<=ui_tree->deepest_layer; l++) // For each layer
+    for (int l=0; l<=ngui->deepest_layer; l++) // For each layer
     {
-        struct Vector* parent_layer = &ui_tree->tree_stack[l];
-        struct Vector* child_layer = &ui_tree->tree_stack[l+1];
+        struct Vector* parent_layer = &ngui->tree_stack[l];
+        struct Vector* child_layer = &ngui->tree_stack[l+1];
         
         for (int p=0; p<parent_layer->size; p++) // For node in layer
         {   
@@ -639,11 +603,13 @@ static void NU_Calculate_Positions(struct UI_Tree* ui_tree)
         }
     }
 }
-// UI layout ------------------------------------------------------------
 
 
 
-// Interaction ---------------------------------------------------------
+
+// -----------------------------
+// --- Interaction -------------
+// -----------------------------
 
 // Checks against bounding rect
 static bool NU_Mouse_Over_Node_Bounds(struct Node* node, float mouse_x, float mouse_y)
@@ -666,103 +632,93 @@ static bool NU_Mouse_Over_Node(struct Node* node, float mouse_x, float mouse_y)
     return false;
 }
 
-void NU_Mouse_Hover(struct UI_Tree* ui_tree)
-{
-    struct Node* root_node = Vector_Get(&ui_tree->tree_stack[0], 0);
-    if (root_node->window == NULL) return;
-
-    // Clear ui tree hovered nodes vector
-    ui_tree->hovered_nodes.size = 0;
-    if (ui_tree->hovered_node != NULL) {
-        NU_Apply_Stylesheet_To_Node(ui_tree->hovered_node, ui_tree->stylesheet);
-        ui_tree->hovered_node = NULL;
+void NU_Mouse_Hover(struct NU_GUI* ngui)
+{   
+    // --------------------------------------
+    // --- Clear ui tree hovered nodes vector
+    // --------------------------------------
+    ngui->hovered_nodes.size = 0;
+    if (ngui->hovered_node != NULL) {
+        NU_Apply_Stylesheet_To_Node(ngui->hovered_node, ngui->stylesheet);
+        ngui->hovered_node = NULL;
     }
 
-    // Create a traversal stack and append root node
+    if (ngui->hovered_window == NULL) return;
+
+    // -------------------------------------------------
+    // --- Create a traversal stack and append root node
+    // -------------------------------------------------
     struct Vector stack;
     Vector_Reserve(&stack, sizeof(struct Node*), 32);
-    Vector_Push(&stack, &root_node);
-
-    float mouse_x, mouse_y, rel_x, rel_y;
-    SDL_GetGlobalMouseState(&mouse_x, &mouse_y);
-
-    // Root-relative coords
-    int window_x, window_y;
-    SDL_GetWindowPosition(root_node->window, &window_x, &window_y);
-    rel_x = mouse_x - window_x;
-    rel_y = mouse_y - window_y;
-
-    // Add root node to ui hovered list if mouse over
-    if (NU_Mouse_Over_Node_Bounds(root_node, rel_x, rel_y)) {
-        Vector_Push(&ui_tree->hovered_nodes, &root_node);
+    
+    // ----------------------------------------------------
+    // --- Find the window node that mouse is hovering over
+    // ----------------------------------------------------
+    for (int i=0; i<ngui->window_nodes.size; i++)
+    {
+        struct Node* window_node = *(struct Node**) Vector_Get(&ngui->window_nodes, i);
+        if (window_node->window == ngui->hovered_window) {
+            Vector_Push(&stack, &window_node);
+            break;
+        }
     }
 
+    // -----------------------------
+    // --- Get global mouse position
+    // -----------------------------
+    float mouse_x, mouse_y, rel_x, rel_y;
+    int window_x, window_y;
+    SDL_GetGlobalMouseState(&mouse_x, &mouse_y);
+    SDL_GetWindowPosition(ngui->hovered_window, &window_x, &window_y);
+    rel_x = mouse_x - window_x;
+    rel_y = mouse_y - window_y;
     bool break_loop = false;
     while (stack.size > 0 && !break_loop) 
     {
         // Pop the stack
         struct Node* current_node = *(struct Node**)Vector_Get(&stack, stack.size - 1);
+        if (current_node->window != ngui->hovered_window) break;
         stack.size -= 1;
 
-        // Get the relative mouse x, y for this node's window
-        if (current_node->tag == WINDOW)
-        {
-            int node_window_x, node_window_y;
-            SDL_GetWindowPosition(current_node->window, &node_window_x, &node_window_y);
-            rel_x = mouse_x - node_window_x;
-            rel_y = mouse_y - node_window_y;
-        }
-
-        // Iterate over node children
+        // ------------------------------
+        // --- Iterate over node children
+        // ------------------------------
         int32_t current_layer = ((current_node->ID >> 24) & 0xFF);
-        struct Vector* child_layer = &ui_tree->tree_stack[current_layer+1];
+        struct Vector* child_layer = &ngui->tree_stack[current_layer+1];
         for (int i=current_node->first_child_index; i<current_node->first_child_index + current_node->child_count; i++)
         {
             struct Node* child = Vector_Get(child_layer, i);
 
-            // If child is a window node
-            if (child->tag == WINDOW) 
+            // ---------------------------------
+            // --- If child is not a window node
+            // ---------------------------------
+            if (child->tag != WINDOW && NU_Mouse_Over_Node_Bounds(child, rel_x, rel_y)) 
             {
-                Vector_Push(&stack, &child);
-                int subwindow_x, subwindow_y;
-                SDL_GetWindowPosition(child->window, &subwindow_x, &subwindow_y);
-                float subwindow_rel_x = mouse_x - subwindow_x;
-                float subwindow_rel_y = mouse_y - subwindow_y;
-                if (NU_Mouse_Over_Node_Bounds(child, subwindow_rel_x, subwindow_rel_y)) {
-                    Vector_Push(&ui_tree->hovered_nodes, &child);
-                }
-                continue;
-            }
-
-            // Child is not a window node
-            if (NU_Mouse_Over_Node_Bounds(child, rel_x, rel_y)) 
-            {
-                ui_tree->hovered_node = child;
+                ngui->hovered_node = child;
                 if (child->tag == BUTTON) {
                     break_loop = true;
                     break;
                 }
 
                 Vector_Push(&stack, &child);
-                Vector_Push(&ui_tree->hovered_nodes, &child);
+                Vector_Push(&ngui->hovered_nodes, &child);
             }
         }
     }
 
     // Set currently hovered node
-    if (ui_tree->hovered_node != NULL) 
-    {
-        NU_Apply_Pseudo_Style_To_Node(ui_tree->hovered_node, ui_tree->stylesheet, PSEUDO_HOVER);
+    if (ngui->hovered_node != NULL) {
+        NU_Apply_Pseudo_Style_To_Node(ngui->hovered_node, ngui->stylesheet, PSEUDO_HOVER);
     } 
-
     Vector_Free(&stack);
 }
 
-// Interaction ---------------------------------------------------------
 
 
 
-// UI rendering ---------------------------------------------------------
+// -----------------------------
+// --- Rendering ---------------
+// -----------------------------
 void NU_Draw_Node(struct Node* node, NVGcontext* vg, float screen_width, float screen_height)
 {
     float inner_width  = node->width - node->border_left - node->border_right - node->pad_left - node->pad_right;
@@ -792,11 +748,10 @@ void NU_Draw_Node(struct Node* node, NVGcontext* vg, float screen_width, float s
     }
 }
 
-void NU_Draw_Node_Text(struct UI_Tree* ui_tree, struct Node* node, char* text, NVGcontext* vg)
+void NU_Draw_Node_Text(struct NU_GUI* ngui, struct Node* node, char* text, NVGcontext* vg)
 {
     // Setup font
-    struct Vector* font_registry = Vector_Get(&ui_tree->font_registries, 0);
-    int fontID = *(int*) Vector_Get(font_registry, 0);
+    int fontID = *(int*) Vector_Get(&ngui->font_registry, 0);
     nvgFontFaceId(vg, fontID);   
     nvgFontSize(vg, 18);
 
@@ -805,7 +760,7 @@ void NU_Draw_Node_Text(struct UI_Tree* ui_tree, struct Node* node, char* text, N
     nvgTextAlign(vg, NVG_ALIGN_LEFT | NVG_ALIGN_TOP);
 
     float asc, desc, lh;
-    nvgTextMetrics(node->vg, &asc, &desc, &lh);
+    nvgTextMetrics(ngui->vg_ctx, &asc, &desc, &lh);
 
     // Compute inner dimensions (content area)
     float inner_width  = node->width  - node->border_left - node->border_right - node->pad_left - node->pad_right;
@@ -819,23 +774,23 @@ void NU_Draw_Node_Text(struct UI_Tree* ui_tree, struct Node* node, char* text, N
     nvgTextBox(vg, floorf(textPosX), floorf(textPosY), inner_width, text, NULL);
 }
 
-void NU_Draw_Nodes(struct UI_Tree* ui_tree)
+void NU_Draw_Nodes(struct NU_GUI* ngui)
 {
     struct Vector window_nodes_list[MAX_TREE_DEPTH];
-    for (uint32_t i=0; i<ui_tree->windows.size; i++) {
+    for (uint32_t i=0; i<ngui->windows.size; i++) {
         Vector_Reserve(&window_nodes_list[i], sizeof(struct Node*), 1000);
     }
 
     // For each layer
-    for (int l=0; l<=ui_tree->deepest_layer; l++)
+    for (int l=0; l<=ngui->deepest_layer; l++)
     {
-        struct Vector* layer = &ui_tree->tree_stack[l];
+        struct Vector* layer = &ngui->tree_stack[l];
         for (int n=0; n<layer->size; n++)
         {   
             struct Node* node = Vector_Get(layer, n);
-            for (uint32_t i=0; i<ui_tree->windows.size; i++)
+            for (uint32_t i=0; i<ngui->windows.size; i++)
             {
-                SDL_Window* window = *(SDL_Window**) Vector_Get(&ui_tree->windows, i);
+                SDL_Window* window = *(SDL_Window**) Vector_Get(&ngui->windows, i);
                 if (window == node->window)
                 {
                     Vector_Push(&window_nodes_list[i], &node);
@@ -846,10 +801,10 @@ void NU_Draw_Nodes(struct UI_Tree* ui_tree)
 
 
     // For each window
-    for (uint32_t i=0; i<ui_tree->windows.size; i++)
+    for (uint32_t i=0; i<ngui->windows.size; i++)
     {
-        SDL_Window* window = *(SDL_Window**) Vector_Get(&ui_tree->windows, i);
-        NVGcontext* nano_vg_context = *(NVGcontext**) Vector_Get(&ui_tree->nano_vg_contexts, i);
+        SDL_Window* window = *(SDL_Window**) Vector_Get(&ngui->windows, i);
+        SDL_GL_MakeCurrent(window, ngui->gl_ctx);
 
         // Clear the window
         int w, h;
@@ -857,56 +812,57 @@ void NU_Draw_Nodes(struct UI_Tree* ui_tree)
         glViewport(0, 0, w, h);
         glClearColor(0.0f, 0.0f, 0.0f, 1.0f); 
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT | GL_STENCIL_BUFFER_BIT);
-
-        nvgBeginFrame(nano_vg_context, w, h, 1.0f);
+        nvgBeginFrame(ngui->vg_ctx, w, h, 1.0f);
 
         // For each node belonging to the window
         for (int n=0; n<window_nodes_list[i].size; n++)
         {
             struct Node* node = *(struct Node**) Vector_Get(&window_nodes_list[i], n);
-            NU_Draw_Node(node, nano_vg_context, (float)w, (float)h);
+            NU_Draw_Node(node, ngui->vg_ctx, (float)w, (float)h);
 
             if (node->text_ref_index != -1)
             {
-                struct Text_Ref* text_ref = (struct Text_Ref*) Vector_Get(&ui_tree->text_arena.text_refs, node->text_ref_index);
+                struct Text_Ref* text_ref = (struct Text_Ref*) Vector_Get(&ngui->text_arena.text_refs, node->text_ref_index);
                 
                 // Extract pointer to text
-                char* text = ui_tree->text_arena.char_buffer.data + text_ref->buffer_index;
+                char* text = ngui->text_arena.char_buffer.data + text_ref->buffer_index;
                 if (text_ref->char_count != text_ref->char_capacity) text[text_ref->char_count] = '\0';
-                NU_Draw_Node_Text(ui_tree, node, text, nano_vg_context);
+                NU_Draw_Node_Text(ngui, node, text, ngui->vg_ctx);
                 if (text_ref->char_count != text_ref->char_capacity) text[text_ref->char_count] = ' ';
             }
         }
 
         // Render to window
-        nvgEndFrame(nano_vg_context);
+        nvgEndFrame(ngui->vg_ctx);
         SDL_GL_SwapWindow(window); 
     }
 
-    for (uint32_t i=0; i<ui_tree->windows.size; i++) {
+    for (uint32_t i=0; i<ngui->windows.size; i++) {
         Vector_Free(&window_nodes_list[i]);
     }
 }
 
-void NU_Calculate(struct UI_Tree* ui_tree)
+void NU_Calculate(struct NU_GUI* ngui)
 {
-    NU_Clear_Node_Sizes(ui_tree);
-    NU_Calculate_Text_Fit_Sizes(ui_tree);
-    NU_Calculate_Fit_Size_Widths(ui_tree);
-    NU_Grow_Shrink_Widths(ui_tree);
-    NU_Calculate_Text_Wrap_Heights(ui_tree);
-    NU_Calculate_Fit_Size_Heights(ui_tree);
-    NU_Grow_Shrink_Heights(ui_tree);
-    NU_Calculate_Positions(ui_tree);
-    NU_Mouse_Hover(ui_tree);
+    NU_Clear_Node_Sizes(ngui);
+    NU_Calculate_Text_Fit_Sizes(ngui);
+    NU_Calculate_Fit_Size_Widths(ngui);
+    NU_Grow_Shrink_Widths(ngui);
+    NU_Calculate_Text_Wrap_Heights(ngui);
+    NU_Calculate_Fit_Size_Heights(ngui);
+    NU_Grow_Shrink_Heights(ngui);
+    NU_Calculate_Positions(ngui);
+    NU_Mouse_Hover(ngui);
 }
-// UI rendering ---------------------------------------------------------
 
 
 
-// Window resize event handling -----------------------------------------
+
+// -----------------------------
+// Event watcher ---------------
+// -----------------------------
 struct NU_Watcher_Data {
-    struct UI_Tree* ui_tree;
+    struct NU_GUI* ngui;
 };
 
 bool ResizingEventWatcher(void* data, SDL_Event* event) 
@@ -915,18 +871,20 @@ bool ResizingEventWatcher(void* data, SDL_Event* event)
 
     switch (event->type) {
         case SDL_EVENT_WINDOW_RESIZED:
-            NU_Calculate(wd->ui_tree);
-            NU_Draw_Nodes(wd->ui_tree);
+            NU_Calculate(wd->ngui);
+            NU_Draw_Nodes(wd->ngui);
             break;
         case SDL_EVENT_MOUSE_MOTION:
-            NU_Calculate(wd->ui_tree);
-            NU_Draw_Nodes(wd->ui_tree);
+            Uint32 id = event->motion.windowID;
+            wd->ngui->hovered_window = SDL_GetWindowFromID(id);
+            NU_Calculate(wd->ngui);
+            NU_Draw_Nodes(wd->ngui);
             break;
         case SDL_EVENT_MOUSE_BUTTON_DOWN:
-            wd->ui_tree->mouse_down_node = wd->ui_tree->hovered_node;
+            wd->ngui->mouse_down_node = wd->ngui->hovered_node;
             break;
         case SDL_EVENT_MOUSE_BUTTON_UP:
-            if (wd->ui_tree->mouse_down_node == wd->ui_tree->hovered_node) {
+            if (wd->ngui->mouse_down_node == wd->ngui->hovered_node) {
                 printf("Node Clicked!");
             }
             break;
@@ -935,4 +893,3 @@ bool ResizingEventWatcher(void* data, SDL_Event* event)
     }    
     return true;
 }
-// Window resize event handling -----------------------------------------

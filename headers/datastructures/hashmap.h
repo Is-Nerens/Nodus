@@ -4,205 +4,240 @@
 #include <string.h>
 #include <stdlib.h>
 
-// A static hashmap is one whereby (key [string], item [generic]) pairs
-// can only be added and not removed
-// this is a major optimisation for 
-// cache efficiency and it negates
-// the need for a key heap allocator
-// keys can be added in a linear fashion
-struct sHashmap 
-{
-    uint8_t* occupancy; 
-    char* keybuffer; // text arena of keys
-    char** keys; // partitions the key buffer into individual strings
-    void* data; // packed vector of underlying data
-    uint32_t capacity;
-    uint32_t keybuffer_capacity;
-    uint32_t keybuffer_end;
+
+
+
+typedef struct {
+    struct Vector freelist;
+    char** strings_map;        // sparse hash vector of char*
+    char** buffer_chunks;      // array of char arrays
+    void* item_data;           // sparse array of items
+    uint32_t chunk_size;       // chars in each chunk
+    uint16_t chunks_used;      // number of chunks
+    uint16_t chunks_available; // number of chunks
+    uint32_t string_map_capacity;
+    uint32_t total_buffer_capacity;
+    uint32_t string_count;
     uint32_t item_size;
-    uint32_t item_count;
     uint32_t max_probes;
-};
+} String_Map;
 
-void sHashmap_Init(struct sHashmap* shmap, uint32_t item_size, uint32_t item_capacity)
+typedef struct {
+    uint32_t index;
+    uint32_t size;
+    uint16_t chunk;
+} String_Map_Free_Element;
+
+void String_Map_Init(String_Map* map, uint32_t item_size, uint32_t chunk_size, uint32_t capacity)
 {
-    
-    shmap->capacity = max(10, item_capacity * 2);
+    chunk_size = MAX(chunk_size, 100);
+    capacity = MAX(capacity, 10);
+    Vector_Reserve(&map->freelist, sizeof(String_Map_Free_Element), capacity / 2);
+    map->chunk_size = chunk_size;
+    map->total_buffer_capacity = chunk_size;
+    map->chunks_used = 1;
+    map->string_count = 0;
+    map->item_size = item_size;
+    map->max_probes = 0;
 
-    // Compute number of occupancy bytes
-    uint32_t occupancy_remainder = shmap->capacity & 7; // capacity % 8
-    uint32_t occupancy_bytes = shmap->capacity >> 3; // capacity / 8
-    if (occupancy_remainder != 0) occupancy_bytes += 1;
-    shmap->occupancy = calloc(occupancy_bytes, 1); 
+    // Init chunks array with one char* array
+    map->chunks_available = 4;
+    map->buffer_chunks = malloc(sizeof(char*) * 4);
+    map->buffer_chunks[0] = malloc(chunk_size);
+    map->buffer_chunks[1] = NULL;
+    map->buffer_chunks[2] = NULL;
+    map->buffer_chunks[3] = NULL;
 
-    shmap->keybuffer_capacity = max(10, item_capacity) * 12; // expecting ~12 chars per key
-    shmap->keybuffer_end = 0;
-    shmap->keybuffer = malloc(shmap->keybuffer_capacity);
-    shmap->keys = malloc(shmap->capacity * sizeof(char*));
-    shmap->item_size = item_size;
-    shmap->item_count = 0;
-    shmap->max_probes = 0;
-    shmap->data = malloc(shmap->capacity * item_size);
+    // Init data and strings map
+    map->string_map_capacity = (capacity * 2);
+    map->item_data = malloc(item_size * map->string_map_capacity);
+    map->strings_map = calloc(map->string_map_capacity, sizeof(char*)); // Init all slots to NULL
+
+    // Add first free element
+    String_Map_Free_Element first_free;
+    first_free.chunk = 0;
+    first_free.index = 0;
+    first_free.size = chunk_size;
+    Vector_Push(&map->freelist, &first_free);
 }
 
-void sHashmap_Free(struct sHashmap* shmap)
+void String_Map_Free(String_Map* map)
 {
-    free(shmap->occupancy);
-    free(shmap->keybuffer);
-    free(shmap->keys);
-    free(shmap->data);
-    shmap->capacity = 0;
-    shmap->keybuffer_capacity = 0;
-    shmap->item_size = 0;
-    shmap->item_count = 0;
-    shmap->max_probes = 0;
+    Vector_Free(&map->freelist);
+    free(map->strings_map);
+    for (uint16_t i=0; i<map->chunks_available; i++) {
+        if (map->buffer_chunks[i] != NULL) free(map->buffer_chunks[i]);
+    }
+    free(map->item_data);
+    free(map->buffer_chunks);
 }
 
 // FNV algorithm https://github.com/aappleby/smhasher/blob/master/src/Hashes.cpp
-static uint32_t Hash_String(char* key)
-{
+static uint32_t String_Hash(char* string) {
     uint32_t hash = 2166136261u;
-    for (uint8_t* p = (uint8_t*)key; *p; p++) {
+    for (uint8_t* p = (uint8_t*)string; *p; p++) {
         hash ^= *p;
         hash *= 16777619u;
     }
     return hash;
 }
 
-static void sHashmap_add(struct sHashmap* shmap, char* key, void* value)
+void* String_Map_Get(String_Map* map, char* key)
 {
-    uint32_t probes = 0;
-    uint32_t hash = Hash_String(key);
-    while (probes < shmap->capacity) {
-        uint32_t i = (hash + probes) % shmap->capacity;
-        uint32_t rem = i & 7; // i % 8
-        uint32_t occupancy_index = i >> 3; // i / 8
+    uint32_t searches = 0;
+    uint32_t hash = String_Hash(key);
+    uint32_t max_searches = MIN(map->string_map_capacity, map->max_probes + 1);
+    while (searches < max_searches) {
+        uint32_t i = (hash + searches) % map->string_map_capacity;
+        char* map_string = map->strings_map[i];
 
-        if (!(shmap->occupancy[occupancy_index] & (uint8_t)(1 << rem))) { // Found empty slot
-            shmap->occupancy[occupancy_index] |= (uint8_t)(1 << rem); // Mark occupied
-
-            // set key
-            size_t key_len = strlen(key) + 1; // +1 for '\0'
-            char* key_dst = shmap->keybuffer + shmap->keybuffer_end;
-            memcpy(key_dst, key, key_len);
-            shmap->keys[i] = key_dst;
-            shmap->keybuffer_end += (uint32_t)key_len;
-
-            // set value
-            char* dst = (char*)shmap->data + shmap->item_size * i;
-            memcpy(dst, value, shmap->item_size);
-
-            shmap->item_count++;
-            break;
-        }
-        probes++;
-    }
-    shmap->max_probes = max(shmap->max_probes, probes);
-}
-
-static void sHashmap_Resize(struct sHashmap* shmap)
-{
-    uint32_t old_capacity = shmap->capacity;
-    uint8_t* old_occupancy = shmap->occupancy;
-    char** old_keys = shmap->keys;
-    char* old_data = (char*)shmap->data;
-
-    // Double capacity
-    shmap->capacity *= 2;
-    uint32_t occupancy_remainder = shmap->capacity & 7; // hmap->capacity % 8
-    uint32_t occupancy_bytes = shmap->capacity >> 3; // hmap->capacity / 8
-    if (occupancy_remainder != 0) occupancy_bytes += 1;
-    shmap->occupancy = calloc(occupancy_bytes, 1);
-    shmap->keys = malloc(shmap->capacity * sizeof(char*));
-    shmap->data = malloc(shmap->capacity * shmap->item_size);
-    shmap->max_probes = 0;
-    shmap->item_count = 0;
-
-    // Re-insert all old items
-    for (uint32_t i=0; i<old_capacity; i++) {
-        uint32_t rem = i & 7; // i % 8
-        uint32_t occupancy_index = i >> 3; // i / 8
-        if (old_occupancy[occupancy_index] & (1u << rem)) {
-            void* value = old_data + i * shmap->item_size;
-            char* key = old_keys[i];
-
-            // Add item 
-            sHashmap_add(shmap, key, value);
-        }
-    }
-
-    free(old_occupancy);
-    free(old_keys);
-    free(old_data);
-}
-
-void sHashmap_Add(struct sHashmap* shmap, char* key, void* value)
-{
-    // Resize keybuffer if new key would overflow capacity
-    uint32_t key_len = (uint32_t)strlen(key) + 1;
-    if (shmap->keybuffer_end + key_len > shmap->keybuffer_capacity) {
-        shmap->keybuffer_capacity = max(shmap->keybuffer_capacity * 2, shmap->keybuffer_capacity + key_len);
-        shmap->keybuffer = realloc(shmap->keybuffer, (size_t)shmap->keybuffer_capacity);
-    }
-
-    // Resize if surpased max load factor 
-    if ((float)shmap->item_count / (float)shmap->capacity > 0.5f) {
-        sHashmap_Resize(shmap);
-    }
-
-
-    uint32_t probes = 0;
-    uint32_t hash = Hash_String(key);
-    while (probes < shmap->capacity) {
-        uint32_t i = (hash + probes) % shmap->capacity;
-        uint32_t rem = i & 7; // i % 8
-        uint32_t occupancy_index = i >> 3; // i / 8
-
-        if (!(shmap->occupancy[occupancy_index] & (1u << rem))) { // Found empty slot
-            shmap->occupancy[occupancy_index] |= (uint8_t)(1 << rem); // Mark occupied
-
-            // set key
-            size_t key_len = strlen(key) + 1; // +1 for '\0'
-            char* key_dst = shmap->keybuffer + shmap->keybuffer_end;
-            memcpy(key_dst, key, key_len);
-            shmap->keys[i] = key_dst;
-            shmap->keybuffer_end += (uint32_t)key_len;
-
-            // set value
-            char* dst = (char*)shmap->data + shmap->item_size * i;
-            memcpy(dst, value, shmap->item_size);
-
-            shmap->item_count++;
-            break;
-        }
-        probes++;
-    }
-    shmap->max_probes = max(shmap->max_probes, probes);
-}
-
-void* sHashmap_Find(struct sHashmap* shmap, char* key)
-{   
-    uint32_t probes = 0;
-    uint32_t hash = Hash_String(key);
-    uint32_t max_searches = min(shmap->capacity, shmap->max_probes + 1);
-    while (probes < max_searches) {
-        uint32_t i = (hash + probes) % shmap->capacity;
-        uint32_t rem = i & 7; // i % 8
-        uint32_t occupancy_index = i >> 3; // i / 8
-
-        if (shmap->occupancy[occupancy_index] & (1u << rem)) { // Found item
-
-            // check if key matches
-            char* item_key = shmap->keys[i];
-            if (strcmp(key, item_key) == 0) {
-                return (char*)shmap->data + i * shmap->item_size;
-            }
-        } else { // empty slot -> not present
+        // Not in the map
+        if (map_string == NULL) {
             return NULL;
         }
-        probes++;
+
+        // Check for match 
+        if (strcmp(map_string, key) == 0) {
+            return (char*)map->item_data + i * map->item_size;
+        }
+
+        searches++;
     }
-    return NULL;
+    return NULL; // Not in the map
+}
+
+static void String_Map_Rehash(String_Map* map)
+{
+    uint32_t old_map_capacity = map->string_map_capacity;
+    char** old_strings_map = map->strings_map;
+    void* old_item_data = map->item_data;
+    
+    // Resize strings map and init elements to NULL
+    map->string_map_capacity *= 2;
+    map->item_data = malloc(map->item_size * map->string_map_capacity);
+    map->strings_map = calloc(map->string_map_capacity, sizeof(char*)); // Init all slots to NULL
+
+    // --------------------------------------------------
+    // --- Re-insert strings into new map
+    // --------------------------------------------------
+    map->max_probes = 0;
+    for (uint32_t i=0; i<old_map_capacity; i++) 
+    {
+        char* old_string = old_strings_map[i];
+        char* old_item_loc = (char*)old_item_data + i * map->item_size;
+        if (old_string != NULL) // Re-hash and insert into new map
+        {   
+            // --------------------------------------------------
+            // --- Rehash and insert existing string into new map
+            // --------------------------------------------------
+            uint32_t searches = 0;
+            uint32_t hash = String_Hash(old_string);
+            while (searches < map->string_map_capacity)
+            {
+                uint32_t idx = (hash + searches) % map->string_map_capacity;
+                char* new_map_string = map->strings_map[idx];
+                if (new_map_string == NULL) // Found a slot in new map
+                {
+                    map->strings_map[idx] = old_string; // Set string (key)
+                    char* item_dst = (char*)map->item_data + idx * map->item_size;
+                    memcpy(item_dst, old_item_loc, map->item_size);
+                    break;
+                }
+                searches++;
+            }
+            map->max_probes = MAX(map->max_probes, searches);
+            // --------------------------------------------------
+            // --- Rehash and insert existing string into new map
+            // --------------------------------------------------
+        }
+    }
+    free(old_strings_map);
+    free(old_item_data);
+}
+
+void String_Map_Set(String_Map* map, char* key, void* item)
+{   
+    // If the hashmap load factor is too high -> expand and rehash
+    float load_factor = (float)map->string_count / (float)map->string_map_capacity;
+    if (load_factor > 0.7f) {
+        String_Map_Rehash(map);
+    }
+
+    // --------------------------------------------------
+    // --- Rehash and insert existing key into new map
+    // --------------------------------------------------
+    uint32_t string_len = (uint32_t)strlen(key) + 1;
+
+    // Search key freelist for space
+    int space_index = -1;
+    uint16_t space_chunk = 0;
+    for (uint32_t i=0; i<map->freelist.size; i++)
+    {
+        String_Map_Free_Element* free_element = Vector_Get(&map->freelist, i);
+        if (string_len < free_element->size) { // Consume part of free element
+            space_index = (int)free_element->index;
+            space_chunk = free_element->chunk;
+            free_element->size -= string_len;
+            free_element->index += string_len;
+            break;
+        }
+        else if (string_len == free_element->size) { // Consume entire free element -> remove from list
+            space_index = (int)free_element->index;
+            space_chunk = free_element->chunk;
+            Vector_Delete_Backshift(&map->freelist, i);
+            break;
+        }
+    }
+
+    // No space anywhere? -> allocate a new chunk
+    if (space_index == -1)
+    {
+        // Increase chunk size
+        map->chunk_size = map->total_buffer_capacity;
+        map->total_buffer_capacity *= 2;
+
+        // Add another chunk
+        map->chunks_used++;
+        if (map->chunks_used == map->chunks_available) {
+            map->chunks_available *= 2;
+            map->buffer_chunks = realloc(map->buffer_chunks, map->chunks_available * sizeof(char*));
+        }
+        map->buffer_chunks[map->chunks_used-1] = malloc(map->chunk_size);
+
+        // Add a free element
+        String_Map_Free_Element new_free = { 
+            0, 
+            map->chunk_size, 
+            map->chunks_used-1, 
+        };
+        Vector_Push(&map->freelist, &new_free);
+        space_index = 0;
+        space_chunk = map->chunks_used-1;
+    }
+
+    // Insert key into underlying char buffer
+    char* chunk = map->buffer_chunks[space_chunk];
+    char* result = chunk + space_index;
+    memcpy(result, key, string_len);
+    map->string_count++;
+
+    // Update string map
+    uint32_t searches = 0;
+    uint32_t hash = String_Hash(key);
+    while (searches < map->string_map_capacity)
+    {
+        uint32_t i = (hash + searches) % map->string_map_capacity;
+        char* map_string = map->strings_map[i];
+        if (map_string == NULL) // Found free slot
+        {
+            map->strings_map[i] = result; // Set key
+            char* item_dst = (char*)map->item_data + i * map->item_size;
+            memcpy(item_dst, item, map->item_size);
+            break;
+        }
+        searches++;
+    }
+    map->max_probes = MAX(map->max_probes, searches);
 }
 
 

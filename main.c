@@ -11,6 +11,7 @@
 #include <freetype/freetype.h>
 #include "headers/nodus.h"
 
+
 int ProcessWindowEvents()
 {
     int isRunning = 1; 
@@ -22,18 +23,17 @@ int ProcessWindowEvents()
         if (event.type == SDL_EVENT_WINDOW_CLOSE_REQUESTED)  {   
             isRunning = 0;
         }
-        else if (event.type == SDL_EVENT_QUIT)               {
+        else if (event.type == SDL_EVENT_QUIT) {
             isRunning = 0;
-        }
-        else if (event.type == SDL_EVENT_WINDOW_MOUSE_ENTER) {
-
-        }
-        else if (event.type == SDL_EVENT_WINDOW_MOUSE_LEAVE) {
-
         }
     }
 
     return isRunning;
+}
+
+
+void on_click(struct Node *node, void *args) {
+    printf("Node Clicked! \n");
 }
 
 int main()
@@ -57,13 +57,21 @@ int main()
     NU_Stylesheet_Create(&stylesheet,"test.css"); 
     NU_Stylesheet_Apply(&ngui, &stylesheet);
 
+
     end_measurement();
 
-    struct NU_Watcher_Data watcher_data = {
-        .ngui = &ngui
-    };
 
+
+    struct Node* btn_node = NU_Get_Node_By_Id(&ngui, "charts-btn");
+    if (btn_node != NULL) {
+        NU_Register_Event(&ngui, btn_node, NULL, on_click, NU_EVENT_ON_CLICK);
+    }
+
+
+
+    struct NU_Watcher_Data watcher_data = { .ngui = &ngui };
     SDL_AddEventWatch(ResizingEventWatcher, &watcher_data);
+
 
     NU_Calculate(&ngui);
     NU_Draw_Nodes(&ngui);

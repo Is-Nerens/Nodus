@@ -39,6 +39,8 @@
         "vector.h": "c",
         "string_set.h": "c",
         "text_arena.h": "c",
-        "hashmap.h": "c"
+        "hashmap.h": "c",
+        "iterator": "c",
+        "memory": "c"
     }
 }

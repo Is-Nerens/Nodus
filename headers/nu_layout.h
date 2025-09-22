@@ -40,8 +40,7 @@ static void NU_Clear_Node_Sizes(struct NU_GUI* ngui)
             struct Node* parent = Vector_Get(parent_layer, p);
 
             // If parent is window node and has no SDL window assigned to it -> create a new window and renderer
-            if (parent->tag == WINDOW && parent->window == NULL && l != 0) {
-                NU_Create_Subwindow(ngui, parent);
+            if (parent->tag == WINDOW && l != 0) {
                 SDL_SetWindowMinimumSize(parent->window, parent->min_width, parent->min_height);
             }
 
@@ -853,45 +852,4 @@ void NU_Calculate(struct NU_GUI* ngui)
     NU_Grow_Shrink_Heights(ngui);
     NU_Calculate_Positions(ngui);
     NU_Mouse_Hover(ngui);
-}
-
-
-
-
-// -----------------------------
-// Event watcher ---------------
-// -----------------------------
-struct NU_Watcher_Data {
-    struct NU_GUI* ngui;
-};
-
-bool ResizingEventWatcher(void* data, SDL_Event* event) 
-{
-    struct NU_Watcher_Data* wd = (struct NU_Watcher_Data*)data;
-
-    switch (event->type) {
-        case SDL_EVENT_WINDOW_RESIZED:
-            timer_start();
-            NU_Calculate(wd->ngui);
-            NU_Draw_Nodes(wd->ngui);
-            timer_stop();
-            break;
-        case SDL_EVENT_MOUSE_MOTION:
-            Uint32 id = event->motion.windowID;
-            wd->ngui->hovered_window = SDL_GetWindowFromID(id);
-            NU_Calculate(wd->ngui);
-            NU_Draw_Nodes(wd->ngui);
-            break;
-        case SDL_EVENT_MOUSE_BUTTON_DOWN:
-            wd->ngui->mouse_down_node = wd->ngui->hovered_node;
-            break;
-        case SDL_EVENT_MOUSE_BUTTON_UP:
-            if (wd->ngui->mouse_down_node == wd->ngui->hovered_node) {
-                printf("Node Clicked!");
-            }
-            break;
-        default:
-            break;
-    }    
-    return true;
 }

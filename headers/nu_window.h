@@ -15,6 +15,7 @@ void NU_Create_Main_Window(struct NU_GUI* ngui)
     SDL_GL_SetAttribute(SDL_GL_CONTEXT_PROFILE_MASK, SDL_GL_CONTEXT_PROFILE_CORE);
     SDL_GL_SetAttribute(SDL_GL_MULTISAMPLEBUFFERS, 1);
     SDL_GL_SetAttribute(SDL_GL_MULTISAMPLESAMPLES, 4);
+    SDL_SetHint("SDL_MOUSE_FOCUS_CLICKTHROUGH", "1");
     SDL_Window* main_window = SDL_CreateWindow("window", 500, 400, SDL_WINDOW_OPENGL | SDL_WINDOW_RESIZABLE);
 
     // Create OpenGL context for the main window
@@ -37,6 +38,7 @@ void NU_Create_Subwindow(struct NU_GUI* ngui, struct Node* window_node)
     SDL_GL_SetAttribute(SDL_GL_CONTEXT_PROFILE_MASK, SDL_GL_CONTEXT_PROFILE_CORE);
     SDL_GL_SetAttribute(SDL_GL_MULTISAMPLEBUFFERS, 1);
     SDL_GL_SetAttribute(SDL_GL_MULTISAMPLESAMPLES, 4);
+    SDL_SetHint("SDL_MOUSE_FOCUS_CLICKTHROUGH", "1");
     SDL_Window* new_window = SDL_CreateWindow("window", 500, 400, SDL_WINDOW_OPENGL | SDL_WINDOW_RESIZABLE);
     SDL_GL_MakeCurrent(new_window, SDL_GL_GetCurrentContext());
 
@@ -45,5 +47,4 @@ void NU_Create_Subwindow(struct NU_GUI* ngui, struct Node* window_node)
 
     // Push into vectors
     Vector_Push(&ngui->windows, &new_window);
-    Vector_Push(&ngui->window_nodes, &window_node);
 }

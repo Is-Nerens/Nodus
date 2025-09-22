@@ -94,7 +94,7 @@ char* String_Set_Get(String_Set* set, char* key)
 
         // Check for match 
         if (strcmp(map_string, key) == 0) {
-            set->max_probes = MAX(set->max_probes, searches);
+            // set->max_probes = MAX(set->max_probes, searches);
             return map_string;
         }
 

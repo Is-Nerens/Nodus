@@ -8,7 +8,9 @@
 
 #include "datastructures/vector.h"
 #include "datastructures/string_set.h"
+#include "datastructures/hashmap.h"
 #include "datastructures/text_arena.h"
+#include "datastructures/hashmap.h"
 #include "nu_font.h"
 #include "nu_resources.h"
 
@@ -21,6 +23,11 @@
 #define OVERFLOW_VERTICAL_SCROLL     0x08        // 0b00001000
 #define OVERFLOW_HORIZONTAL_SCROLL   0x10        // 0b00010000
 #define MAX_TREE_DEPTH 32
+
+#define NU_EVENT_FLAG_ON_CLICK       0x01        // 0b00000001
+#define NU_EVENT_FLAG_ON_CHANGED     0x02        // 0b00000010
+#define NU_EVENT_FLAG_ON_DRAG        0x04        // 0b00000100
+#define NU_EVENT_FLAG_ON_RELEASED    0x08        // 0b00001000
 
 enum Tag
 {
@@ -59,7 +66,26 @@ struct Node
     char layout_flags;
     char horizontal_alignment;
     char vertical_alignment;
+    char event_flags;
 };
+
+enum NU_Event
+{
+    NU_EVENT_ON_CLICK,
+    NU_EVENT_ON_CHANGED,
+    NU_EVENT_ON_DRAG,
+    NU_EVENT_ON_RELEASED
+};
+
+typedef void (*NU_Callback)(struct Node* node, void* args);
+
+struct NU_Callback_Info
+{
+    struct Node* node;
+    void* args;
+    NU_Callback callback;
+};
+
 
 struct NU_GUI
 {
@@ -81,61 +107,90 @@ struct NU_GUI
     SDL_GLContext gl_ctx;
     NVGcontext* vg_ctx;
     SDL_Window* hovered_window;
+
+    // Id -> node mapping
+    String_Map id_node_map;
+
+    // Event callbacks
+    struct Hashmap on_click_events;
+    struct Hashmap on_changed_events;
+    struct Hashmap on_drag_events;
+    struct Hashmap on_released_events;
 };
 
 
 
 #include "nu_window.h"
 
-
-void NU_Tree_Init(struct NU_GUI* ngui)
+void NU_Tree_Init(struct NU_GUI* gui)
 {
-    Vector_Reserve(&ngui->windows, sizeof(SDL_Window*), 8);
-    Vector_Reserve(&ngui->window_nodes, sizeof(struct Node*), 8);
-    Vector_Reserve(&ngui->font_resources, sizeof(struct Font_Resource), 4);
-    Vector_Reserve(&ngui->text_arena.free_list, sizeof(struct Arena_Free_Element), 100);
-    Vector_Reserve(&ngui->text_arena.text_refs, sizeof(struct Text_Ref), 100);
-    Vector_Reserve(&ngui->text_arena.char_buffer, sizeof(char), 25000); 
-    Vector_Reserve(&ngui->font_registry, sizeof(int), 8);
-    Vector_Reserve(&ngui->hovered_nodes, sizeof(struct Node*), 32);
-    String_Set_Init(&ngui->class_string_set, 1024, 100);
-    String_Set_Init(&ngui->id_string_set, 1024, 100);
-    ngui->hovered_node = NULL;
-    ngui->mouse_down_node = NULL;
-    ngui->deepest_layer = 0;
-    ngui->stylesheet = NULL;
-    ngui->hovered_window = NULL;
-    NU_Create_Main_Window(ngui);
+    Vector_Reserve(&gui->windows, sizeof(SDL_Window*), 8);
+    Vector_Reserve(&gui->window_nodes, sizeof(struct Node*), 8);
+    Vector_Reserve(&gui->font_resources, sizeof(struct Font_Resource), 4);
+    Vector_Reserve(&gui->text_arena.free_list, sizeof(struct Arena_Free_Element), 100);
+    Vector_Reserve(&gui->text_arena.text_refs, sizeof(struct Text_Ref), 100);
+    Vector_Reserve(&gui->text_arena.char_buffer, sizeof(char), 25000); 
+    Vector_Reserve(&gui->font_registry, sizeof(int), 8);
+    Vector_Reserve(&gui->hovered_nodes, sizeof(struct Node*), 32);
+
+    String_Map_Init(&gui->id_node_map, sizeof(struct Node*), 512, 25);
+
+    // Events
+    Hashmap_Init(&gui->on_click_events,    sizeof(struct Node*), sizeof(struct NU_Callback_Info), 25);
+    Hashmap_Init(&gui->on_changed_events,  sizeof(struct Node*), sizeof(struct NU_Callback_Info), 25);
+    Hashmap_Init(&gui->on_drag_events,     sizeof(struct Node*), sizeof(struct NU_Callback_Info), 25);
+    Hashmap_Init(&gui->on_released_events, sizeof(struct Node*), sizeof(struct NU_Callback_Info), 25);
+
+
+    String_Set_Init(&gui->class_string_set, 1024, 100);
+    String_Set_Init(&gui->id_string_set, 1024, 100);
+    gui->hovered_node = NULL;
+    gui->mouse_down_node = NULL;
+    gui->deepest_layer = 0;
+    gui->stylesheet = NULL;
+    gui->hovered_window = NULL;
+    NU_Create_Main_Window(gui);
 }
 
-void NU_Load_Font(struct NU_GUI* ngui, const char* ttf_path)
+void NU_Load_Font(struct NU_GUI* gui, const char* ttf_path)
 {
     struct Font_Resource font;
     Load_Font_Resource(ttf_path, &font);
-    Vector_Push(&ngui->font_resources, &font);
+    Vector_Push(&gui->font_resources, &font);
 
-    int fontID = nvgCreateFontMem(ngui->vg_ctx, font.name, font.data, font.size, 0);
-    Vector_Push(&ngui->font_registry, &fontID);
+    int fontID = nvgCreateFontMem(gui->vg_ctx, font.name, font.data, font.size, 0);
+    Vector_Push(&gui->font_registry, &fontID);
 }
 
-void NU_Tree_Cleanup(struct NU_GUI* ngui)
+void NU_Tree_Cleanup(struct NU_GUI* gui)
 {
-    Vector_Free(&ngui->windows);
-    Vector_Free(&ngui->window_nodes);
-    Vector_Free(&ngui->text_arena.free_list);
-    Vector_Free(&ngui->text_arena.text_refs);
-    Vector_Free(&ngui->text_arena.char_buffer);
-    Vector_Free(&ngui->font_resources);
-    Vector_Free(&ngui->font_registry);
-    Vector_Free(&ngui->hovered_nodes);
-    String_Set_Free(&ngui->class_string_set);
-    String_Set_Free(&ngui->id_string_set);
-    ngui->hovered_node = NULL;
-    ngui->mouse_down_node = NULL;
-    ngui->deepest_layer = 0;
+    Vector_Free(&gui->windows);
+    Vector_Free(&gui->window_nodes);
+    Vector_Free(&gui->text_arena.free_list);
+    Vector_Free(&gui->text_arena.text_refs);
+    Vector_Free(&gui->text_arena.char_buffer);
+    Vector_Free(&gui->font_resources);
+    Vector_Free(&gui->font_registry);
+    Vector_Free(&gui->hovered_nodes);
+
+    String_Map_Free(&gui->id_node_map);
+
+    // Events
+    Hashmap_Free(&gui->on_click_events);
+    Hashmap_Free(&gui->on_changed_events);
+    Hashmap_Free(&gui->on_drag_events);
+    Hashmap_Free(&gui->on_released_events);
+
+    String_Set_Free(&gui->class_string_set);
+    String_Set_Free(&gui->id_string_set);
+    gui->hovered_node = NULL;
+    gui->mouse_down_node = NULL;
+    gui->deepest_layer = 0;
 }
 
 #include "nu_xml_parser.h"
 #include "nu_style_parser.h"
 #include "nu_layout.h"
 #include "nu_draw.h"
+#include "nu_dom.h"
+#include "nu_events.h"

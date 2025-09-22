@@ -482,6 +482,7 @@ static void NU_Apply_Node_Defaults(struct Node* node)
     node->layout_flags = 0;
     node->horizontal_alignment = 0;
     node->vertical_alignment = 0;
+    node->event_flags = 0;
 }
 
 static int NU_Generate_Tree(char* src_buffer, uint32_t src_length, struct NU_GUI* ngui, struct Vector* NU_Token_vector, struct Vector* ptext_ref_vector)
@@ -518,8 +519,8 @@ static int NU_Generate_Tree(char* src_buffer, uint32_t src_length, struct NU_GUI
     // --------------------------
     // (string -> int) ----------
     // --------------------------
-    struct sHashmap image_filepath_to_handle_hmap;
-    sHashmap_Init(&image_filepath_to_handle_hmap, sizeof(GLuint), 20);
+    String_Map image_filepath_to_handle_hmap;
+    String_Map_Init(&image_filepath_to_handle_hmap, sizeof(GLuint), 512, 20);
 
     // ------------------------------------
     // Iterate over all NU_Tokens ---------
@@ -544,7 +545,7 @@ static int NU_Generate_Tree(char* src_buffer, uint32_t src_length, struct NU_GUI
                 if (current_layer+1 == MAX_TREE_DEPTH)
                 {
                     printf("%s", "[Generate Tree] Error! Exceeded max tree depth of 32");
-                    sHashmap_Free(&image_filepath_to_handle_hmap);
+                    String_Map_Free(&image_filepath_to_handle_hmap);
                     return -1; // Failure
                 }   
 
@@ -562,6 +563,16 @@ static int NU_Generate_Tree(char* src_buffer, uint32_t src_length, struct NU_GUI
                 Vector_Push(node_layer, &new_node);
                 current_node = (struct Node*) Vector_Get(node_layer, node_layer->size-1);
 
+                // --------------------------------------------
+                // --- If node is a window -> create SDL window
+                // --------------------------------------------
+                if (current_node->tag == WINDOW)
+                {
+                    NU_Create_Subwindow(ngui, current_node);
+                    Vector_Push(&ngui->window_nodes, &current_node);
+                }
+
+
                 // -------------------------------
                 // Add node to parent's child list
                 // -------------------------------
@@ -577,7 +588,7 @@ static int NU_Generate_Tree(char* src_buffer, uint32_t src_length, struct NU_GUI
             }
             else
             {
-                sHashmap_Free(&image_filepath_to_handle_hmap);
+                String_Map_Free(&image_filepath_to_handle_hmap);
                 return -1;
             }
         }
@@ -593,7 +604,7 @@ static int NU_Generate_Tree(char* src_buffer, uint32_t src_length, struct NU_GUI
             enum Tag openTag = ((struct Node*) Vector_Get(&ngui->tree_stack[current_layer], ngui->tree_stack[current_layer].size - 1))->tag;
             if (AssertTagCloseStartGrammar(NU_Token_vector, i, openTag) != 0)
             {
-                sHashmap_Free(&image_filepath_to_handle_hmap);
+                String_Map_Free(&image_filepath_to_handle_hmap);
                 return -1; // Failure
             }
 
@@ -644,7 +655,11 @@ static int NU_Generate_Tree(char* src_buffer, uint32_t src_length, struct NU_GUI
                 {
                     // Set id
                     case ID_PROPERTY:
-                        current_node->id = String_Set_Add(&ngui->id_string_set, ptext);
+                        char* id_get = String_Set_Get(&ngui->id_string_set, ptext);
+                        if (id_get == NULL) {
+                            current_node->id = String_Set_Add(&ngui->id_string_set, ptext);
+                            String_Map_Set(&ngui->id_node_map, ptext, &current_node);
+                        }
                         break;
 
                     // Set class
@@ -924,12 +939,12 @@ static int NU_Generate_Tree(char* src_buffer, uint32_t src_length, struct NU_GUI
                         break;
 
                     case IMAGE_SOURCE_PROPERTY:
-                        void* found = sHashmap_Find(&image_filepath_to_handle_hmap, ptext);
+                        void* found = String_Map_Get(&image_filepath_to_handle_hmap, ptext);
                         if (found == NULL) {
                             GLuint image_handle = Image_Load(ptext);
                             if (image_handle) {
                                 current_node->gl_image_handle = image_handle;
-                                sHashmap_Add(&image_filepath_to_handle_hmap, ptext, &image_handle);
+                                String_Map_Set(&image_filepath_to_handle_hmap, ptext, &image_handle);
                             }
                         } 
                         else {
@@ -946,13 +961,13 @@ static int NU_Generate_Tree(char* src_buffer, uint32_t src_length, struct NU_GUI
                 continue;
             }
             else {
-                sHashmap_Free(&image_filepath_to_handle_hmap);
+                String_Map_Free(&image_filepath_to_handle_hmap);
                 return -1;
             }
         }
         i+=1; // Increment token index
     }
-    sHashmap_Free(&image_filepath_to_handle_hmap);
+    String_Map_Free(&image_filepath_to_handle_hmap);
     return 0; // Success
 }
 

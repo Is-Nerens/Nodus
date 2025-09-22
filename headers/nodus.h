@@ -55,6 +55,7 @@ struct Node
     uint8_t border_radius_tl, border_radius_tr, border_radius_bl, border_radius_br;
     uint8_t background_r, background_g, background_b, background_a;
     uint8_t border_r, border_g, border_b, border_a;
+    uint8_t text_r, text_g, text_b;
     char layout_flags;
     char horizontal_alignment;
     char vertical_alignment;

@@ -756,7 +756,7 @@ void NU_Draw_Node_Text(struct NU_GUI* ngui, struct Node* node, char* text, NVGco
     nvgFontSize(vg, 18);
 
     // Text color and alignment
-    nvgFillColor(vg, nvgRGB(255, 255, 255));
+    nvgFillColor(vg, nvgRGB(node->text_r, node->text_g, node->text_b));
     nvgTextAlign(vg, NVG_ALIGN_LEFT | NVG_ALIGN_TOP);
 
     float asc, desc, lh;
@@ -871,8 +871,10 @@ bool ResizingEventWatcher(void* data, SDL_Event* event)
 
     switch (event->type) {
         case SDL_EVENT_WINDOW_RESIZED:
+            timer_start();
             NU_Calculate(wd->ngui);
             NU_Draw_Nodes(wd->ngui);
+            timer_stop();
             break;
         case SDL_EVENT_MOUSE_MOTION:
             Uint32 id = event->motion.windowID;

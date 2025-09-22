@@ -34,20 +34,30 @@ button {
     pad: 5;
     borderRadius: 3;
     gap: 3;
+    textColour: #3ec471;
 }
 button :hover {
-    background: #363c61;
-    borderColour: #8ea7e7;
+    borderColour: #df9949;
+    background: #302925;
 }
 
 
 .watchlist-item {
     border: 1;
     borderColour: #737c93;
+    background: #000000;
     pad: 5;
     gap: 3;
     grow: h;
+    alignV: center;
 }
+.crypto-icon {
+    pad: 3;
+    width: 26;
+    height: 26;
+}
+
+
 .hspacer {
     grow: h;
 }
@@ -62,6 +72,7 @@ button :hover {
     grow: b;
     borderRadius: 5;
     borderColour: #000000;
+    textColour: #30b4e9;
 }
 #chart:hover {
     borderColour: #cd0c0c;
@@ -82,9 +93,6 @@ button :hover {
     borderColour: #3f4f86;
     borderRadius: 3;
     pad: 5;
-}
-.drawing-tool:hover {
-    background: #3e3232;
 }
 #trade-history {
     background: #1c243f;
@@ -125,4 +133,8 @@ window {
 
 .fat {
     pad: 15;
+}
+
+#editor-sidebar {
+    background: #1c243f;
 }

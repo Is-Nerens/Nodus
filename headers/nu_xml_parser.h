@@ -218,6 +218,7 @@ static void NU_Tokenise(char* src_buffer, uint32_t src_length, struct Vector* NU
                 char null_terminator = '\0';
                 Vector_Push(&text_arena->char_buffer, &null_terminator); // add null terminator
                 struct Text_Ref new_ref;
+                new_ref.node_handle = UINT32_MAX;
                 new_ref.char_count = text_char_count;
                 new_ref.char_capacity = text_char_count;
                 new_ref.buffer_index = text_arena_buffer_index;
@@ -500,13 +501,14 @@ static int NU_Generate_Tree(char* src_buffer, uint32_t src_length, struct NU_GUI
     Vector_Push(root_layer, &root_node);
     struct Node* root_window_node = (struct Node*) Vector_Get(root_layer, root_layer->size-1);
     NU_Apply_Node_Defaults(root_window_node); // Default styles
-    // Set the ID: upper 8 bits = depth (layer), lower 24 bits = index in layer
-    root_window_node->ID = ((uint32_t) (0) << 24) | (ngui->tree_stack[1].size & 0xFFFFFF); 
+    root_window_node->layer = 0; 
     root_window_node->tag = WINDOW;
     root_window_node->parent_index = -1; 
     root_window_node->child_count = 0;
     root_window_node->window = *(SDL_Window**) Vector_Get(&ngui->windows, 0);
     Vector_Push(&ngui->window_nodes, &root_window_node);
+    uint32_t current_node_handle = 0;
+    NU_Node_Table_Set(&ngui->node_table, current_node_handle, root_window_node);
 
     // ---------------------------------
     // Get first property text reference
@@ -526,7 +528,7 @@ static int NU_Generate_Tree(char* src_buffer, uint32_t src_length, struct NU_GUI
     // Iterate over all NU_Tokens ---------
     // ------------------------------------
     int i = 2; 
-    int current_layer = 0; 
+    uint8_t current_layer = 0; 
     struct Node* current_node = root_window_node;
     while (i < NU_Token_vector->size - 3)
     {
@@ -558,10 +560,13 @@ static int NU_Generate_Tree(char* src_buffer, uint32_t src_length, struct NU_GUI
                 // Set the ID: upper 8 bits = depth (layer), lower 24 bits = index in layer
                 struct Vector* node_layer = &ngui->tree_stack[current_layer+1];
                 uint32_t node_index_in_layer = node_layer->size; 
-                new_node.ID = ((uint32_t)(current_layer + 1) << 24) | (node_index_in_layer & 0xFFFFFF);
+                new_node.layer = current_layer + 1;
                 new_node.parent_index = ngui->tree_stack[current_layer].size-1; ;
                 Vector_Push(node_layer, &new_node);
                 current_node = (struct Node*) Vector_Get(node_layer, node_layer->size-1);
+                current_node_handle++; 
+                NU_Node_Table_Set(&ngui->node_table, current_node_handle, current_node);
+                printf("node handle: %u set node pointer: %p get node pointer: %p\n", current_node_handle, current_node, NODE(ngui, current_node_handle));
 
                 // --------------------------------------------
                 // --- If node is a window -> create SDL window
@@ -629,7 +634,7 @@ static int NU_Generate_Tree(char* src_buffer, uint32_t src_length, struct NU_GUI
         if (NU_XML_Token == TEXT_CONTENT)
         {
             struct Text_Ref* text_ref = (struct Text_Ref*) Vector_Get(&ngui->text_arena.text_refs, text_content_ref_index);
-            text_ref->node_ID = current_node->ID;
+            text_ref->node_handle = current_node_handle;
             current_node->text_ref_index = text_content_ref_index;
             text_content_ref_index += 1;
 

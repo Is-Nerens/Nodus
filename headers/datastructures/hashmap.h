@@ -1,12 +1,44 @@
 #pragma once
 
+
+// ------------------------------------
+// --- Import -------------------------
+// ------------------------------------
 #include <stdint.h>
 #include <string.h>
 #include <stdlib.h>
 
 
 
+// ------------------------------------
+// --- Hash Functions -----------------
+// ------------------------------------
+// FNV algorithm https://github.com/aappleby/smhasher/blob/master/src/Hashes.cpp
+static uint32_t String_Hash(char* string) {
+    uint32_t hash = 2166136261u;
+    for (uint8_t* p = (uint8_t*)string; *p; p++) {
+        hash ^= *p;
+        hash *= 16777619u;
+    }
+    return hash;
+}
 
+static uint32_t Hash_Generic(void* key, uint32_t len) // FNV algorithm https://github.com/aappleby/smhasher/blob/master/src/Hashes.cpp
+{
+    uint32_t hash = 2166136261u;
+    uint8_t* p = (uint8_t*)key;
+    for (uint32_t i=0; i<len; i++) {
+        hash ^= p[i];
+        hash *= 16777619u;
+    }
+    return hash;
+}
+
+
+
+// -----------------------------------------------------
+// --- Datastructure For Mapping (string -> generic) ---
+// -----------------------------------------------------
 typedef struct {
     struct Vector freelist;
     char** strings_map;        // sparse hash vector of char*
@@ -30,9 +62,11 @@ typedef struct {
 
 void String_Map_Init(String_Map* map, uint32_t item_size, uint32_t chunk_size, uint32_t capacity)
 {
+    // Garuntee minimum capacity
     chunk_size = MAX(chunk_size, 100);
     capacity = MAX(capacity, 10);
-    Vector_Reserve(&map->freelist, sizeof(String_Map_Free_Element), capacity / 2);
+    
+    // Init state variables
     map->chunk_size = chunk_size;
     map->total_buffer_capacity = chunk_size;
     map->chunks_used = 1;
@@ -48,10 +82,11 @@ void String_Map_Init(String_Map* map, uint32_t item_size, uint32_t chunk_size, u
     map->buffer_chunks[2] = NULL;
     map->buffer_chunks[3] = NULL;
 
-    // Init data and strings map
+    // Init data, strings map and freelist
     map->string_map_capacity = (capacity * 2);
+    map->strings_map = calloc(map->string_map_capacity, sizeof(char*)); // Set all slots to NULL
     map->item_data = malloc(item_size * map->string_map_capacity);
-    map->strings_map = calloc(map->string_map_capacity, sizeof(char*)); // Init all slots to NULL
+    Vector_Reserve(&map->freelist, sizeof(String_Map_Free_Element), capacity / 2);
 
     // Add first free element
     String_Map_Free_Element first_free;
@@ -63,23 +98,14 @@ void String_Map_Init(String_Map* map, uint32_t item_size, uint32_t chunk_size, u
 
 void String_Map_Free(String_Map* map)
 {
-    Vector_Free(&map->freelist);
-    free(map->strings_map);
-    for (uint16_t i=0; i<map->chunks_available; i++) {
+    for (uint16_t i=0; i<map->chunks_available; i++) 
+    {
         if (map->buffer_chunks[i] != NULL) free(map->buffer_chunks[i]);
     }
-    free(map->item_data);
     free(map->buffer_chunks);
-}
-
-// FNV algorithm https://github.com/aappleby/smhasher/blob/master/src/Hashes.cpp
-static uint32_t String_Hash(char* string) {
-    uint32_t hash = 2166136261u;
-    for (uint8_t* p = (uint8_t*)string; *p; p++) {
-        hash ^= *p;
-        hash *= 16777619u;
-    }
-    return hash;
+    free(map->strings_map);
+    free(map->item_data);
+    Vector_Free(&map->freelist);
 }
 
 void* String_Map_Get(String_Map* map, char* key)
@@ -91,7 +117,7 @@ void* String_Map_Get(String_Map* map, char* key)
         uint32_t i = (hash + searches) % map->string_map_capacity;
         char* map_string = map->strings_map[i];
 
-        // Not in the map
+        // Item is not in the map
         if (map_string == NULL) {
             return NULL;
         }
@@ -103,10 +129,10 @@ void* String_Map_Get(String_Map* map, char* key)
 
         searches++;
     }
-    return NULL; // Not in the map
+    return NULL; // Item is not in the map
 }
 
-static void String_Map_Rehash(String_Map* map)
+void String_Map_Grow_Rehash(String_Map* map)
 {
     uint32_t old_map_capacity = map->string_map_capacity;
     char** old_strings_map = map->strings_map;
@@ -160,7 +186,7 @@ void String_Map_Set(String_Map* map, char* key, void* item)
     // If the hashmap load factor is too high -> expand and rehash
     float load_factor = (float)map->string_count / (float)map->string_map_capacity;
     if (load_factor > 0.7f) {
-        String_Map_Rehash(map);
+        String_Map_Grow_Rehash(map);
     }
 
     // --------------------------------------------------
@@ -242,16 +268,9 @@ void String_Map_Set(String_Map* map, char* key, void* item)
 
 
 
-
-
-
-
-
-
-
-
-
-
+// ------------------------------------------------------
+// --- Datastructure For Mapping (generic -> generic) ---
+// ------------------------------------------------------
 struct Hashmap
 {
     uint8_t* occupancy;
@@ -263,34 +282,26 @@ struct Hashmap
     uint32_t max_probes;
 };
 
-static uint32_t Hash_Generic(void* key, uint32_t len) // FNV algorithm https://github.com/aappleby/smhasher/blob/master/src/Hashes.cpp
-{
-    uint32_t hash = 2166136261u;
-    uint8_t* p = (uint8_t*)key;
-    for (uint32_t i=0; i<len; i++) {
-        hash ^= p[i];
-        hash *= 16777619u;
-    }
-    return hash;
-}
-
 void Hashmap_Init(struct Hashmap* hmap, uint32_t key_size, uint32_t item_size, uint32_t capacity)
 {
-    capacity = max(capacity, 2);
+    capacity = max(capacity, 10); // Ensure capacity for at least 10 element
 
-    // Compute number of occupancy bytes
-    uint32_t occupancy_remainder = capacity & 7; // capacity % 8
-    uint32_t occupancy_bytes = capacity >> 3; // capacity / 8
+    // Calculate number of bytes needed for occupancy bit array
+    uint32_t occupancy_remainder = capacity & 7; // capacity % 8 
+    uint32_t occupancy_bytes = capacity >> 3;    // capacity / 8
     if (occupancy_remainder != 0) occupancy_bytes += 1;
 
+    // Allocate space for occupancy bit array and sparse data array
     hmap->occupancy = calloc(occupancy_bytes, 1); 
     hmap->data = malloc((key_size + item_size) * capacity);
+
+    // Initialise tracking variables
     hmap->key_size = key_size;
     hmap->item_size = item_size;
     hmap->capacity = capacity;
 }
 
-static void Hashmap_Resize_Readd(struct Hashmap* hmap, void* key, void* value)
+void Hashmap_Resize_Add(struct Hashmap* hmap, void* key, void* value)
 {
     uint32_t probes = 0;
     uint32_t hash = Hash_Generic(key, hmap->key_size);
@@ -300,7 +311,7 @@ static void Hashmap_Resize_Readd(struct Hashmap* hmap, void* key, void* value)
         uint32_t occupancy_index = i >> 3; // i / 8
 
         if (!(hmap->occupancy[occupancy_index] & (uint8_t)(1 << rem))) { // Found empty slot
-            hmap->occupancy[occupancy_index] |= (uint8_t)(1 << rem); // Mark occupied
+            hmap->occupancy[occupancy_index] |= (uint8_t)(1 << rem);     // Mark occupied
 
             // --- Set key and data ---
             char* base = (char*)hmap->data + i * (hmap->key_size + hmap->item_size);
@@ -340,7 +351,7 @@ void Hashmap_Resize(struct Hashmap* hmap)
             char* base = (char*)old_data + i * (hmap->key_size + hmap->item_size);
             void* key = base;
             void* value = base + hmap->key_size;
-            Hashmap_Resize_Readd(hmap, key, value); // Re-add item 
+            Hashmap_Resize_Add(hmap, key, value); // Re-add item 
         }
     }
 

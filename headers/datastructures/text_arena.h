@@ -4,7 +4,7 @@
 
 struct Text_Ref
 {
-    uint32_t node_ID;
+    uint32_t node_handle;
     uint32_t buffer_index;
     uint32_t char_count;
     uint32_t char_capacity; // excludes the null terminator

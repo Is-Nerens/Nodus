@@ -6,7 +6,6 @@
 #include <stdlib.h>
 #include <stdint.h>
 #include <stdio.h>
-#include "vector.h"
 
 typedef struct {
     uint32_t index;
@@ -29,9 +28,11 @@ typedef struct {
 
 void String_Set_Init(String_Set* set, uint32_t chunk_size, uint32_t string_capacity)
 {
-    chunk_size = MAX(chunk_size, 100);
-    string_capacity = MAX(string_capacity, 10);
-    Vector_Reserve(&set->freelist, sizeof(String_Set_Free_Element), string_capacity / 2);
+    // Garuntee minimum capacity
+    chunk_size = MAX(chunk_size, 128);
+    string_capacity = MAX(string_capacity, 16);
+    
+    // Init state variables
     set->chunk_size = chunk_size;
     set->total_buffer_capacity = chunk_size;
     set->chunks_used = 1;
@@ -46,11 +47,12 @@ void String_Set_Init(String_Set* set, uint32_t chunk_size, uint32_t string_capac
     set->buffer_chunks[2] = NULL;
     set->buffer_chunks[3] = NULL;
 
-    // Init strings map
+    // Init strings map and freelist
     set->string_map_capacity = (string_capacity * 2);
     set->strings_map = calloc(set->string_map_capacity, sizeof(char*)); // Init all slots to NULL
+    Vector_Reserve(&set->freelist, sizeof(String_Set_Free_Element), string_capacity / 2);
 
-    // Add first free element
+    // Add one free element
     String_Set_Free_Element first_free;
     first_free.chunk = 0;
     first_free.index = 0;
@@ -68,8 +70,9 @@ void String_Set_Free(String_Set* set)
     free(set->buffer_chunks);
 }
 
-// FNV algorithm https://github.com/aappleby/smhasher/blob/master/src/Hashes.cpp
 static uint32_t String_Set_Hash(char* string) {
+
+    // FNV algorithm https://github.com/aappleby/smhasher/blob/master/src/Hashes.cpp
     uint32_t hash = 2166136261u;
     for (uint8_t* p = (uint8_t*)string; *p; p++) {
         hash ^= *p;
@@ -87,7 +90,7 @@ char* String_Set_Get(String_Set* set, char* key)
         uint32_t i = (hash + searches) % set->string_map_capacity;
         char* map_string = set->strings_map[i];
 
-        // Not in the set
+        // String is not in the set
         if (map_string == NULL) {
             return NULL;
         }
@@ -100,7 +103,7 @@ char* String_Set_Get(String_Set* set, char* key)
 
         searches++;
     }
-    return NULL; // Not in the set
+    return NULL; // String is not in the set
 }
 
 static void String_Set_Rehash(String_Set* set)
@@ -158,7 +161,6 @@ char* String_Set_Add(String_Set* set, char* string)
         String_Set_Rehash(set);
     }
 
-
     uint32_t string_len = (uint32_t)strlen(string) + 1; 
 
     // Search freelist for space
@@ -197,7 +199,7 @@ char* String_Set_Add(String_Set* set, char* string)
         }
         set->buffer_chunks[set->chunks_used-1] = malloc(set->chunk_size);
 
-        // Add a free element
+        // Add a free element for new chunk
         String_Set_Free_Element new_free = { 
             0, 
             set->chunk_size, 

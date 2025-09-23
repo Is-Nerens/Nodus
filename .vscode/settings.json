@@ -41,6 +41,7 @@
         "text_arena.h": "c",
         "hashmap.h": "c",
         "iterator": "c",
-        "memory": "c"
+        "memory": "c",
+        "stdint.h": "c"
     }
 }

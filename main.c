@@ -91,4 +91,3 @@ int main()
     // Close SDL
     SDL_Quit();
 }
-

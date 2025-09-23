@@ -123,10 +123,8 @@ static void NU_Calculate_Text_Fit_Sizes(struct NU_GUI* ngui)
         struct Text_Ref* text_ref = (struct Text_Ref*) Vector_Get(&ngui->text_arena.text_refs, i);
         
         // Get the corresponding node
-        uint8_t node_depth = (uint8_t)(text_ref->node_ID >> 24);
-        uint32_t node_index = text_ref->node_ID & 0x00FFFFFF;
-        struct Vector* layer = &ngui->tree_stack[node_depth];
-        struct Node* node = Vector_Get(layer, node_index);
+        printf("node handle: %u node pointer: %p\n", text_ref->node_handle, NODE(ngui, text_ref->node_handle));
+        struct Node* node = NODE(ngui, text_ref->node_handle);
 
         // Calculate text size
         NU_Calculate_Text_Fit_Size(ngui, node, text_ref);
@@ -482,10 +480,8 @@ static void NU_Calculate_Text_Wrap_Heights(struct NU_GUI* ngui)
         struct Text_Ref* text_ref = (struct Text_Ref*) Vector_Get(&ngui->text_arena.text_refs, i);
         
         // Get the corresponding node
-        uint8_t node_depth = (uint8_t)(text_ref->node_ID >> 24);
-        uint32_t node_index = text_ref->node_ID & 0x00FFFFFF;
-        struct Vector* layer = &ngui->tree_stack[node_depth];
-        struct Node* node = Vector_Get(layer, node_index);
+        printf("node handle: %u node pointer: %p\n", text_ref->node_handle, NODE(ngui, text_ref->node_handle));
+        struct Node* node = NODE(ngui, text_ref->node_handle);
 
         char* text = ngui->text_arena.char_buffer.data + text_ref->buffer_index;
 
@@ -682,8 +678,7 @@ void NU_Mouse_Hover(struct NU_GUI* ngui)
         // ------------------------------
         // --- Iterate over node children
         // ------------------------------
-        int32_t current_layer = ((current_node->ID >> 24) & 0xFF);
-        struct Vector* child_layer = &ngui->tree_stack[current_layer+1];
+        struct Vector* child_layer = &ngui->tree_stack[current_node->layer+1];
         for (int i=current_node->first_child_index; i<current_node->first_child_index + current_node->child_count; i++)
         {
             struct Node* child = Vector_Get(child_layer, i);
@@ -844,12 +839,21 @@ void NU_Draw_Nodes(struct NU_GUI* ngui)
 void NU_Calculate(struct NU_GUI* ngui)
 {
     NU_Clear_Node_Sizes(ngui);
+    printf("POST NU_Clear_Node_Sizes\n");
     NU_Calculate_Text_Fit_Sizes(ngui);
+    printf("POST NU_Calculate_Text_Fit_Sizes\n");
     NU_Calculate_Fit_Size_Widths(ngui);
+    printf("POST NU_Calculate_Fit_Size_Widths\n");
     NU_Grow_Shrink_Widths(ngui);
+    printf("POST NU_Grow_Shrink_Widths\n");
     NU_Calculate_Text_Wrap_Heights(ngui);
+    printf("POST NU_Calculate_Text_Wrap_Heights\n");
     NU_Calculate_Fit_Size_Heights(ngui);
+    printf("POST NU_Calculate_Fit_Size_Heights\n");
     NU_Grow_Shrink_Heights(ngui);
+    printf("POST NU_Grow_Shrink_Heights\n");
     NU_Calculate_Positions(ngui);
+    printf("POST NU_Calculate_Positions\n");
     NU_Mouse_Hover(ngui);
+    printf("POST NU_Mouse_Hover\n\n");
 }

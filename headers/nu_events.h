@@ -47,13 +47,17 @@ bool ResizingEventWatcher(void* data, SDL_Event* event)
     switch (event->type) {
         case SDL_EVENT_WINDOW_RESIZED:
             NU_Calculate(wd->ngui);
+            printf("POST NU_Calculate\n");
             NU_Draw_Nodes(wd->ngui);
+            printf("POST NU_Draw_Nodes\n");
             break;
         case SDL_EVENT_MOUSE_MOTION:
             Uint32 id = event->motion.windowID;
             wd->ngui->hovered_window = SDL_GetWindowFromID(id);
             NU_Calculate(wd->ngui);
+            printf("POST NU_Calculate\n");
             NU_Draw_Nodes(wd->ngui);
+            printf("POST NU_Draw_Nodes\n");
             break;
         case SDL_EVENT_MOUSE_BUTTON_DOWN:
             wd->ngui->mouse_down_node = wd->ngui->hovered_node;

@@ -62,37 +62,40 @@ static void NU_Clear_Node_Sizes(struct NU_GUI* ngui)
     }
 }
 
-static void NU_Calculate_Text_Min_Width(struct NU_GUI* ngui, struct Node* node, struct Text_Ref* text_ref)
+static void NU_Calculate_Text_Min_Width(struct NU_GUI* ngui, struct Node* node)
 {
-    char* text = ngui->text_arena.char_buffer.data + text_ref->buffer_index;
+    const char* text = node->text_content;
+    if (!text || !*text) return; // empty string guard
+
     int slice_start = 0;
     float max_word_width = 0.0f;
-    for (int i=0; i<=text_ref->char_count; i++) {
-        char c = (i < text_ref->char_count) ? text[i] : ' '; 
+
+    int len = strlen(text);
+    for (int i = 0; i <= len; i++) {
+        char c = (i < len) ? text[i] : ' '; // add virtual space at end
         if (c == ' ') {
             if (i > slice_start) {
                 float bounds[4];
-                nvgTextBounds(ngui->vg_ctx, 0, 0, text + slice_start, text + i, bounds); // measure slice
+                nvgTextBounds(ngui->vg_ctx, 0, 0, text + slice_start, text + i, bounds);
                 float width = bounds[2] - bounds[0];
                 if (width > max_word_width) max_word_width = width;
             }
-            slice_start = i + 1; 
+            slice_start = i + 1;
         }
     }
-    if (max_word_width == 0.0f && text_ref->char_count > 0) { // If no spaces found, the whole text is one word
+
+    if (max_word_width == 0.0f && len > 0) { // no spaces, measure whole string
         float bounds[4];
-        nvgTextBounds(ngui->vg_ctx, 0, 0, text, text + text_ref->char_count, bounds);
+        nvgTextBounds(ngui->vg_ctx, 0, 0, text, NULL, bounds);
         max_word_width = bounds[2] - bounds[0];
     }
+
     float text_controlled_min_width = max_word_width + node->pad_left + node->pad_right + node->border_left + node->border_right;
     node->min_width = max(node->min_width, text_controlled_min_width);
 }
 
-static void NU_Calculate_Text_Fit_Size(struct NU_GUI* ngui, struct Node* node, struct Text_Ref* text_ref)
+static void NU_Calculate_Text_Fit_Size(struct NU_GUI* ngui, struct Node* node)
 {
-    // Extract pointer to text
-    char* text = ngui->text_arena.char_buffer.data + text_ref->buffer_index;
-
     // Make sure the NanoVG context has the correct font/size set before measuring!
     int fontID = *(int*) Vector_Get(&ngui->font_registry, 0);
     nvgFontFaceId(ngui->vg_ctx, fontID);   
@@ -102,11 +105,11 @@ static void NU_Calculate_Text_Fit_Size(struct NU_GUI* ngui, struct Node* node, s
     float asc, desc, lh;
     float bounds[4];
     nvgTextMetrics(ngui->vg_ctx, &asc, &desc, &lh);
-    nvgTextBounds(ngui->vg_ctx, 0, 0, text, text + text_ref->char_count, bounds);
+    nvgTextBounds(ngui->vg_ctx, 0, 0, node->text_content, NULL, bounds);
     float text_width = bounds[2] - bounds[0];
     float text_height = lh;
     
-    NU_Calculate_Text_Min_Width(ngui, node, text_ref);
+    NU_Calculate_Text_Min_Width(ngui, node);
     
     if (node->preferred_width == 0.0f) {
         node->width = text_width + node->pad_left + node->pad_right + node->border_left + node->border_right;
@@ -118,16 +121,24 @@ static void NU_Calculate_Text_Fit_Size(struct NU_GUI* ngui, struct Node* node, s
 
 static void NU_Calculate_Text_Fit_Sizes(struct NU_GUI* ngui)
 {
-    for (uint32_t i=0; i<ngui->text_arena.text_refs.size; i++)
-    {
-        struct Text_Ref* text_ref = (struct Text_Ref*) Vector_Get(&ngui->text_arena.text_refs, i);
-        
-        // Get the corresponding node
-        printf("node handle: %u node pointer: %p\n", text_ref->node_handle, NODE(ngui, text_ref->node_handle));
-        struct Node* node = NODE(ngui, text_ref->node_handle);
+    // Don't skip the root
+    struct Node* root = Vector_Get(&ngui->tree_stack[0], 0);
+    if (root->text_content != NULL) {
+        NU_Calculate_Text_Fit_Size(ngui, root);
+    }
 
-        // Calculate text size
-        NU_Calculate_Text_Fit_Size(ngui, node, text_ref);
+
+    // For each layer
+    for (int l=0; l<=ngui->deepest_layer; l++)
+    {
+        struct Vector* layer = &ngui->tree_stack[l];
+        for (int n=0; n<layer->size; n++)
+        {   
+            struct Node* node = Vector_Get(layer, n);
+            if (node->text_content != NULL) {
+                NU_Calculate_Text_Fit_Size(ngui, node);
+            }
+        }
     }
 }
 
@@ -474,35 +485,42 @@ static void NU_Grow_Shrink_Heights(struct NU_GUI* ngui)
     }
 }
 
+static void NU_Calculate_Text_Wrap_Height(struct NU_GUI* ngui, struct Node* node)
+{
+    // Configure font
+    int fontID = *(int*) Vector_Get(&ngui->font_registry, 0);
+    nvgFontFaceId(ngui->vg_ctx, fontID);   
+    nvgFontSize(ngui->vg_ctx, 18);
+
+    // Compute available inner width
+    float inner_width = node->width - node->border_left - node->border_right - node->pad_left - node->pad_right;
+
+    // Measure text the same way it's drawn
+    float bounds[4];
+    nvgTextBoxBounds(ngui->vg_ctx, 0, 0, inner_width, node->text_content, NULL, bounds);
+    float text_height = bounds[3] - bounds[1];
+    node->height = node->border_top + node->border_bottom + node->pad_top + node->pad_bottom + text_height;
+}
+
 static void NU_Calculate_Text_Wrap_Heights(struct NU_GUI* ngui)
 {
-    for (uint32_t i = 0; i < ngui->text_arena.text_refs.size; i++) {
-        struct Text_Ref* text_ref = (struct Text_Ref*) Vector_Get(&ngui->text_arena.text_refs, i);
-        
-        // Get the corresponding node
-        printf("node handle: %u node pointer: %p\n", text_ref->node_handle, NODE(ngui, text_ref->node_handle));
-        struct Node* node = NODE(ngui, text_ref->node_handle);
+    // Don't skip the root
+    struct Node* root = Vector_Get(&ngui->tree_stack[0], 0);
+    if (root->text_content != NULL) {
+        NU_Calculate_Text_Wrap_Height(ngui, root);
+    }
 
-        char* text = ngui->text_arena.char_buffer.data + text_ref->buffer_index;
-
-        // Configure font
-        int fontID = *(int*) Vector_Get(&ngui->font_registry, 0);
-        nvgFontFaceId(ngui->vg_ctx, fontID);   
-        nvgFontSize(ngui->vg_ctx, 18);
-
-        // Compute available inner width
-        float inner_width = node->width -
-                            node->border_left - node->border_right -
-                            node->pad_left - node->pad_right;
-
-        // Measure text the same way it's drawn
-        float bounds[4];
-        nvgTextBoxBounds(ngui->vg_ctx, 0, 0, inner_width, text, NULL, bounds);
-        float text_height = bounds[3] - bounds[1];
-
-        node->height = node->border_top + node->border_bottom +
-                       node->pad_top + node->pad_bottom +
-                       text_height;
+    // For each layer
+    for (int l=0; l<=ngui->deepest_layer; l++)
+    {
+        struct Vector* layer = &ngui->tree_stack[l];
+        for (int n=0; n<layer->size; n++)
+        {   
+            struct Node* node = Vector_Get(layer, n);
+            if (node->text_content != NULL) {
+                NU_Calculate_Text_Wrap_Height(ngui, node);
+            }
+        }
     }
 }
 
@@ -742,7 +760,7 @@ void NU_Draw_Node(struct Node* node, NVGcontext* vg, float screen_width, float s
     }
 }
 
-void NU_Draw_Node_Text(struct NU_GUI* ngui, struct Node* node, char* text, NVGcontext* vg)
+void NU_Draw_Node_Text(struct NU_GUI* ngui, struct Node* node, NVGcontext* vg)
 {
     // Setup font
     int fontID = *(int*) Vector_Get(&ngui->font_registry, 0);
@@ -765,7 +783,7 @@ void NU_Draw_Node_Text(struct NU_GUI* ngui, struct Node* node, char* text, NVGco
     float textPosY = node->y + node->border_top  + node->pad_top - desc * 0.5f;
 
     // Draw wrapped text inside inner_width
-    nvgTextBox(vg, floorf(textPosX), floorf(textPosY), inner_width, text, NULL);
+    nvgTextBox(vg, floorf(textPosX), floorf(textPosY), inner_width, node->text_content, NULL);
 }
 
 void NU_Draw_Nodes(struct NU_GUI* ngui)
@@ -814,15 +832,9 @@ void NU_Draw_Nodes(struct NU_GUI* ngui)
             struct Node* node = *(struct Node**) Vector_Get(&window_nodes_list[i], n);
             NU_Draw_Node(node, ngui->vg_ctx, (float)w, (float)h);
 
-            if (node->text_ref_index != -1)
+            if (node->text_content != NULL)
             {
-                struct Text_Ref* text_ref = (struct Text_Ref*) Vector_Get(&ngui->text_arena.text_refs, node->text_ref_index);
-                
-                // Extract pointer to text
-                char* text = ngui->text_arena.char_buffer.data + text_ref->buffer_index;
-                if (text_ref->char_count != text_ref->char_capacity) text[text_ref->char_count] = '\0';
-                NU_Draw_Node_Text(ngui, node, text, ngui->vg_ctx);
-                if (text_ref->char_count != text_ref->char_capacity) text[text_ref->char_count] = ' ';
+                NU_Draw_Node_Text(ngui, node, ngui->vg_ctx);
             }
         }
 
@@ -839,21 +851,12 @@ void NU_Draw_Nodes(struct NU_GUI* ngui)
 void NU_Calculate(struct NU_GUI* ngui)
 {
     NU_Clear_Node_Sizes(ngui);
-    printf("POST NU_Clear_Node_Sizes\n");
     NU_Calculate_Text_Fit_Sizes(ngui);
-    printf("POST NU_Calculate_Text_Fit_Sizes\n");
     NU_Calculate_Fit_Size_Widths(ngui);
-    printf("POST NU_Calculate_Fit_Size_Widths\n");
     NU_Grow_Shrink_Widths(ngui);
-    printf("POST NU_Grow_Shrink_Widths\n");
     NU_Calculate_Text_Wrap_Heights(ngui);
-    printf("POST NU_Calculate_Text_Wrap_Heights\n");
     NU_Calculate_Fit_Size_Heights(ngui);
-    printf("POST NU_Calculate_Fit_Size_Heights\n");
     NU_Grow_Shrink_Heights(ngui);
-    printf("POST NU_Grow_Shrink_Heights\n");
     NU_Calculate_Positions(ngui);
-    printf("POST NU_Calculate_Positions\n");
     NU_Mouse_Hover(ngui);
-    printf("POST NU_Mouse_Hover\n\n");
 }

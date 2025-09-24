@@ -9,7 +9,7 @@
 #include "datastructures/vector.h"
 #include "datastructures/string_set.h"
 #include "datastructures/hashmap.h"
-#include "datastructures/text_arena.h"
+#include "datastructures/string_arena.h"
 #include "datastructures/hashmap.h"
 #include "nu_font.h"
 #include "nu_resources.h"
@@ -46,6 +46,7 @@ struct Node
     uint64_t inline_style_flags;
     char* class;
     char* id;
+    char* text_content;
     enum Tag tag;
     GLuint gl_image_handle;
     float x, y, width, height, preferred_width, preferred_height;
@@ -53,7 +54,6 @@ struct Node
     float gap, content_width, content_height;
     int parent_index;
     int first_child_index;
-    int text_ref_index;
     uint16_t child_capacity;
     uint16_t child_count;
     uint8_t pad_top, pad_bottom, pad_left, pad_right;
@@ -95,7 +95,7 @@ struct NU_GUI
 
     struct Vector windows;
     struct Vector window_nodes;
-    struct Text_Arena text_arena;
+    StringArena node_text_arena;
     struct Vector font_resources;
     struct Vector font_registry;
     String_Set class_string_set;
@@ -142,9 +142,7 @@ void NU_Tree_Init(struct NU_GUI* gui)
     Vector_Reserve(&gui->windows, sizeof(SDL_Window*), 8);
     Vector_Reserve(&gui->window_nodes, sizeof(struct Node*), 8);
     Vector_Reserve(&gui->font_resources, sizeof(struct Font_Resource), 4);
-    Vector_Reserve(&gui->text_arena.free_list, sizeof(struct Arena_Free_Element), 100);
-    Vector_Reserve(&gui->text_arena.text_refs, sizeof(struct Text_Ref), 100);
-    Vector_Reserve(&gui->text_arena.char_buffer, sizeof(char), 25000); 
+    StringArena_Init(&gui->node_text_arena, 512);
     Vector_Reserve(&gui->font_registry, sizeof(int), 8);
     Vector_Reserve(&gui->hovered_nodes, sizeof(struct Node*), 32);
     String_Map_Init(&gui->id_node_map, sizeof(struct Node*), 512, 25);
@@ -180,9 +178,7 @@ void NU_Tree_Cleanup(struct NU_GUI* gui)
     NU_Node_Table_Free(&gui->node_table);
     Vector_Free(&gui->windows);
     Vector_Free(&gui->window_nodes);
-    Vector_Free(&gui->text_arena.free_list);
-    Vector_Free(&gui->text_arena.text_refs);
-    Vector_Free(&gui->text_arena.char_buffer);
+    StringArena_Free(&gui->node_text_arena);
     Vector_Free(&gui->font_resources);
     Vector_Free(&gui->font_registry);
     Vector_Free(&gui->hovered_nodes);

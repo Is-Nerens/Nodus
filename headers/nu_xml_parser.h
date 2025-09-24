@@ -14,7 +14,6 @@
 #include "datastructures/vector.h"
 #include "datastructures/string_set.h"
 #include "datastructures/hashmap.h"
-#include "datastructures/text_arena.h"
 #include "nu_convert.h"
 #include "nu_image.h"
 #include "nu_font.h"
@@ -139,15 +138,14 @@ static enum Tag NU_Token_To_Tag(enum NU_XML_Token NU_XML_Token)
     return NU_XML_Token - NU_XML_PROPERTY_COUNT;
 }
 
-static void NU_Tokenise(char* src_buffer, uint32_t src_length, struct Vector* NU_Token_vector, struct Vector* ptext_ref_vector, struct Text_Arena* text_arena) 
+static void NU_Tokenise(char* src_buffer, uint32_t src_length, struct Vector* NU_Token_vector, struct Vector* text_ref_vector) 
 {
     // Store current NU_XML_Token word
     uint8_t word_char_index = 0;
     char word[32];
 
     // Store global text char indexes
-    uint32_t text_arena_buffer_index = 0;
-    uint32_t text_char_count = 0;
+    uint32_t text_char_count = 0; // Number of chars in text
 
     // Context
     uint8_t ctx = 0; // 0 == globalspace, 1 == commentspace, 2 == tagspace, 3 == propertyspace
@@ -187,17 +185,16 @@ static void NU_Tokenise(char* src_buffer, uint32_t src_length, struct Vector* NU
             // Reset global text character count
             if (text_char_count > 0)
             {
-                char null_terminator = '\0';
-                Vector_Push(&text_arena->char_buffer, &null_terminator); // add null terminator
-                struct Text_Ref new_ref;
-                new_ref.char_count = text_char_count;
-                new_ref.char_capacity = text_char_count;
-                new_ref.buffer_index = text_arena_buffer_index;
-                Vector_Push(&text_arena->text_refs, &new_ref);
-
                 // Add text content token
                 enum NU_XML_Token t = TEXT_CONTENT;
                 Vector_Push(NU_Token_vector, &t);
+
+                // Add text reference
+                struct Property_Text_Ref ref;
+                ref.NU_Token_index = NU_Token_vector->size - 1;
+                ref.src_index = i - text_char_count;
+                ref.char_count = text_char_count;
+                Vector_Push(text_ref_vector, &ref);
             }
             text_char_count = 0;
 
@@ -215,18 +212,16 @@ static void NU_Tokenise(char* src_buffer, uint32_t src_length, struct Vector* NU
             // Reset global text character count
             if (text_char_count > 0)
             {
-                char null_terminator = '\0';
-                Vector_Push(&text_arena->char_buffer, &null_terminator); // add null terminator
-                struct Text_Ref new_ref;
-                new_ref.node_handle = UINT32_MAX;
-                new_ref.char_count = text_char_count;
-                new_ref.char_capacity = text_char_count;
-                new_ref.buffer_index = text_arena_buffer_index;
-                Vector_Push(&text_arena->text_refs, &new_ref);
-
                 // Add text content token
                 enum NU_XML_Token t = TEXT_CONTENT;
                 Vector_Push(NU_Token_vector, &t);
+
+                // Add text reference
+                struct Property_Text_Ref ref;
+                ref.NU_Token_index = NU_Token_vector->size - 1;
+                ref.src_index = i - text_char_count;
+                ref.char_count = text_char_count;
+                Vector_Push(text_ref_vector, &ref);
             }
             text_char_count = 0;
 
@@ -301,7 +296,7 @@ static void NU_Tokenise(char* src_buffer, uint32_t src_length, struct Vector* NU
                 ref.NU_Token_index = NU_Token_vector->size - 1;
                 ref.src_index = i - word_char_index;
                 ref.char_count = word_char_index;
-                Vector_Push(ptext_ref_vector, &ref);
+                Vector_Push(text_ref_vector, &ref);
             }
             word_char_index = 0;
             ctx = 2;
@@ -309,21 +304,18 @@ static void NU_Tokenise(char* src_buffer, uint32_t src_length, struct Vector* NU
             continue;
         }
 
-        // If global space and split character
+        // If global space and NOT split character
         if (ctx == 0 && c != '\t' && c != '\n')
         {
             // text continues
             if (text_char_count > 0)
             {
-                Vector_Push(&text_arena->char_buffer, &c);
                 text_char_count += 1;
             }
 
             // text starts
             if (text_char_count == 0 && c != ' ')
             {
-                text_arena_buffer_index = text_arena->char_buffer.size;
-                Vector_Push(&text_arena->char_buffer, &c);
                 text_char_count = 1;
             }
 
@@ -443,6 +435,7 @@ static void NU_Apply_Node_Defaults(struct Node* node)
     node->inline_style_flags = 0;
     node->class = NULL;
     node->id = NULL;
+    node->text_content = NULL;
     node->tag = NAT;
     node->gl_image_handle = 0;
     node->preferred_width = 0.0f;
@@ -456,7 +449,6 @@ static void NU_Apply_Node_Defaults(struct Node* node)
     node->content_height = 0.0f;
     node->parent_index = -1;
     node->first_child_index = -1;
-    node->text_ref_index = -1;
     node->child_capacity = 0;
     node->child_count = 0;
     node->pad_top = 0;
@@ -486,7 +478,7 @@ static void NU_Apply_Node_Defaults(struct Node* node)
     node->event_flags = 0;
 }
 
-static int NU_Generate_Tree(char* src_buffer, uint32_t src_length, struct NU_GUI* ngui, struct Vector* NU_Token_vector, struct Vector* ptext_ref_vector)
+static int NU_Generate_Tree(char* src_buffer, uint32_t src_length, struct NU_GUI* ngui, struct Vector* NU_Token_vector, struct Vector* text_ref_vector)
 {
     // Enforce root grammar
     if (AssertRootGrammar(NU_Token_vector) != 0) {
@@ -514,7 +506,7 @@ static int NU_Generate_Tree(char* src_buffer, uint32_t src_length, struct NU_GUI
     // Get first property text reference
     // ---------------------------------
     struct Property_Text_Ref* current_property_text;
-    if (ptext_ref_vector->size > 0) current_property_text = Vector_Get(ptext_ref_vector, 0);
+    if (text_ref_vector->size > 0) current_property_text = Vector_Get(text_ref_vector, 0);
     uint32_t text_content_ref_index = 0;
     uint32_t property_text_index = 0;
 
@@ -566,7 +558,6 @@ static int NU_Generate_Tree(char* src_buffer, uint32_t src_length, struct NU_GUI
                 current_node = (struct Node*) Vector_Get(node_layer, node_layer->size-1);
                 current_node_handle++; 
                 NU_Node_Table_Set(&ngui->node_table, current_node_handle, current_node);
-                printf("node handle: %u set node pointer: %p get node pointer: %p\n", current_node_handle, current_node, NODE(ngui, current_node_handle));
 
                 // --------------------------------------------
                 // --- If node is a window -> create SDL window
@@ -633,10 +624,13 @@ static int NU_Generate_Tree(char* src_buffer, uint32_t src_length, struct NU_GUI
         // --------------------
         if (NU_XML_Token == TEXT_CONTENT)
         {
-            struct Text_Ref* text_ref = (struct Text_Ref*) Vector_Get(&ngui->text_arena.text_refs, text_content_ref_index);
-            text_ref->node_handle = current_node_handle;
-            current_node->text_ref_index = text_content_ref_index;
-            text_content_ref_index += 1;
+            current_property_text = Vector_Get(text_ref_vector, property_text_index);
+            property_text_index += 1;
+            char c = src_buffer[current_property_text->src_index];
+            char* text = &src_buffer[current_property_text->src_index];
+            src_buffer[current_property_text->src_index + current_property_text->char_count] = '\0';
+            
+            current_node->text_content = StringArena_Add(&ngui->node_text_arena, text);
 
             i+=1; // Increment token index
             continue;
@@ -649,7 +643,7 @@ static int NU_Generate_Tree(char* src_buffer, uint32_t src_length, struct NU_GUI
         {
             if (AssertPropertyGrammar(NU_Token_vector, i) == 0)
             {
-                current_property_text = Vector_Get(ptext_ref_vector, property_text_index);
+                current_property_text = Vector_Get(text_ref_vector, property_text_index);
                 property_text_index += 1;
                 char c = src_buffer[current_property_text->src_index];
                 char* ptext = &src_buffer[current_property_text->src_index];
@@ -1004,11 +998,11 @@ int NU_From_XML(struct NU_GUI* ngui, char* filepath)
 
     // Init Token vector and reserve ~1MB
     struct Vector NU_Token_vector;
-    struct Vector ptext_ref_vector;
+    struct Vector text_ref_vector;
 
     // Init vectors
     Vector_Reserve(&NU_Token_vector, sizeof(enum NU_XML_Token), 25000); // reserve ~100KB
-    Vector_Reserve(&ptext_ref_vector, sizeof(struct Property_Text_Ref), 25000); // reserve ~225KB
+    Vector_Reserve(&text_ref_vector, sizeof(struct Property_Text_Ref), 25000); // reserve ~225KB
 
     // Init UI tree layers -> reserve 100 nodes per stack layer = 384KB
     Vector_Reserve(&ngui->tree_stack[0], sizeof(struct Node), 1); // 1 root element
@@ -1017,15 +1011,15 @@ int NU_From_XML(struct NU_GUI* ngui, char* filepath)
     }
 
     // Tokenise the file source
-    NU_Tokenise(src_buffer, src_length, &NU_Token_vector, &ptext_ref_vector, &ngui->text_arena);
+    NU_Tokenise(src_buffer, src_length, &NU_Token_vector, &text_ref_vector);
 
     // Generate UI tree
     timer_start();
-    if (NU_Generate_Tree(src_buffer, src_length, ngui, &NU_Token_vector, &ptext_ref_vector) != 0) return 0; // Failure
+    if (NU_Generate_Tree(src_buffer, src_length, ngui, &NU_Token_vector, &text_ref_vector) != 0) return 0; // Failure
     timer_stop();
 
     // Free token and property text reference memory
     Vector_Free(&NU_Token_vector);
-    Vector_Free(&ptext_ref_vector);
+    Vector_Free(&text_ref_vector);
     return 1; // Success
 }

@@ -142,8 +142,3 @@ void NU_Tree_Delete_Childless(NU_Tree* tree, struct Node* node)
         layer->size--;
     }
 }
-
-uint32_t NU_Tree_Layer_Size(NU_Tree* tree, uint32_t layer_index)
-{
-    return tree->layers[layer_index].size;
-}

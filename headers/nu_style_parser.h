@@ -1437,9 +1437,12 @@ void NU_Stylesheet_Apply(struct NU_GUI* gui, struct NU_Stylesheet* stylesheet)
     // For each layer
     for (uint16_t l=0; l<=gui->deepest_layer; l++)
     {
-        for (uint32_t i=0; i<NU_Tree_Layer_Size(&gui->tree, l); i++)
+        NU_Layer* layer = &gui->tree.layers[l];
+
+        // Iterate over layer
+        for (uint32_t i=0; i<layer->size; i++)
         {
-            struct Node* node = NU_Tree_Get(&gui->tree, l, i);
+            struct Node* node = NU_Layer_Get(layer, i);
             if (!node->node_present) continue;
 
             NU_Apply_Stylesheet_To_Node(node, stylesheet);

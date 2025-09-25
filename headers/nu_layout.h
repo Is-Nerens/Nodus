@@ -31,10 +31,12 @@ static void NU_Clear_Node_Sizes(struct NU_GUI* gui)
     // For each layer
     for (uint16_t l=0; l<=gui->deepest_layer; l++)
     {
-        for (int p=0; p<NU_Tree_Layer_Size(&gui->tree, l); p++)
+        NU_Layer* parent_layer = &gui->tree.layers[l];
+        NU_Layer* child_layer = &gui->tree.layers[l+1];
+
+        for (int p=0; p<parent_layer->size; p++)
         {       
-            // Iterate over layer
-            struct Node* parent = NU_Tree_Get(&gui->tree, l, p);
+            struct Node* parent = NU_Layer_Get(parent_layer, p);
             if (!parent->node_present) continue;
 
             // If parent is window node and has no SDL window assigned to it -> create a new window and renderer
@@ -46,7 +48,7 @@ static void NU_Clear_Node_Sizes(struct NU_GUI* gui)
 
             for (uint32_t i=parent->first_child_index; i<parent->first_child_index + parent->child_count; i++)
             {
-                struct Node* child = NU_Tree_Get(&gui->tree, l+1, i);
+                struct Node* child = NU_Layer_Get(child_layer, i);
 
                 // Inherit window and renderer from parent
                 if (child->tag != WINDOW && child->window == NULL)
@@ -127,11 +129,12 @@ static void NU_Calculate_Text_Fit_Sizes(struct NU_GUI* gui)
 
 
     // For each layer
-    for (int l=0; l<=gui->deepest_layer; l++)
+    for (uint16_t l=0; l<=gui->deepest_layer; l++)
     {
-        for (int n=0; n<NU_Tree_Layer_Size(&gui->tree, l); n++)
+        NU_Layer* layer = &gui->tree.layers[l];
+        for (uint32_t n=0; n<layer->size; n++)
         {   
-            struct Node* node = NU_Tree_Get(&gui->tree, l, n);
+            struct Node* node = NU_Layer_Get(layer, n);
             if (!node->node_present) continue;
 
             if (node->text_content != NULL) {
@@ -147,10 +150,13 @@ static void NU_Calculate_Fit_Size_Widths(struct NU_GUI* gui)
 
     for (uint16_t l=0; l<=gui->deepest_layer; l++)
     {
-        for (int p=0; p<NU_Tree_Layer_Size(&gui->tree, l); p++)
+        NU_Layer* parent_layer = &gui->tree.layers[l];
+        NU_Layer* child_layer = &gui->tree.layers[l+1];
+        
+        // Iterate over parent layer
+        for (int p=0; p<parent_layer->size; p++)
         {       
-            // Iterate over layer
-            struct Node* parent = NU_Tree_Get(&gui->tree, l, p);
+            struct Node* parent = NU_Layer_Get(parent_layer, p);
             if (!parent->node_present) continue;
 
             int is_layout_horizontal = (parent->layout_flags & 0x01) == LAYOUT_HORIZONTAL;
@@ -169,7 +175,7 @@ static void NU_Calculate_Fit_Size_Widths(struct NU_GUI* gui)
 
             for (uint32_t i=parent->first_child_index; i<parent->first_child_index + parent->child_count; i++)
             {
-                struct Node* child = NU_Tree_Get(&gui->tree, l+1, i);
+                struct Node* child = NU_Layer_Get(child_layer, i);
 
                 if (child->tag == WINDOW) {
                     if (is_layout_horizontal) content_width -= parent->gap + child->width;
@@ -195,13 +201,15 @@ static void NU_Calculate_Fit_Size_Heights(struct NU_GUI* gui)
 {
     if (gui->deepest_layer == 0) return;
 
-    // For each layer
     for (uint16_t l=0; l<=gui->deepest_layer; l++)
     {
-        for (int p=0; p<NU_Tree_Layer_Size(&gui->tree, l); p++)
+        NU_Layer* parent_layer = &gui->tree.layers[l];
+        NU_Layer* child_layer = &gui->tree.layers[l+1];
+
+        // Iterate over parent layer
+        for (int p=0; p<parent_layer->size; p++)
         {       
-            // Iterate over layer
-            struct Node* parent = NU_Tree_Get(&gui->tree, l, p);
+            struct Node* parent = NU_Layer_Get(parent_layer, p);
             if (!parent->node_present) continue;
 
             int is_layout_horizontal = !(parent->layout_flags & LAYOUT_VERTICAL);
@@ -216,7 +224,7 @@ static void NU_Calculate_Fit_Size_Heights(struct NU_GUI* gui)
             // Iterate over children
             for (uint32_t i=parent->first_child_index; i<parent->first_child_index + parent->child_count; i++)
             {
-                struct Node* child = NU_Tree_Get(&gui->tree, l+1, i);
+                struct Node* child = NU_Layer_Get(child_layer, i);
 
                 if (child->tag == WINDOW) {
                     if (!is_layout_horizontal) content_height -= parent->gap + child->height;
@@ -452,10 +460,13 @@ static void NU_Grow_Shrink_Widths(struct NU_GUI* gui)
 {
     for (uint16_t l=0; l<=gui->deepest_layer; l++)
     {
+        NU_Layer* parent_layer = &gui->tree.layers[l];
         NU_Layer* child_layer = &gui->tree.layers[l+1];
-        for (int p=0; p<NU_Tree_Layer_Size(&gui->tree, l); p++)
+
+        // Iterate over parent layer
+        for (int p=0; p<parent_layer->size; p++)
         {       
-            struct Node* parent = NU_Tree_Get(&gui->tree, l, p);
+            struct Node* parent = NU_Layer_Get(parent_layer, p);
             if (!parent->node_present) continue;
 
             NU_Grow_Shrink_Child_Node_Widths(parent, child_layer);
@@ -467,10 +478,13 @@ static void NU_Grow_Shrink_Heights(struct NU_GUI* gui)
 {
     for (uint16_t l=0; l<=gui->deepest_layer; l++)
     {
+        NU_Layer* parent_layer = &gui->tree.layers[l];
         NU_Layer* child_layer = &gui->tree.layers[l+1];
-        for (int p=0; p<NU_Tree_Layer_Size(&gui->tree, l); p++)
+
+        // Iterate over parent layer
+        for (int p=0; p<parent_layer->size; p++)
         {       
-            struct Node* parent = NU_Tree_Get(&gui->tree, l, p);
+            struct Node* parent = NU_Layer_Get(parent_layer, p);
             if (!parent->node_present) continue;
 
             NU_Grow_Shrink_Child_Node_Heights(parent, child_layer);
@@ -505,9 +519,12 @@ static void NU_Calculate_Text_Wrap_Heights(struct NU_GUI* gui)
 
     for (uint16_t l=0; l<=gui->deepest_layer; l++)
     {
-        for (int i=0; i<NU_Tree_Layer_Size(&gui->tree, l); i++)
+        NU_Layer* layer = &gui->tree.layers[l];
+
+        // Iterate over layer
+        for (int i=0; i<layer->size; i++)
         {       
-            struct Node* node = NU_Tree_Get(&gui->tree, l, i);
+            struct Node* node = NU_Layer_Get(layer, i);
             if (!node->node_present) continue;
             if (node->text_content != NULL) {
                 NU_Calculate_Text_Wrap_Height(gui, node);
@@ -588,13 +605,15 @@ static void NU_Vertically_Place_Children(struct Node* parent, NU_Layer* child_la
 
 static void NU_Calculate_Positions(struct NU_GUI* gui)
 {
-    for (uint16_t l=0; l<=gui->deepest_layer; l++) // For each layer
+    for (uint16_t l=0; l<=gui->deepest_layer; l++) 
     {
+        NU_Layer* parent_layer = &gui->tree.layers[l];
         NU_Layer* child_layer = &gui->tree.layers[l+1];
         
-        for (uint32_t p=0; p<NU_Tree_Layer_Size(&gui->tree, l); p++) // For node in layer
+        // Iterate over parent layer
+        for (uint32_t p=0; p<parent_layer->size; p++) // For node in layer
         {   
-            struct Node* parent = NU_Tree_Get(&gui->tree, l, p);
+            struct Node* parent = NU_Layer_Get(parent_layer, p);
             if (!parent->node_present) continue;
 
             if (parent->tag == WINDOW)
@@ -786,9 +805,12 @@ void NU_Draw_Nodes(struct NU_GUI* gui)
     // For each layer
     for (int l=0; l<=gui->deepest_layer; l++)
     {
-        for (int n=0; n<NU_Tree_Layer_Size(&gui->tree, l); n++)
+        NU_Layer* layer = &gui->tree.layers[l];
+
+        // Iterate over layer
+        for (int n=0; n<layer->size; n++)
         {   
-            struct Node* node = NU_Tree_Get(&gui->tree, l, n);
+            struct Node* node = NU_Layer_Get(layer, n);
             if (!node->node_present) continue;
 
             // Append node to corresponding window_node list
@@ -845,7 +867,6 @@ void NU_Draw_Nodes(struct NU_GUI* gui)
 
 void NU_Calculate(struct NU_GUI* gui)
 {
-    timer_start();
     NU_Clear_Node_Sizes(gui);
     NU_Calculate_Text_Fit_Sizes(gui);
     NU_Calculate_Fit_Size_Widths(gui);
@@ -854,5 +875,4 @@ void NU_Calculate(struct NU_GUI* gui)
     NU_Calculate_Fit_Size_Heights(gui);
     NU_Grow_Shrink_Heights(gui);
     NU_Calculate_Positions(gui);
-    timer_stop();
 }

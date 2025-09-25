@@ -17,18 +17,21 @@ uint32_t NU_Get_Node_By_Id(struct NU_GUI* gui, char* id)
 struct Vector NU_Get_Nodes_By_Class(struct NU_GUI* gui, char* class)
 {
     struct Vector result;
-    Vector_Reserve(&result, sizeof(struct Node*), 8);
+    Vector_Reserve(&result, sizeof(uint32_t), 8);
 
     // For each layer
     for (uint16_t l=0; l<=gui->deepest_layer; l++)
     {
-        for (uint32_t n=0; n<NU_Tree_Layer_Size(&gui->tree, l); n++)
+        NU_Layer* layer = &gui->tree.layers[l];
+
+        // Iterate over layer
+        for (uint32_t n=0; n<layer->size; n++)
         {   
-            struct Node* node = NU_Tree_Get(&gui->tree, l, n);
+            struct Node* node = NU_Layer_Get(layer, n);
             if (!node->node_present) continue;
 
             if (node->class != NULL && strcmp(class, node->class) == 0) {
-                Vector_Push(&result, &node);
+                Vector_Push(&result, &node->handle);
             }
         }
     }
@@ -39,18 +42,21 @@ struct Vector NU_Get_Nodes_By_Class(struct NU_GUI* gui, char* class)
 struct Vector NU_Get_Nodes_By_Tag(struct NU_GUI* gui, enum Tag tag)
 {
     struct Vector result;
-    Vector_Reserve(&result, sizeof(struct Node*), 8);
+    Vector_Reserve(&result, sizeof(uint32_t), 8);
 
     // For each layer
     for (uint16_t l=0; l<=gui->deepest_layer; l++)
     {
-        for (uint32_t n=0; n<NU_Tree_Layer_Size(&gui->tree, l); n++)
+        NU_Layer* layer = &gui->tree.layers[l];
+        
+        // Iterate over layer
+        for (uint32_t n=0; n<layer->size; n++)
         {   
-            struct Node* node = NU_Tree_Get(&gui->tree, l, n);
+            struct Node* node = NU_Layer_Get(layer, n);
             if (!node->node_present) continue;
 
             if (node->tag == tag) {
-                Vector_Push(&result, &node);
+                Vector_Push(&result, &node->handle);
             }
         }
     }

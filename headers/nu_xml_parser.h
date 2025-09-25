@@ -495,8 +495,7 @@ static int NU_Generate_Tree(char* src_buffer, uint32_t src_length, struct NU_GUI
     root_node.tag = WINDOW;
     root_node.window = *(SDL_Window**) Vector_Get(&gui->windows, 0);
     struct Node* root_window_node = NU_Tree_Append(&gui->tree, &root_node, 0);
-    Vector_Push(&gui->window_nodes, root_window_node);
-    uint32_t current_node_handle = root_window_node->handle;
+    Vector_Push(&gui->window_nodes, &root_window_node);
 
     // ---------------------------------
     // Get first property text reference

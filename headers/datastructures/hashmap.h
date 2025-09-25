@@ -40,25 +40,27 @@ static uint32_t Hash_Generic(void* key, uint32_t len) // FNV algorithm https://g
 // --- Datastructure For Mapping (string -> generic) ---
 // -----------------------------------------------------
 typedef struct {
-    struct Vector freelist;
+    uint32_t chunk;
+    uint32_t index;
+    uint32_t size;
+} String_Map_Free_Element;
+
+typedef struct {
     char** strings_map;        // sparse hash vector of char*
     char** buffer_chunks;      // array of char arrays
     void* item_data;           // sparse array of items
-    uint32_t chunk_size;       // chars in each chunk
+    String_Map_Free_Element* freelist;
+    uint32_t first_chunk_size; // chars in first chunk
     uint16_t chunks_used;      // number of chunks
     uint16_t chunks_available; // number of chunks
     uint32_t string_map_capacity;
     uint32_t total_buffer_capacity;
     uint32_t string_count;
     uint32_t item_size;
+    uint32_t freelist_capacity;
+    uint32_t freelist_size;
     uint32_t max_probes;
 } String_Map;
-
-typedef struct {
-    uint32_t index;
-    uint32_t size;
-    uint16_t chunk;
-} String_Map_Free_Element;
 
 void String_Map_Init(String_Map* map, uint32_t item_size, uint32_t chunk_size, uint32_t capacity)
 {
@@ -67,7 +69,7 @@ void String_Map_Init(String_Map* map, uint32_t item_size, uint32_t chunk_size, u
     capacity = MAX(capacity, 10);
     
     // Init state variables
-    map->chunk_size = chunk_size;
+    map->first_chunk_size = chunk_size;
     map->total_buffer_capacity = chunk_size;
     map->chunks_used = 1;
     map->string_count = 0;
@@ -86,14 +88,19 @@ void String_Map_Init(String_Map* map, uint32_t item_size, uint32_t chunk_size, u
     map->string_map_capacity = (capacity * 2);
     map->strings_map = calloc(map->string_map_capacity, sizeof(char*)); // Set all slots to NULL
     map->item_data = malloc(item_size * map->string_map_capacity);
-    Vector_Reserve(&map->freelist, sizeof(String_Map_Free_Element), capacity / 2);
+
+    // Init freelist
+    map->freelist_capacity = 64;
+    map->freelist_size = 0;
+    map->freelist = malloc(sizeof(String_Map_Free_Element) * map->freelist_capacity);
 
     // Add first free element
-    String_Map_Free_Element first_free;
-    first_free.chunk = 0;
-    first_free.index = 0;
-    first_free.size = chunk_size;
-    Vector_Push(&map->freelist, &first_free);
+    String_Map_Free_Element free;
+    free.chunk = 0;
+    free.index = 0;
+    free.size = chunk_size;
+    map->freelist_size = 1;
+    map->freelist[0] = free;
 }
 
 void String_Map_Free(String_Map* map)
@@ -105,7 +112,7 @@ void String_Map_Free(String_Map* map)
     free(map->buffer_chunks);
     free(map->strings_map);
     free(map->item_data);
-    Vector_Free(&map->freelist);
+    free(map->freelist);
 }
 
 void* String_Map_Get(String_Map* map, char* key)
@@ -196,21 +203,28 @@ void String_Map_Set(String_Map* map, char* key, void* item)
 
     // Search key freelist for space
     int space_index = -1;
-    uint16_t space_chunk = 0;
-    for (uint32_t i=0; i<map->freelist.size; i++)
+    uint32_t chunk_index = 0;
+    for (uint32_t i=0; i<map->freelist_size; i++)
     {
-        String_Map_Free_Element* free_element = Vector_Get(&map->freelist, i);
+        String_Map_Free_Element* free_element = &map->freelist[i];
         if (string_len < free_element->size) { // Consume part of free element
             space_index = (int)free_element->index;
-            space_chunk = free_element->chunk;
+            chunk_index = free_element->chunk;
             free_element->size -= string_len;
             free_element->index += string_len;
             break;
         }
         else if (string_len == free_element->size) { // Consume entire free element -> remove from list
             space_index = (int)free_element->index;
-            space_chunk = free_element->chunk;
-            Vector_Delete_Backshift(&map->freelist, i);
+            chunk_index = free_element->chunk;
+            map->freelist_size -= 1;
+            if (i != map->freelist_size) {
+                memmove(
+                    &map->freelist[i],                                         // destination
+                    &map->freelist[i + 1],                                     // source (next element)
+                    (map->freelist_size - i) * sizeof(String_Map_Free_Element) // bytes to move
+                );
+            }
             break;
         }
     }
@@ -218,8 +232,7 @@ void String_Map_Set(String_Map* map, char* key, void* item)
     // No space anywhere? -> allocate a new chunk
     if (space_index == -1)
     {
-        // Increase chunk size
-        map->chunk_size = map->total_buffer_capacity;
+        uint32_t chunk_size = map->total_buffer_capacity; // Effectively doubles the total capacity
         map->total_buffer_capacity *= 2;
 
         // Add another chunk
@@ -228,21 +241,25 @@ void String_Map_Set(String_Map* map, char* key, void* item)
             map->chunks_available *= 2;
             map->buffer_chunks = realloc(map->buffer_chunks, map->chunks_available * sizeof(char*));
         }
-        map->buffer_chunks[map->chunks_used-1] = malloc(map->chunk_size);
+        map->buffer_chunks[map->chunks_used-1] = malloc(chunk_size);
 
         // Add a free element
-        String_Map_Free_Element new_free = { 
-            0, 
-            map->chunk_size, 
-            map->chunks_used-1, 
-        };
-        Vector_Push(&map->freelist, &new_free);
+        if (map->freelist_size == map->freelist_capacity) {
+            map->freelist_capacity *= 2;
+            map->freelist = realloc(map->freelist, map->freelist_capacity * sizeof(String_Map_Free));
+        }
+        String_Map_Free_Element new_free;
+        new_free.chunk = map->chunks_used-1;
+        new_free.index = 0;
+        new_free.size = chunk_size;
+        map->freelist[map->freelist_size] = new_free;
+        map->freelist_size += 1;
         space_index = 0;
-        space_chunk = map->chunks_used-1;
+        chunk_index = new_free.chunk; 
     }
 
     // Insert key into underlying char buffer
-    char* chunk = map->buffer_chunks[space_chunk];
+    char* chunk = map->buffer_chunks[chunk_index];
     char* result = chunk + space_index;
     memcpy(result, key, string_len);
     map->string_count++;
@@ -265,6 +282,105 @@ void String_Map_Set(String_Map* map, char* key, void* item)
     }
     map->max_probes = MAX(map->max_probes, searches);
 }
+
+void String_Map_Delete(String_Map* map, char* key)
+{
+    uint32_t string_len = (uint32_t)strlen(key);
+    uint32_t string_index = UINT32_MAX;
+    uint32_t chunk_index = UINT32_MAX;
+    for (uint32_t i=0; i<map->chunks_used; i++) {
+        char* chunk = map->buffer_chunks[i];
+
+        // Calculate the chunk size
+        uint64_t chunk_size = (i < 2) 
+            ? (uint64_t)map->first_chunk_size 
+            : (uint64_t)map->first_chunk_size << (i - 1);
+
+        // Check if string is inside chunk
+        if (key >= chunk && key + string_len <= chunk + chunk_size) {
+            string_index = (uint32_t)(key - chunk);
+            chunk_index = i;
+            break; 
+        }
+    }
+
+    if (string_index == UINT32_MAX) return; // String is not in the map buffers
+
+    // Create a new free struct
+    String_Map_Free_Element new_free;
+    new_free.chunk = chunk_index;
+    new_free.index = string_index;
+    new_free.size = string_len;
+
+    // Update the freelist
+    int left_adjacent_touch_idx = -1;
+    int right_adjacent_touch_idx = -1;
+    uint32_t insert_idx = 0;
+    for (uint32_t i=0; i<map->freelist_size; i++) {
+        String_Map_Free_Element* f = &map->freelist[i];
+        if (f->chunk != new_free.chunk) continue;
+
+        // Touches left neighbor
+        if (f->index + f->size == new_free.index) left_adjacent_touch_idx = (int)i;
+
+        // Touches right neighbor
+        if (new_free.index + new_free.size == f->index && new_free.chunk == f->chunk) right_adjacent_touch_idx = (int)i;
+
+        // For Case 4: first entry greater than new_free
+        if (new_free.chunk < f->chunk || (new_free.chunk == f->chunk && new_free.index < f->index)) {
+            insert_idx = i;
+            break;
+        }
+        insert_idx = i + 1; // if we reach the end, insert at the end
+    }
+
+    // Case 1: Free item touches two adjacent free items -> merge with left & remove right
+    if (left_adjacent_touch_idx != -1 && right_adjacent_touch_idx != -1) {
+        map->freelist[left_adjacent_touch_idx].size += new_free.size + map->freelist[right_adjacent_touch_idx].size;
+
+        // remove right neighbor
+        map->freelist_size--;
+        memmove(&map->freelist[right_adjacent_touch_idx],
+                &map->freelist[right_adjacent_touch_idx + 1],
+                (map->freelist_size - right_adjacent_touch_idx) * sizeof(String_Map_Free_Element));
+    }
+    // Case 2: Free item touches left adjacent free item -> merge with left
+    else if (left_adjacent_touch_idx != -1) {
+        map->freelist[left_adjacent_touch_idx].size += new_free.size;
+    }
+    // Case 3: Free item touches right adjacent free item -> merge with right
+    else if (right_adjacent_touch_idx != -1) {
+        map->freelist[right_adjacent_touch_idx].index = new_free.index;
+        map->freelist[right_adjacent_touch_idx].size += new_free.size;
+    }
+    // Case 4: Free item touches no adjacent free items
+    else {
+        // Case 4: no neighbors -> insert sorted
+        if (map->freelist_size >= map->freelist_capacity) {
+            map->freelist_capacity *= 2;
+            map->freelist = realloc(map->freelist,
+                                    map->freelist_capacity * sizeof(String_Map_Free_Element));
+        }
+
+        memmove(&map->freelist[insert_idx + 1],
+                &map->freelist[insert_idx],
+                (map->freelist_size - insert_idx) * sizeof(String_Map_Free_Element));
+
+        map->freelist[insert_idx] = new_free;
+        map->freelist_size++;
+    }
+}
+
+
+
+
+
+
+
+
+
+
+
 
 
 

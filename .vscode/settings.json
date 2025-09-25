@@ -42,6 +42,10 @@
         "hashmap.h": "c",
         "iterator": "c",
         "memory": "c",
-        "stdint.h": "c"
+        "stdint.h": "c",
+        "nu_node_table.h": "c",
+        "nu_window.h": "c",
+        "xiosbase": "c",
+        "nu_layer.h": "c"
     }
 }

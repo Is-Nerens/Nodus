@@ -1429,28 +1429,22 @@ int NU_Stylesheet_Create(struct NU_Stylesheet* stylesheet, char* css_filepath)
     return 1;
 }
 
-void NU_Stylesheet_Apply(struct NU_GUI* ngui, struct NU_Stylesheet* stylesheet)
+void NU_Stylesheet_Apply(struct NU_GUI* gui, struct NU_Stylesheet* stylesheet)
 {
-    struct Node* root_window = Vector_Get(&ngui->tree_stack[0], 0);
+    struct Node* root_window = NU_Tree_Get(&gui->tree, 0, 0);
     NU_Apply_Stylesheet_To_Node(root_window, stylesheet);
 
     // For each layer
-    for (int l=0; l<=ngui->deepest_layer; l++)
+    for (uint16_t l=0; l<=gui->deepest_layer; l++)
     {
-        struct Vector* parent_layer = &ngui->tree_stack[l];
-        struct Vector* child_layer = &ngui->tree_stack[l+1];
-
-
-        for (int p=0; p<parent_layer->size; p++)
+        for (uint32_t i=0; i<NU_Tree_Layer_Size(&gui->tree, l); i++)
         {
-            struct Node* parent = Vector_Get(parent_layer, p);
-            for (int i=parent->first_child_index; i<parent->first_child_index + parent->child_count; i++)
-            {
-                struct Node* child = Vector_Get(child_layer, i);
-                NU_Apply_Stylesheet_To_Node(child, stylesheet);
-            }
+            struct Node* node = NU_Tree_Get(&gui->tree, l, i);
+            if (!node->node_present) continue;
+
+            NU_Apply_Stylesheet_To_Node(node, stylesheet);
         }
     }
 
-    ngui->stylesheet = stylesheet;
+    gui->stylesheet = stylesheet;
 }

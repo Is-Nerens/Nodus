@@ -32,7 +32,9 @@ int ProcessWindowEvents()
 }
 
 
-void on_click(struct Node *node, void *args) {
+void on_click(struct NU_GUI* gui, uint32_t node_handle, void *args) {
+    NU_Delete_Node(gui, node_handle);
+    NU_Calculate(gui);
     printf("Node Clicked! \n");
 }
 
@@ -46,7 +48,7 @@ int main()
 
     // Create GUI
     struct NU_GUI ngui;
-    NU_Tree_Init(&ngui);
+    NU_GUI_Init(&ngui);
     NU_Load_Font(&ngui, "./fonts/Inter/Inter_Variable_Weight.ttf");
     if (!NU_From_XML(&ngui, "test.xml")) return -1;
 
@@ -62,11 +64,18 @@ int main()
 
 
 
-    struct Node* btn_node = NU_Get_Node_By_Id(&ngui, "charts-btn");
-    if (btn_node != NULL) {
-        NU_Register_Event(&ngui, btn_node, NULL, on_click, NU_EVENT_ON_CLICK);
-    }
+    // struct Node* btn_node = NU_Get_Node_By_Id(&ngui, "charts-btn");
+    // if (btn_node != NULL) {
+    //     NU_Register_Event(&ngui, btn_node, NULL, on_click, NU_EVENT_ON_CLICK);
+    // }
 
+
+    uint32_t test_delete = NU_Get_Node_By_Id(&ngui, "test-delete");
+    NU_Register_Event(&ngui, test_delete, NULL, on_click, NU_EVENT_ON_CLICK);
+
+    uint32_t test_delete2 = NU_Get_Node_By_Id(&ngui, "test-delete2");
+    NU_Register_Event(&ngui, test_delete2, NULL, on_click, NU_EVENT_ON_CLICK);
+ 
 
 
     struct NU_Watcher_Data watcher_data = { .ngui = &ngui };
@@ -81,6 +90,11 @@ int main()
     while (isRunning)
     {
         isRunning = ProcessWindowEvents();
+
+        if (ngui.awaiting_draw) {
+            NU_Draw_Nodes(&ngui);
+            ngui.awaiting_draw = 0;
+        }
         SDL_Delay(16);
     }
 

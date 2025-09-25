@@ -91,8 +91,8 @@ char* StringArena_Add(StringArena* arena, char* string)
             arena->freelist_size -= 1;
             if (i != arena->freelist_size) { // Backshift free items
                 memmove(
-                    &arena->freelist[i],                    // destination
-                    &arena->freelist[i + 1],                // source (next element)
+                    &arena->freelist[i],                                 // destination
+                    &arena->freelist[i + 1],                             // source (next element)
                     (arena->freelist_size - i) * sizeof(StringArenaFree) // bytes to move
                 );
             }

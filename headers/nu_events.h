@@ -4,26 +4,27 @@
 #include "performance.h"
 
 
-void NU_Register_Event(struct NU_GUI* gui, struct Node* node, void* args, NU_Callback callback, enum NU_Event event)
+void NU_Register_Event(struct NU_GUI* gui, uint32_t node_handle, void* args, NU_Callback callback, enum NU_Event event)
 {
-    struct NU_Callback_Info cb_info = { node, args, callback };
+    struct Node* node = NODE(gui, node_handle);
+    struct NU_Callback_Info cb_info = { node_handle, args, callback };
     
     switch (event) {
         case NU_EVENT_ON_CLICK:
             node->event_flags |= NU_EVENT_FLAG_ON_CLICK;
-            Hashmap_Set(&gui->on_click_events, &node, &cb_info);
+            Hashmap_Set(&gui->on_click_events, &node_handle, &cb_info);
             break;
         case NU_EVENT_ON_CHANGED:
             node->event_flags |= NU_EVENT_FLAG_ON_CHANGED;
-            Hashmap_Set(&gui->on_changed_events, &node, &cb_info);
+            Hashmap_Set(&gui->on_changed_events, &node_handle, &cb_info);
             break;
         case NU_EVENT_ON_DRAG:
             node->event_flags |= NU_EVENT_FLAG_ON_DRAG;
-            Hashmap_Set(&gui->on_drag_events, &node, &cb_info);
+            Hashmap_Set(&gui->on_drag_events, &node_handle, &cb_info);
             break;
         case NU_EVENT_ON_RELEASED:
             node->event_flags |= NU_EVENT_FLAG_ON_RELEASED;
-            Hashmap_Set(&gui->on_released_events, &node, &cb_info);
+            Hashmap_Set(&gui->on_released_events, &node_handle, &cb_info);
             break;
     }
 }
@@ -48,12 +49,13 @@ bool ResizingEventWatcher(void* data, SDL_Event* event)
         case SDL_EVENT_WINDOW_RESIZED:
             NU_Calculate(wd->ngui);
             NU_Draw_Nodes(wd->ngui);
+            wd->ngui->awaiting_draw = false;
             break;
         case SDL_EVENT_MOUSE_MOTION:
             Uint32 id = event->motion.windowID;
             wd->ngui->hovered_window = SDL_GetWindowFromID(id);
-            NU_Calculate(wd->ngui);
-            NU_Draw_Nodes(wd->ngui);
+            NU_Mouse_Hover(wd->ngui);
+            wd->ngui->awaiting_draw = true;
             break;
         case SDL_EVENT_MOUSE_BUTTON_DOWN:
             wd->ngui->mouse_down_node = wd->ngui->hovered_node;
@@ -63,11 +65,12 @@ bool ResizingEventWatcher(void* data, SDL_Event* event)
             break;
         case SDL_EVENT_MOUSE_BUTTON_UP:
             if (wd->ngui->mouse_down_node != NULL && wd->ngui->mouse_down_node == wd->ngui->hovered_node && wd->ngui->hovered_node->event_flags & NU_EVENT_FLAG_ON_CLICK) {
-                void* found_cb = Hashmap_Get(&wd->ngui->on_click_events, &wd->ngui->hovered_node);
+            
+                void* found_cb = Hashmap_Get(&wd->ngui->on_click_events, &wd->ngui->hovered_node->handle);
                 if (found_cb != NULL)
                 {
                     struct NU_Callback_Info* cb_info = (struct NU_Callback_Info*)found_cb;
-                    cb_info->callback(cb_info->node, cb_info->args);
+                    cb_info->callback(wd->ngui, cb_info->handle, cb_info->args);
                 }
             }
             break;

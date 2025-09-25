@@ -7,10 +7,11 @@
 // --------------------------------
 // --- Node Retrieval Functions ---
 // --------------------------------
-struct Node* NU_Get_Node_By_Id(struct NU_GUI* gui, char* id)
+uint32_t NU_Get_Node_By_Id(struct NU_GUI* gui, char* id)
 {
-    struct Node** found = String_Map_Get(&gui->id_node_map, id);
-    return found ? *found : NULL;
+    uint32_t* handle = String_Map_Get(&gui->id_node_map, id);
+    if (handle == NULL) return UINT32_MAX;
+    return *handle;
 }
 
 struct Vector NU_Get_Nodes_By_Class(struct NU_GUI* gui, char* class)
@@ -19,12 +20,13 @@ struct Vector NU_Get_Nodes_By_Class(struct NU_GUI* gui, char* class)
     Vector_Reserve(&result, sizeof(struct Node*), 8);
 
     // For each layer
-    for (int l=0; l<=gui->deepest_layer; l++)
+    for (uint16_t l=0; l<=gui->deepest_layer; l++)
     {
-        struct Vector* layer = &gui->tree_stack[l];
-        for (int n=0; n<layer->size; n++)
+        for (uint32_t n=0; n<NU_Tree_Layer_Size(&gui->tree, l); n++)
         {   
-            struct Node* node = Vector_Get(layer, n);
+            struct Node* node = NU_Tree_Get(&gui->tree, l, n);
+            if (!node->node_present) continue;
+
             if (node->class != NULL && strcmp(class, node->class) == 0) {
                 Vector_Push(&result, &node);
             }
@@ -40,12 +42,13 @@ struct Vector NU_Get_Nodes_By_Tag(struct NU_GUI* gui, enum Tag tag)
     Vector_Reserve(&result, sizeof(struct Node*), 8);
 
     // For each layer
-    for (int l=0; l<=gui->deepest_layer; l++)
+    for (uint16_t l=0; l<=gui->deepest_layer; l++)
     {
-        struct Vector* layer = &gui->tree_stack[l];
-        for (int n=0; n<layer->size; n++)
+        for (uint32_t n=0; n<NU_Tree_Layer_Size(&gui->tree, l); n++)
         {   
-            struct Node* node = Vector_Get(layer, n);
+            struct Node* node = NU_Tree_Get(&gui->tree, l, n);
+            if (!node->node_present) continue;
+
             if (node->tag == tag) {
                 Vector_Push(&result, &node);
             }
@@ -77,9 +80,61 @@ void NU_Create_Nodes(struct Node* node)
 // -------------------------------
 // --- Node Deletion Functions ---
 // -------------------------------
-void NU_Delete_Node(uint32_t Handle)
+void NU_Delete_Node(struct NU_GUI* gui, uint32_t handle)
 {
+    struct Node* node = NODE(gui, handle);
 
+    // Case 1: Deleting root node (Cannot do this!)
+    if (node->layer == 0) return;
+
+    // ----------------------------------------------
+    // --- Case 2: Deleting node with no children ---
+    // ----------------------------------------------
+    if (node->child_count == 0 && node->tag != WINDOW) 
+    {
+        // ----------------------------------------
+        // --- Delete strings tied to node --------
+        // ----------------------------------------
+        if (node->text_content != NULL) {
+            StringArena_Delete(&gui->node_text_arena, node->text_content); // Delete text content
+        }
+        if (node->id != NULL) {
+            String_Map_Delete(&gui->id_node_map, node->id);  // Delete node from id -> handle map
+        }
+        if (node->event_flags & NU_EVENT_FLAG_ON_CLICK) {
+            Hashmap_Delete(&gui->on_click_events, &node);    // Delete on_click event
+        }
+        if (node->event_flags & NU_EVENT_FLAG_ON_CHANGED) {
+            Hashmap_Delete(&gui->on_changed_events, &node);  // Delete on_changed event
+        }
+        if (node->event_flags & NU_EVENT_FLAG_ON_DRAG) {
+            Hashmap_Delete(&gui->on_drag_events, &node);     // Delete on_drag event
+        }
+        if (node->event_flags & NU_EVENT_FLAG_ON_RELEASED) {
+            Hashmap_Delete(&gui->on_released_events, &node); // Delete on_released event
+        }
+        if (node == gui->hovered_node) {
+            gui->hovered_node = NULL;
+        } 
+        if (node == gui->mouse_down_node) {
+            gui->mouse_down_node = NULL;
+        }
+
+        // ----------------------------------
+        // --- Remove node from tree --------
+        // ----------------------------------
+        NU_Tree_Delete_Childless(&gui->tree, node);
+        if (gui->tree.layers[gui->deepest_layer].node_count == 0) {
+            gui->deepest_layer--;
+        }
+
+        // Set await draw
+        gui->awaiting_draw = true;
+        return;
+    }
+
+    // Case 3: Deleting node with children (delete children from bottom up)
+    return;
 }
 
 void NU_Delete_Nodes()

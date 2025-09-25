@@ -56,7 +56,7 @@ void NU_Node_Table_Grow(NU_Node_Table* table)
     free(old_occupancy);
 }
 
-uint32_t NU_Node_Table_Add(NU_Node_Table* table, struct Node* node_ptr)
+void NU_Node_Table_Add(NU_Node_Table* table, struct Node* node_ptr)
 {
     if (table->used == table->capacity)
         NU_Node_Table_Grow(table);
@@ -79,14 +79,13 @@ uint32_t NU_Node_Table_Add(NU_Node_Table* table, struct Node* node_ptr)
 
         uint32_t bit = __builtin_ctz(free_bits);
         uint32_t handle = (byte_idx << 3) + bit;
+        node_ptr->handle = handle;
 
         table->occupancy[byte_idx] |= (1u << bit);
         table->data[handle] = node_ptr;
         table->used++;
-        return handle;
+        return;
     }
-
-    return UINT32_MAX;
 }
 
 

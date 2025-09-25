@@ -23,6 +23,7 @@ void NU_Create_Main_Window(struct NU_GUI* ngui)
     SDL_GL_MakeCurrent(main_window, context);
     glEnable(GL_MULTISAMPLE);
     glEnable(GL_BLEND);
+    SDL_GL_SetSwapInterval(1); // VSYNC ON
     glewInit();
 
     ngui->gl_ctx = context;

@@ -43,19 +43,36 @@ enum Tag
 struct Node
 {
     SDL_Window* window;
-    uint64_t inline_style_flags;
     char* class;
     char* id;
     char* text_content;
+
+    // -----------------------------------------------------
+    // --- Tracks which styles were applied in xml ---------
+    // -----------------------------------------------------
+    uint64_t inline_style_flags;
+
+    // ------------------------------
+    // --- Tree information ---------
+    // ------------------------------
+    uint32_t handle;
+    uint32_t index;
+    uint32_t parent_index;
+    uint32_t first_child_index;
+    uint16_t child_capacity;
+    uint16_t child_count;
+    uint8_t node_present;
+    uint8_t layer; 
+
+
+    // ------------------------------
+    // --- Styling ------------------
+    // ------------------------------
     enum Tag tag;
     GLuint gl_image_handle;
     float x, y, width, height, preferred_width, preferred_height;
     float min_width, max_width, min_height, max_height;
     float gap, content_width, content_height;
-    int parent_index;
-    int first_child_index;
-    uint16_t child_capacity;
-    uint16_t child_count;
     uint8_t pad_top, pad_bottom, pad_left, pad_right;
     uint8_t border_top, border_bottom, border_left, border_right;
     uint8_t border_radius_tl, border_radius_tr, border_radius_bl, border_radius_br;
@@ -65,34 +82,19 @@ struct Node
     char layout_flags;
     char horizontal_alignment;
     char vertical_alignment;
+
+    // ------------------------------
+    // --- Event Information --------
+    // ------------------------------
     char event_flags;
-    uint8_t layer; // Depth in tree
-};
-
-enum NU_Event
-{
-    NU_EVENT_ON_CLICK,
-    NU_EVENT_ON_CHANGED,
-    NU_EVENT_ON_DRAG,
-    NU_EVENT_ON_RELEASED
-};
-
-typedef void (*NU_Callback)(struct Node* node, void* args);
-
-struct NU_Callback_Info
-{
-    struct Node* node;
-    void* args;
-    NU_Callback callback;
 };
 
 #include "nu_node_table.h"
+#include "nu_layer.h"
 
 struct NU_GUI
 {
-    struct Vector tree_stack[MAX_TREE_DEPTH];
-    NU_Node_Table node_table; // Maps nodeID -> Node* (int -> Node*)
-
+    NU_Tree tree;
     struct Vector windows;
     struct Vector window_nodes;
     StringArena node_text_arena;
@@ -100,10 +102,12 @@ struct NU_GUI
     struct Vector font_registry;
     String_Set class_string_set;
     String_Set id_string_set;
-    struct Vector hovered_nodes;
     struct Node* hovered_node;
     struct Node* mouse_down_node;
-    int16_t deepest_layer;
+    uint16_t deepest_layer;
+
+    // Redrawing
+    bool awaiting_draw;
 
     // Styles
     struct NU_Stylesheet* stylesheet;
@@ -121,43 +125,59 @@ struct NU_GUI
     struct Hashmap on_released_events;
 };
 
+enum NU_Event
+{
+    NU_EVENT_ON_CLICK,
+    NU_EVENT_ON_CHANGED,
+    NU_EVENT_ON_DRAG,
+    NU_EVENT_ON_RELEASED
+};
+
+typedef void (*NU_Callback)(struct NU_GUI* gui, uint32_t handle, void* args);
+
+struct NU_Callback_Info
+{
+    uint32_t handle;
+    void* args;
+    NU_Callback callback;
+};
+
 
 static inline struct Node* NODE(struct NU_GUI* gui, uint32_t handle)
 {
-    if (handle >= gui->node_table.capacity) return NULL;
+    if (handle >= gui->tree.node_table.capacity) return NULL;
     uint32_t rem = handle & 7;                                // i % 8
     uint32_t occupancy_index = handle >> 3;                   // i / 8
-    if (!(gui->node_table.occupancy[occupancy_index] & (1u << rem))) { // Found empty
+    if (!(gui->tree.node_table.occupancy[occupancy_index] & (1u << rem))) { // Found empty
         return NULL;
     }
-    return gui->node_table.data[handle];
+    return gui->tree.node_table.data[handle];
 }
 
 
 #include "nu_window.h"
 
-void NU_Tree_Init(struct NU_GUI* gui)
+void NU_GUI_Init(struct NU_GUI* gui)
 {
-    NU_Node_Table_Reserve(&gui->node_table, 512);
     Vector_Reserve(&gui->windows, sizeof(SDL_Window*), 8);
     Vector_Reserve(&gui->window_nodes, sizeof(struct Node*), 8);
     Vector_Reserve(&gui->font_resources, sizeof(struct Font_Resource), 4);
     StringArena_Init(&gui->node_text_arena, 512);
     Vector_Reserve(&gui->font_registry, sizeof(int), 8);
-    Vector_Reserve(&gui->hovered_nodes, sizeof(struct Node*), 32);
-    String_Map_Init(&gui->id_node_map, sizeof(struct Node*), 512, 25);
+    String_Map_Init(&gui->id_node_map, sizeof(uint32_t), 512, 25);
 
     // Events
-    Hashmap_Init(&gui->on_click_events,    sizeof(struct Node*), sizeof(struct NU_Callback_Info), 25);
-    Hashmap_Init(&gui->on_changed_events,  sizeof(struct Node*), sizeof(struct NU_Callback_Info), 25);
-    Hashmap_Init(&gui->on_drag_events,     sizeof(struct Node*), sizeof(struct NU_Callback_Info), 25);
-    Hashmap_Init(&gui->on_released_events, sizeof(struct Node*), sizeof(struct NU_Callback_Info), 25);
+    Hashmap_Init(&gui->on_click_events,    sizeof(uint32_t), sizeof(struct NU_Callback_Info), 25);
+    Hashmap_Init(&gui->on_changed_events,  sizeof(uint32_t), sizeof(struct NU_Callback_Info), 25);
+    Hashmap_Init(&gui->on_drag_events,     sizeof(uint32_t), sizeof(struct NU_Callback_Info), 25);
+    Hashmap_Init(&gui->on_released_events, sizeof(uint32_t), sizeof(struct NU_Callback_Info), 25);
 
     String_Set_Init(&gui->class_string_set, 1024, 100);
     String_Set_Init(&gui->id_string_set, 1024, 100);
     gui->hovered_node = NULL;
     gui->mouse_down_node = NULL;
     gui->deepest_layer = 0;
+    gui->awaiting_draw = true;
     gui->stylesheet = NULL;
     gui->hovered_window = NULL;
     NU_Create_Main_Window(gui);
@@ -175,14 +195,12 @@ void NU_Load_Font(struct NU_GUI* gui, const char* ttf_path)
 
 void NU_Tree_Cleanup(struct NU_GUI* gui)
 {
-    NU_Node_Table_Free(&gui->node_table);
+    NU_Tree_Free(&gui->tree);
     Vector_Free(&gui->windows);
     Vector_Free(&gui->window_nodes);
     StringArena_Free(&gui->node_text_arena);
     Vector_Free(&gui->font_resources);
     Vector_Free(&gui->font_registry);
-    Vector_Free(&gui->hovered_nodes);
-
     String_Map_Free(&gui->id_node_map);
 
     // Events

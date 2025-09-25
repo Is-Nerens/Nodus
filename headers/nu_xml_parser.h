@@ -109,7 +109,7 @@ enum NU_XML_Token
 // ------------------------------ 
 // Structs ---------------------- 
 // ------------------------------ 
-struct Property_Text_Ref
+struct Text_Ref
 {
     uint32_t NU_Token_index;
     uint32_t src_index;
@@ -190,7 +190,7 @@ static void NU_Tokenise(char* src_buffer, uint32_t src_length, struct Vector* NU
                 Vector_Push(NU_Token_vector, &t);
 
                 // Add text reference
-                struct Property_Text_Ref ref;
+                struct Text_Ref ref;
                 ref.NU_Token_index = NU_Token_vector->size - 1;
                 ref.src_index = i - text_char_count;
                 ref.char_count = text_char_count;
@@ -217,7 +217,7 @@ static void NU_Tokenise(char* src_buffer, uint32_t src_length, struct Vector* NU
                 Vector_Push(NU_Token_vector, &t);
 
                 // Add text reference
-                struct Property_Text_Ref ref;
+                struct Text_Ref ref;
                 ref.NU_Token_index = NU_Token_vector->size - 1;
                 ref.src_index = i - text_char_count;
                 ref.char_count = text_char_count;
@@ -292,7 +292,7 @@ static void NU_Tokenise(char* src_buffer, uint32_t src_length, struct Vector* NU
             Vector_Push(NU_Token_vector, &t);
             if (word_char_index > 0)
             {
-                struct Property_Text_Ref ref;
+                struct Text_Ref ref;
                 ref.NU_Token_index = NU_Token_vector->size - 1;
                 ref.src_index = i - word_char_index;
                 ref.char_count = word_char_index;
@@ -432,10 +432,10 @@ static int AssertTagCloseStartGrammar(struct Vector* token_vector, int i, enum T
 static void NU_Apply_Node_Defaults(struct Node* node)
 {
     node->window = NULL;
-    node->inline_style_flags = 0;
     node->class = NULL;
     node->id = NULL;
     node->text_content = NULL;
+    node->inline_style_flags = 0;
     node->tag = NAT;
     node->gl_image_handle = 0;
     node->preferred_width = 0.0f;
@@ -447,10 +447,12 @@ static void NU_Apply_Node_Defaults(struct Node* node)
     node->gap = 0.0f;
     node->content_width = 0.0f;
     node->content_height = 0.0f;
-    node->parent_index = -1;
-    node->first_child_index = -1;
+    node->index = UINT32_MAX;
+    node->parent_index = UINT32_MAX;
+    node->first_child_index = UINT32_MAX;
     node->child_capacity = 0;
     node->child_count = 0;
+    node->node_present = 1;
     node->pad_top = 0;
     node->pad_bottom = 0;
     node->pad_left = 0;
@@ -478,7 +480,7 @@ static void NU_Apply_Node_Defaults(struct Node* node)
     node->event_flags = 0;
 }
 
-static int NU_Generate_Tree(char* src_buffer, uint32_t src_length, struct NU_GUI* ngui, struct Vector* NU_Token_vector, struct Vector* text_ref_vector)
+static int NU_Generate_Tree(char* src_buffer, uint32_t src_length, struct NU_GUI* gui, struct Vector* NU_Token_vector, struct Vector* text_ref_vector)
 {
     // Enforce root grammar
     if (AssertRootGrammar(NU_Token_vector) != 0) {
@@ -489,26 +491,20 @@ static int NU_Generate_Tree(char* src_buffer, uint32_t src_length, struct NU_GUI
     // Create root window node
     // -----------------------
     struct Node root_node;
-    struct Vector* root_layer = &ngui->tree_stack[0];
-    Vector_Push(root_layer, &root_node);
-    struct Node* root_window_node = (struct Node*) Vector_Get(root_layer, root_layer->size-1);
-    NU_Apply_Node_Defaults(root_window_node); // Default styles
-    root_window_node->layer = 0; 
-    root_window_node->tag = WINDOW;
-    root_window_node->parent_index = -1; 
-    root_window_node->child_count = 0;
-    root_window_node->window = *(SDL_Window**) Vector_Get(&ngui->windows, 0);
-    Vector_Push(&ngui->window_nodes, &root_window_node);
-    uint32_t current_node_handle = 0;
-    NU_Node_Table_Set(&ngui->node_table, current_node_handle, root_window_node);
+    NU_Apply_Node_Defaults(&root_node); // Default styles 
+    root_node.tag = WINDOW;
+    root_node.window = *(SDL_Window**) Vector_Get(&gui->windows, 0);
+    struct Node* root_window_node = NU_Tree_Append(&gui->tree, &root_node, 0);
+    Vector_Push(&gui->window_nodes, root_window_node);
+    uint32_t current_node_handle = root_window_node->handle;
 
     // ---------------------------------
     // Get first property text reference
     // ---------------------------------
-    struct Property_Text_Ref* current_property_text;
-    if (text_ref_vector->size > 0) current_property_text = Vector_Get(text_ref_vector, 0);
+    struct Text_Ref* current_text_ref;
+    if (text_ref_vector->size > 0) current_text_ref = Vector_Get(text_ref_vector, 0);
     uint32_t text_content_ref_index = 0;
-    uint32_t property_text_index = 0;
+    uint32_t text_ref_index = 0;
 
     // --------------------------
     // (string -> int) ----------
@@ -549,36 +545,31 @@ static int NU_Generate_Tree(char* src_buffer, uint32_t src_length, struct NU_GUI
                 struct Node new_node;
                 NU_Apply_Node_Defaults(&new_node); // Apply Default style
                 new_node.tag = NU_Token_To_Tag(*((enum NU_XML_Token*) Vector_Get(NU_Token_vector, i+1)));
-                // Set the ID: upper 8 bits = depth (layer), lower 24 bits = index in layer
-                struct Vector* node_layer = &ngui->tree_stack[current_layer+1];
-                uint32_t node_index_in_layer = node_layer->size; 
-                new_node.layer = current_layer + 1;
-                new_node.parent_index = ngui->tree_stack[current_layer].size-1; ;
-                Vector_Push(node_layer, &new_node);
-                current_node = (struct Node*) Vector_Get(node_layer, node_layer->size-1);
-                current_node_handle++; 
-                NU_Node_Table_Set(&ngui->node_table, current_node_handle, current_node);
+                new_node.parent_index = gui->tree.layers[current_layer].size - 1;
+                current_node = NU_Tree_Append(&gui->tree, &new_node, current_layer+1);
 
                 // --------------------------------------------
                 // --- If node is a window -> create SDL window
                 // --------------------------------------------
                 if (current_node->tag == WINDOW)
                 {
-                    NU_Create_Subwindow(ngui, current_node);
-                    Vector_Push(&ngui->window_nodes, &current_node);
+                    NU_Create_Subwindow(gui, current_node);
+                    Vector_Push(&gui->window_nodes, &current_node);
                 }
 
 
                 // -------------------------------
                 // Add node to parent's child list
                 // -------------------------------
-                struct Node* parentNode = Vector_Get(&ngui->tree_stack[current_layer], new_node.parent_index);
-                if (parentNode->child_count == 0) parentNode->first_child_index = ngui->tree_stack[current_layer+1].size-1;
+                struct Node* parentNode = NU_Tree_Get(&gui->tree, current_layer, current_node->parent_index);
+                if (parentNode->child_count == 0) {
+                    parentNode->first_child_index = current_node->index;
+                }
                 parentNode->child_count += 1;
                 parentNode->child_capacity += 1;
 
                 current_layer++; // Move one layer deeper
-                ngui->deepest_layer = MAX(ngui->deepest_layer, current_layer);
+                gui->deepest_layer = MAX(gui->deepest_layer, current_layer);
                 i+=2; // Increment token index
                 continue;
             }
@@ -597,7 +588,8 @@ static int NU_Generate_Tree(char* src_buffer, uint32_t src_length, struct NU_GUI
             if (current_layer < 0) break;
             
             // Check close grammar
-            enum Tag openTag = ((struct Node*) Vector_Get(&ngui->tree_stack[current_layer], ngui->tree_stack[current_layer].size - 1))->tag;
+            struct Node* open_node = NU_Tree_Get(&gui->tree, current_layer, gui->tree.layers[current_layer].size - 1);
+            enum Tag openTag = open_node->tag;
             if (AssertTagCloseStartGrammar(NU_Token_vector, i, openTag) != 0)
             {
                 String_Map_Free(&image_filepath_to_handle_hmap);
@@ -624,13 +616,13 @@ static int NU_Generate_Tree(char* src_buffer, uint32_t src_length, struct NU_GUI
         // --------------------
         if (NU_XML_Token == TEXT_CONTENT)
         {
-            current_property_text = Vector_Get(text_ref_vector, property_text_index);
-            property_text_index += 1;
-            char c = src_buffer[current_property_text->src_index];
-            char* text = &src_buffer[current_property_text->src_index];
-            src_buffer[current_property_text->src_index + current_property_text->char_count] = '\0';
+            current_text_ref = Vector_Get(text_ref_vector, text_ref_index);
+            text_ref_index += 1;
+            char c = src_buffer[current_text_ref->src_index];
+            char* text = &src_buffer[current_text_ref->src_index];
+            src_buffer[current_text_ref->src_index + current_text_ref->char_count] = '\0';
             
-            current_node->text_content = StringArena_Add(&ngui->node_text_arena, text);
+            current_node->text_content = StringArena_Add(&gui->node_text_arena, text);
 
             i+=1; // Increment token index
             continue;
@@ -643,27 +635,27 @@ static int NU_Generate_Tree(char* src_buffer, uint32_t src_length, struct NU_GUI
         {
             if (AssertPropertyGrammar(NU_Token_vector, i) == 0)
             {
-                current_property_text = Vector_Get(text_ref_vector, property_text_index);
-                property_text_index += 1;
-                char c = src_buffer[current_property_text->src_index];
-                char* ptext = &src_buffer[current_property_text->src_index];
-                src_buffer[current_property_text->src_index + current_property_text->char_count] = '\0';
+                current_text_ref = Vector_Get(text_ref_vector, text_ref_index);
+                text_ref_index += 1;
+                char c = src_buffer[current_text_ref->src_index];
+                char* ptext = &src_buffer[current_text_ref->src_index];
+                src_buffer[current_text_ref->src_index + current_text_ref->char_count] = '\0';
 
                 // Get the property value text
                 switch (NU_XML_Token)
                 {
                     // Set id
                     case ID_PROPERTY:
-                        char* id_get = String_Set_Get(&ngui->id_string_set, ptext);
+                        char* id_get = String_Set_Get(&gui->id_string_set, ptext);
                         if (id_get == NULL) {
-                            current_node->id = String_Set_Add(&ngui->id_string_set, ptext);
-                            String_Map_Set(&ngui->id_node_map, ptext, &current_node);
+                            current_node->id = String_Set_Add(&gui->id_string_set, ptext);
+                            String_Map_Set(&gui->id_node_map, ptext, &current_node->handle);
                         }
                         break;
 
                     // Set class
                     case CLASS_PROPERTY:
-                        current_node->class = String_Set_Add(&ngui->class_string_set, ptext);
+                        current_node->class = String_Set_Add(&gui->class_string_set, ptext);
                         break;
 
                     // Set layout direction
@@ -773,13 +765,13 @@ static int NU_Generate_Tree(char* src_buffer, uint32_t src_length, struct NU_GUI
 
                     // Set horizontal alignment
                     case ALIGN_H_PROPERTY:
-                        if (current_property_text->char_count == 4 && memcmp(ptext, "left", 4)) {
+                        if (current_text_ref->char_count == 4 && memcmp(ptext, "left", 4)) {
                             current_node->inline_style_flags |= 1 << 11;
                             current_node->horizontal_alignment = 0;
-                        } else if (current_property_text->char_count == 6 && memcmp(ptext, "center", 6)) {
+                        } else if (current_text_ref->char_count == 6 && memcmp(ptext, "center", 6)) {
                             current_node->inline_style_flags |= 1 << 11;
                             current_node->horizontal_alignment = 1;
-                        } else if (current_property_text->char_count == 5 && memcmp(ptext, "right", 5)) {
+                        } else if (current_text_ref->char_count == 5 && memcmp(ptext, "right", 5)) {
                             current_node->inline_style_flags |= 1 << 11;
                             current_node->horizontal_alignment = 2;
                         }
@@ -787,13 +779,13 @@ static int NU_Generate_Tree(char* src_buffer, uint32_t src_length, struct NU_GUI
 
                     // Set vertical alignment
                     case ALIGN_V_PROPERTY:
-                        if (current_property_text->char_count == 3 && memcmp(ptext, "top", 3)) {
+                        if (current_text_ref->char_count == 3 && memcmp(ptext, "top", 3)) {
                             current_node->inline_style_flags |= 1 << 12;
                             current_node->vertical_alignment = 0;
-                        } else if (current_property_text->char_count == 6 && memcmp(ptext, "center", 6)) {
+                        } else if (current_text_ref->char_count == 6 && memcmp(ptext, "center", 6)) {
                             current_node->inline_style_flags |= 1 << 12;
                             current_node->vertical_alignment = 2;
-                        } else if (current_property_text->char_count == 6 && memcmp(ptext, "bottom", 6)) {
+                        } else if (current_text_ref->char_count == 6 && memcmp(ptext, "bottom", 6)) {
                             current_node->inline_style_flags |= 1 << 12;
                             current_node->vertical_alignment = 1;
                         }
@@ -802,7 +794,7 @@ static int NU_Generate_Tree(char* src_buffer, uint32_t src_length, struct NU_GUI
                     // Set background colour
                     case BACKGROUND_COLOUR_PROPERTY:
                         struct RGB rgb;
-                        if (Parse_Hexcode(ptext, current_property_text->char_count, &rgb)) {
+                        if (Parse_Hexcode(ptext, current_text_ref->char_count, &rgb)) {
                             current_node->inline_style_flags |= 1 << 13;
                             current_node->background_r = rgb.r;
                             current_node->background_g = rgb.g;
@@ -812,7 +804,7 @@ static int NU_Generate_Tree(char* src_buffer, uint32_t src_length, struct NU_GUI
 
                     // Set border colour
                     case BORDER_COLOUR_PROPERTY:
-                        if (Parse_Hexcode(ptext, current_property_text->char_count, &rgb)) {
+                        if (Parse_Hexcode(ptext, current_text_ref->char_count, &rgb)) {
                             current_node->inline_style_flags |= 1 << 14;
                             current_node->border_r = rgb.r;
                             current_node->border_g = rgb.g;
@@ -822,7 +814,7 @@ static int NU_Generate_Tree(char* src_buffer, uint32_t src_length, struct NU_GUI
 
                     // Set text colour
                     case TEXT_COLOUR_PROPERTY:
-                        if (Parse_Hexcode(ptext, current_property_text->char_count, &rgb)) {
+                        if (Parse_Hexcode(ptext, current_text_ref->char_count, &rgb)) {
                             current_node->inline_style_flags |= 1 << 15;
                             current_node->text_r = rgb.r;
                             current_node->text_g = rgb.g;
@@ -975,7 +967,7 @@ static int NU_Generate_Tree(char* src_buffer, uint32_t src_length, struct NU_GUI
 // ---------------------------------- //
 // --- Public Functions ------------- //
 // ---------------------------------- //
-int NU_From_XML(struct NU_GUI* ngui, char* filepath)
+int NU_From_XML(struct NU_GUI* gui, char* filepath)
 {
     // Open XML source file and load into buffer
     FILE* f = fopen(filepath, "r");
@@ -1002,20 +994,17 @@ int NU_From_XML(struct NU_GUI* ngui, char* filepath)
 
     // Init vectors
     Vector_Reserve(&NU_Token_vector, sizeof(enum NU_XML_Token), 25000); // reserve ~100KB
-    Vector_Reserve(&text_ref_vector, sizeof(struct Property_Text_Ref), 25000); // reserve ~225KB
+    Vector_Reserve(&text_ref_vector, sizeof(struct Text_Ref), 25000); // reserve ~225KB
 
-    // Init UI tree layers -> reserve 100 nodes per stack layer = 384KB
-    Vector_Reserve(&ngui->tree_stack[0], sizeof(struct Node), 1); // 1 root element
-    for (int i=1; i<MAX_TREE_DEPTH; i++) {
-        Vector_Reserve(&ngui->tree_stack[i], sizeof(struct Node), 100);
-    }
+    // Init UI tree 
+    NU_Tree_Init(&gui->tree, 100, MAX_TREE_DEPTH);
 
     // Tokenise the file source
     NU_Tokenise(src_buffer, src_length, &NU_Token_vector, &text_ref_vector);
 
     // Generate UI tree
     timer_start();
-    if (NU_Generate_Tree(src_buffer, src_length, ngui, &NU_Token_vector, &text_ref_vector) != 0) return 0; // Failure
+    if (NU_Generate_Tree(src_buffer, src_length, gui, &NU_Token_vector, &text_ref_vector) != 0) return 0; // Failure
     timer_stop();
 
     // Free token and property text reference memory

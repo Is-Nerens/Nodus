@@ -18,11 +18,6 @@ void NU_Layer_Init(NU_Layer* layer, uint32_t capacity)
     layer->size = 0;
 }
 
-void NU_Layer_Free(NU_Layer* layer)
-{
-    free(layer->node_array);
-}
-
 struct Node* NU_Layer_Get(NU_Layer* layer, uint32_t index)
 {
     return &layer->node_array[index];
@@ -32,6 +27,16 @@ struct Node* NU_Layer_Top(NU_Layer* layer)
 {
     return &layer->node_array[layer->size - 1];
 }
+
+void NU_Layer_Free(NU_Layer* layer)
+{
+    free(layer->node_array);
+}
+
+
+
+
+
 
 
 
@@ -71,8 +76,6 @@ void NU_Tree_Free(NU_Tree* tree)
     NU_Node_Table_Free(&tree->node_table);
 }
 
-// This function is exclusively used when constructing a GUI from am XML file
-// As it assumes nodes are packed tightly in the layers and the layers are appended to only (the layers are acting like linear allocators)
 struct Node* NU_Tree_Append(NU_Tree* tree, struct Node* node, uint32_t layer_index)
 {
     NU_Layer* append_layer = &tree->layers[layer_index];
@@ -107,38 +110,4 @@ struct Node* NU_Tree_Append(NU_Tree* tree, struct Node* node, uint32_t layer_ind
 struct Node* NU_Tree_Get(NU_Tree* tree, uint32_t layer_index, uint32_t node_index)
 {
     return &tree->layers[layer_index].node_array[node_index];
-}
-
-void NU_Tree_Delete_Childless(NU_Tree* tree, struct Node* node)
-{
-    // Remove node from table
-    NU_Node_Table_Delete(&tree->node_table, node->handle);
-
-    uint32_t node_layer = node->layer;
-    NU_Layer* parent_layer = &tree->layers[node->layer-1];
-    NU_Layer* layer = &tree->layers[node_layer]; 
-    struct Node* parent  = NU_Layer_Get(parent_layer, node->parent_index);
-    uint32_t delete_idx  = node->index;
-    uint32_t first_idx   = parent->first_child_index;
-    uint32_t child_idx   = delete_idx - first_idx;
-    uint32_t siblings_to_shift = parent->child_count - child_idx - 1;
-
-    // Shift siblings one slot left
-    for (uint32_t i=0; i<siblings_to_shift; i++) {
-        struct Node* old_sibling = &layer->node_array[delete_idx + i + 1]; // node being moved
-        struct Node* new_sibling = &layer->node_array[delete_idx + i];     // destination
-        uint32_t sibling_handle = old_sibling->handle;        // save handle before overwrite
-        *new_sibling = *old_sibling;                          // move struct
-        new_sibling->index = delete_idx + i;                  // fix index
-        NU_Node_Table_Update(&tree->node_table, sibling_handle, new_sibling);
-    }
-    struct Node* last_slot = &layer->node_array[delete_idx + siblings_to_shift];
-    last_slot->node_present = 0;
-    parent->child_count--;
-
-    // Update layer state
-    layer->node_count--;
-    if (last_slot->index == layer->size) { // shrink layer size if deleted node belonged to last sibling group in layer
-        layer->size--;
-    }
 }

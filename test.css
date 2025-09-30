@@ -3,22 +3,23 @@ image {
 }
 #toolbar {
     pad: 5;
-    gap: 3;
     borderRadius: 5;
-    background: #373c55;
+    background: #0b0b0b;
     borderColour: #000000;
+    gap:1;
 }
 .toolbar-info {
     border: 1;
-    borderColour: #737c93;
-    background: #000000;
+    background: #141414;
+    borderColour: #272727;
+    textColour: #ededed;
     pad: 5;
     borderRadius: 3;
 }
 #symbol-search {
     border: 1;
-    background: #000000;
-    borderColour: #737c93;
+    background: #0c0c0c;
+    borderColour: #000000;
     pad: 8;
     borderRadius: 3;
 }
@@ -28,13 +29,11 @@ image {
 }
 
 button {
-    background: #08090f;
-    borderColour: #737c93;
+    background: #1c1c1c;
+    borderColour: #272727;
+    textColour: #ededed;
     border: 1;
     pad: 5;
-    borderRadius: 3;
-    gap: 3;
-    textColour: #3ec471;
 }
 button :hover {
     borderColour: #df9949;
@@ -44,8 +43,8 @@ button :hover {
 
 .watchlist-item {
     border: 1;
-    borderColour: #737c93;
-    background: #000000;
+    background: #1c1c1c;
+    borderColour: #2a2c2f;
     pad: 5;
     gap: 3;
     grow: h;
@@ -116,7 +115,7 @@ window {
     gap: 3;
 }
 #sidebar {
-    background: #1c243f;
+    background: #141414;
     borderColour: #000000;
     pad: 5;
     gap: 2;

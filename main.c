@@ -70,16 +70,24 @@ int main()
     // }
 
 
-    uint32_t test_delete = NU_Get_Node_By_Id(&ngui, "test-delete");
+    uint32_t test_delete = NU_Get_Node_By_Id(&ngui, "toolbar");
     NU_Register_Event(&ngui, test_delete, NULL, on_click, NU_EVENT_ON_CLICK);
 
-    uint32_t test_delete2 = NU_Get_Node_By_Id(&ngui, "test-delete2");
-    NU_Register_Event(&ngui, test_delete2, NULL, on_click, NU_EVENT_ON_CLICK);
+    uint32_t test_delete_1 = NU_Get_Node_By_Id(&ngui, "delete-1");
+    uint32_t test_delete_2 = NU_Get_Node_By_Id(&ngui, "delete-2");
+    uint32_t test_delete_3 = NU_Get_Node_By_Id(&ngui, "delete-3");
+    uint32_t test_delete_4 = NU_Get_Node_By_Id(&ngui, "delete-4");
+    NU_Register_Event(&ngui, test_delete_1, NULL, on_click, NU_EVENT_ON_CLICK);
+    NU_Register_Event(&ngui, test_delete_2, NULL, on_click, NU_EVENT_ON_CLICK);
+    NU_Register_Event(&ngui, test_delete_3, NULL, on_click, NU_EVENT_ON_CLICK);
+    NU_Register_Event(&ngui, test_delete_4, NULL, on_click, NU_EVENT_ON_CLICK);
  
 
 
     struct NU_Watcher_Data watcher_data = { .ngui = &ngui };
     SDL_AddEventWatch(ResizingEventWatcher, &watcher_data);
+
+    printf("%llu\n", sizeof(struct Node));
 
 
     NU_Calculate(&ngui);
@@ -92,6 +100,8 @@ int main()
         isRunning = ProcessWindowEvents();
 
         if (ngui.awaiting_draw) {
+            NU_Calculate(&ngui);
+            NU_Mouse_Hover(&ngui);
             NU_Draw_Nodes(&ngui);
             ngui.awaiting_draw = 0;
         }

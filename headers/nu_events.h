@@ -3,6 +3,11 @@
 #include <SDL3/SDL.h>
 #include "performance.h"
 
+#define NU_EVENT_FLAG_ON_CLICK       0x01        // 0b00000001
+#define NU_EVENT_FLAG_ON_CHANGED     0x02        // 0b00000010
+#define NU_EVENT_FLAG_ON_DRAG        0x04        // 0b00000100
+#define NU_EVENT_FLAG_ON_RELEASED    0x08        // 0b00001000
+
 
 void NU_Register_Event(struct NU_GUI* gui, uint32_t node_handle, void* args, NU_Callback callback, enum NU_Event event)
 {

@@ -51,9 +51,9 @@ struct Node
     // --- Tree information ---------
     // ------------------------------
     uint32_t handle;
-    uint32_t index;
-    uint32_t parent_index;
-    uint32_t first_child_index;
+    uint16_t index;
+    uint16_t parent_index;
+    uint16_t first_child_index;
     uint16_t child_capacity;
     uint16_t child_count;
     uint8_t node_present;
@@ -138,7 +138,7 @@ struct NU_Callback_Info
 };
 
 
-static inline struct Node* NODE(struct NU_GUI* gui, uint32_t handle)
+inline struct Node* NODE(struct NU_GUI* gui, uint32_t handle)
 {
     if (handle >= gui->tree.node_table.capacity) return NULL;
     uint32_t rem = handle & 7;                                // i % 8

@@ -76,6 +76,19 @@ void NU_Tree_Free(NU_Tree* tree)
     NU_Node_Table_Free(&tree->node_table);
 }
 
+void NU_Layer_Grow(NU_Tree* tree, NU_Layer* layer)
+{
+    layer->capacity *= 2;
+    layer->node_array = realloc(layer->node_array, sizeof(struct Node) * layer->capacity);
+
+    // Update the node table
+    for (uint32_t i=0; i<layer->size; i++)
+    {
+        struct Node* node = &layer->node_array[i];
+        if (node->node_present) NU_Node_Table_Update(&tree->node_table, node->handle, node);
+    }
+}
+
 struct Node* NU_Tree_Append(NU_Tree* tree, struct Node* node, uint32_t layer_index)
 {
     NU_Layer* append_layer = &tree->layers[layer_index];
@@ -83,15 +96,7 @@ struct Node* NU_Tree_Append(NU_Tree* tree, struct Node* node, uint32_t layer_ind
     // Grow the layer to make more space
     if (append_layer->size == append_layer->capacity) 
     {
-        append_layer->capacity *= 2;
-        append_layer->node_array = realloc(append_layer->node_array, sizeof(struct Node) * append_layer->capacity);
-
-        // Update the node table
-        for (uint32_t i=0; i<append_layer->size; i++)
-        {
-            struct Node* node = &append_layer->node_array[i];
-            if (node->node_present) NU_Node_Table_Update(&tree->node_table, node->handle, node);
-        }
+        NU_Layer_Grow(tree, append_layer);
     }
 
     append_layer->node_array[append_layer->size] = *node;

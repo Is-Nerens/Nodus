@@ -46,13 +46,12 @@ static void NU_Clear_Node_Sizes(struct NU_GUI* gui)
 
             if (parent->child_count == 0) continue; // Skip acummulating child sizes (no children)
 
-            for (uint32_t i=parent->first_child_index; i<parent->first_child_index + parent->child_count; i++)
+            for (uint16_t i=parent->first_child_index; i<parent->first_child_index + parent->child_count; i++)
             {
                 struct Node* child = NU_Layer_Get(child_layer, i);
 
                 // Inherit window and renderer from parent
-                if (child->tag != WINDOW && child->window == NULL)
-                {
+                if (child->tag != WINDOW && child->window == NULL) {
                     child->window = parent->window;
                 }
 
@@ -173,7 +172,7 @@ static void NU_Calculate_Fit_Size_Widths(struct NU_GUI* gui)
             // Track the total width for the parent's content
             float content_width = 0;
 
-            for (uint32_t i=parent->first_child_index; i<parent->first_child_index + parent->child_count; i++)
+            for (uint16_t i=parent->first_child_index; i<parent->first_child_index + parent->child_count; i++)
             {
                 struct Node* child = NU_Layer_Get(child_layer, i);
 
@@ -222,7 +221,7 @@ static void NU_Calculate_Fit_Size_Heights(struct NU_GUI* gui)
             float content_height = 0;
 
             // Iterate over children
-            for (uint32_t i=parent->first_child_index; i<parent->first_child_index + parent->child_count; i++)
+            for (uint16_t i=parent->first_child_index; i<parent->first_child_index + parent->child_count; i++)
             {
                 struct Node* child = NU_Layer_Get(child_layer, i);
 
@@ -252,7 +251,7 @@ static void NU_Grow_Shrink_Child_Node_Widths(struct Node* parent, NU_Layer* chil
 
     if (parent->layout_flags & LAYOUT_VERTICAL)
     {   
-        for (uint32_t i=parent->first_child_index; i<parent->first_child_index + parent->child_count; i++)
+        for (uint16_t i=parent->first_child_index; i<parent->first_child_index + parent->child_count; i++)
         {
             struct Node* child = NU_Layer_Get(child_layer, i);
             if (child->layout_flags & GROW_HORIZONTAL)
@@ -267,7 +266,7 @@ static void NU_Grow_Shrink_Child_Node_Widths(struct Node* parent, NU_Layer* chil
     else
     {
         uint32_t growable_count = 0;
-        for (uint32_t i=parent->first_child_index; i<parent->first_child_index + parent->child_count; i++)
+        for (uint16_t i=parent->first_child_index; i<parent->first_child_index + parent->child_count; i++)
         {
             struct Node* child = NU_Layer_Get(child_layer, i);
             if (child->tag == WINDOW) remaining_width += parent->gap;
@@ -284,7 +283,7 @@ static void NU_Grow_Shrink_Child_Node_Widths(struct Node* parent, NU_Layer* chil
             float smallest = 1e20f;
             float second_smallest = 1e30f;
             growable_count = 0;
-            for (uint32_t i=parent->first_child_index; i<parent->first_child_index + parent->child_count; i++) {
+            for (uint16_t i=parent->first_child_index; i<parent->first_child_index + parent->child_count; i++) {
                 struct Node* child = NU_Layer_Get(child_layer, i);
                 if ((child->layout_flags & GROW_HORIZONTAL) && child->tag != WINDOW && child->width < child->max_width) {
                     growable_count++;
@@ -305,7 +304,7 @@ static void NU_Grow_Shrink_Child_Node_Widths(struct Node* parent, NU_Layer* chil
 
             // for each child
             bool grew_any = false;
-            for (uint32_t i=parent->first_child_index; i<parent->first_child_index + parent->child_count; i++) {
+            for (uint16_t i=parent->first_child_index; i<parent->first_child_index + parent->child_count; i++) {
                 struct Node* child = NU_Layer_Get(child_layer, i);            
                 if (child->layout_flags & GROW_HORIZONTAL && child->tag != WINDOW && child->width < child->max_width) {// if child is growable
                     if (child->width == smallest) {
@@ -331,7 +330,7 @@ static void NU_Grow_Shrink_Child_Node_Widths(struct Node* parent, NU_Layer* chil
             float second_largest = -1e30f;
             int shrinkable_count = 0;
             
-            for (int i = parent->first_child_index; i < parent->first_child_index + parent->child_count; i++) {
+            for (uint16_t i = parent->first_child_index; i<parent->first_child_index + parent->child_count; i++) {
                 struct Node* child = NU_Layer_Get(child_layer, i);
                 if ((child->layout_flags & GROW_HORIZONTAL) && child->tag != WINDOW && child->width > child->min_width) {
                     shrinkable_count++;
@@ -352,7 +351,7 @@ static void NU_Grow_Shrink_Child_Node_Widths(struct Node* parent, NU_Layer* chil
 
             // For each child
             bool shrunk_any = false;
-            for (int i = parent->first_child_index; i < parent->first_child_index + parent->child_count; i++) {
+            for (uint16_t i=parent->first_child_index; i<parent->first_child_index + parent->child_count; i++) {
                 struct Node* child = NU_Layer_Get(child_layer, i);
                 if ((child->layout_flags & GROW_HORIZONTAL) && child->tag != WINDOW && child->width > child->min_width) {
                     if (child->width == largest) {
@@ -381,7 +380,7 @@ static void NU_Grow_Shrink_Child_Node_Heights(struct Node* parent, NU_Layer* chi
 
     if (!(parent->layout_flags & LAYOUT_VERTICAL))
     {
-        for (uint32_t i=parent->first_child_index; i<parent->first_child_index + parent->child_count; i++)
+        for (uint16_t i=parent->first_child_index; i<parent->first_child_index + parent->child_count; i++)
         {
             struct Node* child = NU_Layer_Get(child_layer, i);
             if (child->layout_flags & GROW_VERTICAL)
@@ -396,7 +395,7 @@ static void NU_Grow_Shrink_Child_Node_Heights(struct Node* parent, NU_Layer* chi
     else
     {
         uint32_t growable_count = 0;
-        for (uint32_t i=parent->first_child_index; i<parent->first_child_index + parent->child_count; i++)
+        for (uint16_t i=parent->first_child_index; i<parent->first_child_index + parent->child_count; i++)
         {
             struct Node* child = NU_Layer_Get(child_layer, i);
             if (child->tag == WINDOW) remaining_height += parent->gap;
@@ -412,7 +411,7 @@ static void NU_Grow_Shrink_Child_Node_Heights(struct Node* parent, NU_Layer* chi
             float smallest = 1e20f;
             float second_smallest = 1e30f;
             growable_count = 0;
-            for (uint32_t i=parent->first_child_index; i< parent->first_child_index + parent->child_count; i++) {
+            for (uint16_t i=parent->first_child_index; i< parent->first_child_index + parent->child_count; i++) {
                 struct Node* child = NU_Layer_Get(child_layer, i);
                 if ((child->layout_flags & GROW_VERTICAL) && child->tag != WINDOW && child->height < child->max_height) {
                     growable_count++;
@@ -433,7 +432,7 @@ static void NU_Grow_Shrink_Child_Node_Heights(struct Node* parent, NU_Layer* chi
 
             // for each child
             bool grew_any = false;
-            for (uint32_t i=parent->first_child_index; i<parent->first_child_index + parent->child_count; i++) {
+            for (uint16_t i=parent->first_child_index; i<parent->first_child_index + parent->child_count; i++) {
                 struct Node* child = NU_Layer_Get(child_layer, i);
                 if (child->layout_flags & GROW_VERTICAL && child->tag != WINDOW && child->height < child->max_height) { // if child is growable
                     if (child->height == smallest) {
@@ -537,7 +536,7 @@ static void NU_Horizontally_Place_Children(struct Node* parent, NU_Layer* child_
 {
     if (parent->layout_flags & LAYOUT_VERTICAL)
     {   
-        for (uint32_t i=parent->first_child_index; i<parent->first_child_index + parent->child_count; i++)
+        for (uint16_t i=parent->first_child_index; i<parent->first_child_index + parent->child_count; i++)
         {
             struct Node* child = NU_Layer_Get(child_layer, i);
             float remaning_width = (parent->width - parent->pad_left - parent->pad_right - parent->border_left - parent->border_right) - child->width;
@@ -549,7 +548,7 @@ static void NU_Horizontally_Place_Children(struct Node* parent, NU_Layer* child_
     {
         // Calculate remaining width (optimise this by caching this calue inside parent's content width variable)
         float remaining_width = (parent->width - parent->pad_left - parent->pad_right - parent->border_left - parent->border_right) - (parent->child_count - 1) * parent->gap - ((parent->layout_flags & OVERFLOW_VERTICAL_SCROLL) != 0) * 12.0f;
-        for (uint32_t i=parent->first_child_index; i<parent->first_child_index + parent->child_count; i++)
+        for (uint16_t i=parent->first_child_index; i<parent->first_child_index + parent->child_count; i++)
         {
             struct Node* child = NU_Layer_Get(child_layer, i);
             if (child->tag == WINDOW) remaining_width += parent->gap;
@@ -558,7 +557,7 @@ static void NU_Horizontally_Place_Children(struct Node* parent, NU_Layer* child_
 
         float cursor_x = 0.0f;
 
-        for (uint32_t i=parent->first_child_index; i<parent->first_child_index + parent->child_count; i++)
+        for (uint16_t i=parent->first_child_index; i<parent->first_child_index + parent->child_count; i++)
         {
             struct Node* child = NU_Layer_Get(child_layer, i);
             float x_align_offset = remaining_width * 0.5f * (float)parent->horizontal_alignment;
@@ -572,7 +571,7 @@ static void NU_Vertically_Place_Children(struct Node* parent, NU_Layer* child_la
 {
     if (!(parent->layout_flags & LAYOUT_VERTICAL))
     {   
-        for (uint32_t i=parent->first_child_index; i<parent->first_child_index + parent->child_count; i++)
+        for (uint16_t i=parent->first_child_index; i<parent->first_child_index + parent->child_count; i++)
         {
             struct Node* child = NU_Layer_Get(child_layer, i);
             float remaining_height = (parent->height - parent->pad_top - parent->pad_bottom - parent->border_top - parent->border_bottom) - child->height;
@@ -584,7 +583,7 @@ static void NU_Vertically_Place_Children(struct Node* parent, NU_Layer* child_la
     {
         // Calculate remaining height (optimise this by caching this calue inside parent's content height variable)
         float remaining_height = (parent->height - parent->pad_top - parent->pad_bottom - parent->border_top - parent->border_bottom) - (parent->child_count - 1) * parent->gap - ((parent->layout_flags & OVERFLOW_HORIZONTAL_SCROLL) != 0) * 12.0f;
-        for (uint32_t i=parent->first_child_index; i<parent->first_child_index + parent->child_count; i++)
+        for (uint16_t i=parent->first_child_index; i<parent->first_child_index + parent->child_count; i++)
         {
             struct Node* child = NU_Layer_Get(child_layer, i);
             if (child->tag == WINDOW) remaining_height += parent->gap;
@@ -593,7 +592,7 @@ static void NU_Vertically_Place_Children(struct Node* parent, NU_Layer* child_la
 
         float cursor_y = 0.0f;
 
-        for (uint32_t i=parent->first_child_index; i<parent->first_child_index + parent->child_count; i++)
+        for (uint16_t i=parent->first_child_index; i<parent->first_child_index + parent->child_count; i++)
         {
             struct Node* child = NU_Layer_Get(child_layer, i);
             float y_align_offset = remaining_height * 0.5f * (float)parent->vertical_alignment;
@@ -707,7 +706,7 @@ void NU_Mouse_Hover(struct NU_GUI* gui)
         // --- Iterate over node children
         // ------------------------------
         NU_Layer* child_layer = &gui->tree.layers[current_node->layer+1];
-        for (int i=current_node->first_child_index; i<current_node->first_child_index + current_node->child_count; i++)
+        for (uint16_t i=current_node->first_child_index; i<current_node->first_child_index + current_node->child_count; i++)
         {
             struct Node* child = NU_Layer_Get(child_layer, i);
 

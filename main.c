@@ -81,6 +81,13 @@ int main()
     NU_Register_Event(&ngui, test_delete_2, NULL, on_click, NU_EVENT_ON_CLICK);
     NU_Register_Event(&ngui, test_delete_3, NULL, on_click, NU_EVENT_ON_CLICK);
     NU_Register_Event(&ngui, test_delete_4, NULL, on_click, NU_EVENT_ON_CLICK);
+
+    uint32_t new_node = NU_Create_Node(&ngui, test_delete, RECT);
+    NODE(&ngui, new_node)->pad_top = 20;
+    NODE(&ngui, new_node)->pad_bottom = 20;
+    NODE(&ngui, new_node)->pad_left = 20;
+    NODE(&ngui, new_node)->pad_right = 20;
+    NODE(&ngui, new_node)->text_content = "new node";
  
 
 

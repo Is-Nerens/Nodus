@@ -45,22 +45,22 @@ int main()
 
 
 
-    uint32_t test_delete   = NU_Get_Node_By_Id("toolbar");
-    uint32_t test_delete_1 = NU_Get_Node_By_Id("delete-1");
-    uint32_t test_delete_2 = NU_Get_Node_By_Id("delete-2");
-    uint32_t test_delete_3 = NU_Get_Node_By_Id("delete-3");
-    uint32_t test_delete_4 = NU_Get_Node_By_Id("delete-4");
-    NU_Register_Event(test_delete  , NULL, on_click, NU_EVENT_ON_CLICK);
-    NU_Register_Event(test_delete_1, NULL, on_click, NU_EVENT_ON_CLICK);
-    NU_Register_Event(test_delete_2, NULL, on_click, NU_EVENT_ON_CLICK);
-    NU_Register_Event(test_delete_3, NULL, on_click, NU_EVENT_ON_CLICK);
-    NU_Register_Event(test_delete_4, NULL, on_click, NU_EVENT_ON_CLICK);
+    // uint32_t test_delete   = NU_Get_Node_By_Id("toolbar");
+    // uint32_t test_delete_1 = NU_Get_Node_By_Id("delete-1");
+    // uint32_t test_delete_2 = NU_Get_Node_By_Id("delete-2");
+    // uint32_t test_delete_3 = NU_Get_Node_By_Id("delete-3");
+    // uint32_t test_delete_4 = NU_Get_Node_By_Id("delete-4");
+    // NU_Register_Event(test_delete  , NULL, on_click, NU_EVENT_ON_CLICK);
+    // NU_Register_Event(test_delete_1, NULL, on_click, NU_EVENT_ON_CLICK);
+    // NU_Register_Event(test_delete_2, NULL, on_click, NU_EVENT_ON_CLICK);
+    // NU_Register_Event(test_delete_3, NULL, on_click, NU_EVENT_ON_CLICK);
+    // NU_Register_Event(test_delete_4, NULL, on_click, NU_EVENT_ON_CLICK);
 
 
-    uint32_t create_node   = NU_Create_Node(test_delete, RECT);
-    uint32_t create_node_2 = NU_Create_Node(test_delete, RECT);
-    NODE(create_node)->text_content   = "created";
-    NODE(create_node_2)->text_content = "created2";
+    // uint32_t create_node   = NU_Create_Node(test_delete, RECT);
+    // uint32_t create_node_2 = NU_Create_Node(test_delete, RECT);
+    // NODE(create_node)->text_content   = "created";
+    // NODE(create_node_2)->text_content = "created2";
 
 
     NU_Reflow();

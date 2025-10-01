@@ -1,155 +1,170 @@
-image {
-    background: #000000;
+window {
+    background: #101317;
 }
 #toolbar {
-    pad: 5;
-    borderRadius: 5;
-    background: #0b0b0b;
-    borderColour: #000000;
-    gap:1;
+    pad: 3;
+    gap: 1;
+    grow: h;
+    background: none;
 }
-.toolbar-info {
-    border: 1;
-    background: #141414;
-    borderColour: #272727;
-    textColour: #ededed;
+.toolbar-item {
     pad: 5;
+    borderColour: #384251;
+    border: 1
     borderRadius: 3;
 }
-#symbol-search {
-    border: 1;
-    background: #0c0c0c;
-    borderColour: #000000;
-    pad: 8;
-    borderRadius: 3;
-}
-#symbol-search:hover {
-    background: #333741;
-    borderColour: #6989d8;
-}
-
 button {
-    background: #1c1c1c;
-    borderColour: #272727;
-    textColour: #ededed;
+    width: 150;
     border: 1;
+    borderRadius: 3;
+    background: #2c3442;
+    borderColour: #000000;
+    textColour: #ffffff;
+    pad: 5;
+    textAlignH: center;
+}
+button:hover {
+    background: #42392c;
+    borderColour: #bb9640;
+}
+
+
+
+#side-bar {
+    width: 300;
+    background: #101317;
+    borderRadius: 5;
+}
+#watchlist {
+    dir: v;
+    grow: b;
+    background: #101317;
+    maxHeight: 500;
+    borderRadius: 3;
+}
+#watchlist-searchbar {
+    border: 1;
+    borderColour: #000000;
+    background: #000000;
+    pad: 5;
+    grow: h;
+}
+#watchlist-searchbar:hover {
+    borderColour: #bb9640;
+    borderRadius: 3;
+}
+#watchlist-item-header {
+    alignV: center;
+    grow: h;
     pad: 5;
 }
-button :hover {
-    borderColour: #df9949;
-    background: #333333;
-}
-
-
 .watchlist-item {
     border: 1;
-    background: #1c1c1c;
-    borderColour: #2a2c2f;
+    background: #2c3442;
+    borderColour: #000000;
     pad: 5;
-    gap: 3;
     grow: h;
     alignV: center;
+    borderRadius: 3;
 }
-.watchlist-item-item {
+.watchlist-text {
     background: none;
 }
 .crypto-icon {
-    pad: 3;
-    width: 26;
-    height: 26;
+    width: 20;
+    height: 20;
     background: none;
 }
+#watchlist-dom-selector {
+    dir: h;
+    padTop: 3;
+    padBottom: 3;
+    gap: 3;
+    background: #101317;
+}
+#watchlist-selector-btn {
+    borderRadius: 3;
+}
+#orderbook-selector-btn {
+    borderRadius: 3;
+}
 
 
-.hspacer {
+
+#trade-panel {
+    dir: v;
+    grow: b;
+    pad: 3;
+    borderRadius: 5;
+}
+#trade-panel-side-selection {
+    dir: h;
     grow: h;
+    background: none;
+    pad: 3;
+}
+#buy-side-btn {
+    dir: v;
+    grow: h;
+    borderRadius: 5;
+    borderRadiusTopRight: 0;
+    borderRadiusBottomRight: 0;
+}
+#sell-side-btn {
+    dir: v;
+    grow: h;
+    borderRadius: 5;
+    borderRadiusTopLeft: 0;
+    borderRadiusBottomLeft: 0;
+}
+.buy-side-text, .sell-side-text {
+    background: none;
+    grow: h;
+    textAlignH: center;
+}   
+
+
+#right-bar {
+    background: #384251;
 }
 #chart {
-    border: 5;
-    background: #070707;
+    background: #000000;
     grow: b;
-    borderRadius: 5;
-    borderColour: #000000;
-    textColour: #30b4e9;
-}
-#chart:hover {
-    borderColour: #cd0c0c;
 }
 #drawing-toolbar {
-    background: #0b0b0b;
-    borderColour: #000000;
+    padLeft: 3;
+    padBottom: 3;
     dir: v;
     grow: v;
-    alignH: center;
-    pad: 2;
-    gap: 2;
-    borderRadius: 5;
+    background: #101317;
 }
 .drawing-tool {
     width: 42;
     height: 42;
-    border: 1;
-    background: #1c1c1c;
-    borderColour: #272727;
-    borderRadius: 3;
     pad: 5;
+    border: 1;
 }
-.drawing-tool:hover {
-    background: #333333;
-    borderColour: #df9949;
-}
-#trade-history {
-    background: #0b0b0b;
-    borderColour: #000000;
-    maxHeight: 300;
+
+
+#trade-history-container {
     grow: b;
-    borderRadius: 5;  
+    background: #000000;
+    maxHeight: 300;
 }
 #trade-history-toolbar {
-    borderBottom: 2;
-    borderRadiusTopLeft: 5; 
-    borderRadiusTopRight: 5; 
-    borderColour: #000000;
-    background: #373c55;
+    background: #101317;
+    padTop: 3;
+    padBottom: 3;
     grow: h;
+    alignV: center;
+}
+.page-icon {
+    width: 30;
+    height: 30;
+    pad: 4;
+}
+.page-btn {
+    height: 32;
+    width: 50;
     pad: 5;
-    gap: 3;
-}
-window {
-    background: #000000;
-    pad: 5;
-    gap: 3;
-}
-
-#sidebar {
-    background: #141414;
-    borderColour: #000000;
-    pad: 5;
-    gap: 2;
-    borderRadius: 5;
-}
-#chart-container {
-    dir: h;
-    grow: b;
-    gap: 3;
-    border: 3;
-    borderColour: #3d00ca;
-}
-#rightbar {
-    dir: v;
-    grow: b;
-    gap: 3;
-    border: 3;
-    borderColour: #2cca00;
-}
-.bing {
-
-}
-
-.fat {
-    pad: 15;
-}
-
-#editor-sidebar {
-    background: #1c243f;
 }

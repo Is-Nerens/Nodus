@@ -25,6 +25,7 @@
 #define HIDE_BACKGROUND              0x32        // 0b00100000
 #define MAX_TREE_DEPTH 32
 
+
 enum Tag
 {
     WINDOW,
@@ -78,6 +79,8 @@ struct Node
     uint8_t layout_flags;
     char horizontal_alignment;
     char vertical_alignment;
+    char horizontal_text_alignment;
+    char vertical_text_alignment;
     bool hide_background;
 
     // ------------------------------

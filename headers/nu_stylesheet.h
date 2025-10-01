@@ -52,6 +52,8 @@ struct NU_Stylesheet_Item
     char layout_flags;
     char horizontal_alignment;
     char vertical_alignment;
+    char horizontal_text_alignment;
+    char vertical_text_alignment;
     bool hide_background;
 };
 

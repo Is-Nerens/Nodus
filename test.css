@@ -37,7 +37,7 @@ button {
 }
 button :hover {
     borderColour: #df9949;
-    background: #302925;
+    background: #333333;
 }
 
 
@@ -50,20 +50,19 @@ button :hover {
     grow: h;
     alignV: center;
 }
+.watchlist-item-item {
+    background: none;
+}
 .crypto-icon {
     pad: 3;
     width: 26;
     height: 26;
+    background: none;
 }
 
 
 .hspacer {
     grow: h;
-}
-#chart-container {
-    dir: h;
-    grow: b;
-    gap: 3;
 }
 #chart {
     border: 5;
@@ -77,24 +76,31 @@ button :hover {
     borderColour: #cd0c0c;
 }
 #drawing-toolbar {
-    background: #1c243f;
+    background: #0b0b0b;
+    borderColour: #000000;
     dir: v;
     grow: v;
     alignH: center;
-    pad: 5;
-    gap: 5;
+    pad: 2;
+    gap: 2;
     borderRadius: 5;
 }
 .drawing-tool {
     width: 42;
     height: 42;
     border: 1;
-    borderColour: #3f4f86;
+    background: #1c1c1c;
+    borderColour: #272727;
     borderRadius: 3;
     pad: 5;
 }
+.drawing-tool:hover {
+    background: #333333;
+    borderColour: #df9949;
+}
 #trade-history {
-    background: #1c243f;
+    background: #0b0b0b;
+    borderColour: #000000;
     maxHeight: 300;
     grow: b;
     borderRadius: 5;  
@@ -114,6 +120,7 @@ window {
     pad: 5;
     gap: 3;
 }
+
 #sidebar {
     background: #141414;
     borderColour: #000000;
@@ -121,10 +128,19 @@ window {
     gap: 2;
     borderRadius: 5;
 }
+#chart-container {
+    dir: h;
+    grow: b;
+    gap: 3;
+    border: 3;
+    borderColour: #3d00ca;
+}
 #rightbar {
     dir: v;
     grow: b;
     gap: 3;
+    border: 3;
+    borderColour: #2cca00;
 }
 .bing {
 

@@ -46,12 +46,13 @@ struct NU_Stylesheet_Item
     uint8_t pad_top, pad_bottom, pad_left, pad_right;
     uint8_t border_top, border_bottom, border_left, border_right;
     uint8_t border_radius_tl, border_radius_tr, border_radius_bl, border_radius_br;
-    uint8_t background_r, background_g, background_b, background_a;
-    uint8_t border_r, border_g, border_b, border_a;
+    uint8_t background_r, background_g, background_b;
+    uint8_t border_r, border_g, border_b;
     uint8_t text_r, text_g, text_b;
     char layout_flags;
     char horizontal_alignment;
     char vertical_alignment;
+    bool hide_background;
 };
 
 void NU_Stylesheet_Init(struct NU_Stylesheet* ss)

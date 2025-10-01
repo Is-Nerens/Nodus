@@ -21,7 +21,8 @@
 #define GROW_HORIZONTAL              0x02        // 0b00000010
 #define GROW_VERTICAL                0x04        // 0b00000100
 #define OVERFLOW_VERTICAL_SCROLL     0x08        // 0b00001000
-#define OVERFLOW_HORIZONTAL_SCROLL   0x10        // 0b00010000
+#define OVERFLOW_HORIZONTAL_SCROLL   0x16        // 0b00010000
+#define HIDE_BACKGROUND              0x32        // 0b00100000
 #define MAX_TREE_DEPTH 32
 
 enum Tag
@@ -71,12 +72,13 @@ struct Node
     uint8_t pad_top, pad_bottom, pad_left, pad_right;
     uint8_t border_top, border_bottom, border_left, border_right;
     uint8_t border_radius_tl, border_radius_tr, border_radius_bl, border_radius_br;
-    uint8_t background_r, background_g, background_b, background_a;
-    uint8_t border_r, border_g, border_b, border_a;
+    uint8_t background_r, background_g, background_b;
+    uint8_t border_r, border_g, border_b;
     uint8_t text_r, text_g, text_b;
-    char layout_flags;
+    uint8_t layout_flags;
     char horizontal_alignment;
     char vertical_alignment;
+    bool hide_background;
 
     // ------------------------------
     // --- Event Information --------
@@ -101,8 +103,9 @@ struct NU_GUI
     struct Node* mouse_down_node;
     uint16_t deepest_layer;
 
-    // Redrawing
+    // Status
     bool awaiting_draw;
+    bool running;
 
     // Styles
     struct NU_Stylesheet* stylesheet;
@@ -120,6 +123,8 @@ struct NU_GUI
     struct Hashmap on_released_events;
 };
 
+struct NU_GUI __nu_global_gui;
+
 enum NU_Event
 {
     NU_EVENT_ON_CLICK,
@@ -128,7 +133,7 @@ enum NU_Event
     NU_EVENT_ON_RELEASED
 };
 
-typedef void (*NU_Callback)(struct NU_GUI* gui, uint32_t handle, void* args);
+typedef void (*NU_Callback)(uint32_t handle, void* args);
 
 struct NU_Callback_Info
 {
@@ -138,77 +143,84 @@ struct NU_Callback_Info
 };
 
 
-inline struct Node* NODE(struct NU_GUI* gui, uint32_t handle)
+inline struct Node* NODE(uint32_t handle)
 {
-    if (handle >= gui->tree.node_table.capacity) return NULL;
+    if (handle >= __nu_global_gui.tree.node_table.capacity) return NULL;
     uint32_t rem = handle & 7;                                // i % 8
     uint32_t occupancy_index = handle >> 3;                   // i / 8
-    if (!(gui->tree.node_table.occupancy[occupancy_index] & (1u << rem))) { // Found empty
+    if (!(__nu_global_gui.tree.node_table.occupancy[occupancy_index] & (1u << rem))) { // Found empty
         return NULL;
     }
-    return gui->tree.node_table.data[handle];
+    return __nu_global_gui.tree.node_table.data[handle];
 }
 
 
 #include "nu_window.h"
 
-void NU_GUI_Init(struct NU_GUI* gui)
+void NU_Init()
 {
-    Vector_Reserve(&gui->windows, sizeof(SDL_Window*), 8);
-    Vector_Reserve(&gui->window_nodes, sizeof(struct Node*), 8);
-    Vector_Reserve(&gui->font_resources, sizeof(struct Font_Resource), 4);
-    StringArena_Init(&gui->node_text_arena, 512);
-    Vector_Reserve(&gui->font_registry, sizeof(int), 8);
-    String_Map_Init(&gui->id_node_map, sizeof(uint32_t), 512, 25);
+    Vector_Reserve(&__nu_global_gui.windows, sizeof(SDL_Window*), 8);
+    Vector_Reserve(&__nu_global_gui.window_nodes, sizeof(struct Node*), 8);
+    Vector_Reserve(&__nu_global_gui.font_resources, sizeof(struct Font_Resource), 4);
+    StringArena_Init(&__nu_global_gui.node_text_arena, 512);
+    Vector_Reserve(&__nu_global_gui.font_registry, sizeof(int), 8);
+    String_Map_Init(&__nu_global_gui.id_node_map, sizeof(uint32_t), 512, 25);
 
     // Events
-    Hashmap_Init(&gui->on_click_events,    sizeof(uint32_t), sizeof(struct NU_Callback_Info), 25);
-    Hashmap_Init(&gui->on_changed_events,  sizeof(uint32_t), sizeof(struct NU_Callback_Info), 25);
-    Hashmap_Init(&gui->on_drag_events,     sizeof(uint32_t), sizeof(struct NU_Callback_Info), 25);
-    Hashmap_Init(&gui->on_released_events, sizeof(uint32_t), sizeof(struct NU_Callback_Info), 25);
+    Hashmap_Init(&__nu_global_gui.on_click_events,    sizeof(uint32_t), sizeof(struct NU_Callback_Info), 25);
+    Hashmap_Init(&__nu_global_gui.on_changed_events,  sizeof(uint32_t), sizeof(struct NU_Callback_Info), 25);
+    Hashmap_Init(&__nu_global_gui.on_drag_events,     sizeof(uint32_t), sizeof(struct NU_Callback_Info), 25);
+    Hashmap_Init(&__nu_global_gui.on_released_events, sizeof(uint32_t), sizeof(struct NU_Callback_Info), 25);
 
-    String_Set_Init(&gui->class_string_set, 1024, 100);
-    String_Set_Init(&gui->id_string_set, 1024, 100);
-    gui->hovered_node = NULL;
-    gui->mouse_down_node = NULL;
-    gui->deepest_layer = 0;
-    gui->awaiting_draw = true;
-    gui->stylesheet = NULL;
-    gui->hovered_window = NULL;
-    NU_Create_Main_Window(gui);
+    String_Set_Init(&__nu_global_gui.class_string_set, 1024, 100);
+    String_Set_Init(&__nu_global_gui.id_string_set, 1024, 100);
+    __nu_global_gui.hovered_node = NULL;
+    __nu_global_gui.mouse_down_node = NULL;
+    __nu_global_gui.deepest_layer = 0;
+    __nu_global_gui.awaiting_draw = true;
+    __nu_global_gui.stylesheet = NULL;
+    __nu_global_gui.hovered_window = NULL;
+    NU_Create_Main_Window();
+
+    __nu_global_gui.running = true;
 }
 
-void NU_Load_Font(struct NU_GUI* gui, const char* ttf_path)
+bool NU_Running()
+{
+    return __nu_global_gui.running;
+}
+
+void NU_Load_Font(const char* ttf_path)
 {
     struct Font_Resource font;
     Load_Font_Resource(ttf_path, &font);
-    Vector_Push(&gui->font_resources, &font);
+    Vector_Push(&__nu_global_gui.font_resources, &font);
 
-    int fontID = nvgCreateFontMem(gui->vg_ctx, font.name, font.data, font.size, 0);
-    Vector_Push(&gui->font_registry, &fontID);
+    int fontID = nvgCreateFontMem(__nu_global_gui.vg_ctx, font.name, font.data, font.size, 0);
+    Vector_Push(&__nu_global_gui.font_registry, &fontID);
 }
 
-void NU_Tree_Cleanup(struct NU_GUI* gui)
+void NU_Quit()
 {
-    NU_Tree_Free(&gui->tree);
-    Vector_Free(&gui->windows);
-    Vector_Free(&gui->window_nodes);
-    StringArena_Free(&gui->node_text_arena);
-    Vector_Free(&gui->font_resources);
-    Vector_Free(&gui->font_registry);
-    String_Map_Free(&gui->id_node_map);
+    NU_Tree_Free(&__nu_global_gui.tree);
+    Vector_Free(&__nu_global_gui.windows);
+    Vector_Free(&__nu_global_gui.window_nodes);
+    StringArena_Free(&__nu_global_gui.node_text_arena);
+    Vector_Free(&__nu_global_gui.font_resources);
+    Vector_Free(&__nu_global_gui.font_registry);
+    String_Map_Free(&__nu_global_gui.id_node_map);
 
     // Events
-    Hashmap_Free(&gui->on_click_events);
-    Hashmap_Free(&gui->on_changed_events);
-    Hashmap_Free(&gui->on_drag_events);
-    Hashmap_Free(&gui->on_released_events);
+    Hashmap_Free(&__nu_global_gui.on_click_events);
+    Hashmap_Free(&__nu_global_gui.on_changed_events);
+    Hashmap_Free(&__nu_global_gui.on_drag_events);
+    Hashmap_Free(&__nu_global_gui.on_released_events);
 
-    String_Set_Free(&gui->class_string_set);
-    String_Set_Free(&gui->id_string_set);
-    gui->hovered_node = NULL;
-    gui->mouse_down_node = NULL;
-    gui->deepest_layer = 0;
+    String_Set_Free(&__nu_global_gui.class_string_set);
+    String_Set_Free(&__nu_global_gui.id_string_set);
+    __nu_global_gui.hovered_node = NULL;
+    __nu_global_gui.mouse_down_node = NULL;
+    __nu_global_gui.deepest_layer = 0;
 }
 
 #include "nu_xml_parser.h"

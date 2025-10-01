@@ -8,7 +8,7 @@
 
 #include "nu_draw.h"
 
-void NU_Create_Main_Window(struct NU_GUI* ngui) 
+void NU_Create_Main_Window() 
 {
     SDL_GL_SetAttribute(SDL_GL_CONTEXT_MAJOR_VERSION, 3);
     SDL_GL_SetAttribute(SDL_GL_CONTEXT_MINOR_VERSION, 2);
@@ -26,13 +26,13 @@ void NU_Create_Main_Window(struct NU_GUI* ngui)
     SDL_GL_SetSwapInterval(1); // VSYNC ON
     glewInit();
 
-    ngui->gl_ctx = context;
-    ngui->vg_ctx = nvgCreateGL3(NVG_STENCIL_STROKES);
-    Vector_Push(&ngui->windows, &main_window);
+    __nu_global_gui.gl_ctx = context;
+    __nu_global_gui.vg_ctx = nvgCreateGL3(NVG_STENCIL_STROKES);
+    Vector_Push(&__nu_global_gui.windows, &main_window);
     NU_Draw_Init();
 }
 
-void NU_Create_Subwindow(struct NU_GUI* ngui, struct Node* window_node)
+void NU_Create_Subwindow(struct Node* window_node)
 {
     SDL_GL_SetAttribute(SDL_GL_CONTEXT_MAJOR_VERSION, 3);
     SDL_GL_SetAttribute(SDL_GL_CONTEXT_MINOR_VERSION, 2);
@@ -47,5 +47,5 @@ void NU_Create_Subwindow(struct NU_GUI* ngui, struct Node* window_node)
     window_node->window = new_window;
 
     // Push into vectors
-    Vector_Push(&ngui->windows, &new_window);
+    Vector_Push(&__nu_global_gui.windows, &new_window);
 }

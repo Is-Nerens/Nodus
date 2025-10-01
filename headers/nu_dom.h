@@ -4,25 +4,87 @@
 #include "nodus.h"
 
 
+// -------------
+// --- Debug ---
+// -------------
+static void NU_Verify_Tree() {
+
+
+    // Check that node indices match location
+    for (uint16_t l=0; l<=__nu_global_gui.deepest_layer; l++)
+    {
+        NU_Layer* layer = &__nu_global_gui.tree.layers[l];
+        uint32_t layer_size = 0;
+        uint32_t layer_node_count = 0;
+
+        for (uint32_t n=0; n<layer->size; n++)
+        {   
+            struct Node* node = NU_Layer_Get(layer, n);
+            layer_size++;
+
+            if (!node->node_present) continue;
+
+            if (node->index != n) {
+                printf("VERIFY FAIL: layer %u index mismatch at slot %u (node.index=%u)\n", l, n, node->index);
+            }
+            layer_node_count++;
+        }
+
+        if (layer_size != layer->size) {
+            printf("VERIFY FAIL: layer %u size mismatch. (layer.size=%u) counted=%u\n", l, layer->size, layer_size);
+        }
+        if (layer_node_count != layer->node_count) {
+            printf("VERIFY FAIL: layer %u node count mismatch. (layer.node_count=%u) counted=%u\n", l, layer->node_count, layer_node_count);
+        }
+    }
+
+
+    // For each layer
+    for (uint16_t l=0; l<=__nu_global_gui.deepest_layer; l++)
+    {
+        NU_Layer* parent_layer = &__nu_global_gui.tree.layers[l];
+        NU_Layer* child_layer = &__nu_global_gui.tree.layers[l+1];
+        for (int p=0; p<parent_layer->size; p++)
+        {       
+            struct Node* parent = NU_Layer_Get(parent_layer, p);
+            if (!parent->node_present) continue;
+            printf("[%u]", parent->handle);
+
+            for (uint16_t i=parent->first_child_index; i<parent->first_child_index + parent->child_count; i++)
+            {
+                struct Node* child = NU_Layer_Get(child_layer, i);
+
+                // Check parent index
+                if (child->parent_index != p) {
+                    printf("VERIFY FAIL: layer %u parent index mismatch at slot %u (node.parent_index=%u)\n", l+1, i, child->parent_index);
+                }
+            }
+        }
+        printf("\n");
+    }
+}
+
+
+
 // --------------------------------
 // --- Node Retrieval Functions ---
 // --------------------------------
-uint32_t NU_Get_Node_By_Id(struct NU_GUI* gui, char* id)
+uint32_t NU_Get_Node_By_Id(char* id)
 {
-    uint32_t* handle = String_Map_Get(&gui->id_node_map, id);
+    uint32_t* handle = String_Map_Get(&__nu_global_gui.id_node_map, id);
     if (handle == NULL) return UINT16_MAX;
     return *handle;
 }
 
-struct Vector NU_Get_Nodes_By_Class(struct NU_GUI* gui, char* class)
+struct Vector NU_Get_Nodes_By_Class(char* class)
 {
     struct Vector result;
     Vector_Reserve(&result, sizeof(uint32_t), 8);
 
     // For each layer
-    for (uint16_t l=0; l<=gui->deepest_layer; l++)
+    for (uint16_t l=0; l<=__nu_global_gui.deepest_layer; l++)
     {
-        NU_Layer* layer = &gui->tree.layers[l];
+        NU_Layer* layer = &__nu_global_gui.tree.layers[l];
 
         // Iterate over layer
         for (uint32_t n=0; n<layer->size; n++)
@@ -39,15 +101,15 @@ struct Vector NU_Get_Nodes_By_Class(struct NU_GUI* gui, char* class)
     return result;
 }
 
-struct Vector NU_Get_Nodes_By_Tag(struct NU_GUI* gui, enum Tag tag)
+struct Vector NU_Get_Nodes_By_Tag(enum Tag tag)
 {
     struct Vector result;
     Vector_Reserve(&result, sizeof(uint32_t), 8);
 
     // For each layer
-    for (uint16_t l=0; l<=gui->deepest_layer; l++)
+    for (uint16_t l=0; l<=__nu_global_gui.deepest_layer; l++)
     {
-        NU_Layer* layer = &gui->tree.layers[l];
+        NU_Layer* layer = &__nu_global_gui.tree.layers[l];
         
         // Iterate over layer
         for (uint32_t n=0; n<layer->size; n++)
@@ -115,25 +177,22 @@ void Set_Node_Defaults(struct Node* node)
     node->event_flags = 0;
 }
 
-uint32_t NU_Create_Node(struct NU_GUI* gui, uint32_t parent_handle, enum Tag tag)
+uint32_t NU_Create_Node(uint32_t parent_handle, enum Tag tag)
 {
-    struct Node* parent = NODE(gui, parent_handle);
-    NU_Layer* create_node_layer = &gui->tree.layers[parent->layer + 1];
+    struct Node* parent = NODE(parent_handle);
+    NU_Layer* create_node_layer = &__nu_global_gui.tree.layers[parent->layer + 1];
 
+    create_node_layer->node_count++;
     parent->child_count++;
     if (parent->child_count > parent->child_capacity) { // Parent requires extra slab space
 
-        printf("here\n");
-
         // If need to expand layer
         if (create_node_layer->size == create_node_layer->capacity) {
-            NU_Layer_Grow(&gui->tree, create_node_layer);
+            NU_Layer_Grow(&__nu_global_gui.tree, create_node_layer);
         }
 
         uint16_t create_node_index = parent->first_child_index + parent->child_count - 1;
-        NU_Layer* parent_layer = &gui->tree.layers[parent->layer];
-        
-        printf("create node index: %u\n", create_node_index);
+        NU_Layer* parent_layer = &__nu_global_gui.tree.layers[parent->layer];
 
         // Update first child indices for proceeding parent nodes
         for (uint16_t i=parent->index+1; i<parent_layer->size; i++) {
@@ -141,27 +200,21 @@ uint32_t NU_Create_Node(struct NU_GUI* gui, uint32_t parent_handle, enum Tag tag
             if (next_parent->node_present) next_parent->first_child_index += 5;
         }
 
-        printf("updated first child indices for proceeding parent nodes");
-
         // Update node self indices and node child parent indices for proceeding layer nodes
         uint32_t shift_count = create_node_layer->size - create_node_index;
         memmove(&create_node_layer->node_array[create_node_index+5], &create_node_layer->node_array[create_node_index], shift_count * sizeof(struct Node));
-        
-        printf("shifted nodes\n");
         create_node_layer->size += 5;
         for (uint16_t i=create_node_index+5; i<create_node_layer->size; i++) {
             struct Node* node = NU_Layer_Get(create_node_layer, i);
             node->index = i;
-            NU_Node_Table_Update(&gui->tree.node_table, node->handle, node);
+            NU_Node_Table_Update(&__nu_global_gui.tree.node_table, node->handle, node);
             if (node->child_count > 0) {
-                NU_Layer* child_layer = &gui->tree.layers[parent->layer + 2];
+                NU_Layer* child_layer = &__nu_global_gui.tree.layers[parent->layer + 2];
                 for (uint16_t c=node->first_child_index; c<node->first_child_index + node->child_count; c++) {
                     NU_Layer_Get(child_layer, c)->parent_index = i;
                 }
             }
         }
-
-        printf("shifted proceeding nodes and updated their indices\n");
 
         // Mark parent's new additional slots as free
         for (uint16_t i=create_node_index+1; i<create_node_index + 5; i++) {
@@ -178,17 +231,17 @@ uint32_t NU_Create_Node(struct NU_GUI* gui, uint32_t parent_handle, enum Tag tag
         created_node->parent_index = parent->index;
         created_node->layer = parent->layer + 1;
         created_node->tag = tag;
-        NU_Node_Table_Add(&gui->tree.node_table, created_node);
+        NU_Node_Table_Add(&__nu_global_gui.tree.node_table, created_node);
         return created_node->handle;
 
     } else { // Instant creation
-        struct Node* created_node = NU_Layer_Get(create_node_layer, parent->first_child_index + parent->child_count);
+        struct Node* created_node = &create_node_layer->node_array[parent->first_child_index + parent->child_count - 1];
         Set_Node_Defaults(created_node);
-        created_node->index = parent->first_child_index + parent->child_count;
+        created_node->index = parent->first_child_index + parent->child_count - 1;
         created_node->parent_index = parent->index;
         created_node->layer = parent->layer + 1;
         created_node->tag = tag;
-        NU_Node_Table_Add(&gui->tree.node_table, created_node);
+        NU_Node_Table_Add(&__nu_global_gui.tree.node_table, created_node);
         return created_node->handle;
     }
 }
@@ -198,8 +251,6 @@ void NU_Create_Nodes(struct Node* node)
 {
 
 }
-
-
 
 
 
@@ -220,107 +271,49 @@ typedef struct {
     uint16_t layer;
 } Node_Delete_Range;
 
-
-void NU_Verify_Tree(struct NU_GUI* gui) {
-
-
-    // Check that node indices match location
-    for (uint16_t l=0; l<=gui->deepest_layer; l++)
-    {
-        NU_Layer* layer = &gui->tree.layers[l];
-        uint32_t layer_size = 0;
-        uint32_t layer_node_count = 0;
-
-        for (uint32_t n=0; n<layer->size; n++)
-        {   
-            struct Node* node = NU_Layer_Get(layer, n);
-            layer_size++;
-
-            if (!node->node_present) continue;
-
-            if (node->index != n) {
-                printf("VERIFY FAIL: layer %u index mismatch at slot %u (node.index=%u)\n", l, n, node->index);
-            }
-            layer_node_count++;
-        }
-
-        if (layer_size != layer->size) {
-            printf("VERIFY FAIL: layer %u size mismatch. (layer.size=%u) counted=%u\n", l, layer->size, layer_size);
-        }
-        if (layer_node_count != layer->node_count) {
-            printf("VERIFY FAIL: layer %u node count mismatch. (layer.node_count=%u) counted=%u\n", l, layer->node_count, layer_node_count);
-        }
-    }
-
-
-    // For each layer
-    for (uint16_t l=0; l<=gui->deepest_layer; l++)
-    {
-        NU_Layer* parent_layer = &gui->tree.layers[l];
-        NU_Layer* child_layer = &gui->tree.layers[l+1];
-        for (int p=0; p<parent_layer->size; p++)
-        {       
-            struct Node* parent = NU_Layer_Get(parent_layer, p);
-            if (!parent->node_present) continue;
-            printf("[%u]", parent->handle);
-
-            for (uint16_t i=parent->first_child_index; i<parent->first_child_index + parent->child_count; i++)
-            {
-                struct Node* child = NU_Layer_Get(child_layer, i);
-
-                // Check parent index
-                if (child->parent_index != p) {
-                    printf("VERIFY FAIL: layer %u parent index mismatch at slot %u (node.parent_index=%u)\n", l+1, i, child->parent_index);
-                }
-            }
-        }
-        printf("\n");
-    }
-}
-
-void NU_Dissociate_Node(struct NU_GUI* gui, struct Node* node)
+static void NU_Dissociate_Node(struct Node* node)
 {
     if (node->tag == WINDOW) {
         SDL_DestroyWindow(node->window);
     }
     if (node->text_content != NULL) {
-        StringArena_Delete(&gui->node_text_arena, node->text_content); // Delete text content
+        StringArena_Delete(&__nu_global_gui.node_text_arena, node->text_content); // Delete text content
     }
     if (node->id != NULL) {
-        String_Map_Delete(&gui->id_node_map, node->id);  // Delete node from id -> handle map
+        String_Map_Delete(&__nu_global_gui.id_node_map, node->id);  // Delete node from id -> handle map
     }
     if (node->event_flags & NU_EVENT_FLAG_ON_CLICK) {
-        Hashmap_Delete(&gui->on_click_events, &node->handle);    // Delete on_click event
+        Hashmap_Delete(&__nu_global_gui.on_click_events, &node->handle);    // Delete on_click event
     }
     if (node->event_flags & NU_EVENT_FLAG_ON_CHANGED) {
-        Hashmap_Delete(&gui->on_changed_events, &node->handle);  // Delete on_changed event
+        Hashmap_Delete(&__nu_global_gui.on_changed_events, &node->handle);  // Delete on_changed event
     }
     if (node->event_flags & NU_EVENT_FLAG_ON_DRAG) {
-        Hashmap_Delete(&gui->on_drag_events, &node->handle);     // Delete on_drag event
+        Hashmap_Delete(&__nu_global_gui.on_drag_events, &node->handle);     // Delete on_drag event
     }
     if (node->event_flags & NU_EVENT_FLAG_ON_RELEASED) {
-        Hashmap_Delete(&gui->on_released_events, &node->handle); // Delete on_released event
+        Hashmap_Delete(&__nu_global_gui.on_released_events, &node->handle); // Delete on_released event
     }
-    if (node == gui->hovered_node) {
-        gui->hovered_node = NULL;
+    if (node == __nu_global_gui.hovered_node) {
+        __nu_global_gui.hovered_node = NULL;
     } 
-    if (node == gui->mouse_down_node) {
-        gui->mouse_down_node = NULL;
+    if (node == __nu_global_gui.mouse_down_node) {
+        __nu_global_gui.mouse_down_node = NULL;
     }
 }
 
-void NU_Delete_Childless(struct NU_GUI* gui, struct Node* node)
+static void NU_Delete_Childless(struct Node* node)
 {
     // --------------------------
     // --- Dissociate -----------
     // --------------------------
-    NU_Dissociate_Node(gui, node);
-    NU_Node_Table_Delete(&gui->tree.node_table, node->handle);
+    NU_Dissociate_Node(node);
+    NU_Node_Table_Delete(&__nu_global_gui.tree.node_table, node->handle);
 
     uint32_t node_index = node->index;
     uint32_t node_layer = node->layer;
-    NU_Layer* layer = &gui->tree.layers[node_layer]; 
-    NU_Layer* parent_layer = &gui->tree.layers[node_layer-1];
+    NU_Layer* layer = &__nu_global_gui.tree.layers[node_layer]; 
+    NU_Layer* parent_layer = &__nu_global_gui.tree.layers[node_layer-1];
     struct Node* parent = NU_Layer_Get(parent_layer, node->parent_index);
     node->node_present = false;
     uint32_t layer_node_count = layer->node_count;
@@ -331,7 +324,7 @@ void NU_Delete_Childless(struct NU_GUI* gui, struct Node* node)
         layer->node_count = 0;
         parent->child_count = 0;
         parent->first_child_index = UINT16_MAX;
-        gui->deepest_layer = node_layer - 1;
+        __nu_global_gui.deepest_layer = node_layer - 1;
         return;
     }
 
@@ -350,10 +343,10 @@ void NU_Delete_Childless(struct NU_GUI* gui, struct Node* node)
             dest->index = node_index + i;                                 // Update index
             sib->node_present = false;                                    // Update old position presence
             dest->node_present = true;                                    // Update new position presence
-            NU_Node_Table_Set(&gui->tree.node_table, dest->handle, dest); // Update table mapping
+            NU_Node_Table_Set(&__nu_global_gui.tree.node_table, dest->handle, dest); // Update table mapping
 
             // Update the parent index of sibling's children
-            NU_Layer* sibling_child_layer = &gui->tree.layers[node_layer+1];
+            NU_Layer* sibling_child_layer = &__nu_global_gui.tree.layers[node_layer+1];
             if (dest->child_count > 0) {
                 for (uint32_t c=dest->first_child_index; c<dest->first_child_index + dest->child_count; c++) {
                     NU_Layer_Get(sibling_child_layer, c)->parent_index = dest->index;
@@ -385,10 +378,10 @@ void NU_Delete_Childless(struct NU_GUI* gui, struct Node* node)
         dest->index = node_index + s;                                             // Update index
         dest->node_present = true;                                                // Update new position presence
         sib->node_present = false;                                                // Update old position presence
-        NU_Node_Table_Set(&gui->tree.node_table, dest->handle, dest);             // Update table mapping
+        NU_Node_Table_Set(&__nu_global_gui.tree.node_table, dest->handle, dest);             // Update table mapping
 
         // Update the parent index of this sibling's children
-        NU_Layer* sibling_child_layer = &gui->tree.layers[node_layer+1];
+        NU_Layer* sibling_child_layer = &__nu_global_gui.tree.layers[node_layer+1];
         if (dest->child_count > 0) {
             for (uint16_t c=dest->first_child_index; c<dest->first_child_index + dest->child_count; c++) {
                 NU_Layer_Get(sibling_child_layer, c)->parent_index = dest->index;
@@ -398,7 +391,7 @@ void NU_Delete_Childless(struct NU_GUI* gui, struct Node* node)
     parent->child_count = 0;
 }
 
-void NU_Delete_Node_Branch(struct NU_GUI* gui, struct Node* node)
+static void NU_Delete_Node_Branch(struct Node* node)
 {
     // -------------------------------------------------------------------------------
     // --- Traverse node branch and construct list of ranges (bottom-up) -------------
@@ -407,7 +400,7 @@ void NU_Delete_Node_Branch(struct NU_GUI* gui, struct Node* node)
     struct Vector visit_stack;
     Vector_Reserve(&delete_ranges, sizeof(Node_Delete_Range), 64);
     Vector_Reserve(&visit_stack, sizeof(Node_Delete_Range), 32);
-    NU_Layer* parent_layer = &gui->tree.layers[node->layer-1];
+    NU_Layer* parent_layer = &__nu_global_gui.tree.layers[node->layer-1];
     struct Node* parent = NU_Layer_Get(parent_layer, node->parent_index);
     Node_Delete_Range root_range = { node->index, 1, parent->child_capacity, node->layer };
     Vector_Push(&visit_stack, &root_range);
@@ -418,7 +411,7 @@ void NU_Delete_Node_Branch(struct NU_GUI* gui, struct Node* node)
         bool has_children = false;
         for (uint16_t i=0; i<range.count; i++) 
         {
-            struct Node* current_node = NU_Tree_Get(&gui->tree, range.layer, range.start + i);
+            struct Node* current_node = NU_Tree_Get(&__nu_global_gui.tree, range.layer, range.start + i);
             if (current_node->child_count > 0) 
             {
                 Node_Delete_Range child_range = {
@@ -442,10 +435,10 @@ void NU_Delete_Node_Branch(struct NU_GUI* gui, struct Node* node)
         Node_Delete_Range range = *(Node_Delete_Range*)Vector_Get(&delete_ranges, i);
         for (uint32_t n=range.start; n<range.start + range.count; n++)
         {
-            struct Node* delete_node = NU_Tree_Get(&gui->tree, range.layer, n);
+            struct Node* delete_node = NU_Tree_Get(&__nu_global_gui.tree, range.layer, n);
             delete_node->node_present = false;
-            NU_Dissociate_Node(gui, delete_node);
-            NU_Node_Table_Delete(&gui->tree.node_table, delete_node->handle);
+            NU_Dissociate_Node(delete_node);
+            NU_Node_Table_Delete(&__nu_global_gui.tree.node_table, delete_node->handle);
         }
     }
 
@@ -455,11 +448,11 @@ void NU_Delete_Node_Branch(struct NU_GUI* gui, struct Node* node)
     for (uint32_t i=delete_ranges.size; i-->1; )
     {
         Node_Delete_Range range = *(Node_Delete_Range*)Vector_Get(&delete_ranges, i);
-        NU_Layer* layer = &gui->tree.layers[range.layer];
+        NU_Layer* layer = &__nu_global_gui.tree.layers[range.layer];
 
         // Case 1: Is only sibling group in layer
         if (layer->node_count == range.count) {
-            gui->deepest_layer = range.layer - 1;
+            __nu_global_gui.deepest_layer = range.layer - 1;
             layer->node_count = 0;
             layer->size = 0;
             continue;
@@ -475,7 +468,7 @@ void NU_Delete_Node_Branch(struct NU_GUI* gui, struct Node* node)
         // Case 3: There is a sibling group to the right
         uint32_t next_group_first_idx = range.start + range.capacity;
         struct Node* next_group_first_node = NU_Layer_Get(layer, next_group_first_idx);
-        NU_Layer* next_group_parent_layer = &gui->tree.layers[range.layer - 1];
+        NU_Layer* next_group_parent_layer = &__nu_global_gui.tree.layers[range.layer - 1];
         struct Node* next_group_parent = NU_Layer_Get(next_group_parent_layer, next_group_first_node->parent_index);
 
         // Reduce the layer size if next group is the final group
@@ -495,10 +488,10 @@ void NU_Delete_Node_Branch(struct NU_GUI* gui, struct Node* node)
             dest->index = dst_idx;          // Fix index (FIX: use dst_idx, not range.start + s)
             dest->node_present = true;
             sib->node_present = false;
-            NU_Node_Table_Set(&gui->tree.node_table, dest->handle, dest);
+            NU_Node_Table_Set(&__nu_global_gui.tree.node_table, dest->handle, dest);
 
             // Update the parent index of this sibling's children
-            NU_Layer* sibling_child_layer = &gui->tree.layers[range.layer + 1];
+            NU_Layer* sibling_child_layer = &__nu_global_gui.tree.layers[range.layer + 1];
             if (dest->child_count > 0 && sibling_child_layer->size > 0) {
                 for (uint16_t c = dest->first_child_index; c < dest->first_child_index + dest->child_count; c++) {
                     struct Node* child = NU_Layer_Get(sibling_child_layer, c);
@@ -523,7 +516,7 @@ void NU_Delete_Node_Branch(struct NU_GUI* gui, struct Node* node)
     // ---------------------------------------
     // --- Delete the root delete node -------
     // ---------------------------------------
-    NU_Delete_Childless(gui, node);
+    NU_Delete_Childless(node);
 
     // --------------------
     // --- Free vectors ---
@@ -532,10 +525,10 @@ void NU_Delete_Node_Branch(struct NU_GUI* gui, struct Node* node)
     Vector_Free(&delete_ranges);
 }
 
-void NU_Delete_Node(struct NU_GUI* gui, uint32_t handle)
+void NU_Delete_Node(uint32_t handle)
 {
-    gui->awaiting_draw = true;
-    struct Node* node = NODE(gui, handle);
+    __nu_global_gui.awaiting_draw = true;
+    struct Node* node = NODE(handle);
 
     // Case 1: Deleting root node (Cannot do this!)
     if (node->layer == 0) return;
@@ -549,10 +542,9 @@ void NU_Delete_Node(struct NU_GUI* gui, uint32_t handle)
         // ----------------------------------
         // --- Remove node from tree --------
         // ----------------------------------
-        NU_Delete_Childless(gui, node);
-        // NU_Verify_Tree(gui);
-        if (gui->tree.layers[gui->deepest_layer].node_count == 0) {
-            gui->deepest_layer--;
+        NU_Delete_Childless(node);
+        if (__nu_global_gui.tree.layers[__nu_global_gui.deepest_layer].node_count == 0) {
+            __nu_global_gui.deepest_layer--;
         }
         return;
     }
@@ -561,11 +553,8 @@ void NU_Delete_Node(struct NU_GUI* gui, uint32_t handle)
     // --- Case 2: Deleting node with children ---
     // ----------------------------------------------
     timer_start();
-    NU_Delete_Node_Branch(gui, node);
+    NU_Delete_Node_Branch(node);
     timer_stop();
-
-    // NU_Verify_Tree(gui);
-
     return;
 }
 
@@ -578,12 +567,7 @@ void NU_Reparent_Node(struct Node* node, struct Node* new_parent)
 
 }
 
-void NU_Swap_Nodes(struct Node* node_a, struct Node* node_b)
-{
-
-}
-
-void NU_Insert_Node(struct Node* node, struct Node* parent, int index)
+void NU_Reorder_In_Parent(struct Node* node, uint32_t index) 
 {
 
 }

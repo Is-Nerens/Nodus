@@ -1,6 +1,9 @@
 #define _CRT_SECURE_NO_WARNINGS 
 
 
+
+#include "performance.h"
+
 #include <math.h>
 #include <SDL3/SDL.h>
 #include <GL/glew.h>
@@ -12,113 +15,75 @@
 #include "headers/nodus.h"
 
 
-int ProcessWindowEvents()
-{
-    int isRunning = 1; 
-
-    SDL_Event event;
-    while (SDL_PollEvent(&event)) 
-    {
-        // CLOSE WINDOW EVENT
-        if (event.type == SDL_EVENT_WINDOW_CLOSE_REQUESTED)  {   
-            isRunning = 0;
-        }
-        else if (event.type == SDL_EVENT_QUIT) {
-            isRunning = 0;
-        }
-    }
-
-    return isRunning;
-}
 
 
-void on_click(struct NU_GUI* gui, uint32_t node_handle, void *args) {
-    NU_Delete_Node(gui, node_handle);
-    NU_Calculate(gui);
+void on_click(uint32_t node_handle, void *args) {
+    NU_Delete_Node(node_handle);
     printf("Node Clicked! \n");
 }
 
 int main()
 {
     // Check if SDL initialised
-    if (!SDL_Init(SDL_INIT_VIDEO)) {
+    if (!SDL_Init(SDL_INIT_VIDEO)) 
+    {
         printf("SDL could not initialize! SDL_Error: %s\n", SDL_GetError());
         return -1;
     }
 
-    // Create GUI
-    struct NU_GUI ngui;
-    NU_GUI_Init(&ngui);
-    NU_Load_Font(&ngui, "./fonts/Inter/Inter_Variable_Weight.ttf");
-    if (!NU_From_XML(&ngui, "test.xml")) return -1;
 
-    timer_start();
-    start_measurement();
-
+    // ---------------------------------------
+    // --- Create GUI and apply stylesheet ---
+    // ---------------------------------------
+    NU_Init();
+    NU_Load_Font("./fonts/Inter/Inter_Variable_Weight.ttf");
+    if (!NU_From_XML("test.xml")) return -1;
     struct NU_Stylesheet stylesheet;
     NU_Stylesheet_Create(&stylesheet,"test.css"); 
-    NU_Stylesheet_Apply(&ngui, &stylesheet);
-
-
-    end_measurement();
+    NU_Stylesheet_Apply(&stylesheet);
+    SDL_AddEventWatch(EventWatcher, NULL);
 
 
 
-    // struct Node* btn_node = NU_Get_Node_By_Id(&ngui, "charts-btn");
-    // if (btn_node != NULL) {
-    //     NU_Register_Event(&ngui, btn_node, NULL, on_click, NU_EVENT_ON_CLICK);
-    // }
+    uint32_t test_delete   = NU_Get_Node_By_Id("toolbar");
+    uint32_t test_delete_1 = NU_Get_Node_By_Id("delete-1");
+    uint32_t test_delete_2 = NU_Get_Node_By_Id("delete-2");
+    uint32_t test_delete_3 = NU_Get_Node_By_Id("delete-3");
+    uint32_t test_delete_4 = NU_Get_Node_By_Id("delete-4");
+    NU_Register_Event(test_delete  , NULL, on_click, NU_EVENT_ON_CLICK);
+    NU_Register_Event(test_delete_1, NULL, on_click, NU_EVENT_ON_CLICK);
+    NU_Register_Event(test_delete_2, NULL, on_click, NU_EVENT_ON_CLICK);
+    NU_Register_Event(test_delete_3, NULL, on_click, NU_EVENT_ON_CLICK);
+    NU_Register_Event(test_delete_4, NULL, on_click, NU_EVENT_ON_CLICK);
 
 
-    uint32_t test_delete = NU_Get_Node_By_Id(&ngui, "toolbar");
-    NU_Register_Event(&ngui, test_delete, NULL, on_click, NU_EVENT_ON_CLICK);
-
-    uint32_t test_delete_1 = NU_Get_Node_By_Id(&ngui, "delete-1");
-    uint32_t test_delete_2 = NU_Get_Node_By_Id(&ngui, "delete-2");
-    uint32_t test_delete_3 = NU_Get_Node_By_Id(&ngui, "delete-3");
-    uint32_t test_delete_4 = NU_Get_Node_By_Id(&ngui, "delete-4");
-    NU_Register_Event(&ngui, test_delete_1, NULL, on_click, NU_EVENT_ON_CLICK);
-    NU_Register_Event(&ngui, test_delete_2, NULL, on_click, NU_EVENT_ON_CLICK);
-    NU_Register_Event(&ngui, test_delete_3, NULL, on_click, NU_EVENT_ON_CLICK);
-    NU_Register_Event(&ngui, test_delete_4, NULL, on_click, NU_EVENT_ON_CLICK);
-
-    uint32_t new_node = NU_Create_Node(&ngui, test_delete, RECT);
-    NODE(&ngui, new_node)->pad_top = 20;
-    NODE(&ngui, new_node)->pad_bottom = 20;
-    NODE(&ngui, new_node)->pad_left = 20;
-    NODE(&ngui, new_node)->pad_right = 20;
-    NODE(&ngui, new_node)->text_content = "new node";
- 
+    uint32_t create_node   = NU_Create_Node(test_delete, RECT);
+    uint32_t create_node_2 = NU_Create_Node(test_delete, RECT);
+    NODE(create_node)->text_content   = "created";
+    NODE(create_node_2)->text_content = "created2";
 
 
-    struct NU_Watcher_Data watcher_data = { .ngui = &ngui };
-    SDL_AddEventWatch(ResizingEventWatcher, &watcher_data);
+    NU_Reflow();
+    NU_Mouse_Hover();
+    NU_Draw();
 
-    printf("%llu\n", sizeof(struct Node));
 
-
-    NU_Calculate(&ngui);
-    NU_Draw_Nodes(&ngui);
-    
-    // Application loop
-    int isRunning = 1;
-    while (isRunning)
+    // ------------------------
+    // --- Application loop ---
+    // ------------------------
+    while (NU_Running()) 
     {
-        isRunning = ProcessWindowEvents();
-
-        if (ngui.awaiting_draw) {
-            NU_Calculate(&ngui);
-            NU_Mouse_Hover(&ngui);
-            NU_Draw_Nodes(&ngui);
-            ngui.awaiting_draw = 0;
+        SDL_Event event;
+        if (SDL_WaitEvent(&event)) {
+            EventWatcher(NULL, &event); // you already have this function
         }
-        SDL_Delay(16);
     }
 
-    // Free Memory
-    NU_Tree_Cleanup(&ngui);
-    NU_Stylesheet_Free(&stylesheet);
 
-    // Close SDL
+    // -------------------
+    // --- Free Memory ---
+    // -------------------
+    NU_Quit();
     SDL_Quit();
+    NU_Stylesheet_Free(&stylesheet);
 }

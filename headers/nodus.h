@@ -29,7 +29,7 @@
 enum Tag
 {
     WINDOW,
-    RECT,
+    REC,
     BUTTON,
     GRID,
     TEXT,

@@ -45,12 +45,12 @@ int main()
 
 
 
-    // uint32_t test_delete   = NU_Get_Node_By_Id("toolbar");
+    uint32_t test_delete   = NU_Get_Node_By_Id("toolbar");
     // uint32_t test_delete_1 = NU_Get_Node_By_Id("delete-1");
     // uint32_t test_delete_2 = NU_Get_Node_By_Id("delete-2");
     // uint32_t test_delete_3 = NU_Get_Node_By_Id("delete-3");
     // uint32_t test_delete_4 = NU_Get_Node_By_Id("delete-4");
-    // NU_Register_Event(test_delete  , NULL, on_click, NU_EVENT_ON_CLICK);
+    NU_Register_Event(test_delete  , NULL, on_click, NU_EVENT_ON_CLICK);
     // NU_Register_Event(test_delete_1, NULL, on_click, NU_EVENT_ON_CLICK);
     // NU_Register_Event(test_delete_2, NULL, on_click, NU_EVENT_ON_CLICK);
     // NU_Register_Event(test_delete_3, NULL, on_click, NU_EVENT_ON_CLICK);

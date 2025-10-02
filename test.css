@@ -1,71 +1,94 @@
 window {
-    background: #101317;
+    background: #2f2f2f;
+    pad: 3;
+    gap: 3;
 }
 #toolbar {
     pad: 3;
-    gap: 1;
+    padLeft: 0;
+    padRight: 0;
+    gap: 3;
+    borderRadius: 5;
     grow: h;
-    background: none;
+    background: #2f2f2f;
 }
 .toolbar-item {
     pad: 5;
-    borderColour: #384251;
+    borderColour: #404040;
     border: 1
     borderRadius: 3;
 }
 button {
     width: 150;
     border: 1;
+    borderBottom: 2;
     borderRadius: 3;
-    background: #2c3442;
+    background: #2f2f2f;
     borderColour: #000000;
     textColour: #ffffff;
     pad: 5;
     textAlignH: center;
 }
 button:hover {
-    background: #42392c;
-    borderColour: #bb9640;
+    background: #4b4b4b;
 }
-
+button:press {
+    background: #222222;
+}
 
 
 #side-bar {
     width: 300;
-    background: #101317;
-    borderRadius: 5;
+    background: #2f2f2f;
+    borderColour: #151515;
+    borderRadius: 6;
 }
 #watchlist {
     dir: v;
     grow: b;
-    background: #101317;
+    background: #2f2f2f;
     maxHeight: 500;
-    borderRadius: 3;
+    borderRadiusTopLeft: 5;
+    borderRadiusTopRight: 5;
 }
 #watchlist-searchbar {
     border: 1;
+    borderRadius: 3;
     borderColour: #000000;
     background: #000000;
     pad: 5;
     grow: h;
 }
 #watchlist-searchbar:hover {
-    borderColour: #bb9640;
+    borderColour: #9b5920;
     borderRadius: 3;
 }
 #watchlist-item-header {
+    background: #2f2f2f;
+    borderColour: #151515;
+    borderBottom: 1;
     alignV: center;
     grow: h;
     pad: 5;
 }
+#watchlist-item-container {
+    dir: v;
+    grow: b;
+    background: #2f2f2f;
+}
 .watchlist-item {
-    border: 1;
-    background: #2c3442;
-    borderColour: #000000;
+    border: 0;
+    borderBottom: 1;
+    borderRadius: 0;
+    background: #2f2f2f;
+    borderColour: #151515;
     pad: 5;
     grow: h;
     alignV: center;
-    borderRadius: 3;
+}
+.watchlist-item:hover {
+    background: #9b5920;
+    borderColour: #9b5920;
 }
 .watchlist-text {
     background: none;
@@ -76,32 +99,39 @@ button:hover {
     background: none;
 }
 #watchlist-dom-selector {
+    grow: h;
     dir: h;
-    padTop: 3;
-    padBottom: 3;
-    gap: 3;
-    background: #101317;
+    background: #2f2f2f;
 }
-#watchlist-selector-btn {
-    borderRadius: 3;
+#watchlist-selector-btn, #orderbook-selector-btn {
+    grow: h;
+    pad: 5;
+    border: 0;
+    borderBottom: 3;
+    borderRadius: 0;
+    borderColour: #2f2f2f;
+    background: #2f2f2f;
 }
-#orderbook-selector-btn {
-    borderRadius: 3;
+#watchlist-selector-btn:hover, #orderbook-selector-btn:hover {
+    background: #515151;
+    borderColour: #9b5920;
 }
 
 
 
 #trade-panel {
+    background: #000000;
+    border: 4;
+    borderRadius: 5;
+    pad: 5;
+    borderColour: #151515;
     dir: v;
     grow: b;
-    pad: 3;
-    borderRadius: 5;
 }
 #trade-panel-side-selection {
     dir: h;
     grow: h;
     background: none;
-    pad: 3;
 }
 #buy-side-btn {
     dir: v;
@@ -109,6 +139,7 @@ button:hover {
     borderRadius: 5;
     borderRadiusTopRight: 0;
     borderRadiusBottomRight: 0;
+    background: #02a95b;
 }
 #sell-side-btn {
     dir: v;
@@ -116,47 +147,89 @@ button:hover {
     borderRadius: 5;
     borderRadiusTopLeft: 0;
     borderRadiusBottomLeft: 0;
+    background: #db2626;
 }
 .buy-side-text, .sell-side-text {
     background: none;
     grow: h;
     textAlignH: center;
+    textColour: #000000;
 }   
+.input-label {
+    pad: 3;
+    background: none;
+}
+.number-input {
+    border: 1;
+    borderRadius: 3;
+    borderColour: #2f2f2f;
+    background: #000000;
+    pad: 5;
+    grow: h;
+}
+.number-input:hover {
+    borderColour: #9b5920;
+    borderRadius: 3;
+}
+
+
 
 
 #right-bar {
-    background: #384251;
+    background: none;
+    grow: b;
+    dir: v;
+    gap: 3;
 }
 #chart {
+    border: 4;
+    borderRadius: 5;
+    borderColour: #151515;
     background: #000000;
     grow: b;
 }
 #drawing-toolbar {
-    padLeft: 3;
-    padBottom: 3;
     dir: v;
     grow: v;
-    background: #101317;
+    background: #2f2f2f;
+    borderRadius: 3
+    padTop: 4;
+    padBottom: 4;
 }
 .drawing-tool {
-    width: 42;
-    height: 42;
+    width: 43;
+    height: 40;
     pad: 5;
-    border: 1;
+    border: 0;
+    borderLeft: 3;
+    borderRadius: 0;
+    borderRadiusTopRight: 5;
+    borderRadiusBottomRight: 5;
+    borderColour: #2f2f2f;
+    background: #2f2f2f;
+}
+.drawing-tool:hover {
+    borderColour: #9b5920;
+}
+.drawing-tool:press {
+    borderColour: #9b5920;
+    background: #9b5920;
 }
 
 
 #trade-history-container {
     grow: b;
-    background: #000000;
+    background: #151515;
     maxHeight: 300;
+    borderRadius: 5;
+    gap: 3;
 }
 #trade-history-toolbar {
-    background: #101317;
-    padTop: 3;
-    padBottom: 3;
+    background: #151515;
     grow: h;
     alignV: center;
+    pad: 3;
+    borderRadius: 5;
 }
 .page-icon {
     width: 30;

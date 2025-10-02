@@ -46,7 +46,7 @@ static const uint8_t keyword_lengths[] = {
     10, 12, 10,            // background, border, text colour
     6, 9, 12, 10, 11,      // border width
     12, 19, 20, 22, 23,    // border radius
-    3, 6, 9, 7, 11,        // padding
+    3, 6, 9, 7, 8,         // padding
     8,                     // image src
     6, 4, 6, 4, 4, 5       // selectors
 };
@@ -564,12 +564,15 @@ static int NU_Generate_Tree(char* src_buffer, uint32_t src_length, struct Vector
                 // -------------------------------
                 // Add node to parent's child list
                 // -------------------------------
-                struct Node* parentNode = NU_Tree_Get(&__nu_global_gui.tree, current_layer, current_node->parent_index);
-                if (parentNode->child_count == 0) {
-                    parentNode->first_child_index = current_node->index;
+                struct Node* parent_node = NU_Tree_Get(&__nu_global_gui.tree, current_layer, current_node->parent_index);
+                if (current_node->tag != WINDOW) { // Inherit window from parent
+                    current_node->window = parent_node->window;
+                } 
+                if (parent_node->child_count == 0) {
+                    parent_node->first_child_index = current_node->index;
                 }
-                parentNode->child_count += 1;
-                parentNode->child_capacity += 1;
+                parent_node->child_count += 1;
+                parent_node->child_capacity += 1;
 
                 current_layer++; // Move one layer deeper
                 __nu_global_gui.deepest_layer = MAX(__nu_global_gui.deepest_layer, current_layer);

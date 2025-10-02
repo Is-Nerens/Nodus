@@ -8,6 +8,9 @@
 
 GLuint Border_Rect_Shader_Program;
 GLuint Image_Shader_Program;
+GLuint border_vao, border_vbo, border_ebo;
+GLint uScreenWidthLoc, uScreenHeightLoc;
+
 
 static GLuint Compile_Shader(GLenum type, const char* src) 
 {
@@ -97,6 +100,24 @@ void NU_Draw_Init()
 
     Border_Rect_Shader_Program = Create_Shader_Program(border_rect_vertex_src, border_rect_fragment_src);
     Image_Shader_Program = Create_Shader_Program(image_vertex_src, image_fragment_src);
+
+
+
+    // Query uniforms once
+    uScreenWidthLoc  = glGetUniformLocation(Border_Rect_Shader_Program, "uScreenWidth");
+    uScreenHeightLoc = glGetUniformLocation(Border_Rect_Shader_Program, "uScreenHeight");
+    // VAO + buffers
+    glGenVertexArrays(1, &border_vao);
+    glBindVertexArray(border_vao);
+    glGenBuffers(1, &border_vbo);
+    glBindBuffer(GL_ARRAY_BUFFER, border_vbo);
+    glVertexAttribPointer(0, 2, GL_FLOAT, GL_FALSE, sizeof(vertex_rgb), (void*)0); // x,y
+    glEnableVertexAttribArray(0);
+    glVertexAttribPointer(1, 3, GL_FLOAT, GL_TRUE, sizeof(vertex_rgb), (void*)(2 * sizeof(float))); // r,g,b
+    glEnableVertexAttribArray(1);
+    glGenBuffers(1, &border_ebo);
+    glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, border_ebo);
+    glBindVertexArray(0); // done
 }
 
 // -------------------------------------------------
@@ -429,26 +450,15 @@ void Construct_Border_Rect(
 void Draw_Vertex_RGB_List(Vertex_RGB_List* vertices, Index_List* indices, float screen_width, float screen_height)
 {
     glUseProgram(Border_Rect_Shader_Program);
-    GLuint vao, vbo, ebo;
-    glGenVertexArrays(1, &vao);
-    glUniform1f(glGetUniformLocation(Border_Rect_Shader_Program, "uScreenWidth"), screen_width);
-    glUniform1f(glGetUniformLocation(Border_Rect_Shader_Program, "uScreenHeight"), screen_height);
-    glBindVertexArray(vao);
-    glGenBuffers(1, &vbo);
-    glBindBuffer(GL_ARRAY_BUFFER, vbo);
-    glBufferData(GL_ARRAY_BUFFER, vertices->size * sizeof(vertex_rgb), vertices->array, GL_STATIC_DRAW);
-    glGenBuffers(1, &ebo);
-    glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, ebo);
-    glBufferData(GL_ELEMENT_ARRAY_BUFFER, indices->size * sizeof(GLuint), indices->array, GL_STATIC_DRAW);
-    glVertexAttribPointer(0, 2, GL_FLOAT, GL_FALSE, sizeof(vertex_rgb), (void*)0); // x, y
-    glEnableVertexAttribArray(0);
-    glVertexAttribPointer(1, 3, GL_FLOAT, GL_TRUE, sizeof(vertex_rgb), (void*)(2 * sizeof(float))); // r,g,b
-    glEnableVertexAttribArray(1);
-    glBindVertexArray(vao);
+    glUniform1f(uScreenWidthLoc, screen_width);
+    glUniform1f(uScreenHeightLoc, screen_height);
+    glBindBuffer(GL_ARRAY_BUFFER, border_vbo);
+    glBufferData(GL_ARRAY_BUFFER, vertices->size * sizeof(vertex_rgb), vertices->array, GL_DYNAMIC_DRAW);
+    glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, border_ebo);
+    glBufferData(GL_ELEMENT_ARRAY_BUFFER, indices->size * sizeof(GLuint), indices->array, GL_DYNAMIC_DRAW);
+    glBindVertexArray(border_vao);
     glDrawElements(GL_TRIANGLES, indices->size, GL_UNSIGNED_INT, 0);
-    glDeleteBuffers(1, &vbo);
-    glDeleteBuffers(1, &ebo);
-    glDeleteVertexArrays(1, &vao);
+    glBindVertexArray(0);
 }
 
 

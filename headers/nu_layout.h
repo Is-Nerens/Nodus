@@ -1,4 +1,5 @@
 #define NANOVG_GL3_IMPLEMENTATION
+#include <omp.h>
 #include <nanovg.h>
 #include <nanovg_gl.h>
 #include <freetype/freetype.h>
@@ -13,55 +14,34 @@
 // ---------------------------
 // --- UI layout -------------
 // ---------------------------
-static void NU_Reset_Node_size(struct Node* node)
-{
-    node->x = 0.0f;
-    node->y = 0.0f;
-    node->width = max(node->preferred_width, node->border_left + node->border_right + node->pad_left + node->pad_right);
-    node->height = max(node->preferred_height, node->border_top + node->border_bottom + node->pad_top + node->pad_bottom);
-}
 
 static void NU_Clear_Node_Sizes()
 {
-    // Don't skip the root
-    struct Node* root = NU_Tree_Get(&__nu_global_gui.tree, 0, 0); 
-    NU_Reset_Node_size(root);
-    SDL_SetWindowMinimumSize(root->window, root->min_width, root->min_height);
-
-    // For each layer
+    // Iterate Over Every Node
     for (uint16_t l=0; l<=__nu_global_gui.deepest_layer; l++)
     {
-        NU_Layer* parent_layer = &__nu_global_gui.tree.layers[l];
-        NU_Layer* child_layer = &__nu_global_gui.tree.layers[l+1];
+        NU_Layer* layer = &__nu_global_gui.tree.layers[l];
 
-        for (int p=0; p<parent_layer->size; p++)
-        {       
-            struct Node* parent = NU_Layer_Get(parent_layer, p);
-            if (!parent->node_present) continue;
+        for (int i=0; i<layer->size; i++)
+        {
+            struct Node* node = &layer->node_array[i];
+            if (!node->node_present) continue;
 
-            // If parent is window node and has no SDL window assigned to it -> create a new window and renderer
-            if (parent->tag == WINDOW && l != 0) {
-                SDL_SetWindowMinimumSize(parent->window, parent->min_width, parent->min_height);
-            }
-
-            if (parent->child_count == 0) continue; // Skip acummulating child sizes (no children)
-
-            for (uint16_t i=parent->first_child_index; i<parent->first_child_index + parent->child_count; i++)
-            {
-                struct Node* child = NU_Layer_Get(child_layer, i);
-
-                // Inherit window and renderer from parent
-                if (child->tag != WINDOW && child->window == NULL) {
-                    child->window = parent->window;
-                }
-
-                NU_Reset_Node_size(child);
-            }
+            // Reset Node Size
+            node->x = 0.0f;
+            node->y = 0.0f;
+            node->width = max(node->preferred_width, node->border_left + node->border_right + node->pad_left + node->pad_right);
+            node->height = max(node->preferred_height, node->border_top + node->border_bottom + node->pad_top + node->pad_bottom);
+            
+            // Enforce Window Dimensions (This is very slow and must not be done each time I call Reflow!!!)
+            // if (node->tag == WINDOW) {
+            //     SDL_SetWindowMinimumSize(node->window, node->min_width, node->min_height);
+            // }
         }
     }
 }
 
-static void NU_Calculate_Text_Min_Width(struct Node* node)
+static void NU_Calculate_Text_Min_Width(struct Node* node, float full_width)
 {
     const char* text = node->text_content;
     if (!text || !*text) return; // empty string guard
@@ -84,31 +64,22 @@ static void NU_Calculate_Text_Min_Width(struct Node* node)
     }
 
     if (max_word_width == 0.0f && len > 0) { // no spaces, measure whole string
-        float bounds[4];
-        nvgTextBounds(__nu_global_gui.vg_ctx, 0, 0, text, NULL, bounds);
-        max_word_width = bounds[2] - bounds[0];
+        max_word_width = full_width;
     }
 
     float text_controlled_min_width = max_word_width + node->pad_left + node->pad_right + node->border_left + node->border_right;
     node->min_width = max(node->min_width, text_controlled_min_width);
 }
 
-static void NU_Calculate_Text_Fit_Size(struct Node* node)
+static void NU_Calculate_Text_Fit_Size(struct Node* node, float asc, float desc, float lh)
 {
-    // Make sure the NanoVG context has the correct font/size set before measuring!
-    int fontID = *(int*) Vector_Get(&__nu_global_gui.font_registry, 0);
-    nvgFontFaceId(__nu_global_gui.vg_ctx, fontID);   
-    nvgFontSize(__nu_global_gui.vg_ctx, 18);
-
     // Calculate text bounds
-    float asc, desc, lh;
     float bounds[4];
-    nvgTextMetrics(__nu_global_gui.vg_ctx, &asc, &desc, &lh);
     nvgTextBounds(__nu_global_gui.vg_ctx, 0, 0, node->text_content, NULL, bounds);
     float text_width = bounds[2] - bounds[0];
     float text_height = lh;
     
-    NU_Calculate_Text_Min_Width(node);
+    NU_Calculate_Text_Min_Width(node, text_width);
     
     if (node->preferred_width == 0.0f) {
         node->width = text_width + node->pad_left + node->pad_right + node->border_left + node->border_right;
@@ -121,24 +92,27 @@ static void NU_Calculate_Text_Fit_Size(struct Node* node)
 
 static void NU_Calculate_Text_Fit_Sizes()
 {
-    // Don't skip the root
-    struct Node* root = NU_Tree_Get(&__nu_global_gui.tree, 0, 0); 
-    if (root->text_content != NULL) {
-        NU_Calculate_Text_Fit_Size(root);
-    }
+    // This needs to be recomputed when a node uses a different font!
+    float asc, desc, lh;
+    int fontID = *(int*) Vector_Get(&__nu_global_gui.font_registry, 0);
+    nvgFontFaceId(__nu_global_gui.vg_ctx, fontID);   
+    nvgFontSize(__nu_global_gui.vg_ctx, 14);
+    nvgTextMetrics(__nu_global_gui.vg_ctx, &asc, &desc, &lh);
 
 
     // For each layer
     for (uint16_t l=0; l<=__nu_global_gui.deepest_layer; l++)
     {
         NU_Layer* layer = &__nu_global_gui.tree.layers[l];
+
+        #pragma omp parallel for
         for (uint32_t n=0; n<layer->size; n++)
         {   
-            struct Node* node = NU_Layer_Get(layer, n);
+            struct Node* node = &layer->node_array[n];
             if (!node->node_present) continue;
 
             if (node->text_content != NULL) {
-                NU_Calculate_Text_Fit_Size(node);
+                NU_Calculate_Text_Fit_Size(node, asc, desc, lh);
             }
         }
     }
@@ -497,7 +471,7 @@ static void NU_Calculate_Text_Wrap_Height(struct Node* node)
     // Configure font
     int fontID = *(int*) Vector_Get(&__nu_global_gui.font_registry, 0);
     nvgFontFaceId(__nu_global_gui.vg_ctx, fontID);   
-    nvgFontSize(__nu_global_gui.vg_ctx, 18);
+    nvgFontSize(__nu_global_gui.vg_ctx, 14);
 
     // Compute available inner width
     float inner_width = node->width - node->border_left - node->border_right - node->pad_left - node->pad_right;
@@ -512,12 +486,7 @@ static void NU_Calculate_Text_Wrap_Height(struct Node* node)
 
 static void NU_Calculate_Text_Wrap_Heights()
 {
-    // Don't skip the root
-    struct Node* root = NU_Tree_Get(&__nu_global_gui.tree, 0, 0); 
-    if (root->text_content != NULL) {
-        NU_Calculate_Text_Wrap_Height(root);
-    }
-
+    #pragma omp parallel for
     for (uint16_t l=0; l<=__nu_global_gui.deepest_layer; l++)
     {
         NU_Layer* layer = &__nu_global_gui.tree.layers[l];
@@ -525,7 +494,7 @@ static void NU_Calculate_Text_Wrap_Heights()
         // Iterate over layer
         for (int i=0; i<layer->size; i++)
         {       
-            struct Node* node = NU_Layer_Get(layer, i);
+            struct Node* node = &layer->node_array[i];
             if (!node->node_present) continue;
             if (node->text_content != NULL) {
                 NU_Calculate_Text_Wrap_Height(node);
@@ -662,10 +631,10 @@ void NU_Mouse_Hover()
     // --------------------------------------
     // --- Clear ui tree hovered nodes vector
     // --------------------------------------
-    if (__nu_global_gui.hovered_node != NULL) {
+    if (__nu_global_gui.hovered_node != NULL && __nu_global_gui.hovered_node != __nu_global_gui.mouse_down_node) {
         NU_Apply_Stylesheet_To_Node(__nu_global_gui.hovered_node, __nu_global_gui.stylesheet);
-        __nu_global_gui.hovered_node = NULL;
     }
+    __nu_global_gui.hovered_node = NULL;
 
     if (__nu_global_gui.hovered_window == NULL) return;
 
@@ -729,7 +698,7 @@ void NU_Mouse_Hover()
     }
 
     // Set currently hovered node
-    if (__nu_global_gui.hovered_node != NULL) {
+    if (__nu_global_gui.hovered_node != NULL && __nu_global_gui.hovered_node != __nu_global_gui.mouse_down_node) {
         NU_Apply_Pseudo_Style_To_Node(__nu_global_gui.hovered_node, __nu_global_gui.stylesheet, PSEUDO_HOVER);
     } 
     Vector_Free(&stack);
@@ -741,41 +710,37 @@ void NU_Mouse_Hover()
 // -----------------------------
 // --- Rendering ---------------
 // -----------------------------
-void NU_Draw_Node_Text(struct Node* node, NVGcontext* vg)
+void NU_Draw_Node_Text(struct Node* node, float desc)
 {
-    // Setup font
-    int fontID = *(int*) Vector_Get(&__nu_global_gui.font_registry, 0);
-    nvgFontFaceId(vg, fontID);   
-    nvgFontSize(vg, 18);
-
-    // Text color and alignment
-    nvgFillColor(vg, nvgRGB(node->text_r, node->text_g, node->text_b));
-    nvgTextAlign(vg, NVG_ALIGN_LEFT | NVG_ALIGN_TOP);
-
-    float asc, desc, lh;
-    nvgTextMetrics(__nu_global_gui.vg_ctx, &asc, &desc, &lh);
+    nvgFillColor(__nu_global_gui.vg_ctx, nvgRGB(node->text_r, node->text_g, node->text_b));
 
     // Compute inner dimensions (content area)
     float inner_width  = node->width  - node->border_left - node->border_right - node->pad_left - node->pad_right;
     float inner_height = node->height - node->border_top  - node->border_bottom - node->pad_top - node->pad_bottom;
-
-
-
     float remaining_w = inner_width  - node->content_width;
     float remaining_h = inner_height - node->content_height;
     float x_align_offset = remaining_w * 0.5f * (float)node->horizontal_text_alignment;
     float y_align_offset = remaining_h * 0.5f * (float)node->vertical_text_alignment;
 
-    // printf("x align offset: %f\n", x_align_offset);
-    // printf("horizontal align val: %f\n", (float)node->horizontal_text_alignment);
-
     // Top-left corner of the content area
     float textPosX = node->x + node->border_left + node->pad_left + x_align_offset;
     float textPosY = node->y + node->border_top  + node->pad_top - desc * 0.5f + y_align_offset;
 
-
     // Draw wrapped text inside inner_width
-    nvgTextBox(vg, floorf(textPosX), floorf(textPosY), inner_width, node->text_content, NULL);
+    nvgTextBox(__nu_global_gui.vg_ctx, floorf(textPosX), floorf(textPosY), inner_width, node->text_content, NULL);
+}
+
+static bool Is_Node_Visible(struct Node* node, float window_width, float window_height)
+{
+    // Compute the node's content rectangle
+    float left   = node->x;
+    float top    = node->y;
+    float right  = left + node->width  - node->border_left - node->border_right - node->pad_left - node->pad_right;
+    float bottom = top  + node->height - node->border_top  - node->border_bottom - node->pad_top - node->pad_bottom;
+
+    // Check for any overlap with the window bounds
+    bool visible = !(right < 0 || bottom < 0 || left > window_width || top > window_height);
+    return visible;
 }
 
 void NU_Draw()
@@ -800,6 +765,11 @@ void NU_Draw()
             for (uint32_t i=0; i<__nu_global_gui.windows.size; i++)
             {
                 SDL_Window* window = *(SDL_Window**) Vector_Get(&__nu_global_gui.windows, i);
+                int w, h;
+                SDL_GetWindowSize(window, &w, &h);
+
+                if (!Is_Node_Visible(node, (float)w, (float)h)) break;
+
                 if (window == node->window)
                 {
                     Vector_Push(&window_nodes_list[i], &node);
@@ -819,6 +789,8 @@ void NU_Draw()
         // Clear the window
         int w, h;
         SDL_GetWindowSize(window, &w, &h);
+        float w_fl = (float)w;
+        float h_fl = (float)h;
         glViewport(0, 0, w, h);
         glClearColor(0.0f, 0.0f, 0.0f, 1.0f); 
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT | GL_STENCIL_BUFFER_BIT);
@@ -830,18 +802,25 @@ void NU_Draw()
         Vertex_RGB_List_Init(&border_rect_vertices, 5000);
         Index_List_Init(&border_rect_indices, 15000);
 
-
         // Construct border rect vertices and indices for each node
         for (int n=0; n<window_nodes_list[i].size; n++)
         {
             struct Node* node = *(struct Node**) Vector_Get(&window_nodes_list[i], n);
-            Construct_Border_Rect(node, (float)w, (float)h, &border_rect_vertices, &border_rect_indices);
+            Construct_Border_Rect(node, w_fl, h_fl, &border_rect_vertices, &border_rect_indices);
         }
 
         // Draw all border rects in one pass
-        Draw_Vertex_RGB_List(&border_rect_vertices, &border_rect_indices, (float)w, (float)h);
+        Draw_Vertex_RGB_List(&border_rect_vertices, &border_rect_indices, w_fl, h_fl);
         Vertex_RGB_List_Free(&border_rect_vertices);
         Index_List_Free(&border_rect_indices);
+    
+        // Select font
+        int fontID = *(int*) Vector_Get(&__nu_global_gui.font_registry, 0);
+        nvgFontFaceId(__nu_global_gui.vg_ctx, fontID);   
+        nvgFontSize(__nu_global_gui.vg_ctx, 14);
+        nvgTextAlign(__nu_global_gui.vg_ctx, NVG_ALIGN_LEFT | NVG_ALIGN_TOP);
+        float asc, desc, lh;
+        nvgTextMetrics(__nu_global_gui.vg_ctx, &asc, &desc, &lh);
 
         // Draw images and text for each node
         for (int n=0; n<window_nodes_list[i].size; n++)
@@ -856,13 +835,8 @@ void NU_Draw()
             }
 
             // Draw text
-            if (node->text_content != NULL)
-            {
-                NU_Draw_Node_Text(node, __nu_global_gui.vg_ctx);
-            }
+            if (node->text_content != NULL) NU_Draw_Node_Text(node, desc);
         }
-
-
 
         // Render to window
         nvgEndFrame(__nu_global_gui.vg_ctx);

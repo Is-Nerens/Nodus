@@ -60,10 +60,15 @@ bool EventWatcher(void* data, SDL_Event* event)
         case SDL_EVENT_MOUSE_MOTION:
             Uint32 id = event->motion.windowID;
             __nu_global_gui.hovered_window = SDL_GetWindowFromID(id);
-            draw = true;
+            struct Node* hovered_node = __nu_global_gui.hovered_node;
+            NU_Mouse_Hover();
+            if (hovered_node != __nu_global_gui.hovered_node) draw = true;
             break;
         case SDL_EVENT_MOUSE_BUTTON_DOWN:
             __nu_global_gui.mouse_down_node = __nu_global_gui.hovered_node;
+            if (__nu_global_gui.mouse_down_node != NULL) {
+                NU_Apply_Pseudo_Style_To_Node(__nu_global_gui.hovered_node, __nu_global_gui.stylesheet, PSEUDO_PRESS);
+            }
             draw = true;
             break;
         case SDL_EVENT_WINDOW_FOCUS_GAINED:
@@ -71,19 +76,29 @@ bool EventWatcher(void* data, SDL_Event* event)
             draw = true;
             break;
         case SDL_EVENT_MOUSE_BUTTON_UP:
-            if (__nu_global_gui.mouse_down_node != NULL 
-                && __nu_global_gui.mouse_down_node == __nu_global_gui.hovered_node 
-                && __nu_global_gui.hovered_node->event_flags & NU_EVENT_FLAG_ON_CLICK) 
+            if (__nu_global_gui.mouse_down_node != NULL)
             {
-            
-                void* found_cb = Hashmap_Get(&__nu_global_gui.on_click_events, &__nu_global_gui.hovered_node->handle);
-                if (found_cb != NULL)
-                {
-                    struct NU_Callback_Info* cb_info = (struct NU_Callback_Info*)found_cb;
-                    cb_info->callback(cb_info->handle, cb_info->args);
+                if (__nu_global_gui.mouse_down_node == __nu_global_gui.hovered_node) 
+                { 
+                    // Apply hover style
+                    NU_Apply_Pseudo_Style_To_Node(__nu_global_gui.mouse_down_node, __nu_global_gui.stylesheet, PSEUDO_HOVER);
+
+                    if (__nu_global_gui.hovered_node->event_flags & NU_EVENT_FLAG_ON_CLICK) 
+                    {
+                        void* found_cb = Hashmap_Get(&__nu_global_gui.on_click_events, &__nu_global_gui.hovered_node->handle);
+                        if (found_cb != NULL) {
+                            struct NU_Callback_Info* cb_info = (struct NU_Callback_Info*)found_cb;
+                            cb_info->callback(cb_info->handle, cb_info->args);
+                        }
+                    }
+                    draw = true;
+                }
+                else { // Apply press style
+                    NU_Apply_Stylesheet_To_Node(__nu_global_gui.mouse_down_node, __nu_global_gui.stylesheet);
+                    draw = true;
                 }
 
-                draw = true;
+                __nu_global_gui.mouse_down_node = NULL;
             }
             break;
         default:
@@ -91,15 +106,13 @@ bool EventWatcher(void* data, SDL_Event* event)
     }    
 
     if (draw) {
-        // timer_start();
+        timer_start();
         NU_Reflow();
         // timer_stop();
         // timer_start();
-        NU_Mouse_Hover();
         // timer_stop();
-        // timer_start();
         NU_Draw();
-        // timer_stop();
+        timer_stop();
 
         // printf("\n\n");
     }

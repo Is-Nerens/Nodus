@@ -133,9 +133,12 @@ void Generate_Corner_Segment(
     float b_r, float b_g, float b_b,
     float bg_r, float bg_g, float bg_b, 
     int cp, 
-    int vertex_offset, int index_offset, 
     int corner_index, bool hide_background)
 {
+
+    int vertex_offset = vertices->size;
+    vertices->size += hide_background ? 2 * cp : 3 * cp + 1;
+
     if (cp == 1)
     {           
         // --- Calculate inner vertex_rgb offsets based on corner index ---
@@ -181,13 +184,11 @@ void Generate_Corner_Segment(
 
     // --- Precomputations ---
     float angle_step = (angle_end - angle_start) / (cp - 1);
-    float division_cache = 1.0f / (cp - 1);
     float current_angle = angle_start;
     float sin_current = sinf(current_angle);
     float cos_current = cosf(current_angle);
     float cos_step = cosf(angle_step);
     float sin_step = sinf(angle_step);
-    const float PI = 3.14159265f;
 
     // --- Inside radius, axis elliptical squish and border thickness ---
     float dir_x = (corner_index == 1 || corner_index == 3) ? 1.0f : -1.0f; // left/right
@@ -196,7 +197,6 @@ void Generate_Corner_Segment(
     float border_thickness_y = (dir_y < 0) ? border_thickness_end : border_thickness_start;
     float inner_radius_x = radius - border_thickness_x;
     float inner_radius_y = radius - border_thickness_y;
-
     int outer_background_offset = vertex_offset + 2 * cp;
     int inner_background_offset = outer_background_offset + cp;
 
@@ -212,76 +212,78 @@ void Generate_Corner_Segment(
     }
 
     // --- Generate vertices ---
+    // --- Handles three possible cases for how the inner curve should be handled. This looks rediculous but is a necessary optimisation to remove 6 if statements ---
+    float x_curve_factor    = inner_radius_x > 0.0f ? 1.0f : 0.0f; // Precompute curve/straight factors
+    float y_curve_factor    = inner_radius_y > 0.0f ? 1.0f : 0.0f;
+    float x_straight_factor = 1.0f - x_curve_factor;
+    float y_straight_factor = 1.0f - y_curve_factor;
+    static const float sx[4] = { -1.0f, -1.0f,  1.0f,  1.0f }; // Precompute straight edge offsets for each corner
+    static const float sy[4] = { -1.0f,  1.0f,  1.0f, -1.0f };
+    float inner_x_straight_term = x_straight_factor * sx[corner_index] * (border_thickness_x - radius); // Straight contributions (lookup-based, branchless)
+    float inner_y_straight_term = y_straight_factor * sy[corner_index] * (border_thickness_y - radius);
+    vertex_rgb* inner_ptr = &vertices->array[vertex_offset];
+    vertex_rgb* outer_ptr = &vertices->array[vertex_offset + cp];
+    vertex_rgb* outer_bg_ptr = hide_background ? NULL : &vertices->array[outer_background_offset];
     for (int i=0; i<cp; i++) 
     {
+        // --- Rotate angle (sine/cosine) ---
         float sin_a = sin_current * cos_step + cos_current * sin_step;
         float cos_a = cos_current * cos_step - sin_current * sin_step;
         sin_current = sin_a;
         cos_current = cos_a;
-        int inner_offset = vertex_offset + i;
-        int outer_offset = vertex_offset + i + cp;
 
-        // --- Handles three possible cases for how the inner curve should be handled. This looks rediculous but is a necessary optimisation to remove 6 if statements ---
-        float x_curve_factor    = inner_radius_x > 0.0f ? 1.0f : 0.0f; // Precompute curve/straight factors
-        float y_curve_factor    = inner_radius_y > 0.0f ? 1.0f : 0.0f;
-        float x_straight_factor = 1.0f - x_curve_factor;
-        float y_straight_factor = 1.0f - y_curve_factor;
-        static const float sx[4] = { -1.0f, -1.0f,  1.0f,  1.0f }; // Precompute straight edge offsets for each corner
-        static const float sy[4] = { -1.0f,  1.0f,  1.0f, -1.0f };
-        float inner_x_curve_term = x_curve_factor * inner_radius_x * cos_a; // Curve contributions
-        float inner_y_curve_term = y_curve_factor * inner_radius_y * sin_a;
-        float inner_x_straight_term = x_straight_factor * sx[corner_index] * (border_thickness_x - radius); // Straight contributions (lookup-based, branchless)
-        float inner_y_straight_term = y_straight_factor * sy[corner_index] * (border_thickness_y - radius);
+        // --- Compute inner vertex ---
+        float inner_x = anchor.x + inner_radius_x * cos_a * x_curve_factor + inner_x_straight_term;
+        float inner_y = anchor.y + inner_radius_y * sin_a * y_curve_factor + inner_y_straight_term;
+        inner_ptr[i].x = inner_x;
+        inner_ptr[i].y = inner_y;
+        inner_ptr[i].r = b_r;
+        inner_ptr[i].g = b_g;
+        inner_ptr[i].b = b_b;
 
-        // --- Inner border curve vertex_rgb ---
-        vertices->array[inner_offset].x = anchor.x + inner_x_curve_term + inner_x_straight_term;
-        vertices->array[inner_offset].y = anchor.y + inner_y_curve_term + inner_y_straight_term;
-        vertices->array[inner_offset].r = b_r;
-        vertices->array[inner_offset].g = b_g;
-        vertices->array[inner_offset].b = b_b;
+        // --- Compute outer vertex ---
+        outer_ptr[i].x = anchor.x + cos_a * radius;
+        outer_ptr[i].y = anchor.y + sin_a * radius;
+        outer_ptr[i].r = b_r;
+        outer_ptr[i].g = b_g;
+        outer_ptr[i].b = b_b;
 
-        // --- Outer border curve vertex_rgb ---
-        vertices->array[outer_offset].x = anchor.x + cos_a * radius; // Outer vertex_rgb interpolated radius
-        vertices->array[outer_offset].y = anchor.y + sin_a * radius;
-        vertices->array[outer_offset].r = b_r;
-        vertices->array[outer_offset].g = b_g;
-        vertices->array[outer_offset].b = b_b;
-
-        // --- Outer background vertex_rgb ---
+        // --- Compute background vertex ---
         if (!hide_background) {
-            vertices->array[outer_background_offset + i].x = vertices->array[inner_offset].x;
-            vertices->array[outer_background_offset + i].y = vertices->array[inner_offset].y;
-            vertices->array[outer_background_offset + i].r = bg_r;
-            vertices->array[outer_background_offset + i].g = bg_g;
-            vertices->array[outer_background_offset + i].b = bg_b;
+            outer_bg_ptr[i].x = inner_x;
+            outer_bg_ptr[i].y = inner_y;
+            outer_bg_ptr[i].r = bg_r;
+            outer_bg_ptr[i].g = bg_g;
+            outer_bg_ptr[i].b = bg_b;
         }
     }
 
     // --- Generate indices ---
-    int bg_index_offset = index_offset + (cp-1) * 6;
-    for (int i=0; i<cp-1; i++) 
+    int index_offset = indices->size;
+    indices->size += hide_background ? (cp - 1) * 6 : (cp - 1) * 6 + (cp - 1) * 3;
+    int bg_offset = index_offset + (cp-1) * 6;
+    for (int i = 0; i < cp - 1; i++) 
     {
-        // --- border curve indices ---
+        // --- Border curve indices ---
         int idx_inner0 = vertex_offset + i;
-        int idx_inner1 = vertex_offset + i + 1;
-        int idx_outer0 = vertex_offset + i + cp;
-        int idx_outer1 = vertex_offset + i + 1 + cp;
-        int offset = index_offset + i * 6;
-        indices->array[offset + 0] = idx_inner0; // First triangle
-        indices->array[offset + 1] = idx_outer0;
-        indices->array[offset + 2] = idx_outer1;
-        indices->array[offset + 3] = idx_inner0; // Second triangle
-        indices->array[offset + 4] = idx_outer1;
-        indices->array[offset + 5] = idx_inner1;
+        int idx_inner1 = idx_inner0 + 1;
+        int idx_outer0 = idx_inner0 + cp;
+        int idx_outer1 = idx_outer0 + 1;
+        indices->array[index_offset + 0] = idx_inner0;
+        indices->array[index_offset + 1] = idx_outer0;
+        indices->array[index_offset + 2] = idx_outer1;
+        indices->array[index_offset + 3] = idx_inner0;
+        indices->array[index_offset + 4] = idx_outer1;
+        indices->array[index_offset + 5] = idx_inner1;
+        index_offset += 6;
 
-        // --- background indices ---
+        // --- Background indices ---
         int idx0 = outer_background_offset + i;
-        int idx1 = outer_background_offset + i + 1;
-        int idx_center = inner_background_offset;
-        int bg_offset = bg_index_offset + i * 3;
-        indices->array[bg_offset + 0] = idx_center;  
-        indices->array[bg_offset + 1] = idx0;       
-        indices->array[bg_offset + 2] = idx1;      
+        int idx1 = idx0 + 1;
+        indices->array[bg_offset + 0] = inner_background_offset;
+        indices->array[bg_offset + 1] = idx0;
+        indices->array[bg_offset + 2] = idx1;
+        bg_offset += 3;
     }
 }
 
@@ -327,124 +329,92 @@ void Construct_Border_Rect(
     vec2 br_a              = { node->x + node->width - node->border_radius_br, node->y + node->height - node->border_radius_br };
 
     // --- Allocate extra space in vertex and index lists ---
-    int vertex_offset = vertices->size;
-    int index_count = indices->size;
     uint32_t additional_vertices = node->hide_background ? total_pts * 2 + 4 : total_pts * 3 + 4;    // each corner contributes 3*cp + 1 verts
     uint32_t additional_indices = (total_pts - 4) * 6                                                // curved edges
                                   + 24                                                               // straight sides
                                   + (node->hide_background ? 0 : (total_pts - 4) * 3 + 30);          // background tris
-    if (vertices->size + additional_vertices > vertices->capacity) {
-        Vertex_RGB_List_Grow(vertices, additional_vertices);
-    }
-    if (indices->size + additional_indices > indices->capacity) {
-        Index_List_Grow(indices, additional_indices);
-    }
-    vertices->size += additional_vertices;
-    indices->size += additional_indices;
+    if (vertices->size + additional_vertices > vertices->capacity) Vertex_RGB_List_Grow(vertices, additional_vertices);
+    if (indices->size + additional_indices > indices->capacity) Index_List_Grow(indices, additional_indices);
 
-    
 
     // --- Generate corner vertices and indices ---
-    int TL = vertex_offset;
-    Generate_Corner_Segment(vertices, indices, tl_a, PI, 1.5f * PI, node->border_radius_tl, node->border_left, node->border_top, node->width, node->height, border_r_fl, border_g_fl, border_b_fl, bg_r_fl, bg_g_fl, bg_b_fl, tl_pts, vertex_offset, index_count, 0, node->hide_background);
-    vertex_offset += node->hide_background ? 2 * tl_pts : 3 * tl_pts + 1;
-    index_count += node->hide_background ? (tl_pts - 1) * 6 : (tl_pts - 1) * 6 + (tl_pts - 1) * 3;
+    int TL = vertices->size;
+    Generate_Corner_Segment(vertices, indices, tl_a, PI, 1.5f * PI, node->border_radius_tl, node->border_left, node->border_top, node->width, node->height, border_r_fl, border_g_fl, border_b_fl, bg_r_fl, bg_g_fl, bg_b_fl, tl_pts, 0, node->hide_background);
+    int TR = vertices->size;
+    Generate_Corner_Segment(vertices, indices, tr_a, 1.5f * PI, 2.0f * PI, node->border_radius_tr, node->border_top, node->border_right, node->width, node->height, border_r_fl, border_g_fl, border_b_fl, bg_r_fl, bg_g_fl, bg_b_fl, tr_pts, 1, node->hide_background);
+    int BR = vertices->size;
+    Generate_Corner_Segment(vertices, indices, br_a, 0.0f, 0.5f * PI, node->border_radius_br, node->border_right, node->border_bottom, node->width, node->height, border_r_fl, border_g_fl, border_b_fl, bg_r_fl, bg_g_fl, bg_b_fl, br_pts, 2, node->hide_background);
+    int BL = vertices->size;
+    Generate_Corner_Segment(vertices, indices, bl_a, 0.5f * PI, PI, node->border_radius_bl, node->border_bottom, node->border_left, node->width, node->height, border_r_fl, border_g_fl, border_b_fl, bg_r_fl, bg_g_fl, bg_b_fl, bl_pts, 3, node->hide_background);
 
-    int TR = vertex_offset;
-    Generate_Corner_Segment(vertices, indices, tr_a, 1.5f * PI, 2.0f * PI, node->border_radius_tr, node->border_top, node->border_right, node->width, node->height, border_r_fl, border_g_fl, border_b_fl, bg_r_fl, bg_g_fl, bg_b_fl, tr_pts, vertex_offset, index_count, 1, node->hide_background);
-    vertex_offset += node->hide_background ? 2 * tr_pts : 3 * tr_pts + 1;
-    index_count += node->hide_background ? (tr_pts - 1) * 6 : (tr_pts - 1) * 6 + (tr_pts - 1) * 3;
 
-    int BR = vertex_offset;
-    Generate_Corner_Segment(vertices, indices, br_a, 0.0f, 0.5f * PI, node->border_radius_br, node->border_right, node->border_bottom, node->width, node->height, border_r_fl, border_g_fl, border_b_fl, bg_r_fl, bg_g_fl, bg_b_fl, br_pts, vertex_offset, index_count, 2, node->hide_background);
-    vertex_offset += node->hide_background ? 2 * br_pts : 3 * br_pts + 1;
-    index_count += node->hide_background ? (br_pts - 1) * 6 : (br_pts - 1) * 6 + (br_pts - 1) * 3;
 
-    int BL = vertex_offset;
-    Generate_Corner_Segment(vertices, indices, bl_a, 0.5f * PI, PI, node->border_radius_bl, node->border_bottom, node->border_left, node->width, node->height, border_r_fl, border_g_fl, border_b_fl, bg_r_fl, bg_g_fl, bg_b_fl, bl_pts, vertex_offset, index_count, 3, node->hide_background);
-    index_count += node->hide_background ? (bl_pts - 1) * 6 : (bl_pts - 1) * 6 + (bl_pts - 1) * 3;
+    // --- Fill in side indices ---
+    uint32_t* indices_write = indices->array + indices->size;
 
-    // Fill in side indices
     // --- Top side quad ---
-    indices->array[index_count++] = TL + tl_pts - 1;        // Last outer vertex_rgb of TL
-    indices->array[index_count++] = TL + 2 * tl_pts - 1;    // Last inner vertex_rgb of TL
-    indices->array[index_count++] = TR;                               // First outer vertex_rgb of TR
-    indices->array[index_count++] = TL + 2 * tl_pts - 1;    // Last inner vertex_rgb of TL
-    indices->array[index_count++] = TR + tr_pts;            // First inner vertex_rgb of TR
-    indices->array[index_count++] = TR;                               // First outer vertex_rgb of TR
+    *indices_write++ = TL + tl_pts - 1;
+    *indices_write++ = TL + 2 * tl_pts - 1;
+    *indices_write++ = TR;
+    *indices_write++ = TL + 2 * tl_pts - 1;
+    *indices_write++ = TR + tr_pts;
+    *indices_write++ = TR;
 
     // --- Right side quad ---
-    indices->array[index_count++] = TR + tr_pts - 1;       // Last outer vertex_rgb of TR
-    indices->array[index_count++] = TR + 2 * tr_pts - 1;   // Last inner vertex_rgb of TR
-    indices->array[index_count++] = BR;                              // First outer vertex_rgb of BR
-    indices->array[index_count++] = TR + 2 * tr_pts - 1;   // Last inner vertex_rgb of TR
-    indices->array[index_count++] = BR + br_pts;           // First inner vertex_rgb of BR
-    indices->array[index_count++] = BR;                              // First outer vertex_rgb of BR
+    *indices_write++ = TR + tr_pts - 1;
+    *indices_write++ = TR + 2 * tr_pts - 1;
+    *indices_write++ = BR;
+    *indices_write++ = TR + 2 * tr_pts - 1;
+    *indices_write++ = BR + br_pts;
+    *indices_write++ = BR;
 
     // --- Bottom side quad ---
-    indices->array[index_count++] = BR + br_pts - 1;       // Last outer vertex_rgb of BR
-    indices->array[index_count++] = BR + 2 * br_pts - 1;   // Last inner vertex_rgb of BR
-    indices->array[index_count++] = BL;                              // First outer vertex_rgb of BL
-    indices->array[index_count++] = BR + 2 * br_pts - 1;   // Last inner vertex_rgb of BR
-    indices->array[index_count++] = BL + bl_pts;           // First inner vertex_rgb of BL
-    indices->array[index_count++] = BL;                              // First outer vertex_rgb of BL
+    *indices_write++ = BR + br_pts - 1;
+    *indices_write++ = BR + 2 * br_pts - 1;
+    *indices_write++ = BL;
+    *indices_write++ = BR + 2 * br_pts - 1;
+    *indices_write++ = BL + bl_pts;
+    *indices_write++ = BL;
 
     // --- Left side quad ---
-    indices->array[index_count++] = BL + bl_pts - 1;       // Last outer vertex_rgb of BL
-    indices->array[index_count++] = BL + 2 * bl_pts - 1;   // Last inner vertex_rgb of BL
-    indices->array[index_count++] = TL;                              // First outer vertex_rgb of TL
-    indices->array[index_count++] = BL + 2 * bl_pts - 1;   // Last inner vertex_rgb of BL
-    indices->array[index_count++] = TL + tl_pts;           // First inner vertex_rgb of TL
-    indices->array[index_count++] = TL;                              // First outer vertex_rgb of TL    
+    *indices_write++ = BL + bl_pts - 1;
+    *indices_write++ = BL + 2 * bl_pts - 1;
+    *indices_write++ = TL;
+    *indices_write++ = BL + 2 * bl_pts - 1;
+    *indices_write++ = TL + tl_pts;
+    *indices_write++ = TL;
 
-
-    // --- Central connector vertex_rgb indices (the innermost background verts from each corner) ---
-    if (!node->hide_background) {
+    // --- Fill in background indices ---
+    if (!node->hide_background) 
+    {
         int TL_bg_connector = TL + 3 * tl_pts; 
         int TR_bg_connector = TR + 3 * tr_pts;
         int BR_bg_connector = BR + 3 * br_pts;
         int BL_bg_connector = BL + 3 * bl_pts;
 
-        // --- Central quad (made of 2 triangles) ---
-        indices->array[index_count++] = TL_bg_connector; 
-        indices->array[index_count++] = TR_bg_connector; 
-        indices->array[index_count++] = BR_bg_connector;     
-        indices->array[index_count++] = TL_bg_connector;
-        indices->array[index_count++] = BR_bg_connector;
-        indices->array[index_count++] = BL_bg_connector;
+        // --- Central quad ---
+        *indices_write++ = TL_bg_connector; *indices_write++ = TR_bg_connector; *indices_write++ = BR_bg_connector;
+        *indices_write++ = TL_bg_connector; *indices_write++ = BR_bg_connector; *indices_write++ = BL_bg_connector;
 
         // --- Top inner quad ---
-        indices->array[index_count++] = TL_bg_connector;     // top left connector     
-        indices->array[index_count++] = TL_bg_connector - 1; // last top left background corner vertex_rgb
-        indices->array[index_count++] = TR + tr_pts * 2;     // first top right background corner vertex_rgb
-        indices->array[index_count++] = TL_bg_connector;
-        indices->array[index_count++] = TR + tr_pts * 2;
-        indices->array[index_count++] = TR_bg_connector;
+        *indices_write++ = TL_bg_connector; *indices_write++ = TL_bg_connector - 1; *indices_write++ = TR + tr_pts * 2;
+        *indices_write++ = TL_bg_connector; *indices_write++ = TR + tr_pts * 2;     *indices_write++ = TR_bg_connector;
 
         // --- Right inner quad ---
-        indices->array[index_count++] = TR_bg_connector;     // top right connector
-        indices->array[index_count++] = TR_bg_connector - 1; // last top right background corner vertex_rgb
-        indices->array[index_count++] = BR + br_pts * 2;     // first bottom right corner vertex_rgb
-        indices->array[index_count++] = TR_bg_connector;
-        indices->array[index_count++] = BR + br_pts * 2;
-        indices->array[index_count++] = BR_bg_connector;
+        *indices_write++ = TR_bg_connector; *indices_write++ = TR_bg_connector - 1; *indices_write++ = BR + br_pts * 2;
+        *indices_write++ = TR_bg_connector; *indices_write++ = BR + br_pts * 2;     *indices_write++ = BR_bg_connector;
 
         // --- Bottom inner quad ---
-        indices->array[index_count++] = BR_bg_connector;     // bottom right connector
-        indices->array[index_count++] = BR_bg_connector - 1; // last bottom right background corner vertex_rgb
-        indices->array[index_count++] = BL + bl_pts * 2;     // first bottom left background corner vertex_rgb
-        indices->array[index_count++] = BR_bg_connector;
-        indices->array[index_count++] = BL + bl_pts * 2;
-        indices->array[index_count++] = BL_bg_connector;
+        *indices_write++ = BR_bg_connector; *indices_write++ = BR_bg_connector - 1; *indices_write++ = BL + bl_pts * 2;
+        *indices_write++ = BR_bg_connector; *indices_write++ = BL + bl_pts * 2;     *indices_write++ = BL_bg_connector;
 
         // --- Left inner quad ---
-        indices->array[index_count++] = BL_bg_connector;     // bottom left connector
-        indices->array[index_count++] = BL_bg_connector - 1; // last bottom left background corner vertex_rgb
-        indices->array[index_count++] = TL + tl_pts * 2;     // first top left background corner vertex_rgb
-        indices->array[index_count++] = BL_bg_connector;
-        indices->array[index_count++] = TL + tl_pts * 2;
-        indices->array[index_count++] = TL_bg_connector;
+        *indices_write++ = BL_bg_connector; *indices_write++ = BL_bg_connector - 1; *indices_write++ = TL + tl_pts * 2;
+        *indices_write++ = BL_bg_connector; *indices_write++ = TL + tl_pts * 2;     *indices_write++ = TL_bg_connector;
     }
+
+    // update size once
+    indices->size = (int)(indices_write - indices->array);
 }
 
 void Draw_Vertex_RGB_List(Vertex_RGB_List* vertices, Index_List* indices, float screen_width, float screen_height)

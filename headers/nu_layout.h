@@ -808,7 +808,7 @@ void NU_Draw()
             struct Node* node = *(struct Node**) Vector_Get(&window_nodes_list[i], n);
             Construct_Border_Rect(node, w_fl, h_fl, &border_rect_vertices, &border_rect_indices);
         }
-
+        
         // Draw all border rects in one pass
         Draw_Vertex_RGB_List(&border_rect_vertices, &border_rect_indices, w_fl, h_fl);
         Vertex_RGB_List_Free(&border_rect_vertices);

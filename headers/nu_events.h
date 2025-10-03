@@ -38,25 +38,40 @@ void NU_Register_Event(uint32_t node_handle, void* args, NU_Callback callback, e
 
 
 
-
-// -----------------------------
-// Event watcher ---------------
-// -----------------------------
-
+// -------------------------------------------------------
+// --- Function is triggered when SDL detects an event ---
+// -------------------------------------------------------
 bool EventWatcher(void* data, SDL_Event* event) 
 {
     bool draw = false;
 
-    switch (event->type) {
+    switch (event->type) 
+    {
+        // -----------------------------------------------------------------------------------
+        // --- Window Closed -> main Window? close application : destroy sub window branch ---
+        // -----------------------------------------------------------------------------------
         case SDL_EVENT_WINDOW_CLOSE_REQUESTED:
             __nu_global_gui.running = false;
             break;
+
+
+        // -----------------------------------------------------------------------------------
+        // --- Close application -------------------------------------------------------------
+        // -----------------------------------------------------------------------------------
         case SDL_EVENT_QUIT:
             __nu_global_gui.running = false;
             break;
+
+        // -----------------------------------------------------------------------------------
+        // --- Resize -> redraw --------------------------------------------------------------
+        // -----------------------------------------------------------------------------------
         case SDL_EVENT_WINDOW_RESIZED:
             draw = true;
             break;
+
+        // -----------------------------------------------------------------------------------
+        // --- Move mouse -> redraw if mouse moves off hovered node --------------------------
+        // -----------------------------------------------------------------------------------
         case SDL_EVENT_MOUSE_MOTION:
             Uint32 id = event->motion.windowID;
             __nu_global_gui.hovered_window = SDL_GetWindowFromID(id);
@@ -64,6 +79,10 @@ bool EventWatcher(void* data, SDL_Event* event)
             NU_Mouse_Hover();
             if (hovered_node != __nu_global_gui.hovered_node) draw = true;
             break;
+
+        // -----------------------------------------------------------------------------------
+        // --- Mouse button pressed down -----------------------------------------------------
+        // -----------------------------------------------------------------------------------
         case SDL_EVENT_MOUSE_BUTTON_DOWN:
             __nu_global_gui.mouse_down_node = __nu_global_gui.hovered_node;
             if (__nu_global_gui.mouse_down_node != NULL) {
@@ -71,18 +90,30 @@ bool EventWatcher(void* data, SDL_Event* event)
             }
             draw = true;
             break;
+
+        // -----------------------------------------------------------------------------------
+        // --- Focus on window -> redraw -----------------------------------------------------
+        // -----------------------------------------------------------------------------------
         case SDL_EVENT_WINDOW_FOCUS_GAINED:
             __nu_global_gui.mouse_down_node = __nu_global_gui.hovered_node;
             draw = true;
             break;
+
+        // -----------------------------------------------------------------------------------
+        // --- Released mouse button ---------------------------------------------------------
+        // -----------------------------------------------------------------------------------
         case SDL_EVENT_MOUSE_BUTTON_UP:
+
+            // If there is a pressed node
             if (__nu_global_gui.mouse_down_node != NULL)
-            {
+            {   
+                // If the mouse is hovering over pressed node
                 if (__nu_global_gui.mouse_down_node == __nu_global_gui.hovered_node) 
                 { 
                     // Apply hover style
                     NU_Apply_Pseudo_Style_To_Node(__nu_global_gui.mouse_down_node, __nu_global_gui.stylesheet, PSEUDO_HOVER);
 
+                    // If there is a click event assigned to the pressed node
                     if (__nu_global_gui.hovered_node->event_flags & NU_EVENT_FLAG_ON_CLICK) 
                     {
                         void* found_cb = Hashmap_Get(&__nu_global_gui.on_click_events, &__nu_global_gui.hovered_node->handle);
@@ -93,28 +124,25 @@ bool EventWatcher(void* data, SDL_Event* event)
                     }
                     draw = true;
                 }
-                else { // Apply press style
+                // If the mouse is released over something other than the pressed node -> revert pressed node to default style
+                else { 
                     NU_Apply_Stylesheet_To_Node(__nu_global_gui.mouse_down_node, __nu_global_gui.stylesheet);
                     draw = true;
                 }
 
+                // There is no longer a pressed node
                 __nu_global_gui.mouse_down_node = NULL;
             }
             break;
+
+        
         default:
             break;
     }    
-
-    if (draw) {
-        timer_start();
+    if (draw) 
+    {
         NU_Reflow();
-        // timer_stop();
-        // timer_start();
-        // timer_stop();
         NU_Draw();
-        timer_stop();
-
-        // printf("\n\n");
     }
     return true;
 }

@@ -15,6 +15,22 @@
 // --- UI layout -------------
 // ---------------------------
 
+static void NU_Apply_Min_Max_Size_Constraint(struct Node* node)
+{   
+    node->width = min(max(node->width, node->min_width), node->max_width);
+    node->height = min(max(node->height, node->min_height), node->max_height);
+}
+
+static void NU_Apply_Min_Max_Width_Constraint(struct Node* node)
+{
+    node->width = min(max(node->width, node->min_width), node->max_width);
+}
+
+static void NU_Apply_Min_Max_Height_Constraint(struct Node* node)
+{
+    node->height = min(max(node->height, node->min_height), node->max_height);
+}
+
 static void NU_Clear_Node_Sizes()
 {
     // Iterate Over Every Node
@@ -30,9 +46,26 @@ static void NU_Clear_Node_Sizes()
             // Reset Node Size
             node->x = 0.0f;
             node->y = 0.0f;
-            node->width = max(node->preferred_width, node->border_left + node->border_right + node->pad_left + node->pad_right);
-            node->height = max(node->preferred_height, node->border_top + node->border_bottom + node->pad_top + node->pad_bottom);
-            
+
+            // Constrain preferred/min/max width/height -> These are limited by the border and padding
+            // Preferred width height bust also be constrained by min/max width/height
+            float natural_width = node->border_left + node->border_right + node->pad_left + node->pad_right;
+            float natural_height = node->border_top + node->border_bottom + node->pad_top + node->pad_bottom;
+            node->min_width = max(node->min_width, natural_width);
+            node->min_height = max(node->min_height, natural_height);
+            node->max_width = max(max(node->max_width, natural_width), node->min_width);
+            node->max_height = max(max(node->max_height, natural_height), node->min_height);
+            node->preferred_width = max(node->preferred_width, natural_width);
+            node->preferred_height = max(node->preferred_height, natural_height);
+            node->preferred_width = min(max(node->preferred_width, node->min_width), node->max_width);
+            node->preferred_height = min(max(node->preferred_height, node->min_height), node->max_height);
+
+            // Set base width/height and reset content dimensions
+            node->width = node->preferred_width;
+            node->height = node->preferred_height;
+            node->content_width = 0;
+            node->content_height = 0;
+
             // Enforce Window Dimensions (This is very slow and must not be done each time I call Reflow!!!)
             // if (node->tag == WINDOW) {
             //     SDL_SetWindowMinimumSize(node->window, node->min_width, node->min_height);
@@ -41,14 +74,12 @@ static void NU_Clear_Node_Sizes()
     }
 }
 
-static void NU_Calculate_Text_Min_Width(struct Node* node, float full_width)
+static float NU_Calculate_Text_Min_Wrap_Width(struct Node* node, float full_width)
 {
     const char* text = node->text_content;
-    if (!text || !*text) return; // empty string guard
-
+    if (!text || !*text) return full_width; // empty string guard
     int slice_start = 0;
     float max_word_width = 0.0f;
-
     int len = strlen(text);
     for (int i = 0; i <= len; i++) {
         char c = (i < len) ? text[i] : ' '; // add virtual space at end
@@ -62,35 +93,14 @@ static void NU_Calculate_Text_Min_Width(struct Node* node, float full_width)
             slice_start = i + 1;
         }
     }
-
     if (max_word_width == 0.0f && len > 0) { // no spaces, measure whole string
         max_word_width = full_width;
     }
-
-    float text_controlled_min_width = max_word_width + node->pad_left + node->pad_right + node->border_left + node->border_right;
-    node->min_width = max(node->min_width, text_controlled_min_width);
+    return max_word_width;
 }
 
-static void NU_Calculate_Text_Fit_Size(struct Node* node, float asc, float desc, float lh)
-{
-    // Calculate text bounds
-    float bounds[4];
-    nvgTextBounds(__nu_global_gui.vg_ctx, 0, 0, node->text_content, NULL, bounds);
-    float text_width = bounds[2] - bounds[0];
-    float text_height = lh;
-    
-    NU_Calculate_Text_Min_Width(node, text_width);
-    
-    if (node->preferred_width == 0.0f) {
-        node->width = text_width + node->pad_left + node->pad_right + node->border_left + node->border_right;
-    }
-    node->width = min(node->width, node->max_width);
-    node->width = max(node->width, node->min_width);
-    node->height += text_height;
-    node->content_width = text_width;
-}
 
-static void NU_Calculate_Text_Fit_Sizes()
+static void NU_Calculate_Text_Fit_Widths()
 {
     // This needs to be recomputed when a node uses a different font!
     float asc, desc, lh;
@@ -98,7 +108,6 @@ static void NU_Calculate_Text_Fit_Sizes()
     nvgFontFaceId(__nu_global_gui.vg_ctx, fontID);   
     nvgFontSize(__nu_global_gui.vg_ctx, 14);
     nvgTextMetrics(__nu_global_gui.vg_ctx, &asc, &desc, &lh);
-
 
     // For each layer
     for (uint16_t l=0; l<=__nu_global_gui.deepest_layer; l++)
@@ -111,8 +120,23 @@ static void NU_Calculate_Text_Fit_Sizes()
             struct Node* node = &layer->node_array[n];
             if (!node->node_present) continue;
 
-            if (node->text_content != NULL) {
-                NU_Calculate_Text_Fit_Size(node, asc, desc, lh);
+            if (node->text_content != NULL) 
+            {
+                // Calculate text bounds
+                float bounds[4];
+                nvgTextBounds(__nu_global_gui.vg_ctx, 0, 0, node->text_content, NULL, bounds);
+                float text_width = bounds[2] - bounds[0];
+                float text_height = lh;
+                
+                // Calculate minimum text wrap width (longest unbreakable word)
+                float min_wrap_width = NU_Calculate_Text_Min_Wrap_Width(node, text_width);
+
+                // Increase width to account for text (text height will be accounted for later in NU_Calculate_Text_Heights())
+                float natural_width = node->pad_left + node->pad_right + node->border_left + node->border_right;
+                node->width = max(text_width + natural_width, node->preferred_width);
+
+                // Update content width
+                node->content_width = text_width; 
             }
         }
     }
@@ -120,8 +144,6 @@ static void NU_Calculate_Text_Fit_Sizes()
 
 static void NU_Calculate_Fit_Size_Widths()
 {
-    if (__nu_global_gui.deepest_layer == 0) return;
-
     for (int l=__nu_global_gui.deepest_layer-1; l>=0; l--)
     {
         NU_Layer* parent_layer = &__nu_global_gui.tree.layers[l];
@@ -144,28 +166,27 @@ static void NU_Calculate_Fit_Size_Widths()
 
             if (parent->child_count == 0) continue; // Skip acummulating child sizes (no children)
 
-            // Track the total width for the parent's content
-            float content_width = 0;
-
+            // Accumulate content width
             for (uint16_t i=parent->first_child_index; i<parent->first_child_index + parent->child_count; i++)
             {
                 struct Node* child = NU_Layer_Get(child_layer, i);
 
-                if (child->tag == WINDOW) {
-                    if (is_layout_horizontal) content_width -= parent->gap + child->width;
+                if (child->tag == WINDOW && is_layout_horizontal) { 
+                    parent->content_width -= parent->gap + child->width; 
                 }   
-                if (is_layout_horizontal) { // Horizontal Layout
-                    content_width += child->width;
-                } else { // Vertical Layout
-                    content_width = MAX(content_width, child->width);
-                }
+                
+                // Horizontal Layout
+                if (is_layout_horizontal) parent->content_width += child->width;
+
+                // Vertical Layout 
+                else parent->content_width = MAX(parent->content_width, child->width);
             }
 
-            // Grow parent node
-            if (is_layout_horizontal) content_width += (parent->child_count - 1) * parent->gap;
-            parent->content_width = content_width;
-            if (parent->tag != WINDOW && content_width > parent->width) {
-                parent->width = content_width + parent->border_left + parent->border_right + parent->pad_left + parent->pad_right;
+            // Expand parent width to account for content width
+            if (is_layout_horizontal) parent->content_width += (parent->child_count - 1) * parent->gap;
+            if (parent->tag != WINDOW && parent->content_width > parent->width) {
+                parent->width = parent->content_width + parent->border_left + parent->border_right + parent->pad_left + parent->pad_right;
+                NU_Apply_Min_Max_Width_Constraint(parent);
             }
         }
     }
@@ -189,9 +210,6 @@ static void NU_Calculate_Fit_Size_Heights()
             int is_layout_horizontal = !(parent->layout_flags & LAYOUT_VERTICAL);
 
             if (parent->child_count == 0) { continue; } // Skip acummulating child sizes (no children)
-            
-            // Track the total height for the parent's content
-            float content_height = 0;
 
             // Iterate over children
             for (uint16_t i=parent->first_child_index; i<parent->first_child_index + parent->child_count; i++)
@@ -199,20 +217,21 @@ static void NU_Calculate_Fit_Size_Heights()
                 struct Node* child = NU_Layer_Get(child_layer, i);
 
                 if (child->tag == WINDOW) {
-                    if (!is_layout_horizontal) content_height -= parent->gap + child->height;
+                    if (!is_layout_horizontal) parent->content_height -= parent->gap + child->height;
                 }   
-                if (is_layout_horizontal) { // Horizontal Layout
-                    content_height = MAX(content_height, child->height);
-                } else { // Vertical Layout
-                    content_height += child->height;
-                }
+                
+                // Horizontal Layout
+                if (is_layout_horizontal) parent->content_height = MAX(parent->content_height, child->height);
+                
+                // Vertical Layout 
+                else parent->content_height += child->height;
             }
 
-            // Grow parent node
-            if (!is_layout_horizontal) content_height += (parent->child_count - 1) * parent->gap;
-            parent->content_height = content_height;
-            if (parent->tag != WINDOW && content_height > parent->height) {
-                parent->height = content_height + parent->border_top + parent->border_bottom + parent->pad_top + parent->pad_bottom;
+            // Expand parent height to account for content height
+            if (!is_layout_horizontal) parent->content_height += (parent->child_count - 1) * parent->gap;
+            if (parent->tag != WINDOW) {
+                parent->height = parent->content_height + parent->border_top + parent->border_bottom + parent->pad_top + parent->pad_bottom;
+                NU_Apply_Min_Max_Height_Constraint(parent);
             }
         }
     }
@@ -220,8 +239,11 @@ static void NU_Calculate_Fit_Size_Heights()
 
 static void NU_Grow_Shrink_Child_Node_Widths(struct Node* parent, NU_Layer* child_layer)
 {
-    float remaining_width = parent->width - parent->pad_left - parent->pad_right - parent->border_left - parent->border_right - ((parent->layout_flags & OVERFLOW_VERTICAL_SCROLL) == 1) * 12.0f;
+    float remaining_width = parent->width - parent->pad_left - parent->pad_right - parent->border_left - parent->border_right - (!!(parent->layout_flags & OVERFLOW_VERTICAL_SCROLL)) * 12.0f;
 
+    // ------------------------------------------------
+    // If parent lays out children vertically ---------
+    // ------------------------------------------------
     if (parent->layout_flags & LAYOUT_VERTICAL)
     {   
         for (uint16_t i=parent->first_child_index; i<parent->first_child_index + parent->child_count; i++)
@@ -231,14 +253,20 @@ static void NU_Grow_Shrink_Child_Node_Widths(struct Node* parent, NU_Layer* chil
             {
                 float pad_and_border = child->pad_left + child->pad_right + child->border_left + child->border_right;
                 child->width = remaining_width; 
-                child->width = min(child->width, child->max_width);
-                child->width = max(child->width, max(child->min_width, pad_and_border));
+                NU_Apply_Min_Max_Width_Constraint(child);
                 parent->content_width = max(parent->content_width, child->width);
             }
         }
     }
+
+    // ------------------------------------------------
+    // If parent lays out children horizontally -------
+    // ------------------------------------------------
     else
-    {
+    {   
+        // ----------------------------------------------------
+        // --- Calculate growable count and remaining width ---
+        // ----------------------------------------------------
         uint32_t growable_count = 0;
         for (uint16_t i=parent->first_child_index; i<parent->first_child_index + parent->child_count; i++)
         {
@@ -250,10 +278,14 @@ static void NU_Grow_Shrink_Child_Node_Widths(struct Node* parent, NU_Layer* chil
         remaining_width -= (parent->child_count - 1) * parent->gap;
         if (growable_count == 0) return;
 
-        // Grow elements
+        // -------------------------
+        // --- Grow child widths ---
+        // -------------------------
         while (remaining_width > 0.01f)
-        {   
-            // Determine smallest, second smallest and growable count
+        {    
+            // --------------------------------------------------------------
+            // --- Determine smallest, second smallest and growable count ---
+            // --------------------------------------------------------------
             float smallest = 1e20f;
             float second_smallest = 1e30f;
             growable_count = 0;
@@ -270,13 +302,17 @@ static void NU_Grow_Shrink_Child_Node_Widths(struct Node* parent, NU_Layer* chil
                 }
             }
 
-            // Calculate width to add
+            // ----------------------------
+            // --- Compute width to add ---
+            // ----------------------------
             float width_to_add = remaining_width / (float)growable_count;
             if (second_smallest > smallest) {
                 width_to_add = min(width_to_add, second_smallest - smallest);
             }
 
-            // for each child
+            // -----------------------------------------
+            // --- Grow width of each eligible child ---
+            // -----------------------------------------
             bool grew_any = false;
             for (uint16_t i=parent->first_child_index; i<parent->first_child_index + parent->child_count; i++) {
                 struct Node* child = NU_Layer_Get(child_layer, i);            
@@ -285,7 +321,7 @@ static void NU_Grow_Shrink_Child_Node_Widths(struct Node* parent, NU_Layer* chil
                         float available = child->max_width - child->width;
                         float grow = min(width_to_add, available);
                         if (grow > 0.0f) {
-                            parent->content_height += grow;
+                            parent->content_width += grow;
                             child->width += grow;
                             remaining_width -= grow;
                             grew_any = true;
@@ -296,14 +332,17 @@ static void NU_Grow_Shrink_Child_Node_Widths(struct Node* parent, NU_Layer* chil
             if (!grew_any) break;
         }
 
-        // Shrink elements
+        // ----------------------------------------
+        // --- Shrink overgrown children (text) ---
+        // ----------------------------------------
         while (remaining_width < -0.01f)
         {
-            // Determine largest, second largest and shrinkable count
+            // --------------------------------------------------------------
+            // --- determine smallest, second smallest and shrinkable count ---
+            // --------------------------------------------------------------
             float largest = -1e20f;
             float second_largest = -1e30f;
             int shrinkable_count = 0;
-            
             for (uint16_t i = parent->first_child_index; i<parent->first_child_index + parent->child_count; i++) {
                 struct Node* child = NU_Layer_Get(child_layer, i);
                 if ((child->layout_flags & GROW_HORIZONTAL) && child->tag != WINDOW && child->width > child->min_width) {
@@ -317,13 +356,17 @@ static void NU_Grow_Shrink_Child_Node_Widths(struct Node* parent, NU_Layer* chil
                 }
             }
 
-            // Calculate width to subtract
+            // ---------------------------------
+            // --- Compute width to subtract ---
+            // ---------------------------------
             float width_to_subtract = -remaining_width / (float)shrinkable_count;
             if (second_largest < largest && second_largest >= 0) {
                 width_to_subtract = min(width_to_subtract, largest - second_largest);
             }
 
-            // For each child
+            // -------------------------------------------
+            // --- Shrink width of each eligible child ---
+            // -------------------------------------------
             bool shrunk_any = false;
             for (uint16_t i=parent->first_child_index; i<parent->first_child_index + parent->child_count; i++) {
                 struct Node* child = NU_Layer_Get(child_layer, i);
@@ -343,14 +386,13 @@ static void NU_Grow_Shrink_Child_Node_Widths(struct Node* parent, NU_Layer* chil
             if (!shrunk_any) break;
         }
     }
-
-    // Enforce min parent width based on content
-    parent->width = max(parent->width, parent->content_width + parent->pad_left + parent->pad_right + parent->border_left + parent->border_right);
 }
 
 static void NU_Grow_Shrink_Child_Node_Heights(struct Node* parent, NU_Layer* child_layer)
 {
-    float remaining_height = parent->height - parent->pad_top - parent->pad_bottom - parent->border_top - parent->border_bottom - ((parent->layout_flags & OVERFLOW_HORIZONTAL_SCROLL) == 1) * 12.0f;
+    float remaining_height = parent->height - parent->pad_top - parent->pad_bottom - parent->border_top - parent->border_bottom - (!!(parent->layout_flags & OVERFLOW_HORIZONTAL_SCROLL)) * 12.0f;
+    if (parent->layout_flags & OVERFLOW_HORIZONTAL_SCROLL)
+        printf("yes\n");
 
     if (!(parent->layout_flags & LAYOUT_VERTICAL))
     {
@@ -361,14 +403,16 @@ static void NU_Grow_Shrink_Child_Node_Heights(struct Node* parent, NU_Layer* chi
             {  
                 float pad_and_border = child->pad_top + child->pad_bottom + child->border_top + child->border_bottom;
                 child->height = remaining_height; 
-                child->height = min(child->height, child->max_height);
-                child->height = max(child->height, max(child->min_height, pad_and_border));
+                NU_Apply_Min_Max_Height_Constraint(child);
                 parent->content_height = max(parent->content_height, child->height);
             }
         }
     }
     else
     {
+        // -----------------------------------------------------
+        // --- Calculate growable count and remaining height ---
+        // -----------------------------------------------------
         uint32_t growable_count = 0;
         for (uint16_t i=parent->first_child_index; i<parent->first_child_index + parent->child_count; i++)
         {
@@ -380,9 +424,14 @@ static void NU_Grow_Shrink_Child_Node_Heights(struct Node* parent, NU_Layer* chi
         remaining_height -= (parent->child_count - 1) * parent->gap;
         if (growable_count == 0) return;
 
+        // --------------------------
+        // --- Grow child heights ---
+        // --------------------------
         while (remaining_height > 0.01f)
         {
-            // Find smallest and second smallest
+            // --------------------------------------------------------------
+            // --- Determine smallest, second smallest and growable count ---
+            // --------------------------------------------------------------
             float smallest = 1e20f;
             float second_smallest = 1e30f;
             growable_count = 0;
@@ -399,13 +448,17 @@ static void NU_Grow_Shrink_Child_Node_Heights(struct Node* parent, NU_Layer* chi
                 }
             }
             
-            // Calculate height to add
+            // -----------------------------
+            // --- Compute height to add ---
+            // -----------------------------
             float height_to_add = remaining_height / (float)growable_count;
             if (second_smallest > smallest) { 
                 height_to_add = min(height_to_add, second_smallest - smallest);
             }
 
-            // for each child
+            // ------------------------------------------
+            // --- Grow height of each eligible child ---
+            // ------------------------------------------
             bool grew_any = false;
             for (uint16_t i=parent->first_child_index; i<parent->first_child_index + parent->child_count; i++) {
                 struct Node* child = NU_Layer_Get(child_layer, i);
@@ -425,9 +478,6 @@ static void NU_Grow_Shrink_Child_Node_Heights(struct Node* parent, NU_Layer* chi
             if (!grew_any) break;
         }
     }
-
-    // Enforce min parent height based on content
-    parent->height = max(parent->height, parent->content_height + parent->pad_top + parent->pad_bottom + parent->border_top + parent->border_bottom);
 }
 
 static void NU_Grow_Shrink_Widths()
@@ -504,8 +554,8 @@ static void NU_Calculate_Table_Column_Widths()
                         }
                         float* val = Vector_Get(&widest_in_each_column, cell_index);
                         struct Node* cell = NU_Layer_Get(cell_layer, c);
-                        if (cell->min_width > *val) {
-                            *val = cell->min_width;
+                        if (cell->width > *val) {
+                            *val = cell->width;
                         }
                         cell_index++;
                     }
@@ -514,7 +564,7 @@ static void NU_Calculate_Table_Column_Widths()
                 // -----------------------------------------------
                 // --- Apply widest column widths to all cells ---
                 // -----------------------------------------------
-                float row_width = node->width - node->border_left - node->border_right - node->pad_left - node->pad_right;
+                float row_width = node->width - node->border_left - node->border_right - node->pad_left - node->pad_right - (!!(node->layout_flags & OVERFLOW_VERTICAL_SCROLL)) * 12.0f;
                 float remaining_width = row_width;
                 for (int k=0; k<widest_in_each_column.size; k++) {
                     remaining_width -= *(float*)Vector_Get(&widest_in_each_column, k);
@@ -523,7 +573,7 @@ static void NU_Calculate_Table_Column_Widths()
                 for (uint16_t r=node->first_child_index; r<node->first_child_index + node->child_count; r++)
                 {
                     struct Node* row = NU_Layer_Get(row_layer, r);
-                    row->width = node->width - node->border_left - node->border_right - node->pad_left - node->pad_right;
+                    row->width = row_width;
                     
                     if (row->child_count == 0) break;
 
@@ -545,26 +595,13 @@ static void NU_Calculate_Table_Column_Widths()
     }
 }
 
-static void NU_Calculate_Text_Wrap_Height(struct Node* node)
+static void NU_Calculate_Text_Heights()
 {
     // Configure font
     int fontID = *(int*) Vector_Get(&__nu_global_gui.font_registry, 0);
     nvgFontFaceId(__nu_global_gui.vg_ctx, fontID);   
     nvgFontSize(__nu_global_gui.vg_ctx, 14);
 
-    // Compute available inner width
-    float inner_width = node->width - node->border_left - node->border_right - node->pad_left - node->pad_right;
-
-    // Measure text the same way it's drawn
-    float bounds[4];
-    nvgTextBoxBounds(__nu_global_gui.vg_ctx, 0, 0, inner_width, node->text_content, NULL, bounds);
-    float text_height = bounds[3] - bounds[1];
-    node->height = node->border_top + node->border_bottom + node->pad_top + node->pad_bottom + text_height;
-    node->content_height = text_height;
-}
-
-static void NU_Calculate_Text_Wrap_Heights()
-{
     #pragma omp parallel for
     for (uint16_t l=0; l<=__nu_global_gui.deepest_layer; l++)
     {
@@ -575,8 +612,24 @@ static void NU_Calculate_Text_Wrap_Heights()
         {       
             struct Node* node = &layer->node_array[i];
             if (!node->node_present) continue;
-            if (node->text_content != NULL) {
-                NU_Calculate_Text_Wrap_Height(node);
+
+
+            if (node->text_content != NULL) 
+            {
+                // Compute available inner width
+                float inner_width = node->width - node->border_left - node->border_right - node->pad_left - node->pad_right;
+
+                // Measure text the same way it's drawn
+                float bounds[4];
+                nvgTextBoxBounds(__nu_global_gui.vg_ctx, 0, 0, inner_width, node->text_content, NULL, bounds);
+                float text_height = bounds[3] - bounds[1];
+
+                // Increase height to account for text
+                float natural_height = node->pad_top + node->pad_bottom + node->border_top + node->border_bottom;
+                node->height = max(text_height + natural_height, node->preferred_height);
+                
+                // Update content height
+                node->content_height = text_height;
             }
         }
     }
@@ -597,7 +650,7 @@ static void NU_Horizontally_Place_Children(struct Node* parent, NU_Layer* child_
     else
     {
         // Calculate remaining width (optimise this by caching this calue inside parent's content width variable)
-        float remaining_width = (parent->width - parent->pad_left - parent->pad_right - parent->border_left - parent->border_right) - (parent->child_count - 1) * parent->gap - ((parent->layout_flags & OVERFLOW_VERTICAL_SCROLL) != 0) * 12.0f;
+        float remaining_width = (parent->width - parent->pad_left - parent->pad_right - parent->border_left - parent->border_right) - (parent->child_count - 1) * parent->gap - (!!(parent->layout_flags & OVERFLOW_VERTICAL_SCROLL)) * 12.0f;
         for (uint16_t i=parent->first_child_index; i<parent->first_child_index + parent->child_count; i++)
         {
             struct Node* child = NU_Layer_Get(child_layer, i);
@@ -632,7 +685,7 @@ static void NU_Vertically_Place_Children(struct Node* parent, NU_Layer* child_la
     else
     {
         // Calculate remaining height (optimise this by caching this calue inside parent's content height variable)
-        float remaining_height = (parent->height - parent->pad_top - parent->pad_bottom - parent->border_top - parent->border_bottom) - (parent->child_count - 1) * parent->gap - ((parent->layout_flags & OVERFLOW_HORIZONTAL_SCROLL) != 0) * 12.0f;
+        float remaining_height = (parent->height - parent->pad_top - parent->pad_bottom - parent->border_top - parent->border_bottom) - (parent->child_count - 1) * parent->gap - (!!(parent->layout_flags & OVERFLOW_HORIZONTAL_SCROLL)) * 12.0f;
         for (uint16_t i=parent->first_child_index; i<parent->first_child_index + parent->child_count; i++)
         {
             struct Node* child = NU_Layer_Get(child_layer, i);
@@ -932,17 +985,12 @@ void NU_Draw()
 void NU_Reflow()
 {
     NU_Clear_Node_Sizes();            // Reset dimensions and positions
-    NU_Calculate_Text_Fit_Sizes();    // Width and height of unwrapped text nodes
+    NU_Calculate_Text_Fit_Widths();    // Width and height of unwrapped text nodes
     NU_Calculate_Fit_Size_Widths();   
     NU_Grow_Shrink_Widths();
-
     NU_Calculate_Table_Column_Widths();
-
-    NU_Calculate_Text_Wrap_Heights();
+    NU_Calculate_Text_Heights();
     NU_Calculate_Fit_Size_Heights();
-
-    // NU_Calculate_Table_Row_Heights
-
     NU_Grow_Shrink_Heights();
     NU_Calculate_Positions();
 }

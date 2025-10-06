@@ -16,13 +16,13 @@
 
 
 // Definitions
-#define LAYOUT_HORIZONTAL            0x00        // 0b00000000
-#define LAYOUT_VERTICAL              0x01        // 0b00000001
-#define GROW_HORIZONTAL              0x02        // 0b00000010
-#define GROW_VERTICAL                0x04        // 0b00000100
-#define OVERFLOW_VERTICAL_SCROLL     0x08        // 0b00001000
-#define OVERFLOW_HORIZONTAL_SCROLL   0x16        // 0b00010000
-#define HIDE_BACKGROUND              0x32        // 0b00100000
+#define LAYOUT_HORIZONTAL            0x00  // 00000000
+#define LAYOUT_VERTICAL              0x01  // 00000001
+#define GROW_HORIZONTAL              0x02  // 00000010
+#define GROW_VERTICAL                0x04  // 00000100
+#define OVERFLOW_VERTICAL_SCROLL     0x08  // 00001000
+#define OVERFLOW_HORIZONTAL_SCROLL   0x10  // 00010000
+#define HIDE_BACKGROUND              0x20  // 00100000
 #define MAX_TREE_DEPTH 32
 
 

@@ -22,7 +22,7 @@
 #include "nu_window.h"
 
 #define NU_XML_PROPERTY_COUNT 36
-#define NU_XML_KEYWORD_COUNT 42
+#define NU_XML_KEYWORD_COUNT 45
 static const char* nu_xml_keywords[] = {
     "id", "class", "dir", "grow", "overflowV", "overflowH", "gap",
     "width", "minWidth", "maxWidth", "height", "minHeight", "maxHeight", 
@@ -37,18 +37,21 @@ static const char* nu_xml_keywords[] = {
     "button",
     "grid",
     "text",
-    "image"
+    "image",
+    "table",
+    "thead",
+    "row",
 };
 static const uint8_t keyword_lengths[] = { 
     2, 5, 3, 4, 9, 9, 3,
-    5, 8, 8, 6, 9, 9,      // width height
-    6, 6, 10, 10,          // alignment
-    10, 12, 10,            // background, border, text colour
-    6, 9, 12, 10, 11,      // border width
-    12, 19, 20, 22, 23,    // border radius
-    3, 6, 9, 7, 8,         // padding
-    8,                     // image src
-    6, 4, 6, 4, 4, 5       // selectors
+    5, 8, 8, 6, 9, 9,          // width height
+    6, 6, 10, 10,              // alignment
+    10, 12, 10,                // background, border, text colour
+    6, 9, 12, 10, 11,          // border width
+    12, 19, 20, 22, 23,        // border radius
+    3, 6, 9, 7, 8,             // padding
+    8,                         // image src
+    6, 4, 6, 4, 4, 5, 5, 5, 3  // tags
 };
 enum NU_XML_Token
 {
@@ -73,6 +76,9 @@ enum NU_XML_Token
     GRID_TAG,
     TEXT_TAG,
     IMAGE_TAG,
+    TABLE_TAG,
+    TABLE_HEAD_TAG,
+    ROW_TAG,
     OPEN_TAG,
     CLOSE_TAG,
     OPEN_END_TAG,
@@ -498,6 +504,14 @@ static int NU_Generate_Tree(char* src_buffer, uint32_t src_length, struct Vector
     // Iterate over all NU_Tokens ---------
     // ------------------------------------
     int i = 2; 
+    int ctx = 0; 
+    // 0 = default
+    // 1 = <table> just opened
+    // 2 = in <table> with <thead>
+    // 3 = in table without <thead>
+    // 4 = in <thead>
+    // 5 = in <row> in <table> with <thead>
+    // 6 = in <row> in <table> without <thead>
     uint8_t current_layer = 0; 
     struct Node* current_node = root_window_node;
     while (i < NU_Token_vector->size - 3)
@@ -520,24 +534,64 @@ static int NU_Generate_Tree(char* src_buffer, uint32_t src_length, struct Vector
                     String_Map_Free(&image_filepath_to_handle_hmap);
                     return -1; // Failure
                 }   
+                
+
+                // -----------------
+                // Enforce tag rules
+                // -----------------
+                enum Tag tag = NU_Token_To_Tag(*((enum NU_XML_Token*) Vector_Get(NU_Token_vector, i+1)));
+
+                if (ctx == 1 && tag != ROW && tag != THEAD) { 
+                    printf("%s\n", "[Generate_Tree] Error! first child of <table> must be <row> or <thead>."); return -1; // Failure
+                }
+                else if (ctx == 2 && tag == THEAD) {
+                    printf("%s\n", "[Generate_Tree] Error! <table> cannot have more than ONE <thead>."); return -1; // Failure
+                }
+                else if ((ctx == 2 || ctx == 3) && tag != ROW) {
+                    printf("%s\n", "[Generate_Tree] Error! All children of <table> (except optional first child <thead>) must be <row>."); return -1; // Failure
+                }
+                else if (!(ctx == 1 || ctx == 2 || ctx == 3) && tag == ROW) {
+                    printf("%s\n", "[Generate_Tree] Error! <row> must be the child of <table>."); return -1; // Failure
+                } 
+                else if (ctx != 1 && tag == THEAD) {
+                    printf("%s\n", "[Generate_Tree] Error! <thead> can only be the FIRST child of <table>."); return -1; // Failure
+                }
 
                 // ----------------------------------------
                 // Create a new node and add it to the tree
                 // ----------------------------------------
                 struct Node new_node;
                 NU_Apply_Node_Defaults(&new_node); // Apply Default style
-                new_node.tag = NU_Token_To_Tag(*((enum NU_XML_Token*) Vector_Get(NU_Token_vector, i+1)));
+                new_node.tag = tag;
                 new_node.parent_index = __nu_global_gui.tree.layers[current_layer].size - 1;
                 current_node = NU_Tree_Append(&__nu_global_gui.tree, &new_node, current_layer+1);
 
-                // --------------------------------------------
-                // --- If node is a window -> create SDL window
-                // --------------------------------------------
-                if (current_node->tag == WINDOW)
+                // ----------------------------------------
+                // --- Handle scenarios for different tags
+                // ----------------------------------------
+                if (current_node->tag == WINDOW) // If node is a window -> create SDL window
                 {
                     NU_Create_Subwindow(current_node);
                     Vector_Push(&__nu_global_gui.window_nodes, &current_node);
                 }
+                else if (current_node->tag == TABLE) {
+                    current_node->inline_style_flags |= 1 << 0; // Enforce vertical direction
+                    current_node->layout_flags |= LAYOUT_VERTICAL;
+                    ctx = 1;
+                } 
+                else if (current_node->tag == THEAD) {
+                    current_node->inline_style_flags |= 1 << 1; // Enforce horizontal growth
+                    current_node->layout_flags |= GROW_HORIZONTAL;
+                    ctx = 4;
+                }
+                else if (current_node->tag == ROW)
+                {
+                    current_node->inline_style_flags |= 1 << 1; // Enforce horizontal growth
+                    current_node->layout_flags |= GROW_HORIZONTAL;
+                    if (ctx == 1 || ctx == 3) ctx = 6;
+                    else ctx = 5;
+                }
+                
 
 
                 // -------------------------------
@@ -549,6 +603,10 @@ static int NU_Generate_Tree(char* src_buffer, uint32_t src_length, struct Vector
                 } 
                 if (parent_node->child_count == 0) {
                     parent_node->first_child_index = current_node->index;
+                }
+                if (parent_node->tag == ROW || parent_node->tag == THEAD) {
+                    current_node->inline_style_flags |= 1 << 1;
+                    current_node->layout_flags |= GROW_VERTICAL;
                 }
                 parent_node->child_count += 1;
                 parent_node->child_capacity += 1;
@@ -570,8 +628,7 @@ static int NU_Generate_Tree(char* src_buffer, uint32_t src_length, struct Vector
         // -----------------------------------------------
         if (NU_XML_Token == OPEN_END_TAG)
         {
-            if (current_layer < 0) break;
-            
+         
             // Check close grammar
             struct Node* open_node = NU_Tree_Get(&__nu_global_gui.tree, current_layer, __nu_global_gui.tree.layers[current_layer].size - 1);
             enum Tag openTag = open_node->tag;
@@ -580,6 +637,18 @@ static int NU_Generate_Tree(char* src_buffer, uint32_t src_length, struct Vector
                 String_Map_Free(&image_filepath_to_handle_hmap);
                 return -1; // Failure
             }
+
+            // Multi node structure context switch
+            if (open_node->tag == TABLE) { // <table> closes
+                ctx = 0;
+            } 
+            else if (open_node->tag == THEAD) { // <thead> closes
+                ctx = 2;
+            }
+            else if (open_node->tag == ROW) { // <row> closes
+                if (ctx == 5) ctx = 2;
+                else ctx = 3;
+            } 
 
             current_layer--; // Move one layer up (towards root)
             i+=3; // Increment token index
@@ -591,6 +660,19 @@ static int NU_Generate_Tree(char* src_buffer, uint32_t src_length, struct Vector
         // -----------------------------------------------------
         if (NU_XML_Token == CLOSE_END_TAG)
         {
+
+            // Multi node structure context switch
+            if (current_node->tag == TABLE) { // <table> closes
+                ctx = 0;
+            } 
+            else if (current_node->tag == THEAD) { // <thead> closes
+                ctx = 2;
+            }
+            else if (current_node->tag == ROW) { // <row> closes
+                if (ctx == 5) ctx = 2;
+                else ctx = 3;
+            } 
+
             current_layer--; // Move one layer up (towards root)
             i+=1; // Increment token index
             continue;

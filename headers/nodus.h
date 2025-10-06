@@ -34,6 +34,9 @@ enum Tag
     GRID,
     TEXT,
     IMAGE,
+    TABLE,
+    THEAD,
+    ROW,
     NAT,
 };
 

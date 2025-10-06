@@ -323,10 +323,10 @@ void Construct_Border_Rect(
     int total_pts          = tl_pts + tr_pts + br_pts + bl_pts;
 
     // --- Corner anchors ---
-    vec2 tl_a              = { node->x + node->border_radius_tl,               node->y + node->border_radius_tl };
-    vec2 tr_a              = { node->x + node->width - node->border_radius_tr, node->y + node->border_radius_tr };
-    vec2 bl_a              = { node->x + node->border_radius_bl,               node->y + node->height - node->border_radius_bl };
-    vec2 br_a              = { node->x + node->width - node->border_radius_br, node->y + node->height - node->border_radius_br };
+    vec2 tl_a              = { floorf(node->x + node->border_radius_tl),               floorf(node->y + node->border_radius_tl) };
+    vec2 tr_a              = { floorf(node->x + node->width - node->border_radius_tr), floorf(node->y + node->border_radius_tr) };
+    vec2 bl_a              = { floorf(node->x + node->border_radius_bl),               floorf(node->y + node->height - node->border_radius_bl) };
+    vec2 br_a              = { floorf(node->x + node->width - node->border_radius_br), floorf(node->y + node->height - node->border_radius_br) };
 
     // --- Allocate extra space in vertex and index lists ---
     uint32_t additional_vertices = node->hide_background ? total_pts * 2 + 4 : total_pts * 3 + 4;    // each corner contributes 3*cp + 1 verts
@@ -454,10 +454,10 @@ void Draw_Image(float x, float y, float w, float h, float screen_width, float sc
 {
     glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
 
-    x = roundf(x);
-    y = roundf(y);
-    w = roundf(w);
-    h = roundf(h);
+    x = floorf(x);
+    y = floorf(y);
+    w = floorf(w);
+    h = floorf(h);
 
     // Quad vertices 
     vertex_uv verts[6] = {

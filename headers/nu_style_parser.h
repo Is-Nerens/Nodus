@@ -8,8 +8,8 @@
 #include "nu_stylesheet.h"
 
 #define STYLE_PROPERTY_COUNT 33
-#define STYLE_KEYWORD_COUNT 42
-#define STYLE_TAG_SELECTOR_COUNT 6
+#define STYLE_KEYWORD_COUNT 43
+#define STYLE_TAG_SELECTOR_COUNT 9
 #define STYLE_PSEUDO_COUNT 3
 
 static const char* style_keywords[] = {
@@ -29,19 +29,19 @@ static const char* style_keywords[] = {
     "border", "borderTop", "borderBottom", "borderLeft", "borderRight",
     "borderRadius", "borderRadiusTopLeft", "borderRadiusTopRight", "borderRadiusBottomLeft", "borderRadiusBottomRight",
     "pad", "padTop", "padBottom", "padLeft", "padRight",
-    "window", "rect", "button", "grid", "text", "image",
+    "window", "rect", "button", "grid", "text", "image", "table", "thead", "row",
     "hover", "press", "focus",
 };
 
 static const uint8_t style_keyword_lengths[] = { 
     3, 4, 9, 9, 3, 5, 8, 8, 6, 9, 9, 
-    6, 6, 10, 10,          // alignment
-    10, 12, 10,            // colours
-    6, 9, 12, 10, 11,      // border width
-    12, 19, 20, 22, 23,    // border radius
-    3, 6, 9, 7, 8,         // padding
-    6, 4, 6, 4, 4, 5,      // selectors
-    5, 5, 5                // pseudo classes
+    6, 6, 10, 10,              // alignment
+    10, 12, 10,                // colours
+    6, 9, 12, 10, 11,          // border width
+    12, 19, 20, 22, 23,        // border radius
+    3, 6, 9, 7, 8,             // padding
+    6, 4, 6, 4, 4, 5, 5, 5, 3, // selectors
+    5, 5, 5                    // pseudo classes
 };
 enum NU_Style_Token 
 {
@@ -84,6 +84,9 @@ enum NU_Style_Token
     STYLE_GRID_SELECTOR,
     STYLE_TEXT_SELECTOR,
     STYLE_IMAGE_SELECTOR,
+    STYLE_TABLE_SELECTOR,
+    STYLE_THEAD_SELECTOR,
+    STYLE_ROW_SELECTOR,
     STYLE_HOVER_PSEUDO,
     STYLE_PRESS_PSEUDO,
     STYLE_FOCUS_PSEUDO,

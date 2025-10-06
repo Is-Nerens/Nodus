@@ -441,7 +441,7 @@ static void NU_Grow_Shrink_Widths()
         for (int p=0; p<parent_layer->size; p++)
         {       
             struct Node* parent = NU_Layer_Get(parent_layer, p);
-            if (!parent->node_present) continue;
+            if (!parent->node_present || parent->tag == ROW || parent->tag == TABLE) continue;
 
             NU_Grow_Shrink_Child_Node_Widths(parent, child_layer);
         }
@@ -459,9 +459,88 @@ static void NU_Grow_Shrink_Heights()
         for (int p=0; p<parent_layer->size; p++)
         {       
             struct Node* parent = NU_Layer_Get(parent_layer, p);
-            if (!parent->node_present) continue;
+            if (!parent->node_present || parent->tag == TABLE) continue;
 
             NU_Grow_Shrink_Child_Node_Heights(parent, child_layer);
+        }
+    }
+}
+
+static void NU_Calculate_Table_Column_Widths()
+{
+    for (uint16_t l=0; l<=__nu_global_gui.deepest_layer; l++)
+    {
+        NU_Layer* table_layer = &__nu_global_gui.tree.layers[l];
+
+        // Iterate over  layer
+        for (int i=0; i<table_layer->size; i++)
+        {       
+            struct Node* node = NU_Layer_Get(table_layer, i);
+            if (!node->node_present) continue;
+
+            if (node->tag == TABLE && node->child_count > 0) 
+            {
+
+                struct Vector widest_in_each_column;
+                Vector_Reserve(&widest_in_each_column, sizeof(float), 50);
+                NU_Layer* row_layer = &__nu_global_gui.tree.layers[l+1];
+
+                // ------------------------------------------------------------
+                // --- Calculate the widest cell width in each table column ---
+                // ------------------------------------------------------------
+                for (uint16_t r=node->first_child_index; r<node->first_child_index + node->child_count; r++)
+                {
+                    struct Node* row = NU_Layer_Get(row_layer, r);
+                    if (row->child_count == 0) break;
+
+                    // Iterate over cells in row
+                    NU_Layer* cell_layer = &__nu_global_gui.tree.layers[l+2];
+                    int cell_index = 0;
+                    for (uint16_t c=row->first_child_index; c<row->first_child_index + row->child_count; c++)
+                    {
+                        if (cell_index == widest_in_each_column.size) {
+                            float val = 0;
+                            Vector_Push(&widest_in_each_column, &val);
+                        }
+                        float* val = Vector_Get(&widest_in_each_column, cell_index);
+                        struct Node* cell = NU_Layer_Get(cell_layer, c);
+                        if (cell->min_width > *val) {
+                            *val = cell->min_width;
+                        }
+                        cell_index++;
+                    }
+                }
+
+                // -----------------------------------------------
+                // --- Apply widest column widths to all cells ---
+                // -----------------------------------------------
+                float row_width = node->width - node->border_left - node->border_right - node->pad_left - node->pad_right;
+                float remaining_width = row_width;
+                for (int k=0; k<widest_in_each_column.size; k++) {
+                    remaining_width -= *(float*)Vector_Get(&widest_in_each_column, k);
+                }
+                float used_width = row_width - remaining_width;
+                for (uint16_t r=node->first_child_index; r<node->first_child_index + node->child_count; r++)
+                {
+                    struct Node* row = NU_Layer_Get(row_layer, r);
+                    row->width = node->width - node->border_left - node->border_right - node->pad_left - node->pad_right;
+                    
+                    if (row->child_count == 0) break;
+
+                    // Iterate over cells in row
+                    NU_Layer* cell_layer = &__nu_global_gui.tree.layers[l+2];
+                    int cell_index = 0;
+                    for (uint16_t c=row->first_child_index; c<row->first_child_index + row->child_count; c++)
+                    {
+                        struct Node* cell = NU_Layer_Get(cell_layer, c);
+                        float column_width = *(float*)Vector_Get(&widest_in_each_column, cell_index);
+                        float proportion = column_width / used_width;
+                        cell->width = column_width + remaining_width * proportion;
+                        cell_index++;
+                    }
+                }
+                Vector_Free(&widest_in_each_column);
+            }
         }
     }
 }
@@ -808,7 +887,7 @@ void NU_Draw()
             struct Node* node = *(struct Node**) Vector_Get(&window_nodes_list[i], n);
             Construct_Border_Rect(node, w_fl, h_fl, &border_rect_vertices, &border_rect_indices);
         }
-        
+
         // Draw all border rects in one pass
         Draw_Vertex_RGB_List(&border_rect_vertices, &border_rect_indices, w_fl, h_fl);
         Vertex_RGB_List_Free(&border_rect_vertices);
@@ -852,12 +931,18 @@ void NU_Draw()
 
 void NU_Reflow()
 {
-    NU_Clear_Node_Sizes();
-    NU_Calculate_Text_Fit_Sizes();
-    NU_Calculate_Fit_Size_Widths();
+    NU_Clear_Node_Sizes();            // Reset dimensions and positions
+    NU_Calculate_Text_Fit_Sizes();    // Width and height of unwrapped text nodes
+    NU_Calculate_Fit_Size_Widths();   
     NU_Grow_Shrink_Widths();
+
+    NU_Calculate_Table_Column_Widths();
+
     NU_Calculate_Text_Wrap_Heights();
     NU_Calculate_Fit_Size_Heights();
+
+    // NU_Calculate_Table_Row_Heights
+
     NU_Grow_Shrink_Heights();
     NU_Calculate_Positions();
 }

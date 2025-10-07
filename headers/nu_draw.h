@@ -7,9 +7,12 @@
 #include "nu_draw_structures.h"
 
 GLuint Border_Rect_Shader_Program;
+GLuint Clipped_Border_Rect_Shader_Program;
 GLuint Image_Shader_Program;
 GLuint border_vao, border_vbo, border_ebo;
 GLint uScreenWidthLoc, uScreenHeightLoc;
+GLint uClippedScreenWidthLoc, uClippedScreenHeightLoc;
+GLint uClipTopLoc, uClipBottomLoc, uClipLeftLoc, uClipRightLoc;
 
 
 static GLuint Compile_Shader(GLenum type, const char* src) 
@@ -57,20 +60,43 @@ void NU_Draw_Init()
     "layout(location = 0) in vec2 aPos;\n"
     "layout(location = 1) in vec3 aColor;\n"
     "out vec3 vColor;\n"
+    "out vec2 vScreenPos;\n"  // pass to fragment shader in pixel coords
     "uniform float uScreenWidth;\n"
     "uniform float uScreenHeight;\n"
     "void main() {\n"
+    "    // Convert screen position (pixels) to NDC for gl_Position\n"
     "    float ndc_x = (aPos.x / uScreenWidth) * 2.0 - 1.0;\n"
     "    float ndc_y = 1.0 - (aPos.y / uScreenHeight) * 2.0;\n"
     "    gl_Position = vec4(ndc_x, ndc_y, 0.0, 1.0);\n"
     "    vColor = aColor;\n"
+    "    vScreenPos = aPos; // keep original pixel position for clipping\n"
     "}\n";
+
     const char* border_rect_fragment_src =
     "#version 330 core\n"
     "in vec3 vColor;\n"
     "out vec4 FragColor;\n"
     "void main() {\n"
     "    FragColor = vec4(vColor, 1.0);\n"
+    "}\n";
+
+    const char* clipped_border_rect_fragment_src =
+    "#version 330 core\n"
+    "in vec3 vColor;\n"
+    "in vec2 vScreenPos;\n"
+    "out vec4 FragColor;\n"
+    "uniform float uClipTop;\n"
+    "uniform float uClipBottom;\n"
+    "uniform float uClipLeft;\n"
+    "uniform float uClipRight;\n"
+    "void main() {\n"
+    "    // Discard fragments outside the clip rectangle (in pixel space)\n"
+    "    if (vScreenPos.x < uClipLeft || vScreenPos.x > uClipRight ||\n"
+    "        vScreenPos.y < uClipTop  || vScreenPos.y > uClipBottom) {\n"
+    "        discard;\n"
+    "    } else {\n"
+    "        FragColor = vec4(vColor, 1.0);\n"
+    "    }\n"
     "}\n";
 
     // -------------------------------
@@ -99,6 +125,7 @@ void NU_Draw_Init()
     "}\n";
 
     Border_Rect_Shader_Program = Create_Shader_Program(border_rect_vertex_src, border_rect_fragment_src);
+    Clipped_Border_Rect_Shader_Program = Create_Shader_Program(border_rect_vertex_src, clipped_border_rect_fragment_src);
     Image_Shader_Program = Create_Shader_Program(image_vertex_src, image_fragment_src);
 
 
@@ -106,6 +133,13 @@ void NU_Draw_Init()
     // Query uniforms once
     uScreenWidthLoc  = glGetUniformLocation(Border_Rect_Shader_Program, "uScreenWidth");
     uScreenHeightLoc = glGetUniformLocation(Border_Rect_Shader_Program, "uScreenHeight");
+    uClippedScreenWidthLoc  = glGetUniformLocation(Clipped_Border_Rect_Shader_Program, "uScreenWidth");
+    uClippedScreenHeightLoc = glGetUniformLocation(Clipped_Border_Rect_Shader_Program, "uScreenHeight");
+    uClipTopLoc      = glGetUniformLocation(Clipped_Border_Rect_Shader_Program, "uClipTop");
+    uClipBottomLoc   = glGetUniformLocation(Clipped_Border_Rect_Shader_Program, "uClipBottom");
+    uClipLeftLoc     = glGetUniformLocation(Clipped_Border_Rect_Shader_Program, "uClipLeft");
+    uClipRightLoc    = glGetUniformLocation(Clipped_Border_Rect_Shader_Program, "uClipRight");
+ 
     // VAO + buffers
     glGenVertexArrays(1, &border_vao);
     glBindVertexArray(border_vao);
@@ -296,15 +330,19 @@ void Construct_Border_Rect(
 {
     const float PI = 3.14159265f;
 
-    // --- Constrain radii ---
-    float left_radii_sum   = node->border_radius_tl + node->border_radius_bl;
-    float right_radii_sum  = node->border_radius_tr + node->border_radius_br;
-    float top_radii_sum    = node->border_radius_tl + node->border_radius_tr;
-    float bottom_radii_sum = node->border_radius_bl + node->border_radius_br;
-    if (left_radii_sum   > node->height)  { float scale = node->height / left_radii_sum;   node->border_radius_tl *= scale; node->border_radius_bl *= scale; }
-    if (right_radii_sum  > node->height)  { float scale = node->height / right_radii_sum;  node->border_radius_tr *= scale; node->border_radius_br *= scale; }
-    if (top_radii_sum    > node->width )  { float scale = node->width  / top_radii_sum;    node->border_radius_tl *= scale; node->border_radius_tr *= scale; }
-    if (bottom_radii_sum > node->width )  { float scale = node->width  / bottom_radii_sum; node->border_radius_bl *= scale; node->border_radius_br *= scale; }
+    // --- Border radii ---
+    float border_radius_bl = node->border_radius_bl;
+    float border_radius_br = node->border_radius_br;
+    float border_radius_tl = node->border_radius_tl;
+    float border_radius_tr = node->border_radius_tr;
+    float left_radii_sum   = border_radius_tl + border_radius_bl;
+    float right_radii_sum  = border_radius_tr + border_radius_br;
+    float top_radii_sum    = border_radius_tl + border_radius_tr;
+    float bottom_radii_sum = border_radius_bl + border_radius_br;
+    if (left_radii_sum   > node->height)  { float scale = node->height / left_radii_sum;   border_radius_tl *= scale; border_radius_bl *= scale; }
+    if (right_radii_sum  > node->height)  { float scale = node->height / right_radii_sum;  border_radius_tr *= scale; border_radius_br *= scale; }
+    if (top_radii_sum    > node->width )  { float scale = node->width  / top_radii_sum;    border_radius_tl *= scale; border_radius_tr *= scale; }
+    if (bottom_radii_sum > node->width )  { float scale = node->width  / bottom_radii_sum; border_radius_bl *= scale; border_radius_br *= scale; }
 
     // --- Convert colors ---
     float border_r_fl      = (float)node->border_r / 255.0f;
@@ -316,17 +354,17 @@ void Construct_Border_Rect(
 
     // --- Determine corner points ---
     int max_pts            = 64;
-    int tl_pts             = node->border_radius_tl < 1.0f ? 1 : min((int)node->border_radius_tl + 3, max_pts);
-    int tr_pts             = node->border_radius_tr < 1.0f ? 1 : min((int)node->border_radius_tr + 3, max_pts);
-    int br_pts             = node->border_radius_br < 1.0f ? 1 : min((int)node->border_radius_br + 3, max_pts);
-    int bl_pts             = node->border_radius_bl < 1.0f ? 1 : min((int)node->border_radius_bl + 3, max_pts);
+    int tl_pts             = border_radius_tl < 1.0f ? 1 : min((int)border_radius_tl + 3, max_pts);
+    int tr_pts             = border_radius_tr < 1.0f ? 1 : min((int)border_radius_tr + 3, max_pts);
+    int br_pts             = border_radius_br < 1.0f ? 1 : min((int)border_radius_br + 3, max_pts);
+    int bl_pts             = border_radius_bl < 1.0f ? 1 : min((int)border_radius_bl + 3, max_pts);
     int total_pts          = tl_pts + tr_pts + br_pts + bl_pts;
 
     // --- Corner anchors ---
-    vec2 tl_a              = { floorf(node->x + node->border_radius_tl),               floorf(node->y + node->border_radius_tl) };
-    vec2 tr_a              = { floorf(node->x + node->width - node->border_radius_tr), floorf(node->y + node->border_radius_tr) };
-    vec2 bl_a              = { floorf(node->x + node->border_radius_bl),               floorf(node->y + node->height - node->border_radius_bl) };
-    vec2 br_a              = { floorf(node->x + node->width - node->border_radius_br), floorf(node->y + node->height - node->border_radius_br) };
+    vec2 tl_a              = { floorf(node->x + border_radius_tl),               floorf(node->y + border_radius_tl) };
+    vec2 tr_a              = { floorf(node->x + node->width - border_radius_tr), floorf(node->y + border_radius_tr) };
+    vec2 bl_a              = { floorf(node->x + border_radius_bl),               floorf(node->y + node->height - border_radius_bl) };
+    vec2 br_a              = { floorf(node->x + node->width - border_radius_br), floorf(node->y + node->height - border_radius_br) };
 
     // --- Allocate extra space in vertex and index lists ---
     uint32_t additional_vertices = node->hide_background ? total_pts * 2 + 4 : total_pts * 3 + 4;    // each corner contributes 3*cp + 1 verts
@@ -339,13 +377,13 @@ void Construct_Border_Rect(
 
     // --- Generate corner vertices and indices ---
     int TL = vertices->size;
-    Generate_Corner_Segment(vertices, indices, tl_a, PI, 1.5f * PI, node->border_radius_tl, node->border_left, node->border_top, node->width, node->height, border_r_fl, border_g_fl, border_b_fl, bg_r_fl, bg_g_fl, bg_b_fl, tl_pts, 0, node->hide_background);
+    Generate_Corner_Segment(vertices, indices, tl_a, PI, 1.5f * PI, border_radius_tl, node->border_left, node->border_top, node->width, node->height, border_r_fl, border_g_fl, border_b_fl, bg_r_fl, bg_g_fl, bg_b_fl, tl_pts, 0, node->hide_background);
     int TR = vertices->size;
-    Generate_Corner_Segment(vertices, indices, tr_a, 1.5f * PI, 2.0f * PI, node->border_radius_tr, node->border_top, node->border_right, node->width, node->height, border_r_fl, border_g_fl, border_b_fl, bg_r_fl, bg_g_fl, bg_b_fl, tr_pts, 1, node->hide_background);
+    Generate_Corner_Segment(vertices, indices, tr_a, 1.5f * PI, 2.0f * PI, border_radius_tr, node->border_top, node->border_right, node->width, node->height, border_r_fl, border_g_fl, border_b_fl, bg_r_fl, bg_g_fl, bg_b_fl, tr_pts, 1, node->hide_background);
     int BR = vertices->size;
-    Generate_Corner_Segment(vertices, indices, br_a, 0.0f, 0.5f * PI, node->border_radius_br, node->border_right, node->border_bottom, node->width, node->height, border_r_fl, border_g_fl, border_b_fl, bg_r_fl, bg_g_fl, bg_b_fl, br_pts, 2, node->hide_background);
+    Generate_Corner_Segment(vertices, indices, br_a, 0.0f, 0.5f * PI, border_radius_br, node->border_right, node->border_bottom, node->width, node->height, border_r_fl, border_g_fl, border_b_fl, bg_r_fl, bg_g_fl, bg_b_fl, br_pts, 2, node->hide_background);
     int BL = vertices->size;
-    Generate_Corner_Segment(vertices, indices, bl_a, 0.5f * PI, PI, node->border_radius_bl, node->border_bottom, node->border_left, node->width, node->height, border_r_fl, border_g_fl, border_b_fl, bg_r_fl, bg_g_fl, bg_b_fl, bl_pts, 3, node->hide_background);
+    Generate_Corner_Segment(vertices, indices, bl_a, 0.5f * PI, PI, border_radius_bl, node->border_bottom, node->border_left, node->width, node->height, border_r_fl, border_g_fl, border_b_fl, bg_r_fl, bg_g_fl, bg_b_fl, bl_pts, 3, node->hide_background);
 
 
 
@@ -417,6 +455,105 @@ void Construct_Border_Rect(
     indices->size = (int)(indices_write - indices->array);
 }
 
+void Construct_Scroll_Thumb(struct Node* node,
+    float screen_width, 
+    float screen_height,
+    Vertex_RGB_List* vertices, Index_List* indices
+)
+{
+    // --- Allocate extra space in vertex and index lists ---
+    uint32_t additional_vertices = 8;    
+    uint32_t additional_indices = 12;          
+    if (vertices->size + additional_vertices > vertices->capacity) Vertex_RGB_List_Grow(vertices, additional_vertices);
+    if (indices->size + additional_indices > indices->capacity) Index_List_Grow(indices, additional_indices);
+
+    float x = node->x + node->width - node->border_right - 12.0f;
+    float y = node->y + node->border_top;
+    float thumb_y = node->y + node->border_top + node->scroll_v;
+    float w = 12.0f;
+    float track_h = node->height - node->border_top - node->border_bottom;
+    float inner_height_w_pad = track_h - node->pad_top - node->pad_bottom;
+    float inner_proportion_of_content_height = inner_height_w_pad / node->content_height;
+    float thumb_h = inner_proportion_of_content_height * track_h;
+
+
+    uint32_t vertex_offset = vertices->size;
+
+    // Background Rect TL
+    vertices->array[vertex_offset + 0].x = x;
+    vertices->array[vertex_offset + 0].y = y;
+    vertices->array[vertex_offset + 0].r = 0.1f;
+    vertices->array[vertex_offset + 0].g = 0.1f;
+    vertices->array[vertex_offset + 0].b = 0.1f;
+
+    // Background Rect TR
+    vertices->array[vertex_offset + 1].x = x + w;
+    vertices->array[vertex_offset + 1].y = y;
+    vertices->array[vertex_offset + 1].r = 0.1f;
+    vertices->array[vertex_offset + 1].g = 0.1f;
+    vertices->array[vertex_offset + 1].b = 0.1f;
+
+    // Background Rect BL
+    vertices->array[vertex_offset + 2].x = x;
+    vertices->array[vertex_offset + 2].y = y + track_h;
+    vertices->array[vertex_offset + 2].r = 0.1f;
+    vertices->array[vertex_offset + 2].g = 0.1f;
+    vertices->array[vertex_offset + 2].b = 0.1f;
+
+    // Background Rect BR
+    vertices->array[vertex_offset + 3].x = x + w;
+    vertices->array[vertex_offset + 3].y = y + track_h;
+    vertices->array[vertex_offset + 3].r = 0.1f;
+    vertices->array[vertex_offset + 3].g = 0.1f;
+    vertices->array[vertex_offset + 3].b = 0.1f;
+
+    // Background Thumb TL
+    vertices->array[vertex_offset + 4].x = x;
+    vertices->array[vertex_offset + 4].y = thumb_y;
+    vertices->array[vertex_offset + 4].r = 0.4f;
+    vertices->array[vertex_offset + 4].g = 0.8f;
+    vertices->array[vertex_offset + 4].b = 0.8f;
+
+    // Background Thumb TR
+    vertices->array[vertex_offset + 5].x = x + w;
+    vertices->array[vertex_offset + 5].y = thumb_y;
+    vertices->array[vertex_offset + 5].r = 0.4f;
+    vertices->array[vertex_offset + 5].g = 0.8f;
+    vertices->array[vertex_offset + 5].b = 0.8f;
+
+    // Background Thumb BL
+    vertices->array[vertex_offset + 6].x = x;
+    vertices->array[vertex_offset + 6].y = thumb_y + thumb_h;
+    vertices->array[vertex_offset + 6].r = 0.4f;
+    vertices->array[vertex_offset + 6].g = 0.8f;
+    vertices->array[vertex_offset + 6].b = 0.8f;
+
+    // Background Thumb BR
+    vertices->array[vertex_offset + 7].x = x + w;
+    vertices->array[vertex_offset + 7].y = thumb_y + thumb_h;
+    vertices->array[vertex_offset + 7].r = 0.4f;
+    vertices->array[vertex_offset + 7].g = 0.8f;
+    vertices->array[vertex_offset + 7].b = 0.8f;
+
+    // Indices
+    uint32_t* indices_write = indices->array + indices->size;
+    *indices_write++ = vertex_offset + 0;
+    *indices_write++ = vertex_offset + 1;
+    *indices_write++ = vertex_offset + 2;
+    *indices_write++ = vertex_offset + 1;
+    *indices_write++ = vertex_offset + 2;
+    *indices_write++ = vertex_offset + 3;
+    *indices_write++ = vertex_offset + 4;
+    *indices_write++ = vertex_offset + 5;
+    *indices_write++ = vertex_offset + 6;
+    *indices_write++ = vertex_offset + 5;
+    *indices_write++ = vertex_offset + 6;
+    *indices_write++ = vertex_offset + 7;
+
+    vertices->size += additional_vertices;
+    indices->size += additional_indices;
+}
+
 void Draw_Vertex_RGB_List(Vertex_RGB_List* vertices, Index_List* indices, float screen_width, float screen_height)
 {
     glUseProgram(Border_Rect_Shader_Program);
@@ -431,6 +568,33 @@ void Draw_Vertex_RGB_List(Vertex_RGB_List* vertices, Index_List* indices, float 
     glBindVertexArray(0);
 }
 
+void Draw_Clipped_Vertex_RGB_List
+(
+    Vertex_RGB_List* vertices, 
+    Index_List* indices, 
+    float screen_width, 
+    float screen_height,
+    float clip_top,
+    float clip_bottom,
+    float clip_left,
+    float clip_right
+)
+{
+    glUseProgram(Clipped_Border_Rect_Shader_Program);
+    glUniform1f(uClippedScreenWidthLoc, screen_width);
+    glUniform1f(uClippedScreenHeightLoc, screen_height);
+    glUniform1f(uClipTopLoc, clip_top);
+    glUniform1f(uClipBottomLoc, clip_bottom);
+    glUniform1f(uClipLeftLoc, clip_left);
+    glUniform1f(uClipRightLoc, clip_right);
+    glBindBuffer(GL_ARRAY_BUFFER, border_vbo);
+    glBufferData(GL_ARRAY_BUFFER, vertices->size * sizeof(vertex_rgb), vertices->array, GL_DYNAMIC_DRAW);
+    glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, border_ebo);
+    glBufferData(GL_ELEMENT_ARRAY_BUFFER, indices->size * sizeof(GLuint), indices->array, GL_DYNAMIC_DRAW);
+    glBindVertexArray(border_vao);
+    glDrawElements(GL_TRIANGLES, indices->size, GL_UNSIGNED_INT, 0);
+    glBindVertexArray(0);
+}
 
 
 void ClearGLErrors()

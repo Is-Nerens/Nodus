@@ -72,7 +72,7 @@ struct Node
     GLuint gl_image_handle;
     float x, y, width, height, preferred_width, preferred_height;
     float min_width, max_width, min_height, max_height;
-    float gap, content_width, content_height;
+    float gap, content_width, content_height, scroll_x, scroll_v;
     uint8_t pad_top, pad_bottom, pad_left, pad_right;
     uint8_t border_top, border_bottom, border_left, border_right;
     uint8_t border_radius_tl, border_radius_tr, border_radius_bl, border_radius_br;
@@ -107,6 +107,11 @@ struct NU_GUI
     String_Set id_string_set;
     struct Node* hovered_node;
     struct Node* mouse_down_node;
+    struct Node* scroll_hovered_node;
+    struct Node* scroll_mouse_down_node;
+    float mouse_down_global_x;
+    float mouse_down_global_y;
+    float v_scrollbar_top_global_y;
     uint16_t deepest_layer;
 
     // Status
@@ -182,6 +187,8 @@ void NU_Init()
     String_Set_Init(&__nu_global_gui.id_string_set, 1024, 100);
     __nu_global_gui.hovered_node = NULL;
     __nu_global_gui.mouse_down_node = NULL;
+    __nu_global_gui.scroll_hovered_node = NULL;
+    __nu_global_gui.scroll_mouse_down_node = NULL;
     __nu_global_gui.deepest_layer = 0;
     __nu_global_gui.awaiting_draw = true;
     __nu_global_gui.stylesheet = NULL;

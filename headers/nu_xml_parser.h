@@ -433,6 +433,8 @@ static void NU_Apply_Node_Defaults(struct Node* node)
     node->gap = 0.0f;
     node->content_width = 0.0f;
     node->content_height = 0.0f;
+    node->scroll_x = 0.0f;
+    node->scroll_v = 0.0f;
     node->index = UINT16_MAX;
     node->parent_index = UINT16_MAX;
     node->first_child_index = UINT16_MAX;

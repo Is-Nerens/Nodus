@@ -46,8 +46,8 @@ button:press {
 #watchlist {
     dir: v;
     grow: b;
-    background: #2f2f2f;
     maxHeight: 500;
+    pad: 5;
     borderRadiusTopLeft: 5;
     borderRadiusTopRight: 5;
 }
@@ -63,15 +63,17 @@ button:press {
     borderColour: #9b5920;
     borderRadius: 3;
 }
+#watchlist-list {
+    background: #a81927;
+}
 .watchlist-text {
     pad: 5;
     background: none;
-    borderRight: 1;
-    borderColour: #000000;
 }
 .crypto-icon {
     width: 20;
     height: 20;
+    pad: 2;
     background: none;
 }
 #watchlist-dom-selector {
@@ -102,7 +104,7 @@ button:press {
     pad: 5;
     borderColour: #151515;
     dir: v;
-    grow: b;
+    grow: h;
 }
 #trade-panel-side-selection {
     dir: h;
@@ -188,15 +190,19 @@ button:press {
     borderColour: #9b5920;
 }
 .drawing-tool:press {
-    borderColour: #9b5920;
-    background: #9b5920;
+    borderColour: #151515;
+    background: #151515;
 }
 
 
+
+
+
+
 #trade-history-container {
-    grow: b;
-    background: #151515;
-    height: 500;
+    grow: h;
+    maxHeight: 400;
+    background: #2f2f2f;
     borderRadius: 5;
     gap: 3;
 }
@@ -218,10 +224,20 @@ button:press {
     pad: 4;
 }
 
-
-
-table {
-    border: 1;
+#orders-table {
+    overflowV: s;
+    grow: b;
+    border: 3;
+    borderRadius: 5;
+    borderColour: #07a54b;
+    border: 5;
+    pad: 3;
+    background: #b1aa31;
+}
+#orders-head {
+    pad: 5;
+    borderRadiusTopLeft: 5;
+    borderRadiusTopRight: 5;
 }
 row {
     borderBottom: 1;

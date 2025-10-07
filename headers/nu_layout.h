@@ -43,6 +43,9 @@ static void NU_Clear_Node_Sizes()
             struct Node* node = &layer->node_array[i];
             if (!node->node_present) continue;
 
+
+            node->node_present = 1;
+
             // Reset Node Size
             node->x = 0.0f;
             node->y = 0.0f;
@@ -98,7 +101,6 @@ static float NU_Calculate_Text_Min_Wrap_Width(struct Node* node, float full_widt
     }
     return max_word_width;
 }
-
 
 static void NU_Calculate_Text_Fit_Widths()
 {
@@ -391,9 +393,6 @@ static void NU_Grow_Shrink_Child_Node_Widths(struct Node* parent, NU_Layer* chil
 static void NU_Grow_Shrink_Child_Node_Heights(struct Node* parent, NU_Layer* child_layer)
 {
     float remaining_height = parent->height - parent->pad_top - parent->pad_bottom - parent->border_top - parent->border_bottom - (!!(parent->layout_flags & OVERFLOW_HORIZONTAL_SCROLL)) * 12.0f;
-    if (parent->layout_flags & OVERFLOW_HORIZONTAL_SCROLL)
-        printf("yes\n");
-
     if (!(parent->layout_flags & LAYOUT_VERTICAL))
     {
         for (uint16_t i=parent->first_child_index; i<parent->first_child_index + parent->child_count; i++)
@@ -476,6 +475,60 @@ static void NU_Grow_Shrink_Child_Node_Heights(struct Node* parent, NU_Layer* chi
                 }
             }
             if (!grew_any) break;
+        }
+
+        // ----------------------------------------
+        // --- Shrink overgrown children (text) ---
+        // ----------------------------------------
+        while (remaining_height < -0.01f)
+        {
+            // --------------------------------------------------------------
+            // --- determine smallest, second smallest and shrinkable count ---
+            // --------------------------------------------------------------
+            float largest = -1e20f;
+            float second_largest = -1e30f;
+            int shrinkable_count = 0;
+            for (uint16_t i = parent->first_child_index; i<parent->first_child_index + parent->child_count; i++) {
+                struct Node* child = NU_Layer_Get(child_layer, i);
+                if ((child->layout_flags & GROW_VERTICAL) && child->tag != WINDOW && child->height > child->min_height) {
+                    shrinkable_count++;
+                    if (child->height > largest) {
+                        second_largest = largest;
+                        largest = child->height;
+                    } else if (child->height > second_largest) {
+                        second_largest = child->height;
+                    }
+                }
+            }
+
+            // ---------------------------------
+            // --- Compute height to subtract ---
+            // ---------------------------------
+            float height_to_subtract = -remaining_height / (float)shrinkable_count;
+            if (second_largest < largest && second_largest >= 0) {
+                height_to_subtract = min(height_to_subtract, largest - second_largest);
+            }
+
+            // -------------------------------------------
+            // --- Shrink height of each eligible child ---
+            // -------------------------------------------
+            bool shrunk_any = false;
+            for (uint16_t i=parent->first_child_index; i<parent->first_child_index + parent->child_count; i++) {
+                struct Node* child = NU_Layer_Get(child_layer, i);
+                if ((child->layout_flags & GROW_VERTICAL) && child->tag != WINDOW && child->height > child->min_height) {
+                    if (child->height == largest) {
+                        float available = child->height - child->min_height;
+                        float shrink = min(height_to_subtract, available);
+                        if (shrink > 0.0f) {
+                            parent->content_height -= shrink;
+                            child->height -= shrink;
+                            remaining_height += shrink;
+                            shrunk_any = true;
+                        }
+                    }
+                }
+            }
+            if (!shrunk_any) break;
         }
     }
 }
@@ -672,6 +725,25 @@ static void NU_Horizontally_Place_Children(struct Node* parent, NU_Layer* child_
 
 static void NU_Vertically_Place_Children(struct Node* parent, NU_Layer* child_layer)
 {
+    float y_scroll_offset = 0.0f;
+    if (parent->layout_flags & OVERFLOW_VERTICAL_SCROLL && parent->child_count > 0) 
+    {
+        float track_h = parent->height - parent->border_top - parent->border_bottom;
+        float inner_height_w_pad = track_h - parent->pad_top - parent->pad_bottom;
+        float inner_proportion_of_content_height = inner_height_w_pad / parent->content_height;
+        float thumb_h = inner_proportion_of_content_height * track_h;
+        float content_scroll_range = parent->content_height - inner_height_w_pad;
+        float thumb_scroll_range = track_h - thumb_h;
+        float scroll_factor = content_scroll_range / thumb_scroll_range;
+        y_scroll_offset = (-parent->scroll_v) * scroll_factor;
+
+        // Force thead to "stick"
+        struct Node* first_child = NU_Layer_Get(child_layer, parent->first_child_index);
+        if (first_child->tag == THEAD) {
+            first_child->y -= y_scroll_offset;
+        }
+    }
+
     if (!(parent->layout_flags & LAYOUT_VERTICAL))
     {   
         for (uint16_t i=parent->first_child_index; i<parent->first_child_index + parent->child_count; i++)
@@ -679,7 +751,7 @@ static void NU_Vertically_Place_Children(struct Node* parent, NU_Layer* child_la
             struct Node* child = NU_Layer_Get(child_layer, i);
             float remaining_height = (parent->height - parent->pad_top - parent->pad_bottom - parent->border_top - parent->border_bottom) - child->height;
             float y_align_offset = remaining_height * 0.5f * (float)parent->vertical_alignment;
-            child->y = parent->y + parent->pad_top + parent->border_top + y_align_offset;
+            child->y += parent->y + parent->pad_top + parent->border_top + y_align_offset + y_scroll_offset;
         }
     }
     else
@@ -699,7 +771,7 @@ static void NU_Vertically_Place_Children(struct Node* parent, NU_Layer* child_la
         {
             struct Node* child = NU_Layer_Get(child_layer, i);
             float y_align_offset = remaining_height * 0.5f * (float)parent->vertical_alignment;
-            child->y = parent->y + parent->pad_top + parent->border_top + cursor_y + y_align_offset;
+            child->y += parent->y + parent->pad_top + parent->border_top + cursor_y + y_align_offset + y_scroll_offset;
             cursor_y += child->height + parent->gap;
         }
     }
@@ -758,6 +830,17 @@ static bool NU_Mouse_Over_Node(struct Node* node, float mouse_x, float mouse_y)
     return false;
 }
 
+// Check against scrollbar v thumb
+static bool NU_Mouse_Over_Node_V_Scrollbar(struct Node* node, float mouse_x, float mouse_y) {
+    float scroll_thumb_left_wall = node->x + node->width - node->border_right - 12.0f;
+    float scroll_thumb_top_wall = node->y + node->border_top + node->scroll_v;
+    float inner_height = node->height - node->border_top - node->border_bottom;
+    float thumb_height = (inner_height / node->content_height) * inner_height;
+    bool within_x_bound = mouse_x >= scroll_thumb_left_wall && mouse_x <= scroll_thumb_left_wall + 12.0f;
+    bool within_y_bound = mouse_y >= scroll_thumb_top_wall && mouse_y <= scroll_thumb_top_wall + thumb_height;
+    return within_x_bound && within_y_bound;
+}
+
 void NU_Mouse_Hover()
 {   
     // --------------------------------------
@@ -767,6 +850,7 @@ void NU_Mouse_Hover()
         NU_Apply_Stylesheet_To_Node(__nu_global_gui.hovered_node, __nu_global_gui.stylesheet);
     }
     __nu_global_gui.hovered_node = NULL;
+    __nu_global_gui.scroll_hovered_node = NULL;
 
     if (__nu_global_gui.hovered_window == NULL) return;
 
@@ -799,8 +883,10 @@ void NU_Mouse_Hover()
     rel_y = mouse_y - window_y;
     bool break_loop = false;
     while (stack.size > 0 && !break_loop) 
-    {
-        // Pop the stack
+    {   
+        // -----------------
+        // --- Pop the stack
+        // -----------------
         struct Node* current_node = *(struct Node**)Vector_Get(&stack, stack.size - 1);
         if (current_node->window != __nu_global_gui.hovered_window) break;
         stack.size -= 1;
@@ -819,7 +905,14 @@ void NU_Mouse_Hover()
             if (child->tag != WINDOW && NU_Mouse_Over_Node_Bounds(child, rel_x, rel_y)) 
             {
                 __nu_global_gui.hovered_node = child;
-                if (child->tag == BUTTON) {
+
+                if (child->layout_flags & OVERFLOW_V_PROPERTY) {
+                    bool overflow_v = child->content_height > child->height - child->border_top - child->border_bottom;
+                    if (overflow_v && NU_Mouse_Over_Node_V_Scrollbar(child, rel_x, rel_y)) {
+                        __nu_global_gui.scroll_hovered_node = child;
+                    }
+                }
+                else if (child->tag == BUTTON) {
                     break_loop = true;
                     break;
                 }
@@ -829,7 +922,9 @@ void NU_Mouse_Hover()
         }
     }
 
-    // Set currently hovered node
+    // ----------------------------------------
+    // Apply hover pseudo style to hovered node
+    // ----------------------------------------
     if (__nu_global_gui.hovered_node != NULL && __nu_global_gui.hovered_node != __nu_global_gui.mouse_down_node) {
         NU_Apply_Pseudo_Style_To_Node(__nu_global_gui.hovered_node, __nu_global_gui.stylesheet, PSEUDO_HOVER);
     } 
@@ -862,50 +957,169 @@ void NU_Draw_Node_Text(struct Node* node, float desc)
     nvgTextBox(__nu_global_gui.vg_ctx, floorf(textPosX), floorf(textPosY), inner_width, node->text_content, NULL);
 }
 
-static bool Is_Node_Visible(struct Node* node, float window_width, float window_height)
+static bool Is_Node_Visible_In_Window(struct Node* node, float window_width, float window_height)
 {
     // Compute the node's content rectangle
     float left   = node->x;
     float top    = node->y;
-    float right  = left + node->width  - node->border_left - node->border_right - node->pad_left - node->pad_right;
-    float bottom = top  + node->height - node->border_top  - node->border_bottom - node->pad_top - node->pad_bottom;
+    float right  = left + node->width;
+    float bottom = top  + node->height;
 
     // Check for any overlap with the window bounds
     bool visible = !(right < 0 || bottom < 0 || left > window_width || top > window_height);
     return visible;
 }
 
+static bool Is_Node_Visible_In_Bounds(struct Node* node, float x, float y, float w, float h)
+{
+    // Compute the node's content rectangle
+    float left   = node->x;
+    float top    = node->y;
+    float right  = left + node->width;
+    float bottom = top + node->height;
+
+    // Compute the bounds rectangle
+    float bounds_left   = x;
+    float bounds_top    = y;
+    float bounds_right  = x + w;
+    float bounds_bottom = y + h;
+
+    // Check for any overlap between node and bounds
+    bool visible = !(right < bounds_left || bottom < bounds_top || left > bounds_right || top > bounds_bottom);
+    return visible;
+}
+
+static int Node_Vertical_Overlap_State(struct Node* node, float y, float h)
+{
+    float top    = node->y;
+    float bottom = top + node->height;
+
+    float bounds_top    = y;
+    float bounds_bottom = y + h;
+
+    // No intersection
+    if (bottom <= bounds_top || top >= bounds_bottom)
+        return 0;
+
+    // Fully inside
+    if (top >= bounds_top && bottom <= bounds_bottom)
+        return 2;
+
+    // Partial overlap
+    return 1;
+}
+
+static int NU_Draw_Find_Window(struct Node* node) {
+    for (int i=0; i<__nu_global_gui.windows.size; i++) {
+        SDL_Window* window = *(SDL_Window**) Vector_Get(&__nu_global_gui.windows, i);
+        if (window == node->window) {
+            return i;
+        }
+    }
+    return 0;
+}
+
+struct NU_Clipped_Node_Info {
+    struct Node* node;
+    float clip_top;
+    float clip_bottom;
+    float clip_left;
+    float clip_right;
+};
+
 void NU_Draw()
 {
-    struct Vector window_nodes_list[MAX_TREE_DEPTH];
+    struct Vector window_nodes_list[__nu_global_gui.windows.size];
+    struct Vector window_clipped_nodes_list[__nu_global_gui.windows.size];
     for (uint32_t i=0; i<__nu_global_gui.windows.size; i++) {
-        Vector_Reserve(&window_nodes_list[i], sizeof(struct Node*), 1000);
+        Vector_Reserve(&window_nodes_list[i], sizeof(struct Node*), 512);
+        Vector_Reserve(&window_clipped_nodes_list[i], sizeof(struct NU_Clipped_Node_Info), 8);
     }
 
-    // For each layer
+
+    // ----------------------------------------------
+    // --- Add visible nodes to window draw lists ---
+    // ----------------------------------------------
+    // Don't forget about the root
+    struct Node* root = &__nu_global_gui.tree.layers[0].node_array[0];
+    int root_w, root_h;
+    SDL_Window* root_window = *(SDL_Window**) Vector_Get(&__nu_global_gui.windows, 0);
+    SDL_GetWindowSize(root_window, &root_w, &root_h);
+    if (Is_Node_Visible_In_Window(root, (float)root_w, (float)root_h)) {
+        Vector_Push(&window_nodes_list[0], &root);
+    }
     for (int l=0; l<=__nu_global_gui.deepest_layer; l++)
     {
-        NU_Layer* layer = &__nu_global_gui.tree.layers[l];
+        NU_Layer* parent_layer = &__nu_global_gui.tree.layers[l];
+        NU_Layer* child_layer = &__nu_global_gui.tree.layers[l+1];
 
-        // Iterate over layer
-        for (int n=0; n<layer->size; n++)
-        {   
-            struct Node* node = NU_Layer_Get(layer, n);
-            if (!node->node_present) continue;
+        // Iterate over parent layer
+        for (int p=0; p<parent_layer->size; p++)
+        {       
+            struct Node* parent = NU_Layer_Get(parent_layer, p);
+            if (parent->node_present != 1) continue;
 
-            // Append node to corresponding window_node list
-            for (uint32_t i=0; i<__nu_global_gui.windows.size; i++)
+            // Precompute once (optimisation)
+            float parent_inner_x, parent_inner_y, parent_inner_width, parent_inner_height = 0;
+            if (parent->layout_flags & OVERFLOW_VERTICAL_SCROLL) {
+                parent_inner_y = parent->y + parent->border_top + parent->pad_top;
+                parent_inner_height = parent->height - parent->border_top - parent->border_bottom - parent->pad_top - parent->pad_bottom;
+            }
+            if (parent->layout_flags & OVERFLOW_HORIZONTAL_SCROLL) {
+                parent_inner_x = parent->x + parent->border_left + parent->pad_left;
+                parent_inner_width = parent->width - parent->border_left - parent->border_right - parent->pad_left - parent->pad_right;
+            }
+
+            // Iterate over children
+            for (int i=parent->first_child_index; i<parent->first_child_index + parent->child_count; i++)
             {
-                SDL_Window* window = *(SDL_Window**) Vector_Get(&__nu_global_gui.windows, i);
-                int w, h;
+                struct Node* child = NU_Layer_Get(child_layer, i);
+
+                // Skip node if not visible in parent (due to overflow)
+                if (parent->layout_flags & OVERFLOW_VERTICAL_SCROLL) {
+                    int intersect_state = Node_Vertical_Overlap_State(child, parent_inner_y, parent_inner_height);
+
+                    // Node not inside parent
+                    if (intersect_state == 0) 
+                    {
+                        child->node_present = 2; // temporarily hidden
+                        continue;
+                    }
+
+                    // Overlaps boundary
+                    else if (intersect_state == 1) 
+                    {
+                        // Append node to correct window clipped node list
+                        int window_index, w, h;
+                        window_index = NU_Draw_Find_Window(child);
+                        SDL_Window* window = *(SDL_Window**) Vector_Get(&__nu_global_gui.windows, window_index);
+                        SDL_GetWindowSize(window, &w, &h);
+                        if (Is_Node_Visible_In_Window(child, (float)w, (float)h)) 
+                        {
+                            float node_top = child->y;
+                            float node_bottom = child->y + child->height;
+                            float bounds_top    = parent_inner_y;
+                            float bounds_bottom = parent_inner_y + parent_inner_height;
+                            struct NU_Clipped_Node_Info info;
+                            info.node = child;
+                            info.clip_top = fmaxf(node_top - 1, bounds_top);
+                            info.clip_bottom = fminf(node_bottom + 1, bounds_bottom);
+                            info.clip_left = -1.0f;
+                            info.clip_right = 1000000.0f;
+                            Vector_Push(&window_clipped_nodes_list[window_index], &info);
+                        }
+                        child->node_present = 3;
+                        continue;
+                    }
+                }
+
+                // Append node to correct window node list
+                int window_index, w, h;
+                window_index = NU_Draw_Find_Window(child);
+                SDL_Window* window = *(SDL_Window**) Vector_Get(&__nu_global_gui.windows, window_index);
                 SDL_GetWindowSize(window, &w, &h);
-
-                if (!Is_Node_Visible(node, (float)w, (float)h)) break;
-
-                if (window == node->window)
-                {
-                    Vector_Push(&window_nodes_list[i], &node);
-                    break;
+                if (Is_Node_Visible_In_Window(child, (float)w, (float)h)) {
+                    Vector_Push(&window_nodes_list[window_index], &child);
                 }
             }
         }
@@ -918,7 +1132,9 @@ void NU_Draw()
         SDL_Window* window = *(SDL_Window**) Vector_Get(&__nu_global_gui.windows, i);
         SDL_GL_MakeCurrent(window, __nu_global_gui.gl_ctx);
 
-        // Clear the window
+        // ----------------------------------------
+        // --- Clear the window and start new frame
+        // ----------------------------------------
         int w, h;
         SDL_GetWindowSize(window, &w, &h);
         float w_fl = (float)w;
@@ -928,36 +1144,71 @@ void NU_Draw()
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT | GL_STENCIL_BUFFER_BIT);
         nvgBeginFrame(__nu_global_gui.vg_ctx, w, h, 1.0f);
 
-        // Create border rect vertex and index lists (optimisation to draw all border rects in one go)
+        // ------------------------------------------------------------------------------------------------------------------------------------
+        // Create single border rect vertex and index buffer for non-overlapped visible nodes (optimisation to draw all border rects in one go)
+        // ------------------------------------------------------------------------------------------------------------------------------------
         Vertex_RGB_List border_rect_vertices;
         Index_List border_rect_indices;
         Vertex_RGB_List_Init(&border_rect_vertices, 5000);
         Index_List_Init(&border_rect_indices, 15000);
 
         // Construct border rect vertices and indices for each node
-        for (int n=0; n<window_nodes_list[i].size; n++)
-        {
+        for (int n=0; n<window_nodes_list[i].size; n++) {
             struct Node* node = *(struct Node**) Vector_Get(&window_nodes_list[i], n);
             Construct_Border_Rect(node, w_fl, h_fl, &border_rect_vertices, &border_rect_indices);
+            if (node->layout_flags & OVERFLOW_VERTICAL_SCROLL && node->content_height > (node->height + node->pad_top + node->pad_bottom + node->border_top + node->border_bottom)) {
+                Construct_Scroll_Thumb(node, w_fl, h_fl, &border_rect_vertices, &border_rect_indices);
+            }
         }
 
         // Draw all border rects in one pass
         Draw_Vertex_RGB_List(&border_rect_vertices, &border_rect_indices, w_fl, h_fl);
         Vertex_RGB_List_Free(&border_rect_vertices);
         Index_List_Free(&border_rect_indices);
+        // ------------------------------------------------------------------------------------------------------------------------------------
+        // Create single border rect vertex and index buffer for non-overlapped visible nodes (optimisation to draw all border rects in one go)
+        // ------------------------------------------------------------------------------------------------------------------------------------
     
-        // Select font
-        int fontID = *(int*) Vector_Get(&__nu_global_gui.font_registry, 0);
+
+
+
+        // ---------------------------------------------------------
+        // --- Draw all images, text and partially visibly nodes ---
+        // ---------------------------------------------------------
+        int fontID = *(int*) Vector_Get(&__nu_global_gui.font_registry, 0); // Select font
         nvgFontFaceId(__nu_global_gui.vg_ctx, fontID);   
         nvgFontSize(__nu_global_gui.vg_ctx, 14);
         nvgTextAlign(__nu_global_gui.vg_ctx, NVG_ALIGN_LEFT | NVG_ALIGN_TOP);
         float asc, desc, lh;
         nvgTextMetrics(__nu_global_gui.vg_ctx, &asc, &desc, &lh);
 
+        // Draw all clipped nodes (partially occluded)
+        for (int n=0; n<window_clipped_nodes_list[i].size; n++) {
+            struct NU_Clipped_Node_Info* info = (struct NU_Clipped_Node_Info*) Vector_Get(&window_clipped_nodes_list[i], n);
+            
+            Vertex_RGB_List vertices;
+            Index_List indices;
+            Vertex_RGB_List_Init(&vertices, 100);
+            Index_List_Init(&indices, 100);
+            Construct_Border_Rect(info->node, w_fl, h_fl, &vertices, &indices);
+            Draw_Clipped_Vertex_RGB_List(
+                &vertices, 
+                &indices, 
+                w_fl, h_fl, 
+                info->clip_top, 
+                info->clip_bottom, 
+                info->clip_left, 
+                info->clip_right
+            );
+            Vertex_RGB_List_Free(&vertices);
+            Index_List_Free(&indices);
+        }
+
         // Draw images and text for each node
-        for (int n=0; n<window_nodes_list[i].size; n++)
-        {
+        for (int n=0; n<window_nodes_list[i].size; n++) {
             struct Node* node = *(struct Node**) Vector_Get(&window_nodes_list[i], n);
+
+            if (node->node_present == 3) continue;
 
             // Draw image
             if (node->gl_image_handle) {
@@ -969,8 +1220,16 @@ void NU_Draw()
             // Draw text
             if (node->text_content != NULL) NU_Draw_Node_Text(node, desc);
         }
+        // --------------------------------
+        // --- Draw all images and text ---
+        // --------------------------------
 
-        // Render to window
+
+
+        // ------------------------------
+
+        // --- End frame and swap buffers
+        // ------------------------------
         nvgEndFrame(__nu_global_gui.vg_ctx);
         SDL_GL_SwapWindow(window); 
     }
@@ -984,8 +1243,9 @@ void NU_Draw()
 
 void NU_Reflow()
 {
+    timer_start();
     NU_Clear_Node_Sizes();            // Reset dimensions and positions
-    NU_Calculate_Text_Fit_Widths();    // Width and height of unwrapped text nodes
+    NU_Calculate_Text_Fit_Widths();   // Width and height of unwrapped text nodes
     NU_Calculate_Fit_Size_Widths();   
     NU_Grow_Shrink_Widths();
     NU_Calculate_Table_Column_Widths();
@@ -993,4 +1253,5 @@ void NU_Reflow()
     NU_Calculate_Fit_Size_Heights();
     NU_Grow_Shrink_Heights();
     NU_Calculate_Positions();
+    timer_stop();
 }

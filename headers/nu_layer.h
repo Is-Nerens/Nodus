@@ -23,11 +23,6 @@ struct Node* NU_Layer_Get(NU_Layer* layer, uint32_t index)
     return &layer->node_array[index];
 }
 
-struct Node* NU_Layer_Top(NU_Layer* layer)
-{
-    return &layer->node_array[layer->size - 1];
-}
-
 void NU_Layer_Free(NU_Layer* layer)
 {
     free(layer->node_array);

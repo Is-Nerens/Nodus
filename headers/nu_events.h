@@ -77,16 +77,45 @@ bool EventWatcher(void* data, SDL_Event* event)
             __nu_global_gui.hovered_window = SDL_GetWindowFromID(id);
             struct Node* hovered_node = __nu_global_gui.hovered_node;
             NU_Mouse_Hover();
-            if (hovered_node != __nu_global_gui.hovered_node) draw = true;
+
+            // Get mouse coordinates
+            float mouse_x, mouse_y;
+            SDL_GetGlobalMouseState(&mouse_x, &mouse_y);
+
+
+            if (__nu_global_gui.scroll_mouse_down_node) { // Is dragging scrollbar
+                struct Node* node = __nu_global_gui.scroll_mouse_down_node;
+                float y_drag_dist = mouse_y - __nu_global_gui.mouse_down_global_y;
+                float scrollbar_top_dist_moved = __nu_global_gui.v_scrollbar_top_global_y - node->y + node->border_top;
+                float track_h = node->height - node->border_top - node->border_bottom;
+                float inner_height_w_pad = track_h - node->pad_top - node->pad_bottom;
+                float inner_proportion_of_content_height = inner_height_w_pad / node->content_height;
+                float thumb_h = inner_proportion_of_content_height * track_h;
+
+                // Apply scroll and clamp
+                node->scroll_v = y_drag_dist + scrollbar_top_dist_moved;
+                node->scroll_v = max(node->scroll_v, 0.0f);
+                node->scroll_v = min(node->scroll_v, track_h - thumb_h);
+            }
+            if (hovered_node != __nu_global_gui.hovered_node || __nu_global_gui.scroll_mouse_down_node != NULL) draw = true;
             break;
 
         // -----------------------------------------------------------------------------------
         // --- Mouse button pressed down -----------------------------------------------------
         // -----------------------------------------------------------------------------------
         case SDL_EVENT_MOUSE_BUTTON_DOWN:
+
+            // Set mouse down coordinates
+            SDL_GetGlobalMouseState(&__nu_global_gui.mouse_down_global_x, &__nu_global_gui.mouse_down_global_y);
+
             __nu_global_gui.mouse_down_node = __nu_global_gui.hovered_node;
+            __nu_global_gui.scroll_mouse_down_node = __nu_global_gui.scroll_hovered_node;
             if (__nu_global_gui.mouse_down_node != NULL) {
                 NU_Apply_Pseudo_Style_To_Node(__nu_global_gui.hovered_node, __nu_global_gui.stylesheet, PSEUDO_PRESS);
+            } 
+            if (__nu_global_gui.scroll_mouse_down_node != NULL) { // Get the global (y coord) of the scrollbar's top
+                struct Node* node = __nu_global_gui.scroll_mouse_down_node;
+                __nu_global_gui.v_scrollbar_top_global_y = node->y + node->border_top + node->scroll_v;
             }
             draw = true;
             break;
@@ -103,6 +132,8 @@ bool EventWatcher(void* data, SDL_Event* event)
         // --- Released mouse button ---------------------------------------------------------
         // -----------------------------------------------------------------------------------
         case SDL_EVENT_MOUSE_BUTTON_UP:
+
+            __nu_global_gui.scroll_mouse_down_node = NULL;
 
             // If there is a pressed node
             if (__nu_global_gui.mouse_down_node != NULL)

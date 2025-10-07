@@ -88,7 +88,6 @@ void NU_Node_Table_Add(NU_Node_Table* table, struct Node* node_ptr)
     }
 }
 
-
 void NU_Node_Table_Set(NU_Node_Table* table, uint32_t handle, struct Node* node_ptr)
 {
     uint32_t rem = handle & 7;            // handle % 8

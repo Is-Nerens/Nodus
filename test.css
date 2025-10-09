@@ -200,8 +200,7 @@ button:press {
 
 
 #trade-history-container {
-    grow: h;
-    maxHeight: 400;
+    grow: b;
     background: #2f2f2f;
     borderRadius: 5;
     gap: 3;
@@ -229,10 +228,6 @@ button:press {
     grow: b;
     border: 3;
     borderRadius: 5;
-    borderColour: #07a54b;
-    border: 5;
-    pad: 3;
-    background: #b1aa31;
 }
 #orders-head {
     pad: 5;

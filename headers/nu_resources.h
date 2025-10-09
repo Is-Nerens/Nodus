@@ -6,6 +6,7 @@
 #include <stdio.h>
 #include <errno.h>
 #include <string.h>
+#include <nu_font-old.h>
 
 unsigned char* Load_File(const char* filepath, int* size_out)
 {

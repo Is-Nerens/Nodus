@@ -12,6 +12,7 @@
 #include <nanovg.h>
 #include <nanovg_gl.h>
 #include <freetype/freetype.h>
+#include <nu_text.h>
 #include "headers/nodus.h"
 
 
@@ -36,6 +37,7 @@ int main()
     // --- Create GUI and apply stylesheet ---
     // ---------------------------------------
     NU_Init();
+    NU_Text_Renderer_Init();
     NU_Load_Font("./fonts/Inter/Inter_Variable_Weight.ttf");
     if (!NU_From_XML("test.xml")) return -1;
     struct NU_Stylesheet stylesheet;
@@ -77,6 +79,9 @@ int main()
         if (SDL_WaitEvent(&event)) {
             EventWatcher(NULL, &event); // you already have this function
         }
+
+        NU_Font* free_font = Vector_Get(&__nu_global_gui.fonts, 0);
+        NU_Render_Font_Atlas(&free_font->atlas, 800, 600, true);
     }
 
 

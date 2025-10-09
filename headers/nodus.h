@@ -103,6 +103,9 @@ struct NU_GUI
     StringArena node_text_arena;
     struct Vector font_resources;
     struct Vector font_registry;
+
+    Vector fonts;
+
     String_Set class_string_set;
     String_Set id_string_set;
     struct Node* hovered_node;
@@ -175,6 +178,7 @@ void NU_Init()
     Vector_Reserve(&__nu_global_gui.font_resources, sizeof(struct Font_Resource), 4);
     StringArena_Init(&__nu_global_gui.node_text_arena, 512);
     Vector_Reserve(&__nu_global_gui.font_registry, sizeof(int), 8);
+    Vector_Reserve(&__nu_global_gui.fonts, sizeof(NU_Font), 4);
     String_Map_Init(&__nu_global_gui.id_node_map, sizeof(uint32_t), 512, 25);
 
     // Events
@@ -203,13 +207,18 @@ bool NU_Running()
     return __nu_global_gui.running;
 }
 
-void NU_Load_Font(const char* ttf_path)
+void NU_Load_Font(const char* filepath)
 {
-    struct Font_Resource font;
-    Load_Font_Resource(ttf_path, &font);
-    Vector_Push(&__nu_global_gui.font_resources, &font);
+    NU_Font font;
+    NU_Font_Create(&font, filepath, 24, true);
+    Vector_Push(&__nu_global_gui.fonts, &font);
 
-    int fontID = nvgCreateFontMem(__nu_global_gui.vg_ctx, font.name, font.data, font.size, 0);
+
+    struct Font_Resource font_resource;
+    Load_Font_Resource(filepath, &font_resource);
+    Vector_Push(&__nu_global_gui.font_resources, &font_resource);
+
+    int fontID = nvgCreateFontMem(__nu_global_gui.vg_ctx, font_resource.name, font_resource.data, font_resource.size, 0);
     Vector_Push(&__nu_global_gui.font_registry, &fontID);
 }
 
@@ -222,6 +231,13 @@ void NU_Quit()
     Vector_Free(&__nu_global_gui.font_resources);
     Vector_Free(&__nu_global_gui.font_registry);
     String_Map_Free(&__nu_global_gui.id_node_map);
+
+    // Free fonts
+    for (int i=0; i<__nu_global_gui.fonts.size; i++) {
+        NU_Font* font = Vector_Get(&__nu_global_gui.fonts, i);
+        NU_Font_Free(font); 
+    }
+    Vector_Free(&__nu_global_gui.fonts);
 
     // Events
     Hashmap_Free(&__nu_global_gui.on_click_events);

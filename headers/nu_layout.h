@@ -7,6 +7,7 @@
 #include <GL/glew.h>
 #include <stdbool.h>
 #include <math.h>
+#include <nu_text.h>
 #include "nu_draw.h"
 #include "nu_window.h"
 
@@ -937,7 +938,7 @@ void NU_Mouse_Hover()
 // -----------------------------
 // --- Rendering ---------------
 // -----------------------------
-void NU_Draw_Node_Text(struct Node* node, float desc)
+void NU_Draw_Node_Text(struct Node* node, NU_Font* font, float screen_width, float screen_height)
 {
     nvgFillColor(__nu_global_gui.vg_ctx, nvgRGB(node->text_r, node->text_g, node->text_b));
 
@@ -951,9 +952,10 @@ void NU_Draw_Node_Text(struct Node* node, float desc)
 
     // Top-left corner of the content area
     float textPosX = node->x + node->border_left + node->pad_left + x_align_offset;
-    float textPosY = node->y + node->border_top  + node->pad_top - desc * 0.5f + y_align_offset;
+    float textPosY = node->y + node->border_top  + node->pad_top - font->descent * 0.5f + y_align_offset;
 
     // Draw wrapped text inside inner_width
+    NU_Render_Text(font, node->text_content, floorf(textPosX), floorf(textPosY), inner_width, screen_width, screen_height);
     nvgTextBox(__nu_global_gui.vg_ctx, floorf(textPosX), floorf(textPosY), inner_width, node->text_content, NULL);
 }
 
@@ -1036,6 +1038,7 @@ void NU_Draw()
         Vector_Reserve(&window_clipped_nodes_list[i], sizeof(struct NU_Clipped_Node_Info), 8);
     }
 
+    NU_Font* free_font = Vector_Get(&__nu_global_gui.fonts, 0);
 
     // ----------------------------------------------
     // --- Add visible nodes to window draw lists ---
@@ -1218,7 +1221,7 @@ void NU_Draw()
             }
 
             // Draw text
-            if (node->text_content != NULL) NU_Draw_Node_Text(node, desc);
+            if (node->text_content != NULL) NU_Draw_Node_Text(node, free_font, w_fl, h_fl);
         }
         // --------------------------------
         // --- Draw all images and text ---

@@ -11,7 +11,7 @@
 void NU_Create_Main_Window() 
 {
     SDL_GL_SetAttribute(SDL_GL_CONTEXT_MAJOR_VERSION, 3);
-    SDL_GL_SetAttribute(SDL_GL_CONTEXT_MINOR_VERSION, 2);
+    SDL_GL_SetAttribute(SDL_GL_CONTEXT_MINOR_VERSION, 3);
     SDL_GL_SetAttribute(SDL_GL_CONTEXT_PROFILE_MASK, SDL_GL_CONTEXT_PROFILE_CORE);
     SDL_GL_SetAttribute(SDL_GL_MULTISAMPLEBUFFERS, 1);
     SDL_GL_SetAttribute(SDL_GL_MULTISAMPLESAMPLES, 4);
@@ -23,6 +23,7 @@ void NU_Create_Main_Window()
     SDL_GL_MakeCurrent(main_window, context);
     glEnable(GL_MULTISAMPLE);
     glEnable(GL_BLEND);
+    glBlendFunc(GL_SRC1_COLOR, GL_ONE_MINUS_SRC1_COLOR);
     SDL_GL_SetSwapInterval(1); // VSYNC ON
     glewInit();
 

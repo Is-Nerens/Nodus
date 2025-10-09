@@ -4,7 +4,8 @@
 #include <GL/glew.h>
 #include <math.h>
 #include "nu_image.h"
-#include "nu_draw_structures.h"
+#include <nu_draw_structures.h>
+#include <nu_shader.h>
 
 GLuint Border_Rect_Shader_Program;
 GLuint Clipped_Border_Rect_Shader_Program;
@@ -14,41 +15,6 @@ GLint uScreenWidthLoc, uScreenHeightLoc;
 GLint uClippedScreenWidthLoc, uClippedScreenHeightLoc;
 GLint uClipTopLoc, uClipBottomLoc, uClipLeftLoc, uClipRightLoc;
 
-
-static GLuint Compile_Shader(GLenum type, const char* src) 
-{
-    GLuint shader = glCreateShader(type);
-    glShaderSource(shader, 1, &src, NULL);
-    glCompileShader(shader);
-    GLint success;
-    glGetShaderiv(shader, GL_COMPILE_STATUS, &success);
-    if (!success) {
-        char info[512];
-        glGetShaderInfoLog(shader, 512, NULL, info);
-        printf("Shader compile error: %s\n", info);
-    }
-    return shader;
-}
-
-static GLuint Create_Shader_Program(const char* vertex_src, const char* fragment_src) 
-{
-    GLuint vertexShader = Compile_Shader(GL_VERTEX_SHADER, vertex_src);
-    GLuint fragmentShader = Compile_Shader(GL_FRAGMENT_SHADER, fragment_src);
-    GLuint program = glCreateProgram();
-    glAttachShader(program, vertexShader);
-    glAttachShader(program, fragmentShader);
-    glLinkProgram(program);
-    GLint success;
-    glGetProgramiv(program, GL_LINK_STATUS, &success);
-    if (!success) {
-        char info[512];
-        glGetProgramInfoLog(program, 512, NULL, info);
-        printf("Shader link error: %s\n", info);
-    }
-    glDeleteShader(vertexShader);
-    glDeleteShader(fragmentShader);
-    return program;
-}
 
 void NU_Draw_Init()
 {   
@@ -556,6 +522,7 @@ void Construct_Scroll_Thumb(struct Node* node,
 
 void Draw_Vertex_RGB_List(Vertex_RGB_List* vertices, Index_List* indices, float screen_width, float screen_height)
 {
+    glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
     glUseProgram(Border_Rect_Shader_Program);
     glUniform1f(uScreenWidthLoc, screen_width);
     glUniform1f(uScreenHeightLoc, screen_height);
@@ -580,6 +547,7 @@ void Draw_Clipped_Vertex_RGB_List
     float clip_right
 )
 {
+    glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
     glUseProgram(Clipped_Border_Rect_Shader_Program);
     glUniform1f(uClippedScreenWidthLoc, screen_width);
     glUniform1f(uClippedScreenHeightLoc, screen_height);

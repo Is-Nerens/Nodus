@@ -1,8 +1,6 @@
 #pragma once 
 
 #define NANOVG_GL3_IMPLEMENTATION
-#include <nanovg.h>
-#include <nanovg_gl.h>
 #include <SDL3/SDL.h>
 #include <GL/glew.h>
 
@@ -28,7 +26,6 @@ void NU_Create_Main_Window()
     glewInit();
 
     __nu_global_gui.gl_ctx = context;
-    __nu_global_gui.vg_ctx = nvgCreateGL3(NVG_STENCIL_STROKES);
     Vector_Push(&__nu_global_gui.windows, &main_window);
     NU_Draw_Init();
 }

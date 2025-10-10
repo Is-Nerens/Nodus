@@ -19,7 +19,6 @@ window {
     borderRadius: 3;
 }
 button {
-    width: 150;
     border: 1;
     borderBottom: 2;
     borderRadius: 3;
@@ -46,8 +45,9 @@ button:press {
 #watchlist {
     dir: v;
     grow: b;
-    maxHeight: 500;
     pad: 5;
+    maxHeight: 500;
+    overflowV: s;
     borderRadiusTopLeft: 5;
     borderRadiusTopRight: 5;
 }
@@ -104,7 +104,8 @@ button:press {
     pad: 5;
     borderColour: #151515;
     dir: v;
-    grow: h;
+    grow: b;
+    maxHeight: 500;
 }
 #trade-panel-side-selection {
     dir: h;
@@ -131,7 +132,7 @@ button:press {
     background: none;
     grow: h;
     textAlignH: center;
-    textColour: #000000;
+    textColour: #000000ff;
 }   
 .input-label {
     pad: 3;

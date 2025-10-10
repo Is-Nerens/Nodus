@@ -1,8 +1,5 @@
 #pragma once
 
-#define NANOVG_GL3_IMPLEMENTATION
-#include <nanovg.h>
-#include <nanovg_gl.h>
 #include <SDL3/SDL.h>
 #include <GL/glew.h>
 
@@ -92,6 +89,14 @@ struct Node
     char event_flags;
 };
 
+struct NU_Clipped_Node_Info {
+    struct Node* node;
+    float clip_top;
+    float clip_bottom;
+    float clip_left;
+    float clip_right;
+};
+
 #include "nu_node_table.h"
 #include "nu_layer.h"
 
@@ -124,7 +129,6 @@ struct NU_GUI
     // Styles
     struct NU_Stylesheet* stylesheet;
     SDL_GLContext gl_ctx;
-    NVGcontext* vg_ctx;
     SDL_Window* hovered_window;
 
     // Id -> node mapping
@@ -210,16 +214,8 @@ bool NU_Running()
 void NU_Load_Font(const char* filepath)
 {
     NU_Font font;
-    NU_Font_Create(&font, filepath, 24, true);
+    NU_Font_Create(&font, filepath, 16, true);
     Vector_Push(&__nu_global_gui.fonts, &font);
-
-
-    struct Font_Resource font_resource;
-    Load_Font_Resource(filepath, &font_resource);
-    Vector_Push(&__nu_global_gui.font_resources, &font_resource);
-
-    int fontID = nvgCreateFontMem(__nu_global_gui.vg_ctx, font_resource.name, font_resource.data, font_resource.size, 0);
-    Vector_Push(&__nu_global_gui.font_registry, &fontID);
 }
 
 void NU_Quit()

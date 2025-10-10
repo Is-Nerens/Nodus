@@ -14,8 +14,10 @@
 GLuint Text_Mono_Shader_Program;
 GLuint Text_Subpixel_Shader_Program;
 GLuint text_vao, text_vbo, text_ebo;
-GLint uMonoScreenWidthLoc, uMonoScreenHeightLoc, uMonoTextColourLoc, uMonoFontTextureLoc;
-GLint uSubpixelScreenWidthLoc, uSubpixelScreenHeightLoc, uSubpixelTextColourLoc, uSubpixelFontTextureLoc;
+GLint uMonoScreenWidthLoc, uMonoScreenHeightLoc, uMonoFontTextureLoc;
+GLint uSubpixelScreenWidthLoc, uSubpixelScreenHeightLoc, uSubpixelFontTextureLoc;
+GLint uMonoClipTopLoc, uMonoClipBottomLoc, uMonoClipLeftLoc, uMonoClipRightLoc;
+GLint uSubpixelClipTopLoc, uSubpixelClipBottomLoc, uSubpixelClipLeftLoc, uSubpixelClipRightLoc;
 
 
 int NU_Text_Renderer_Init()
@@ -29,7 +31,9 @@ int NU_Text_Renderer_Init()
     const char* vertex_src = 
     "#version 330 core\n"
     "layout(location = 0) in vec2 aPos;\n"
-    "layout(location = 1) in vec2 aUV;\n"
+    "layout(location = 1) in vec3 aColor;\n"
+    "layout(location = 2) in vec2 aUV;\n"
+    "out vec3 vColor;\n"
     "out vec2 vUV;\n"
     "uniform float uScreenWidth;\n"
     "uniform float uScreenHeight;\n"
@@ -37,36 +41,36 @@ int NU_Text_Renderer_Init()
     "    float ndc_x = (aPos.x / uScreenWidth) * 2.0 - 1.0;\n"
     "    float ndc_y = 1.0 - (aPos.y / uScreenHeight) * 2.0;\n"
     "    gl_Position = vec4(ndc_x, ndc_y, 0.0, 1.0);\n"
+    "    vColor = aColor;\n"
     "    vUV = aUV;\n"
     "}\n";
 
     const char* mono_fragment_src = 
     "#version 330 core\n"
+    "in vec3 vColor;\n"
     "in vec2 vUV;\n"
     "out vec4 FragColor;\n"
     "uniform sampler2D uFontTexture;\n"
-    "uniform vec3 uTextColour;\n"
     "void main() {\n"
     "    float alpha = texture(uFontTexture, vUV).r;\n"
-    "    FragColor = vec4(uTextColour, alpha);\n"
+    "    FragColor = vec4(vColor, alpha);\n"
     "}\n";
 
     const char* subpixel_fragment_src = 
     "#version 330 core\n"
+    "in vec3 vColor;\n"
     "in vec2 vUV;\n"
     "layout(location = 0) out vec4 FragColor;\n"
     "layout(location = 1) out vec4 FragColor1;\n"
     "uniform sampler2D uFontTexture;\n"
-    "uniform vec3 uTextColour;\n"
     "void main() {\n"
-    "    // Sample 3-channel LCD glyph\n"
-    "    vec3 lcd = texture(uFontTexture, vUV).rgb;\n"
+    "    vec3 lcd = texture(uFontTexture, vUV).rgb;      // subpixel coverage\n"
     "    \n"
-    "    // Multiply by text color\n"
-    "    vec3 color = lcd * uTextColour;\n"
-    "    \n"
-    "    FragColor  = vec4(1.0); // primary output ignored\n"
-    "    FragColor1 = vec4(color, 1.0);         // dual-source output for blending\n"
+    "    // Standard dual-source blending for subpixel rendering:\n"
+    "    // FragColor contains the text color\n"
+    "    // FragColor1 contains the coverage mask\n"
+    "    FragColor = vec4(vColor, 1.0);                  // Pure text color\n"
+    "    FragColor1 = vec4(lcd, 1.0);                    // Pure coverage mask\n"
     "}\n";
 
 
@@ -77,11 +81,9 @@ int NU_Text_Renderer_Init()
     // Query uniforms once
     uMonoScreenWidthLoc  = glGetUniformLocation(Text_Mono_Shader_Program, "uScreenWidth");
     uMonoScreenHeightLoc = glGetUniformLocation(Text_Mono_Shader_Program, "uScreenHeight");
-    uMonoTextColourLoc = glGetUniformLocation(Text_Mono_Shader_Program, "uTextColour");
     uMonoFontTextureLoc = glGetUniformLocation(Text_Mono_Shader_Program, "uFontTexture");
     uSubpixelScreenWidthLoc = glGetUniformLocation(Text_Subpixel_Shader_Program, "uScreenWidth");
     uSubpixelScreenHeightLoc = glGetUniformLocation(Text_Subpixel_Shader_Program, "uScreenHeight");
-    uSubpixelTextColourLoc = glGetUniformLocation(Text_Subpixel_Shader_Program, "uTextColour");
     uSubpixelFontTextureLoc = glGetUniformLocation(Text_Subpixel_Shader_Program, "uFontTexture");
     
     // VAO + buffers
@@ -89,17 +91,19 @@ int NU_Text_Renderer_Init()
     glBindVertexArray(text_vao);
     glGenBuffers(1, &text_vbo);
     glBindBuffer(GL_ARRAY_BUFFER, text_vbo);
-    glVertexAttribPointer(0, 2, GL_FLOAT, GL_FALSE, sizeof(vertex_uv), (void*)0); // x,y
+    glVertexAttribPointer(0, 2, GL_FLOAT, GL_FALSE, sizeof(vertex_rgb_uv), (void*)0); // x,y
     glEnableVertexAttribArray(0);
-    glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, sizeof(vertex_uv), (void*)(2 * sizeof(float))); // u,v
+    glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, sizeof(vertex_rgb_uv), (void*)(2 * sizeof(float))); // r,g,b
     glEnableVertexAttribArray(1);
+    glVertexAttribPointer(2, 2, GL_FLOAT, GL_FALSE, sizeof(vertex_rgb_uv), (void*)(5 * sizeof(float))); // u,v
+    glEnableVertexAttribArray(2);
     glGenBuffers(1, &text_ebo);
     glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, text_ebo);
-    glBindVertexArray(0); // done
+    glBindVertexArray(0); 
     return 1;
 }
 
-float NU_Calculate_FreeText_Min_Wrap_Width(NU_Font* font, const char* string)
+float NU_Calculate_Text_Min_Wrap_Width(NU_Font* font, const char* string)
 {
     size_t string_len = strlen(string);
     float result = 0.0f;
@@ -143,13 +147,15 @@ float NU_Calculate_FreeText_Min_Wrap_Width(NU_Font* font, const char* string)
 float NU_Calculate_FreeText_Height_From_Wrap_Width(NU_Font* font, const char* string, float width)
 {
     size_t string_len = strlen(string);
-    float result = 0.0f;
     char prev_char = 0;
     float pen_x = 0.0f;
     float pen_y = 0.0f + font->y_max;
     float word_width = 0.0f;
     NU_Glyph* space_glyph = (NU_Glyph*)Vector_Get(&font->glyphs, 0);
     float space_advance = space_glyph->advance;
+
+    int lines = 0;
+
     int word_start_i = 0;
     int word_len = 0;
     int k=0;
@@ -172,7 +178,7 @@ float NU_Calculate_FreeText_Height_From_Wrap_Width(NU_Font* font, const char* st
                 if (pen_x + word_width > width) {
                     pen_x = 0.0f - first_glyph_in_word->bearingX;
                     pen_y += font->line_height;
-                    result = pen_y;
+                    lines += 1;
                 }
 
                 int i=word_start_i;
@@ -184,9 +190,6 @@ float NU_Calculate_FreeText_Height_From_Wrap_Width(NU_Font* font, const char* st
                     float kern = 0.0f;
                     if (prev_char) kern = (float)font->kerning_table[prev_char - 32][c - 32];
                     float glyph_advance = glyph->advance + kern;
-
-                    // Update result
-                    result = pen_y + font->y_min;
 
                     // Move ahead
                     word_width += glyph_advance;
@@ -217,7 +220,9 @@ float NU_Calculate_FreeText_Height_From_Wrap_Width(NU_Font* font, const char* st
         }
         k += 1;
     }
-    return result;
+    
+    float total_height = lines * font->line_height + font->ascent - font->descent;
+    return total_height;
 }
 
 float NU_Calculate_Text_Unwrapped_Width(NU_Font* font, const char* string)
@@ -242,7 +247,7 @@ float NU_Calculate_Text_Unwrapped_Width(NU_Font* font, const char* string)
     return pen_x - first_glyph->bearingX - (last_glyph->advance - last_glyph->bearingX - last_glyph->width);
 }
 
-void NU_Add_Glyph_Mesh(Vertex_UV_List* vertices, Index_List* indices, NU_Glyph* glyph, float pen_x, float pen_y)
+void NU_Add_Glyph_Mesh(Vertex_RGB_UV_List* vertices, Index_List* indices, NU_Glyph* glyph, float pen_x, float pen_y, float r, float g, float b)
 {
     float left = roundf(pen_x + glyph->bearingX);
     float top = roundf(pen_y - glyph->bearingY);
@@ -250,18 +255,30 @@ void NU_Add_Glyph_Mesh(Vertex_UV_List* vertices, Index_List* indices, NU_Glyph* 
     int vertex_offset = vertices->size;
     vertices->array[vertex_offset].x = left;
     vertices->array[vertex_offset].y = top;
+    vertices->array[vertex_offset].r = r;
+    vertices->array[vertex_offset].g = g;
+    vertices->array[vertex_offset].b = b;
     vertices->array[vertex_offset].u = glyph->uv_x0;
     vertices->array[vertex_offset].v = glyph->uv_y0;
     vertices->array[vertex_offset + 1].x = left + (float)glyph->width;
     vertices->array[vertex_offset + 1].y = top;
+    vertices->array[vertex_offset + 1].r = r;
+    vertices->array[vertex_offset + 1].g = g;
+    vertices->array[vertex_offset + 1].b = b;
     vertices->array[vertex_offset + 1].u = glyph->uv_x1;
     vertices->array[vertex_offset + 1].v = glyph->uv_y0;
     vertices->array[vertex_offset + 2].x = left;
     vertices->array[vertex_offset + 2].y = bottom;
+    vertices->array[vertex_offset + 2].r = r;
+    vertices->array[vertex_offset + 2].g = g;
+    vertices->array[vertex_offset + 2].b = b;
     vertices->array[vertex_offset + 2].u = glyph->uv_x0;
     vertices->array[vertex_offset + 2].v = glyph->uv_y1;
     vertices->array[vertex_offset + 3].x = left + (float)glyph->width;
     vertices->array[vertex_offset + 3].y = bottom;
+    vertices->array[vertex_offset + 3].r = r;
+    vertices->array[vertex_offset + 3].g = g;
+    vertices->array[vertex_offset + 3].b = b;
     vertices->array[vertex_offset + 3].u = glyph->uv_x1;
     vertices->array[vertex_offset + 3].v = glyph->uv_y1;
     vertices->size += 4;
@@ -275,18 +292,21 @@ void NU_Add_Glyph_Mesh(Vertex_UV_List* vertices, Index_List* indices, NU_Glyph* 
     indices->size += 6;
 }
 
-void NU_Render_Text(NU_Font* font, const char* string, float x, float y, float max_width, float screen_width, float screen_height)
+void NU_Generate_Text_Mesh(Vertex_RGB_UV_List* vertices, Index_List* indices, NU_Font* font, const char* string, float x, float y, float r, float g, float b, float max_width)
 {
-    if (font->subpixel_rendering) glBlendFunc(GL_SRC1_COLOR, GL_ONE_MINUS_SRC1_COLOR);
-    else glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
     size_t string_len = strlen(string);
-    Vertex_UV_List vertices;
-    Index_List indices;
-    Vertex_UV_List_Init(&vertices, 4 * string_len);
-    Index_List_Init(&indices, 6 * string_len);
+
+    // --- Allocate extra space in vertex and index lists ---
+    uint32_t additional_vertices = 4 * string_len;   
+    uint32_t additional_indices = 6 * string_len;
+    if (vertices->size + additional_vertices > vertices->capacity) Vertex_RGB_UV_List_Grow(vertices, additional_vertices);
+    if (indices->size + additional_indices > indices->capacity) Index_List_Grow(indices, additional_indices);
+
+
+    // --- Generate mesh ---
     char prev_char = 0;
     float pen_x = x;
-    float pen_y = y + font->y_max;
+    float pen_y = y + font->ascent;
     float word_width = 0.0f;
     NU_Glyph* space_glyph = (NU_Glyph*)Vector_Get(&font->glyphs, 0);
     float space_advance = space_glyph->advance;
@@ -308,8 +328,12 @@ void NU_Render_Text(NU_Font* font, const char* string, float x, float y, float m
                 NU_Glyph* last_glyph_in_word = (NU_Glyph*)Vector_Get(&font->glyphs, string[word_start_i + word_len - 1] - 32);
                 word_width -= last_glyph_in_word->advance - last_glyph_in_word->bearingX - last_glyph_in_word->width - first_glyph_in_word->bearingX;
 
+                if (word_start_i == 0) {
+                    pen_x -= first_glyph_in_word->bearingX;
+                }
+
                 // Wrap onto new line
-                if (pen_x + word_width > max_width) {
+                if (pen_x - x + word_width > max_width && max_width > 0.0f) {
                     pen_x = x - first_glyph_in_word->bearingX;
                     pen_y += font->line_height;
                 }
@@ -325,7 +349,7 @@ void NU_Render_Text(NU_Font* font, const char* string, float x, float y, float m
                     float glyph_advance = glyph->advance + kern;
 
                     // Add quad mesh 
-                    NU_Add_Glyph_Mesh(&vertices, &indices, glyph, pen_x, pen_y);
+                    NU_Add_Glyph_Mesh(vertices, indices, glyph, pen_x, pen_y, r, g, b);
 
                     // Move ahead
                     word_width += glyph_advance;
@@ -356,8 +380,10 @@ void NU_Render_Text(NU_Font* font, const char* string, float x, float y, float m
         }
         k += 1;
     }
+}
 
-
+void NU_Render_Text(Vertex_RGB_UV_List* vertices, Index_List* indices, NU_Font* font, float screen_width, float screen_height)
+{
     // Render
     if (font->subpixel_rendering)
     {
@@ -365,7 +391,6 @@ void NU_Render_Text(NU_Font* font, const char* string, float x, float y, float m
         glUniform1i(uSubpixelFontTextureLoc, 0);
         glUniform1f(uSubpixelScreenWidthLoc, screen_width);
         glUniform1f(uSubpixelScreenHeightLoc, screen_height);
-        glUniform3f(uSubpixelTextColourLoc, 1.0f, 1.0f, 1.0f);
     }
     else
     {
@@ -373,44 +398,51 @@ void NU_Render_Text(NU_Font* font, const char* string, float x, float y, float m
         glUniform1i(uMonoFontTextureLoc, 0);
         glUniform1f(uMonoScreenWidthLoc, screen_width);
         glUniform1f(uMonoScreenHeightLoc, screen_height);
-        glUniform3f(uMonoTextColourLoc, 1.0f, 1.0f, 1.0f);
     }
     glActiveTexture(GL_TEXTURE0);
     glBindTexture(GL_TEXTURE_2D, font->atlas.handle);
     glBindBuffer(GL_ARRAY_BUFFER, text_vbo);
-    glBufferData(GL_ARRAY_BUFFER, vertices.size * sizeof(vertex_uv), vertices.array, GL_DYNAMIC_DRAW);
+    glBufferData(GL_ARRAY_BUFFER, vertices->size * sizeof(vertex_rgb_uv), vertices->array, GL_DYNAMIC_DRAW);
     glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, text_ebo);
-    glBufferData(GL_ELEMENT_ARRAY_BUFFER, indices.size * sizeof(GLuint), indices.array, GL_DYNAMIC_DRAW);
+    glBufferData(GL_ELEMENT_ARRAY_BUFFER, indices->size * sizeof(GLuint), indices->array, GL_DYNAMIC_DRAW);
     glBindVertexArray(text_vao);
-    glDrawElements(GL_TRIANGLES, indices.size, GL_UNSIGNED_INT, 0);
+    glDrawElements(GL_TRIANGLES, indices->size, GL_UNSIGNED_INT, 0);
     glBindVertexArray(0);
-
-    // Free
-    Vertex_UV_List_Free(&vertices);
-    Index_List_Free(&indices);
 }
 
 void NU_Render_Font_Atlas(NU_Font_Atlas* atlas, float screen_width, float screen_height, bool subpixel_rendering) 
 {
-    Vertex_UV_List vertices;
+    Vertex_RGB_UV_List vertices;
     Index_List indices;
-    Vertex_UV_List_Init(&vertices, 4);
+    Vertex_RGB_UV_List_Init(&vertices, 4);
     Index_List_Init(&indices, 6);
 
     vertices.array[0].x = 0.0f;                // TL
     vertices.array[0].y = 0.0f;
+    vertices.array[0].r = 1.0f;
+    vertices.array[0].g = 1.0f;
+    vertices.array[0].b = 1.0f;
     vertices.array[0].u = 0.0f;
     vertices.array[0].v = 0.0f;
     vertices.array[1].x = (float)atlas->width; // TR
     vertices.array[1].y = 0.0f;
+    vertices.array[1].r = 1.0f;
+    vertices.array[1].g = 1.0f;
+    vertices.array[1].b = 1.0f;
     vertices.array[1].u = 1.0f;
     vertices.array[1].v = 0.0f;
     vertices.array[2].x = 0.0f;                // BL
     vertices.array[2].y = (float)atlas->height;
+    vertices.array[2].r = 1.0f;
+    vertices.array[2].g = 1.0f;
+    vertices.array[2].b = 1.0f;
     vertices.array[2].u = 0.0f;
     vertices.array[2].v = 1.0f;
     vertices.array[3].x = (float)atlas->width; // BR
     vertices.array[3].y = (float)atlas->height;
+    vertices.array[3].r = 1.0f;
+    vertices.array[3].g = 1.0f;
+    vertices.array[3].b = 1.0f;
     vertices.array[3].u = 1.0f;
     vertices.array[3].v = 1.0f;
     vertices.size += 4;
@@ -430,7 +462,6 @@ void NU_Render_Font_Atlas(NU_Font_Atlas* atlas, float screen_width, float screen
         glUniform1i(uSubpixelFontTextureLoc, 0);
         glUniform1f(uSubpixelScreenWidthLoc, screen_width);
         glUniform1f(uSubpixelScreenHeightLoc, screen_height);
-        glUniform3f(uSubpixelTextColourLoc, 1.0f, 1.0f, 1.0f);
     }
     else
     {
@@ -438,12 +469,11 @@ void NU_Render_Font_Atlas(NU_Font_Atlas* atlas, float screen_width, float screen
         glUniform1i(uMonoFontTextureLoc, 0);
         glUniform1f(uMonoScreenWidthLoc, screen_width);
         glUniform1f(uMonoScreenHeightLoc, screen_height);
-        glUniform3f(uMonoTextColourLoc, 1.0f, 1.0f, 1.0f);
     }
     glActiveTexture(GL_TEXTURE0);
     glBindTexture(GL_TEXTURE_2D, atlas->handle);
     glBindBuffer(GL_ARRAY_BUFFER, text_vbo);
-    glBufferData(GL_ARRAY_BUFFER, vertices.size * sizeof(vertex_uv), vertices.array, GL_DYNAMIC_DRAW);
+    glBufferData(GL_ARRAY_BUFFER, vertices.size * sizeof(vertex_rgb_uv), vertices.array, GL_DYNAMIC_DRAW);
     glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, text_ebo);
     glBufferData(GL_ELEMENT_ARRAY_BUFFER, indices.size * sizeof(GLuint), indices.array, GL_DYNAMIC_DRAW);
     glBindVertexArray(text_vao);
@@ -451,6 +481,6 @@ void NU_Render_Font_Atlas(NU_Font_Atlas* atlas, float screen_width, float screen
     glBindVertexArray(0);
 
     // Free
-    Vertex_UV_List_Free(&vertices);
+    Vertex_RGB_UV_List_Free(&vertices);
     Index_List_Free(&indices);
 }

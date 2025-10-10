@@ -1,8 +1,5 @@
 #pragma once
 #define MAX(a, b) ((a) > (b) ? (a) : (b))
-#define NANOVG_GL3_IMPLEMENTATION
-#include <nanovg.h>
-#include <nanovg_gl.h>
 #include <SDL3/SDL.h>
 #include <GL/glew.h>
 #include <stdint.h>

@@ -11,7 +11,8 @@ GLuint Border_Rect_Shader_Program;
 GLuint Clipped_Border_Rect_Shader_Program;
 GLuint Image_Shader_Program;
 GLuint border_vao, border_vbo, border_ebo;
-GLint uScreenWidthLoc, uScreenHeightLoc;
+GLuint image_vao, image_vbo, image_ebo;
+GLint uBorderScreenWidthLoc, uBorderScreenHeightLoc;
 GLint uClippedScreenWidthLoc, uClippedScreenHeightLoc;
 GLint uClipTopLoc, uClipBottomLoc, uClipLeftLoc, uClipRightLoc;
 
@@ -26,7 +27,7 @@ void NU_Draw_Init()
     "layout(location = 0) in vec2 aPos;\n"
     "layout(location = 1) in vec3 aColor;\n"
     "out vec3 vColor;\n"
-    "out vec2 vScreenPos;\n"  // pass to fragment shader in pixel coords
+    "out vec2 vScreenPos;\n"
     "uniform float uScreenWidth;\n"
     "uniform float uScreenHeight;\n"
     "void main() {\n"
@@ -35,7 +36,7 @@ void NU_Draw_Init()
     "    float ndc_y = 1.0 - (aPos.y / uScreenHeight) * 2.0;\n"
     "    gl_Position = vec4(ndc_x, ndc_y, 0.0, 1.0);\n"
     "    vColor = aColor;\n"
-    "    vScreenPos = aPos; // keep original pixel position for clipping\n"
+    "    vScreenPos = aPos;\n"
     "}\n";
 
     const char* border_rect_fragment_src =
@@ -73,11 +74,9 @@ void NU_Draw_Init()
     "layout(location = 0) in vec2 aPos;\n"
     "layout(location = 1) in vec2 aUV;\n"
     "out vec2 vUV;\n"
-    "uniform float uScreenWidth;\n"
-    "uniform float uScreenHeight;\n"
     "void main() {\n"
-    "    float ndc_x = (aPos.x / uScreenWidth) * 2.0 - 1.0;\n"
-    "    float ndc_y = 1.0 - (aPos.y / uScreenHeight) * 2.0;\n"
+    "    float ndc_x = aPos.x * 2.0 - 1.0;\n"
+    "    float ndc_y = 1.0 - aPos.y * 2.0;\n"
     "    gl_Position = vec4(ndc_x, ndc_y, 0.0, 1.0);\n"
     "    vUV = aUV;\n"
     "}\n";
@@ -97,8 +96,8 @@ void NU_Draw_Init()
 
 
     // Query uniforms once
-    uScreenWidthLoc  = glGetUniformLocation(Border_Rect_Shader_Program, "uScreenWidth");
-    uScreenHeightLoc = glGetUniformLocation(Border_Rect_Shader_Program, "uScreenHeight");
+    uBorderScreenWidthLoc  = glGetUniformLocation(Border_Rect_Shader_Program, "uScreenWidth");
+    uBorderScreenHeightLoc = glGetUniformLocation(Border_Rect_Shader_Program, "uScreenHeight");
     uClippedScreenWidthLoc  = glGetUniformLocation(Clipped_Border_Rect_Shader_Program, "uScreenWidth");
     uClippedScreenHeightLoc = glGetUniformLocation(Clipped_Border_Rect_Shader_Program, "uScreenHeight");
     uClipTopLoc      = glGetUniformLocation(Clipped_Border_Rect_Shader_Program, "uClipTop");
@@ -106,7 +105,7 @@ void NU_Draw_Init()
     uClipLeftLoc     = glGetUniformLocation(Clipped_Border_Rect_Shader_Program, "uClipLeft");
     uClipRightLoc    = glGetUniformLocation(Clipped_Border_Rect_Shader_Program, "uClipRight");
  
-    // VAO + buffers
+    // Border VAO + buffers
     glGenVertexArrays(1, &border_vao);
     glBindVertexArray(border_vao);
     glGenBuffers(1, &border_vbo);
@@ -117,7 +116,21 @@ void NU_Draw_Init()
     glEnableVertexAttribArray(1);
     glGenBuffers(1, &border_ebo);
     glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, border_ebo);
-    glBindVertexArray(0); // done
+    glBindVertexArray(0);
+
+
+    // Image VAO + buffers
+    glGenVertexArrays(1, &image_vao);
+    glBindVertexArray(image_vao);
+    glGenBuffers(1, &image_vbo);
+    glBindBuffer(GL_ARRAY_BUFFER, image_vbo);
+    glVertexAttribPointer(0, 2, GL_FLOAT, GL_FALSE, sizeof(vertex_uv), (void*)0); // x,y
+    glEnableVertexAttribArray(0);
+    glVertexAttribPointer(1, 2, GL_FLOAT, GL_TRUE, sizeof(vertex_uv), (void*)(2 * sizeof(float))); // r,g,b
+    glEnableVertexAttribArray(1);
+    glGenBuffers(1, &image_ebo);
+    glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, image_ebo);
+    glBindVertexArray(0); 
 }
 
 // -------------------------------------------------
@@ -524,8 +537,8 @@ void Draw_Vertex_RGB_List(Vertex_RGB_List* vertices, Index_List* indices, float 
 {
     glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
     glUseProgram(Border_Rect_Shader_Program);
-    glUniform1f(uScreenWidthLoc, screen_width);
-    glUniform1f(uScreenHeightLoc, screen_height);
+    glUniform1f(uBorderScreenWidthLoc, screen_width);
+    glUniform1f(uBorderScreenHeightLoc, screen_height);
     glBindBuffer(GL_ARRAY_BUFFER, border_vbo);
     glBufferData(GL_ARRAY_BUFFER, vertices->size * sizeof(vertex_rgb), vertices->array, GL_DYNAMIC_DRAW);
     glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, border_ebo);
@@ -586,56 +599,30 @@ void Draw_Image(float x, float y, float w, float h, float screen_width, float sc
 {
     glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
 
-    x = floorf(x);
-    y = floorf(y);
-    w = floorf(w);
-    h = floorf(h);
+    x = floorf(x) / screen_width;
+    y = floorf(y) / screen_height;
+    w = floorf(w) / screen_width;
+    h = floorf(h) / screen_height;
 
-    // Quad vertices 
-    vertex_uv verts[6] = {
+    // Mesh 
+    vertex_uv vertices[4] = {
         { x,     y,     0.0f, 0.0f }, // top-left
         { x+w,   y,     1.0f, 0.0f }, // top-right
+        { x,     y+h,   0.0f, 1.0f }, // bottom-left
         { x+w,   y+h,   1.0f, 1.0f }, // bottom-right
-        { x,     y,     0.0f, 0.0f }, // top-left
-        { x+w,   y+h,   1.0f, 1.0f }, // bottom-right
-        { x,     y+h,   0.0f, 1.0f }  // bottom-left
     };
+    GLuint indices[6] = { 0, 1, 2, 1, 2, 3 };
 
-
-    ClearGLErrors();
-    GLuint vao, vbo;
-    glGenVertexArrays(1, &vao);
-    glGenBuffers(1, &vbo);
-    glBindVertexArray(vao);
-    glBindBuffer(GL_ARRAY_BUFFER, vbo);
-    glBufferData(GL_ARRAY_BUFFER, sizeof(verts), verts, GL_DYNAMIC_DRAW);
-
-    // Position (x,y)
-    glVertexAttribPointer(0, 2, GL_FLOAT, GL_FALSE, sizeof(vertex_uv), (void*)0);
-    glEnableVertexAttribArray(0);
-
-    // UV (u,v)
-    glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, sizeof(vertex_uv), (void*)(2 * sizeof(float)));
-    glEnableVertexAttribArray(1);
-
-    // Use image shader
+    glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
     glUseProgram(Image_Shader_Program);
-
-    // Screen uniforms (must be set each frame or cached somewhere)
-    glUniform1f(glGetUniformLocation(Image_Shader_Program, "uScreenWidth"), (float)screen_width);
-    glUniform1f(glGetUniformLocation(Image_Shader_Program, "uScreenHeight"), (float)screen_height);
-
-    // Bind texture
+    glBindBuffer(GL_ARRAY_BUFFER, image_vbo);
+    glBufferData(GL_ARRAY_BUFFER, 4 * sizeof(vertex_uv), vertices, GL_DYNAMIC_DRAW);
+    glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, image_ebo);
+    glBufferData(GL_ELEMENT_ARRAY_BUFFER, 6 * sizeof(GLuint), indices, GL_DYNAMIC_DRAW);
     glActiveTexture(GL_TEXTURE0);
     glBindTexture(GL_TEXTURE_2D, image_handle);
     glUniform1i(glGetUniformLocation(Image_Shader_Program, "uTexture"), 0);
-
-    PrintGLErrors();
-
-    // Draw
-    glDrawArrays(GL_TRIANGLES, 0, 6);
-
-    // Cleanup (or cache vao/vbo for reuse if you draw many images per frame)
-    glDeleteBuffers(1, &vbo);
-    glDeleteVertexArrays(1, &vao);
+    glBindVertexArray(image_vao);
+    glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_INT, 0);
+    glBindVertexArray(0);
 }

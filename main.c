@@ -7,11 +7,6 @@
 #include <math.h>
 #include <SDL3/SDL.h>
 #include <GL/glew.h>
-
-#define NANOVG_GL3_IMPLEMENTATION
-#include <nanovg.h>
-#include <nanovg_gl.h>
-#include <freetype/freetype.h>
 #include <nu_text.h>
 #include "headers/nodus.h"
 

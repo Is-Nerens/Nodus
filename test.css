@@ -46,10 +46,12 @@ button:press {
     dir: v;
     grow: b;
     pad: 5;
-    maxHeight: 500;
     overflowV: s;
-    borderRadiusTopLeft: 5;
-    borderRadiusTopRight: 5;
+    borderRadius: 5;
+    background: #151515;
+}
+thead {
+    position: absolute;
 }
 #watchlist-searchbar {
     border: 1;
@@ -63,11 +65,8 @@ button:press {
     borderColour: #9b5920;
     borderRadius: 3;
 }
-#watchlist-list {
-    background: #a81927;
-}
 .watchlist-text {
-    pad: 5;
+    pad: 3;
     background: none;
 }
 .crypto-icon {

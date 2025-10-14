@@ -414,7 +414,9 @@ void Hashmap_Init(struct Hashmap* hmap, uint32_t key_size, uint32_t item_size, u
     // Initialise tracking variables
     hmap->key_size = key_size;
     hmap->item_size = item_size;
+    hmap->item_count = 0;
     hmap->capacity = capacity;
+    hmap->max_probes = 0;
 }
 
 void Hashmap_Resize_Add(struct Hashmap* hmap, void* key, void* value)

@@ -47,6 +47,7 @@
         "nu_window.h": "c",
         "xiosbase": "c",
         "nu_layer.h": "c",
-        "nodus.h": "c"
+        "nodus.h": "c",
+        "nu_draw_structures.h": "c"
     }
 }

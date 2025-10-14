@@ -1,75 +1,67 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Inventory Table</title>
-<style>
-    html, body {
-        height: 100%;
-        margin: 0;
-        padding: 0;
-    }
-    table {
-        width: 100%;       /* grow="b" -> table fills container */
-        border-collapse: collapse;
-    }
-    tr {
-        height: auto;      /* grow="v" -> row height adjusts */
-    }
-    td {
-        border: 1px solid #333;
-        padding: 4px 8px;
-        white-space: nowrap;
-    }
-</style>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Sticky Table Header Example</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            padding: 20px;
+        }
+
+        .table-container {
+            height: 300px; /* Fixed height for vertical scroll */
+            overflow-y: auto; /* Enable vertical scrolling */
+            border: 1px solid #ccc;
+        }
+
+        table {
+            border-collapse: collapse;
+            width: 100%;
+        }
+
+        th, td {
+            padding: 8px 12px;
+            border: 1px solid #ccc;
+        }
+
+        thead th {
+            position: sticky;
+            top: 0;
+            background-color: #f2f2f2;
+            z-index: 1; /* Ensure it stays above table rows */
+        }
+    </style>
 </head>
 <body>
 
-<table>
-    <tr>
-        <td>Item 001</td>
-        <td>Banana</td>
-        <td>42</td>
-        <td>Fresh Stock that smells very fresh to the rest of the market</td>
-        <td>Aisle 3</td>
-    </tr>
-    <tr>
-        <td>Item 002</td>
-        <td>Apple Pie</td>
-        <td>17</td>
-        <td>Baked Goods</td>
-        <td>Shelf 1</td>
-    </tr>
-    <tr>
-        <td>Item 003</td>
-        <td>Orange Juice</td>
-        <td>99</td>
-        <td>Cold Drinks</td>
-        <td>Fridge 2</td>
-    </tr>
-    <tr>
-        <td>Item 004</td>
-        <td>Chocolate Bar</td>
-        <td>5</td>
-        <td>Snacks</td>
-        <td>Shelf 5</td>
-    </tr>
-    <tr>
-        <td>Item 005</td>
-        <td>Strawberries</td>
-        <td>23</td>
-        <td>Fruits</td>
-        <td>Aisle 4</td>
-    </tr>
-    <tr>
-        <td>Item 006</td>
-        <td>Milk 2L</td>
-        <td>12</td>
-        <td>Dairy</td>
-        <td>Fridge 1</td>
-    </tr>
-</table>
+<h2>Table with Sticky Header</h2>
+<div class="table-container">
+    <table>
+        <thead>
+            <tr>
+                <th>#</th>
+                <th>Name</th>
+                <th>Age</th>
+                <th>City</th>
+            </tr>
+        </thead>
+        <tbody>
+            <!-- Many rows to force scrolling -->
+            <script>
+                for(let i=1; i<=50; i++) {
+                    document.write(`<tr>
+                        <td>${i}</td>
+                        <td>Person ${i}</td>
+                        <td>${20 + (i % 30)}</td>
+                        <td>City ${i}</td>
+                    </tr>`);
+                }
+            </script>
+        </tbody>
+    </table>
+</div>
 
 </body>
 </html>

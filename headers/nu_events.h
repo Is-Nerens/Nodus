@@ -85,6 +85,17 @@ bool EventWatcher(void* data, SDL_Event* event)
 
             if (__nu_global_gui.scroll_mouse_down_node) { // Is dragging scrollbar
                 struct Node* node = __nu_global_gui.scroll_mouse_down_node;
+
+                NU_Layer* child_layer = &__nu_global_gui.tree.layers[node->layer + 1];
+                struct Node* first_child = NU_Layer_Get(child_layer, node->first_child_index);
+
+                float scroll_view_height = node->content_height;
+
+                // Subtract header row height from total scroll region height
+                if (first_child->tag == THEAD) {
+                    // scroll_view_height -= first_child->height; 
+                }
+
                 float y_drag_dist = mouse_y - __nu_global_gui.mouse_down_global_y;
                 float scrollbar_top_dist_moved = __nu_global_gui.v_scrollbar_top_global_y - node->y + node->border_top;
                 float track_h = node->height - node->border_top - node->border_bottom;
@@ -172,8 +183,12 @@ bool EventWatcher(void* data, SDL_Event* event)
     }    
     if (draw) 
     {
+        // timer_start();
         NU_Reflow();
+        // timer_stop();
+        timer_start();
         NU_Draw();
+        timer_stop();
     }
     return true;
 }

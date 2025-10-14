@@ -20,6 +20,7 @@
 #define OVERFLOW_VERTICAL_SCROLL     0x08  // 00001000
 #define OVERFLOW_HORIZONTAL_SCROLL   0x10  // 00010000
 #define HIDE_BACKGROUND              0x20  // 00100000
+#define POSITION_ABSOLUTE            0x40  // 01000000
 #define MAX_TREE_DEPTH 32
 
 
@@ -53,6 +54,7 @@ struct Node
     // --- Tree information ---------
     // ------------------------------
     uint32_t handle;
+    uint32_t clipping_root_handle;
     uint16_t index;
     uint16_t parent_index;
     uint16_t first_child_index;
@@ -89,14 +91,6 @@ struct Node
     char event_flags;
 };
 
-struct NU_Clipped_Node_Info {
-    struct Node* node;
-    float clip_top;
-    float clip_bottom;
-    float clip_left;
-    float clip_right;
-};
-
 #include "nu_node_table.h"
 #include "nu_layer.h"
 
@@ -123,7 +117,6 @@ struct NU_GUI
     uint16_t deepest_layer;
 
     // Status
-    bool awaiting_draw;
     bool running;
 
     // Styles
@@ -198,7 +191,6 @@ void NU_Init()
     __nu_global_gui.scroll_hovered_node = NULL;
     __nu_global_gui.scroll_mouse_down_node = NULL;
     __nu_global_gui.deepest_layer = 0;
-    __nu_global_gui.awaiting_draw = true;
     __nu_global_gui.stylesheet = NULL;
     __nu_global_gui.hovered_window = NULL;
     NU_Create_Main_Window();
@@ -214,7 +206,7 @@ bool NU_Running()
 void NU_Load_Font(const char* filepath)
 {
     NU_Font font;
-    NU_Font_Create(&font, filepath, 16, true);
+    NU_Font_Create(&font, filepath, 14, true);
     Vector_Push(&__nu_global_gui.fonts, &font);
 }
 

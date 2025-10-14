@@ -527,7 +527,6 @@ static void NU_Delete_Node_Branch(struct Node* node)
 
 void NU_Delete_Node(uint32_t handle)
 {
-    __nu_global_gui.awaiting_draw = true;
     struct Node* node = NODE(handle);
 
     // Case 1: Deleting root node (Cannot do this!)

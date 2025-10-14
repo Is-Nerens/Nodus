@@ -14,8 +14,12 @@
 GLuint Text_Mono_Shader_Program;
 GLuint Text_Subpixel_Shader_Program;
 GLuint text_vao, text_vbo, text_ebo;
+
+
 GLint uMonoScreenWidthLoc, uMonoScreenHeightLoc, uMonoFontTextureLoc;
 GLint uSubpixelScreenWidthLoc, uSubpixelScreenHeightLoc, uSubpixelFontTextureLoc;
+GLint uMonoClipTopLoc, uMonoClipBottomLoc, uMonoClipLeftLoc, uMonoClipRightLoc;
+GLint uSubpixelClipTopLoc, uSubpixelClipBottomLoc, uSubpixelClipLeftLoc, uSubpixelClipRightLoc;
 GLint uMonoClipTopLoc, uMonoClipBottomLoc, uMonoClipLeftLoc, uMonoClipRightLoc;
 GLint uSubpixelClipTopLoc, uSubpixelClipBottomLoc, uSubpixelClipLeftLoc, uSubpixelClipRightLoc;
 
@@ -35,6 +39,7 @@ int NU_Text_Renderer_Init()
     "layout(location = 2) in vec2 aUV;\n"
     "out vec3 vColor;\n"
     "out vec2 vUV;\n"
+    "out vec2 vScreenPos;\n"
     "uniform float uScreenWidth;\n"
     "uniform float uScreenHeight;\n"
     "void main() {\n"
@@ -43,34 +48,56 @@ int NU_Text_Renderer_Init()
     "    gl_Position = vec4(ndc_x, ndc_y, 0.0, 1.0);\n"
     "    vColor = aColor;\n"
     "    vUV = aUV;\n"
+    "    vScreenPos = aPos;\n"
     "}\n";
 
     const char* mono_fragment_src = 
     "#version 330 core\n"
     "in vec3 vColor;\n"
     "in vec2 vUV;\n"
+    "in vec2 vScreenPos;\n"
     "out vec4 FragColor;\n"
     "uniform sampler2D uFontTexture;\n"
+    "uniform float uClipTop;\n"
+    "uniform float uClipBottom;\n"
+    "uniform float uClipLeft;\n"
+    "uniform float uClipRight;\n"
     "void main() {\n"
-    "    float alpha = texture(uFontTexture, vUV).r;\n"
-    "    FragColor = vec4(vColor, alpha);\n"
+    "    // Discard fragments outside the clip rectangle (in pixel space)\n"
+    "    if (vScreenPos.x < uClipLeft || vScreenPos.x > uClipRight ||\n"
+    "        vScreenPos.y < uClipTop  || vScreenPos.y > uClipBottom) {\n"
+    "        discard;\n"
+    "    } else {\n"
+    "       float alpha = texture(uFontTexture, vUV).r;\n"
+    "       FragColor = vec4(vColor, alpha);\n"
+    "    }\n"
     "}\n";
 
     const char* subpixel_fragment_src = 
     "#version 330 core\n"
     "in vec3 vColor;\n"
     "in vec2 vUV;\n"
+    "in vec2 vScreenPos;\n"
     "layout(location = 0) out vec4 FragColor;\n"
     "layout(location = 1) out vec4 FragColor1;\n"
     "uniform sampler2D uFontTexture;\n"
+    "uniform float uClipTop;\n"
+    "uniform float uClipBottom;\n"
+    "uniform float uClipLeft;\n"
+    "uniform float uClipRight;\n"
     "void main() {\n"
-    "    vec3 lcd = texture(uFontTexture, vUV).rgb;      // subpixel coverage\n"
-    "    \n"
-    "    // Standard dual-source blending for subpixel rendering:\n"
-    "    // FragColor contains the text color\n"
-    "    // FragColor1 contains the coverage mask\n"
-    "    FragColor = vec4(vColor, 1.0);                  // Pure text color\n"
-    "    FragColor1 = vec4(lcd, 1.0);                    // Pure coverage mask\n"
+    "    // Discard fragments outside the clip rectangle (in pixel space)\n"
+    "    if (vScreenPos.x < uClipLeft || vScreenPos.x > uClipRight ||\n"
+    "        vScreenPos.y < uClipTop  || vScreenPos.y > uClipBottom) {\n"
+    "        discard;\n"
+    "    } else {\n"
+    "       vec3 lcd = texture(uFontTexture, vUV).rgb;      // subpixel coverage\n"
+    "       // Standard dual-source blending for subpixel rendering:\n"
+    "       // FragColor contains the text color\n"
+    "       // FragColor1 contains the coverage mask\n"
+    "       FragColor = vec4(vColor, 1.0);                  // Pure text color\n"
+    "       FragColor1 = vec4(lcd, 1.0);                    // Pure coverage mask\n"
+    "    }\n"
     "}\n";
 
 
@@ -79,12 +106,20 @@ int NU_Text_Renderer_Init()
     Text_Subpixel_Shader_Program = Create_Shader_Program(vertex_src, subpixel_fragment_src);
      
     // Query uniforms once
-    uMonoScreenWidthLoc  = glGetUniformLocation(Text_Mono_Shader_Program, "uScreenWidth");
-    uMonoScreenHeightLoc = glGetUniformLocation(Text_Mono_Shader_Program, "uScreenHeight");
-    uMonoFontTextureLoc = glGetUniformLocation(Text_Mono_Shader_Program, "uFontTexture");
-    uSubpixelScreenWidthLoc = glGetUniformLocation(Text_Subpixel_Shader_Program, "uScreenWidth");
+    uMonoScreenWidthLoc      = glGetUniformLocation(Text_Mono_Shader_Program, "uScreenWidth");
+    uMonoScreenHeightLoc     = glGetUniformLocation(Text_Mono_Shader_Program, "uScreenHeight");
+    uMonoFontTextureLoc      = glGetUniformLocation(Text_Mono_Shader_Program, "uFontTexture");
+    uSubpixelScreenWidthLoc  = glGetUniformLocation(Text_Subpixel_Shader_Program, "uScreenWidth");
     uSubpixelScreenHeightLoc = glGetUniformLocation(Text_Subpixel_Shader_Program, "uScreenHeight");
-    uSubpixelFontTextureLoc = glGetUniformLocation(Text_Subpixel_Shader_Program, "uFontTexture");
+    uSubpixelFontTextureLoc  = glGetUniformLocation(Text_Subpixel_Shader_Program, "uFontTexture");
+    uMonoClipTopLoc          = glGetUniformLocation(Text_Mono_Shader_Program, "uClipTop");
+    uMonoClipBottomLoc       = glGetUniformLocation(Text_Mono_Shader_Program, "uClipBottom");
+    uMonoClipLeftLoc         = glGetUniformLocation(Text_Mono_Shader_Program, "uClipLeft");
+    uMonoClipRightLoc        = glGetUniformLocation(Text_Mono_Shader_Program, "uClipRight");
+    uSubpixelClipTopLoc      = glGetUniformLocation(Text_Subpixel_Shader_Program, "uClipTop");
+    uSubpixelClipBottomLoc   = glGetUniformLocation(Text_Subpixel_Shader_Program, "uClipBottom");
+    uSubpixelClipLeftLoc     = glGetUniformLocation(Text_Subpixel_Shader_Program, "uClipLeft");
+    uSubpixelClipRightLoc    = glGetUniformLocation(Text_Subpixel_Shader_Program, "uClipRight");
     
     // VAO + buffers
     glGenVertexArrays(1, &text_vao);
@@ -382,8 +417,22 @@ void NU_Generate_Text_Mesh(Vertex_RGB_UV_List* vertices, Index_List* indices, NU
     }
 }
 
-void NU_Render_Text(Vertex_RGB_UV_List* vertices, Index_List* indices, NU_Font* font, float screen_width, float screen_height)
+void NU_Render_Text
+(
+    Vertex_RGB_UV_List* vertices, 
+    Index_List* indices, 
+    NU_Font* font, 
+    float screen_width, 
+    float screen_height,
+    float clip_top,
+    float clip_bottom,
+    float clip_left,
+    float clip_right
+)
 {
+    if (font->subpixel_rendering) glBlendFunc(GL_SRC1_COLOR, GL_ONE_MINUS_SRC1_COLOR);
+    else glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+
     // Render
     if (font->subpixel_rendering)
     {
@@ -391,6 +440,10 @@ void NU_Render_Text(Vertex_RGB_UV_List* vertices, Index_List* indices, NU_Font* 
         glUniform1i(uSubpixelFontTextureLoc, 0);
         glUniform1f(uSubpixelScreenWidthLoc, screen_width);
         glUniform1f(uSubpixelScreenHeightLoc, screen_height);
+        glUniform1f(uSubpixelClipTopLoc, clip_top);
+        glUniform1f(uSubpixelClipBottomLoc, clip_bottom);
+        glUniform1f(uSubpixelClipLeftLoc, clip_left);
+        glUniform1f(uSubpixelClipRightLoc, clip_right);
     }
     else
     {
@@ -398,6 +451,10 @@ void NU_Render_Text(Vertex_RGB_UV_List* vertices, Index_List* indices, NU_Font* 
         glUniform1i(uMonoFontTextureLoc, 0);
         glUniform1f(uMonoScreenWidthLoc, screen_width);
         glUniform1f(uMonoScreenHeightLoc, screen_height);
+        glUniform1f(uMonoClipTopLoc, clip_top);
+        glUniform1f(uMonoClipBottomLoc, clip_bottom);
+        glUniform1f(uMonoClipLeftLoc, clip_left);
+        glUniform1f(uMonoClipRightLoc, clip_right);
     }
     glActiveTexture(GL_TEXTURE0);
     glBindTexture(GL_TEXTURE_2D, font->atlas.handle);

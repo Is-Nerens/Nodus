@@ -21,8 +21,7 @@ void NU_Create_Main_Window()
     SDL_GL_MakeCurrent(main_window, context);
     glEnable(GL_MULTISAMPLE);
     glEnable(GL_BLEND);
-    glBlendFunc(GL_SRC1_COLOR, GL_ONE_MINUS_SRC1_COLOR);
-    SDL_GL_SetSwapInterval(1); // VSYNC ON
+    SDL_GL_SetSwapInterval(0); // VSYNC ON
     glewInit();
 
     __nu_global_gui.gl_ctx = context;

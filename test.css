@@ -1,8 +1,22 @@
+@font font-normal {
+    src: ./fonts/Inter/Inter_Variable_Weight.ttf;
+    size: 16;
+    weight: 400;
+}
+
+@font font-arial {
+    src: ./fonts/arial/ARIAL.ttf;
+    size: 12;
+    weight: 400;
+}
+
 window {
     background: #2f2f2f;
     pad: 3;
     gap: 3;
 }
+
+
 #toolbar {
     pad: 3;
     padLeft: 0;
@@ -11,6 +25,27 @@ window {
     borderRadius: 5;
     grow: h;
     background: #2f2f2f;
+}
+
+.toolbar-button {
+    border: 1;
+    borderBottom: 2;
+    borderRadius: 3;
+    background: #2f2f2f;
+    borderColour: #000000;
+    textColour: #ffffff;
+    pad: 5;
+    textAlignH: center;
+    font: font-arial;
+}
+
+.toolbar-button-selected {
+    textColour: #000000;
+    background: #d8903d;
+}
+.toolbar-button-selected:hover {
+    textColour: #000000;
+    background: #d8903d;
 }
 .toolbar-item {
     pad: 5;
@@ -204,6 +239,7 @@ thead {
     background: #2f2f2f;
     borderRadius: 5;
     gap: 3;
+    maxHeight: 300;
 }
 #trade-history-toolbar {
     background: #151515;
@@ -236,12 +272,12 @@ thead {
 }
 row {
     borderBottom: 1;
+    borderLeft: 1;
+    borderRight: 1;
     borderColour: #000000;
     background: #2f2f2f;
 }
 .cell {
     pad: 5;
     background: none;
-    borderRight: 1;
-    borderColour: #000000;
 }

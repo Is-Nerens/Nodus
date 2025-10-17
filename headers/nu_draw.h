@@ -12,8 +12,8 @@ GLuint Clipped_Border_Rect_Shader_Program;
 GLuint Image_Shader_Program;
 GLuint border_vao, border_vbo, border_ebo;
 GLuint image_vao, image_vbo, image_ebo;
-GLint uBorderScreenWidthLoc, uBorderScreenHeightLoc;
-GLint uClippedScreenWidthLoc, uClippedScreenHeightLoc;
+GLint uBorderScreenWidthLoc, uBorderScreenHeightLoc, uBorderOffsetXLoc, uBorderOffsetYLoc;
+GLint uClippedScreenWidthLoc, uClippedScreenHeightLoc, uClippedOffsetXLoc, uClippedOffsetYLoc;
 GLint uImageScreenWidthLoc, uImageScreenHeightLoc;
 GLint uBorderClipTopLoc, uBorderClipBottomLoc, uBorderClipLeftLoc, uBorderClipRightLoc;
 GLint uImageClipTopLoc, uImageClipBottomLoc, uImageClipLeftLoc, uImageClipRightLoc;
@@ -33,13 +33,15 @@ void NU_Draw_Init()
     "out vec2 vScreenPos;\n"
     "uniform float uScreenWidth;\n"
     "uniform float uScreenHeight;\n"
+    "uniform float uOffsetX;\n"
+    "uniform float uOffsetY;\n"
     "void main() {\n"
     "    // Convert screen position (pixels) to NDC for gl_Position\n"
-    "    float ndc_x = (aPos.x / uScreenWidth) * 2.0 - 1.0;\n"
-    "    float ndc_y = 1.0 - (aPos.y / uScreenHeight) * 2.0;\n"
+    "    float ndc_x = ((aPos.x + uOffsetX) / uScreenWidth) * 2.0 - 1.0;\n"
+    "    float ndc_y = 1.0 - ((aPos.y + uOffsetY) / uScreenHeight) * 2.0;\n"
     "    gl_Position = vec4(ndc_x, ndc_y, 0.0, 1.0);\n"
     "    vColor = aColor;\n"
-    "    vScreenPos = aPos;\n"
+    "    vScreenPos = vec2(aPos.x + uOffsetX, aPos.y + uOffsetY);\n"
     "}\n";
 
     const char* border_rect_fragment_src =
@@ -117,8 +119,15 @@ void NU_Draw_Init()
     // Query uniforms once
     uBorderScreenWidthLoc  = glGetUniformLocation(Border_Rect_Shader_Program, "uScreenWidth");
     uBorderScreenHeightLoc = glGetUniformLocation(Border_Rect_Shader_Program, "uScreenHeight");
+    uBorderOffsetXLoc = glGetUniformLocation(Border_Rect_Shader_Program, "uOffsetX");
+    uBorderOffsetYLoc = glGetUniformLocation(Border_Rect_Shader_Program, "uOffsetY");
+
     uClippedScreenWidthLoc  = glGetUniformLocation(Clipped_Border_Rect_Shader_Program, "uScreenWidth");
     uClippedScreenHeightLoc = glGetUniformLocation(Clipped_Border_Rect_Shader_Program, "uScreenHeight");
+    uClippedOffsetXLoc  = glGetUniformLocation(Clipped_Border_Rect_Shader_Program, "uOffsetX");
+    uClippedOffsetYLoc = glGetUniformLocation(Clipped_Border_Rect_Shader_Program, "uOffsetY");
+
+
     uImageScreenWidthLoc  = glGetUniformLocation(Image_Shader_Program, "uScreenWidth");
     uImageScreenHeightLoc = glGetUniformLocation(Image_Shader_Program, "uScreenHeight");
     uBorderClipTopLoc      = glGetUniformLocation(Clipped_Border_Rect_Shader_Program, "uClipTop");
@@ -564,12 +573,22 @@ void Construct_Scroll_Thumb(struct Node* node,
     indices->size += additional_indices;
 }
 
-void Draw_Vertex_RGB_List(Vertex_RGB_List* vertices, Index_List* indices, float screen_width, float screen_height)
+void Draw_Vertex_RGB_List
+(
+    Vertex_RGB_List* vertices, 
+    Index_List* indices, 
+    float screen_width, 
+    float screen_height,
+    float offset_x,
+    float offset_y
+)
 {
     glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
     glUseProgram(Border_Rect_Shader_Program);
     glUniform1f(uBorderScreenWidthLoc, screen_width);
     glUniform1f(uBorderScreenHeightLoc, screen_height);
+    glUniform1f(uBorderOffsetXLoc, offset_x);
+    glUniform1f(uBorderOffsetYLoc, offset_y);
     glBindBuffer(GL_ARRAY_BUFFER, border_vbo);
     glBufferData(GL_ARRAY_BUFFER, vertices->size * sizeof(vertex_rgb), vertices->array, GL_DYNAMIC_DRAW);
     glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, border_ebo);
@@ -585,6 +604,8 @@ void Draw_Clipped_Vertex_RGB_List
     Index_List* indices, 
     float screen_width, 
     float screen_height,
+    float offset_x,
+    float offset_y,
     float clip_top,
     float clip_bottom,
     float clip_left,
@@ -595,6 +616,8 @@ void Draw_Clipped_Vertex_RGB_List
     glUseProgram(Clipped_Border_Rect_Shader_Program);
     glUniform1f(uClippedScreenWidthLoc, screen_width);
     glUniform1f(uClippedScreenHeightLoc, screen_height);
+    glUniform1f(uClippedOffsetXLoc, offset_x);
+    glUniform1f(uClippedOffsetYLoc, offset_y);
     glUniform1f(uBorderClipTopLoc, clip_top);
     glUniform1f(uBorderClipBottomLoc, clip_bottom);
     glUniform1f(uBorderClipLeftLoc, clip_left);

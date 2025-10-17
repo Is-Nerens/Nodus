@@ -7,9 +7,10 @@
 #include "nu_convert.h"
 #include "nu_stylesheet.h"
 
-#define STYLE_PROPERTY_COUNT 34
-#define STYLE_KEYWORD_COUNT 44
+#define STYLE_PROPERTY_COUNT 39
+#define STYLE_KEYWORD_COUNT 52
 #define STYLE_TAG_SELECTOR_COUNT 9
+#define STYLE_SPECIAL_SELECTOR_COUNT 1
 #define STYLE_PSEUDO_COUNT 3
 
 static const char* style_keywords[] = {
@@ -18,6 +19,7 @@ static const char* style_keywords[] = {
     "overflowV",
     "overflowH",
     "position",
+    "hide",
     "gap",
     "width",
     "minWidth",
@@ -26,31 +28,36 @@ static const char* style_keywords[] = {
     "minHeight",
     "maxHeight",
     "alignH", "alignV", "textAlignH", "textAlignV",
-    "background", "borderColour","textColour",
+    "background", "borderColour", "textColour",
     "border", "borderTop", "borderBottom", "borderLeft", "borderRight",
     "borderRadius", "borderRadiusTopLeft", "borderRadiusTopRight", "borderRadiusBottomLeft", "borderRadiusBottomRight",
-    "pad", "padTop", "padBottom", "padLeft", "padRight",
-    "window", "rect", "button", "grid", "text", "image", "table", "thead", "row",
+    "pad", "padTop", "padBottom", "padLeft", "padRight", "font", "src", "size", "weight",
+    "window", "rect", "button", "grid", "canvas", "image", "table", "thead", "row", "@font",
     "hover", "press", "focus",
 };
 
 static const uint8_t style_keyword_lengths[] = { 
-    3, 4, 9, 9, 8, 3, 5, 8, 8, 6, 9, 9, 
-    6, 6, 10, 10,              // alignment
-    10, 12, 10,                // colours
-    6, 9, 12, 10, 11,          // border width
-    12, 19, 20, 22, 23,        // border radius
-    3, 6, 9, 7, 8,             // padding
-    6, 4, 6, 4, 4, 5, 5, 5, 3, // selectors
-    5, 5, 5                    // pseudo classes
+    3, 4, 9, 9, 8, 4, 3, 5, 8, 8, 6, 9, 9, 
+    6, 6, 10, 10,                 // alignment
+    10, 12, 10,                   // colours
+    6, 9, 12, 10, 11,             // border width
+    12, 19, 20, 22, 23,           // border radius
+    3, 6, 9, 7, 8,                // padding
+    4,                            // font property (css only, no xml inline equivalent)
+    3, 4, 6,                      // font creation
+    6, 4, 6, 4, 6, 5, 5, 5, 3,    // tag selectors
+    5,                            // other selectors
+    5, 5, 5,                      // pseudo classes
 };
 enum NU_Style_Token 
 {
+    // --- Inline node poperties ---
     STYLE_LAYOUT_DIRECTION_PROPERTY,
     STYLE_GROW_PROPERTY,
     STYLE_OVERFLOW_V_PROPERTY,
     STYLE_OVERFLOW_H_PROPERTY,
     STYLE_POSITION_PROPERTY,
+    STYLE_HIDE_PROPERTY,
     STYLE_GAP_PROPERTY,
     STYLE_WIDTH_PROPERTY,
     STYLE_MIN_WIDTH_PROPERTY,
@@ -80,28 +87,131 @@ enum NU_Style_Token
     STYLE_PADDING_BOTTOM_PROPERTY,
     STYLE_PADDING_LEFT_PROPERTY,
     STYLE_PADDING_RIGHT_PROPERTY,
+    
+
+    // --- CSS only node properties ---
+    STYLE_FONT_PROPERTY,
+    STYLE_FONT_SRC,
+    STYLE_FONT_SIZE,
+    STYLE_FONT_WEIGHT,
+
+    // --- Tag selectors ---
     STYLE_WINDOW_SELECTOR,
     STYLE_RECT_SELECTOR,
     STYLE_BUTTON_SELECTOR,
     STYLE_GRID_SELECTOR,
-    STYLE_TEXT_SELECTOR,
+    STYLE_CANVAS_SELECTOR,
     STYLE_IMAGE_SELECTOR,
     STYLE_TABLE_SELECTOR,
     STYLE_THEAD_SELECTOR,
     STYLE_ROW_SELECTOR,
+
+    // --- Special selectors --- 
+    STYLE_FONT_CREATION_SELECTOR,
+
+    // --- Pseudos ---
     STYLE_HOVER_PSEUDO,
     STYLE_PRESS_PSEUDO,
     STYLE_FOCUS_PSEUDO,
+    // --- End of keyword direct mapping ---
+
+
+    // --- Class/ID selector prefixes ---
     STYLE_ID_SELECTOR,
     STYLE_CLASS_SELECTOR,
+
+    // --- Syntax tokens ---
     STYLE_PSEUDO_COLON,
     STYLE_SELECTOR_COMMA,
     STYLE_SELECTOR_OPEN_BRACE,
     STYLE_SELECTOR_CLOSE_BRACE,
     STYLE_PROPERTY_ASSIGNMENT,
     STYLE_PROPERTY_VALUE,
+    STYLE_FONT_CREATION_PROPERTY_VALUE,
+    STYLE_FONT_NAME,
+
+    // --- Unknown token (error occured) --- 
     STYLE_UNDEFINED
 };
+
+const char* NU_Style_Token_ToString(enum NU_Style_Token token)
+{
+    switch (token)
+    {
+        case STYLE_LAYOUT_DIRECTION_PROPERTY: return "STYLE_LAYOUT_DIRECTION_PROPERTY";
+        case STYLE_GROW_PROPERTY: return "STYLE_GROW_PROPERTY";
+        case STYLE_OVERFLOW_V_PROPERTY: return "STYLE_OVERFLOW_V_PROPERTY";
+        case STYLE_OVERFLOW_H_PROPERTY: return "STYLE_OVERFLOW_H_PROPERTY";
+        case STYLE_POSITION_PROPERTY: return "STYLE_POSITION_PROPERTY";
+        case STYLE_HIDE_PROPERTY: return "STYLE_HIDE_PROPERTY";
+        case STYLE_GAP_PROPERTY: return "STYLE_GAP_PROPERTY";
+        case STYLE_WIDTH_PROPERTY: return "STYLE_WIDTH_PROPERTY";
+        case STYLE_MIN_WIDTH_PROPERTY: return "STYLE_MIN_WIDTH_PROPERTY";
+        case STYLE_MAX_WIDTH_PROPERTY: return "STYLE_MAX_WIDTH_PROPERTY";
+        case STYLE_HEIGHT_PROPERTY: return "STYLE_HEIGHT_PROPERTY";
+        case STYLE_MIN_HEIGHT_PROPERTY: return "STYLE_MIN_HEIGHT_PROPERTY";
+        case STYLE_MAX_HEIGHT_PROPERTY: return "STYLE_MAX_HEIGHT_PROPERTY";
+        case STYLE_ALIGN_H_PROPERTY: return "STYLE_ALIGN_H_PROPERTY";
+        case STYLE_ALIGN_V_PROPERTY: return "STYLE_ALIGN_V_PROPERTY";
+        case STYLE_TEXT_ALIGN_H_PROPERTY: return "STYLE_TEXT_ALIGN_H_PROPERTY";
+        case STYLE_TEXT_ALIGN_V_PROPERTY: return "STYLE_TEXT_ALIGN_V_PROPERTY";
+        case STYLE_BACKGROUND_COLOUR_PROPERTY: return "STYLE_BACKGROUND_COLOUR_PROPERTY";
+        case STYLE_BORDER_COLOUR_PROPERTY: return "STYLE_BORDER_COLOUR_PROPERTY";
+        case STYLE_TEXT_COLOUR_PROPERTY: return "STYLE_TEXT_COLOUR_PROPERTY";
+        case STYLE_BORDER_WIDTH_PROPERTY: return "STYLE_BORDER_WIDTH_PROPERTY";
+        case STYLE_BORDER_TOP_WIDTH_PROPERTY: return "STYLE_BORDER_TOP_WIDTH_PROPERTY";
+        case STYLE_BORDER_BOTTOM_WIDTH_PROPERTY: return "STYLE_BORDER_BOTTOM_WIDTH_PROPERTY";
+        case STYLE_BORDER_LEFT_WIDTH_PROPERTY: return "STYLE_BORDER_LEFT_WIDTH_PROPERTY";
+        case STYLE_BORDER_RIGHT_WIDTH_PROPERTY: return "STYLE_BORDER_RIGHT_WIDTH_PROPERTY";
+        case STYLE_BORDER_RADIUS_PROPERTY: return "STYLE_BORDER_RADIUS_PROPERTY";
+        case STYLE_BORDER_TOP_LEFT_RADIUS_PROPERTY: return "STYLE_BORDER_TOP_LEFT_RADIUS_PROPERTY";
+        case STYLE_BORDER_TOP_RIGHT_RADIUS_PROPERTY: return "STYLE_BORDER_TOP_RIGHT_RADIUS_PROPERTY";
+        case STYLE_BORDER_BOTTOM_LEFT_RADIUS_PROPERTY: return "STYLE_BORDER_BOTTOM_LEFT_RADIUS_PROPERTY";
+        case STYLE_BORDER_BOTTOM_RIGHT_RADIUS_PROPERTY: return "STYLE_BORDER_BOTTOM_RIGHT_RADIUS_PROPERTY";
+        case STYLE_PADDING_PROPERTY: return "STYLE_PADDING_PROPERTY";
+        case STYLE_PADDING_TOP_PROPERTY: return "STYLE_PADDING_TOP_PROPERTY";
+        case STYLE_PADDING_BOTTOM_PROPERTY: return "STYLE_PADDING_BOTTOM_PROPERTY";
+        case STYLE_PADDING_LEFT_PROPERTY: return "STYLE_PADDING_LEFT_PROPERTY";
+        case STYLE_PADDING_RIGHT_PROPERTY: return "STYLE_PADDING_RIGHT_PROPERTY";
+
+        case STYLE_FONT_PROPERTY: return "STYLE_FONT_PROPERTY";
+
+        case STYLE_WINDOW_SELECTOR: return "STYLE_WINDOW_SELECTOR";
+        case STYLE_RECT_SELECTOR: return "STYLE_RECT_SELECTOR";
+        case STYLE_BUTTON_SELECTOR: return "STYLE_BUTTON_SELECTOR";
+        case STYLE_GRID_SELECTOR: return "STYLE_GRID_SELECTOR";
+        case STYLE_CANVAS_SELECTOR: return "STYLE_CANVAS_SELECTOR";
+        case STYLE_IMAGE_SELECTOR: return "STYLE_IMAGE_SELECTOR";
+        case STYLE_TABLE_SELECTOR: return "STYLE_TABLE_SELECTOR";
+        case STYLE_THEAD_SELECTOR: return "STYLE_THEAD_SELECTOR";
+        case STYLE_ROW_SELECTOR: return "STYLE_ROW_SELECTOR";
+        case STYLE_FONT_CREATION_SELECTOR: return "STYLE_FONT_CREATION_SELECTOR";
+        case STYLE_HOVER_PSEUDO: return "STYLE_HOVER_PSEUDO";
+        case STYLE_PRESS_PSEUDO: return "STYLE_PRESS_PSEUDO";
+        case STYLE_FOCUS_PSEUDO: return "STYLE_FOCUS_PSEUDO";
+        case STYLE_ID_SELECTOR: return "STYLE_ID_SELECTOR";
+        case STYLE_CLASS_SELECTOR: return "STYLE_CLASS_SELECTOR";
+        case STYLE_PSEUDO_COLON: return "STYLE_PSEUDO_COLON";
+        case STYLE_SELECTOR_COMMA: return "STYLE_SELECTOR_COMMA";
+        case STYLE_SELECTOR_OPEN_BRACE: return "STYLE_SELECTOR_OPEN_BRACE";
+        case STYLE_SELECTOR_CLOSE_BRACE: return "STYLE_SELECTOR_CLOSE_BRACE";
+        case STYLE_PROPERTY_ASSIGNMENT: return "STYLE_PROPERTY_ASSIGNMENT";
+        case STYLE_PROPERTY_VALUE: return "STYLE_PROPERTY_VALUE";
+        case STYLE_FONT_CREATION_PROPERTY_VALUE: return "STYLE_FONT_CREATION_PROPERTY_VALUE";
+        case STYLE_FONT_NAME: return "STYLE_FONT_NAME";
+        case STYLE_FONT_SRC: return "STYLE_FONT_SRC";
+        case STYLE_FONT_SIZE: return "STYLE_FONT_SIZE";
+        case STYLE_FONT_WEIGHT: return "STYLE_FONT_WEIGHT";
+        case STYLE_UNDEFINED: return "STYLE_UNDEFINED";
+
+        default: return "UNKNOWN_STYLE_TOKEN";
+    }
+}
+
+// Usage:
+void PrintToken(enum NU_Style_Token token) {
+    printf("%s\n", NU_Style_Token_ToString(token));
+}
 
 enum NU_Pseudo_Class
 {
@@ -162,9 +272,23 @@ static enum NU_Style_Token NU_Word_To_Tag_Selector_Token(char* word, uint8_t wor
     return STYLE_UNDEFINED;
 }
 
+static enum NU_Style_Token NU_Word_To_Any_Selector_Token(char* word, uint8_t word_char_count)
+{
+    int start = STYLE_PROPERTY_COUNT;
+    int end = STYLE_PROPERTY_COUNT + STYLE_TAG_SELECTOR_COUNT + STYLE_SPECIAL_SELECTOR_COUNT;
+    for (int i=start; i<end; i++)
+    {
+        size_t len = style_keyword_lengths[i];
+        if (len == word_char_count && memcmp(word, style_keywords[i], len) == 0) {
+            return i;
+        }
+    }
+    return STYLE_UNDEFINED;
+}
+
 static enum NU_Style_Token NU_Word_To_Pseudo_Token(char* word, uint8_t word_char_count)
 {
-    int start = STYLE_PROPERTY_COUNT + STYLE_TAG_SELECTOR_COUNT;
+    int start = STYLE_PROPERTY_COUNT + STYLE_TAG_SELECTOR_COUNT + STYLE_SPECIAL_SELECTOR_COUNT;
     int end = start + STYLE_PSEUDO_COUNT;
     for (int i=start; i<end; i++)
     {
@@ -178,7 +302,7 @@ static enum NU_Style_Token NU_Word_To_Pseudo_Token(char* word, uint8_t word_char
 
 static enum NU_Pseudo_Class Token_To_Pseudo_Class(enum NU_Style_Token token)
 {
-    return token - (STYLE_PROPERTY_COUNT + STYLE_TAG_SELECTOR_COUNT);
+    return token - (STYLE_PROPERTY_COUNT + STYLE_TAG_SELECTOR_COUNT + STYLE_SPECIAL_SELECTOR_COUNT);
 }
 
 static void NU_Style_Tokenise(char* src_buffer, uint32_t src_length, struct Vector* NU_Token_vector, struct Vector* text_ref_vector)
@@ -191,7 +315,8 @@ static void NU_Style_Tokenise(char* src_buffer, uint32_t src_length, struct Vect
     uint8_t ctx = 0; 
     // 0 == globalspace, 1 == commentspace, 2 == selectorspace, 
     // 3 == propertyspace, 4 == class selector namespace, 5 == id selector name space 
-    // 6 == pseudo namespace
+    // 6 == pseudo namespace, 
+    // 7 == font creation namespace
 
     // Iterate over src file
     uint32_t i = 0;
@@ -241,9 +366,9 @@ static void NU_Style_Tokenise(char* src_buffer, uint32_t src_length, struct Vect
         }
 
         // Property value word completed
-        if (ctx == 3 && c == ';')
+        if (ctx == 3  && c == ';')
         {   
-            // Property value word completed
+           // Property value word completed
             if (word_char_index > 0) {
 
                 // Add text reference
@@ -252,12 +377,10 @@ static void NU_Style_Tokenise(char* src_buffer, uint32_t src_length, struct Vect
                 ref.src_index = i - (uint32_t)word_char_index;
                 ref.char_count = word_char_index;
                 Vector_Push(text_ref_vector, &ref);
-
                 enum NU_Style_Token token = STYLE_PROPERTY_VALUE;
                 Vector_Push(NU_Token_vector, &token);
                 word_char_index = 0;
             }
-
             ctx = 2;
             i += 1;
             continue;
@@ -268,14 +391,13 @@ static void NU_Style_Tokenise(char* src_buffer, uint32_t src_length, struct Vect
         {
             // Tag selector word completed
             if (ctx == 0 && word_char_index > 0) {
-                
                 enum NU_Style_Token token = NU_Word_To_Tag_Selector_Token(word, word_char_index);
                 Vector_Push(NU_Token_vector, &token);
                 word_char_index = 0;
             }
 
             // Class selector word completed
-            if (ctx == 4 && word_char_index > 0) {
+            else if (ctx == 4 && word_char_index > 0) {
 
                 // Add text reference
                 struct Style_Text_Ref ref;
@@ -283,14 +405,13 @@ static void NU_Style_Tokenise(char* src_buffer, uint32_t src_length, struct Vect
                 ref.src_index = i - (uint32_t)word_char_index;
                 ref.char_count = word_char_index;
                 Vector_Push(text_ref_vector, &ref);
-
                 enum NU_Style_Token token = STYLE_CLASS_SELECTOR;
                 Vector_Push(NU_Token_vector, &token);
                 word_char_index = 0;
             }
 
             // Id selector word completed
-            if (ctx == 5 && word_char_index > 0) {
+            else if (ctx == 5 && word_char_index > 0) {
 
                 // Add text reference
                 struct Style_Text_Ref ref;
@@ -298,8 +419,19 @@ static void NU_Style_Tokenise(char* src_buffer, uint32_t src_length, struct Vect
                 ref.src_index = i - (uint32_t)word_char_index;
                 ref.char_count = word_char_index;
                 Vector_Push(text_ref_vector, &ref);
-
                 enum NU_Style_Token token = STYLE_ID_SELECTOR;
+                Vector_Push(NU_Token_vector, &token);
+                word_char_index = 0;
+            }
+
+            else if (ctx == 7 && word_char_index > 0) {
+                // Add text reference
+                struct Style_Text_Ref ref;
+                ref.NU_Token_index = NU_Token_vector->size;
+                ref.src_index = i - (uint32_t)word_char_index;
+                ref.char_count = word_char_index;
+                Vector_Push(text_ref_vector, &ref);
+                enum NU_Style_Token token = STYLE_FONT_NAME;
                 Vector_Push(NU_Token_vector, &token);
                 word_char_index = 0;
             }
@@ -312,13 +444,12 @@ static void NU_Style_Tokenise(char* src_buffer, uint32_t src_length, struct Vect
         }
 
         // Exiting selectorspace
-        if (ctx == 2 && c == '}')
+        if (c == '}')
         {   
             // If word is present -> word completed
             if (word_char_index > 0) {
                 enum NU_Style_Token token = NU_Word_To_Style_Token(word, word_char_index);
                 Vector_Push(NU_Token_vector, &token);
-                word_char_index = 0;
             }
 
             enum NU_Style_Token token = STYLE_SELECTOR_CLOSE_BRACE;
@@ -333,9 +464,13 @@ static void NU_Style_Tokenise(char* src_buffer, uint32_t src_length, struct Vect
         {
             // Tag selector word completed
             if (ctx == 0 && word_char_index > 0) {
-                enum NU_Style_Token token = NU_Word_To_Tag_Selector_Token(word, word_char_index);
+                enum NU_Style_Token token = NU_Word_To_Any_Selector_Token(word, word_char_index);
                 Vector_Push(NU_Token_vector, &token);
                 word_char_index = 0;
+
+                if (token == STYLE_FONT_CREATION_SELECTOR) { // Special selector context
+                    ctx = 7;
+                }
             }
 
             // Class selector word completed
@@ -363,7 +498,6 @@ static void NU_Style_Tokenise(char* src_buffer, uint32_t src_length, struct Vect
                 ref.src_index = i - (uint32_t)word_char_index;
                 ref.char_count = word_char_index;
                 Vector_Push(text_ref_vector, &ref);
-
                 enum NU_Style_Token token = STYLE_ID_SELECTOR;
                 Vector_Push(NU_Token_vector, &token);
                 word_char_index = 0;
@@ -385,7 +519,6 @@ static void NU_Style_Tokenise(char* src_buffer, uint32_t src_length, struct Vect
                 ref.src_index = i - (uint32_t)word_char_index;
                 ref.char_count = word_char_index;
                 Vector_Push(text_ref_vector, &ref);
-
                 enum NU_Style_Token token = STYLE_PROPERTY_VALUE;
                 Vector_Push(NU_Token_vector, &token);
                 word_char_index = 0;
@@ -398,6 +531,19 @@ static void NU_Style_Tokenise(char* src_buffer, uint32_t src_length, struct Vect
                 Vector_Push(NU_Token_vector, &token);
                 word_char_index = 0;
                 ctx = 0;
+            }
+
+            // Special font name word completed
+            else if (ctx == 7 && word_char_index > 0) {
+
+                // Add text reference
+                struct Style_Text_Ref ref;
+                ref.src_index = i - (uint32_t)word_char_index;
+                ref.char_count = word_char_index;
+                Vector_Push(text_ref_vector, &ref);
+                enum NU_Style_Token token = STYLE_FONT_NAME;
+                Vector_Push(NU_Token_vector, &token);
+                word_char_index = 0;
             }
 
             if (c == ',') {
@@ -448,7 +594,7 @@ static int NU_Is_Tag_Selector_Token(enum NU_Style_Token token)
 
 static int NU_Is_Pseudo_Token(enum NU_Style_Token token)
 {
-    int start = STYLE_PROPERTY_COUNT + STYLE_TAG_SELECTOR_COUNT - 1;
+    int start = STYLE_PROPERTY_COUNT + STYLE_TAG_SELECTOR_COUNT + STYLE_SPECIAL_SELECTOR_COUNT - 1;
     int end = start + STYLE_PSEUDO_COUNT + 1;
     return token > start && token < end;
 }
@@ -465,12 +611,26 @@ static int AssertSelectionOpeningBraceGrammar(struct Vector* tokens, int i)
     return 0;
 }
 
+static int AssertFontCreationSelectorGrammar(struct Vector* tokens, int i)
+{
+    // ENFORCE RULE: NEXT TOKEN MUST BE A FONT CREATION NAME 
+    // ENFORCE RULE: FOLLOWING TOKEN MUST BE AN OPEN BRACE
+    if (i < tokens->size - 2)
+    {
+        enum NU_Style_Token next_token = *((enum NU_Style_Token*) Vector_Get(tokens, i+1));
+        enum NU_Style_Token following_token = *((enum NU_Style_Token*) Vector_Get(tokens, i+2));
+        if (next_token == STYLE_FONT_NAME && following_token == STYLE_SELECTOR_OPEN_BRACE) return 1;
+    }
+    printf("%s", "[Generate Stylesheet] Error! @font selector must be followed by a name and {!");
+    return 0;
+}
+
 static int AssertSelectionClosingBraceGrammar(struct Vector* tokens, int i)
 {
     // ENFORCE RULE: MUST BE LAST TOKEN OR NEXT TOKEN MUST BE A SELECTOR
     if (i == tokens->size - 1) return 1;
     enum NU_Style_Token next_token = *((enum NU_Style_Token*) Vector_Get(tokens, i+1));
-    if (next_token == STYLE_CLASS_SELECTOR || next_token == STYLE_ID_SELECTOR || NU_Is_Tag_Selector_Token(next_token)) return 1;
+    if (next_token == STYLE_CLASS_SELECTOR || next_token == STYLE_ID_SELECTOR || NU_Is_Tag_Selector_Token(next_token) || next_token == STYLE_FONT_CREATION_SELECTOR) return 1;
     printf("%s", "[Generate Stylesheet] Error! Expected selector or end of file!");
     return 0;
 }
@@ -512,8 +672,6 @@ static int AssertPropertyIdentifierGrammar(struct Vector* tokens, int i)
     return 0;
 }
 
-
-
 static int NU_Generate_Stylesheet(char* src_buffer, uint32_t src_length, struct Vector* tokens, struct NU_Stylesheet* ss, struct Vector* text_refs)
 {
     uint32_t text_index = 0;
@@ -521,20 +679,62 @@ static int NU_Generate_Stylesheet(char* src_buffer, uint32_t src_length, struct 
 
     struct NU_Stylesheet_Item item;
     item.property_flags = 0;
+    item.font_id = 0;
 
     uint32_t selector_indexes[64];
     int selector_count = 0;
+
+    int ctx = 0; // 0 == standard selector; 1 == font creation selector
+    uint8_t create_font_index = UINT8_MAX;
+    NU_Font* create_font;
+    int create_font_size = 18;
+    int create_font_weight = 400;
+    char* create_font_name = NULL;
+    char* create_font_src = NULL;
 
     int i = 0;
     while(i < tokens->size)
     {
         const enum NU_Style_Token token = *((enum NU_Style_Token*) Vector_Get(tokens, i));
 
+        if (token == STYLE_FONT_CREATION_SELECTOR)
+        {
+            if (AssertFontCreationSelectorGrammar(tokens, i)) {
+
+                enum NU_Style_Token font_name_token = *((enum NU_Style_Token*) Vector_Get(tokens, i+1));
+
+                // Get id string
+                text_ref = (struct Style_Text_Ref*)Vector_Get(text_refs, text_index);
+                create_font_name = &src_buffer[text_ref->src_index];
+                src_buffer[text_ref->src_index + text_ref->char_count] = '\0';
+                text_index += 1;
+
+                // Create a new font
+                void* found_font = String_Map_Get(&ss->font_name_index_map, create_font_name);
+                if (found_font == NULL) {
+                    NU_Font font;
+                    Vector_Push(&ss->fonts, &font);
+                    create_font_index = (uint8_t)(ss->fonts.size - 1);
+                    create_font = Vector_Get(&ss->fonts, create_font_index);
+                    String_Map_Set(&ss->font_name_index_map, create_font_name, &create_font_index);
+                    printf("creating new font with name: %s at index: %d\n", create_font_name, create_font_index);
+                } 
+
+                ctx = 1;
+                i += 2;
+                continue;
+            }
+            else {
+                return -1;
+            }
+        }
+
         if (token == STYLE_SELECTOR_OPEN_BRACE)
         {
             if (AssertSelectionOpeningBraceGrammar(tokens, i)) {
                 item.property_flags = 0;
                 item.layout_flags = 0;
+                item.font_id = 0;
                 i += 1;
                 continue;
             } 
@@ -545,7 +745,12 @@ static int NU_Generate_Stylesheet(char* src_buffer, uint32_t src_length, struct 
 
         if (token == STYLE_SELECTOR_CLOSE_BRACE)
         {
-            if (AssertSelectionClosingBraceGrammar(tokens, i)) {
+            if (!AssertSelectionClosingBraceGrammar(tokens, i)) {
+                return -1;
+            }
+                
+            if (ctx == 0)
+            {   
                 for (int i=0; i<selector_count; i++) {
                     uint32_t item_index = selector_indexes[i];
                     struct NU_Stylesheet_Item* curr_item = Vector_Get(&ss->items, item_index);
@@ -555,41 +760,61 @@ static int NU_Generate_Stylesheet(char* src_buffer, uint32_t src_length, struct 
                     if (item.property_flags & (1 << 2 )) curr_item->layout_flags = (curr_item->layout_flags & ~(1 << 3)) | (item.layout_flags & (1 << 3)); // Overflow vertical scroll (or not)
                     if (item.property_flags & (1 << 3 )) curr_item->layout_flags = (curr_item->layout_flags & ~(1 << 4)) | (item.layout_flags & (1 << 4)); // Overflow horizontal scroll (or not)
                     if (item.property_flags & (1 << 4 )) curr_item->layout_flags = (curr_item->layout_flags & ~(1 << 5)) | (item.layout_flags & (1 << 5)); // Position absolute or not
-                    if (item.property_flags & (1 << 5 )) curr_item->gap = item.gap;
-                    if (item.property_flags & (1 << 6 )) curr_item->preferred_width = item.preferred_width;
-                    if (item.property_flags & (1 << 7 )) curr_item->min_width = item.min_width;
-                    if (item.property_flags & (1 << 8 )) curr_item->max_width = item.max_width;
-                    if (item.property_flags & (1 << 9 )) curr_item->preferred_height = item.preferred_height;
-                    if (item.property_flags & (1 << 10 )) curr_item->min_height = item.min_height;
-                    if (item.property_flags & (1 << 11)) curr_item->max_height = item.max_height;
-                    if (item.property_flags & (1 << 12)) curr_item->horizontal_alignment = item.horizontal_alignment;
-                    if (item.property_flags & (1 << 13)) curr_item->vertical_alignment = item.vertical_alignment;
-                    if (item.property_flags & (1 << 14)) curr_item->horizontal_text_alignment = item.horizontal_text_alignment;
-                    if (item.property_flags & (1 << 15)) curr_item->vertical_text_alignment = item.vertical_text_alignment;
-                    if (item.property_flags & (1 << 16)) memcpy(&curr_item->background_r, &item.background_r, 3); // Copy rgb
-                    if (item.property_flags & (1 << 17)) curr_item->hide_background = item.hide_background; // Copy rgb
-                    if (item.property_flags & (1 << 18)) memcpy(&curr_item->border_r, &item.border_r, 3); // Copy rgb
-                    if (item.property_flags & (1 << 19)) memcpy(&curr_item->text_r, &item.text_r, 3); // Copy rgb
-                    if (item.property_flags & (1 << 20)) curr_item->border_top = item.border_top; 
-                    if (item.property_flags & (1 << 21)) curr_item->border_bottom = item.border_bottom; 
-                    if (item.property_flags & (1 << 22)) curr_item->border_left = item.border_left; 
-                    if (item.property_flags & (1 << 23)) curr_item->border_right = item.border_right; 
-                    if (item.property_flags & (1 << 24)) curr_item->border_radius_tl = item.border_radius_tl; 
-                    if (item.property_flags & (1 << 25)) curr_item->border_radius_tr = item.border_radius_tr; 
-                    if (item.property_flags & (1 << 26)) curr_item->border_radius_bl = item.border_radius_bl; 
-                    if (item.property_flags & (1 << 27)) curr_item->border_radius_br = item.border_radius_br; 
-                    if (item.property_flags & (1 << 28)) curr_item->pad_top = item.pad_top; 
-                    if (item.property_flags & (1 << 29)) curr_item->pad_bottom = item.pad_bottom; 
-                    if (item.property_flags & (1 << 30)) curr_item->pad_left = item.pad_left; 
-                    if (item.property_flags & (1 << 31)) curr_item->pad_right = item.pad_right; 
+                    if (item.property_flags & (1 << 5 )) curr_item->layout_flags = (curr_item->layout_flags & ~(1 << 6)) | (item.layout_flags & (1 << 6)); // Hide or not
+                    if (item.property_flags & (1 << 6 )) curr_item->gap = item.gap;
+                    if (item.property_flags & (1 << 7 )) curr_item->preferred_width = item.preferred_width;
+                    if (item.property_flags & (1 << 8 )) curr_item->min_width = item.min_width;
+                    if (item.property_flags & (1 << 9 )) curr_item->max_width = item.max_width;
+                    if (item.property_flags & (1 << 10 )) curr_item->preferred_height = item.preferred_height;
+                    if (item.property_flags & (1 << 11 )) curr_item->min_height = item.min_height;
+                    if (item.property_flags & (1 << 12)) curr_item->max_height = item.max_height;
+                    if (item.property_flags & (1 << 13)) curr_item->horizontal_alignment = item.horizontal_alignment;
+                    if (item.property_flags & (1 << 14)) curr_item->vertical_alignment = item.vertical_alignment;
+                    if (item.property_flags & (1 << 15)) curr_item->horizontal_text_alignment = item.horizontal_text_alignment;
+                    if (item.property_flags & (1 << 16)) curr_item->vertical_text_alignment = item.vertical_text_alignment;
+                    if (item.property_flags & (1 << 17)) memcpy(&curr_item->background_r, &item.background_r, 3); // Copy rgb
+                    if (item.property_flags & (1 << 18)) curr_item->hide_background = item.hide_background; // Copy rgb
+                    if (item.property_flags & (1 << 19)) memcpy(&curr_item->border_r, &item.border_r, 3); // Copy rgb
+                    if (item.property_flags & (1 << 20)) memcpy(&curr_item->text_r, &item.text_r, 3); // Copy rgb
+                    if (item.property_flags & (1 << 21)) curr_item->border_top = item.border_top; 
+                    if (item.property_flags & (1 << 22)) curr_item->border_bottom = item.border_bottom; 
+                    if (item.property_flags & (1 << 23)) curr_item->border_left = item.border_left; 
+                    if (item.property_flags & (1 << 24)) curr_item->border_right = item.border_right; 
+                    if (item.property_flags & (1 << 25)) curr_item->border_radius_tl = item.border_radius_tl; 
+                    if (item.property_flags & (1 << 26)) curr_item->border_radius_tr = item.border_radius_tr; 
+                    if (item.property_flags & (1 << 27)) curr_item->border_radius_bl = item.border_radius_bl; 
+                    if (item.property_flags & (1 << 28)) curr_item->border_radius_br = item.border_radius_br; 
+                    if (item.property_flags & (1 << 29)) curr_item->pad_top = item.pad_top; 
+                    if (item.property_flags & (1 << 30)) curr_item->pad_bottom = item.pad_bottom; 
+                    if (item.property_flags & (1 << 31)) curr_item->pad_left = item.pad_left; 
+                    if (item.property_flags & ((uint64_t)1 << 32)) curr_item->pad_right = item.pad_right; 
+                    curr_item->font_id = item.font_id;
                 }
                 selector_count = 0;
-                i += 1;
-                continue;
-            } 
-            else {
-                return -1;
             }
+            else // ctx == 1
+            {
+                if (create_font_src != NULL)
+                {
+                    NU_Font_Create(create_font, create_font_src, create_font_size, true);
+                    printf("create font index: %d\n", (int)create_font_index);
+                    create_font_index = UINT8_MAX;
+                    create_font_size = 18;
+                    create_font_weight = 400;
+                    create_font_name = NULL;
+                    create_font_src = NULL;
+                }
+                else 
+                {
+                    printf("[NU_Generate_Stylesheet] Error! created font \"%s\" must have a src!", create_font_name);
+                    return -1;
+                }
+
+                ctx = 0;
+            }
+
+            i += 1;
+            continue;
         }
 
         if (NU_Is_Tag_Selector_Token(token))
@@ -622,7 +847,7 @@ static int NU_Generate_Stylesheet(char* src_buffer, uint32_t src_length, struct 
                     selector_count++;
                     continue;
                 }
-                else if (next_token == STYLE_PSEUDO_COLON && i < tokens->size-3) 
+                else if (next_token == STYLE_PSEUDO_COLON && i < tokens->size - 3) 
                 {
                     enum NU_Style_Token following_token = *((enum NU_Style_Token*) Vector_Get(tokens, i+2));
                     enum NU_Style_Token third_token = *((enum NU_Style_Token*) Vector_Get(tokens, i+3));
@@ -670,8 +895,6 @@ static int NU_Generate_Stylesheet(char* src_buffer, uint32_t src_length, struct 
                 return -1;
             }
         }
-
-
 
         if (token == STYLE_CLASS_SELECTOR)
         {
@@ -878,21 +1101,24 @@ static int NU_Generate_Stylesheet(char* src_buffer, uint32_t src_length, struct 
 
         if (NU_Is_Property_Identifier_Token(token))
         {
-            if (AssertPropertyIdentifierGrammar(tokens, i)) {
-                text_ref = (struct Style_Text_Ref*)Vector_Get(text_refs, text_index);
-                char c = src_buffer[text_ref->src_index];
-                char* text = &src_buffer[text_ref->src_index];
-                src_buffer[text_ref->src_index + text_ref->char_count] = '\0';
-                text_index += 1;
+            if (!AssertPropertyIdentifierGrammar(tokens, i)) {
+                return -1;
+            }
 
+            // get property value text
+            text_ref = (struct Style_Text_Ref*)Vector_Get(text_refs, text_index);
+            char c = src_buffer[text_ref->src_index];
+            char* text = &src_buffer[text_ref->src_index];
+            src_buffer[text_ref->src_index + text_ref->char_count] = '\0';
+            text_index += 1;
+            
+            if (ctx == 0)
+            {
                 switch (token)
                 {
                     // Set layout direction
                     case STYLE_LAYOUT_DIRECTION_PROPERTY:
-                        if (c == 'h') 
-                            item.layout_flags |= LAYOUT_HORIZONTAL;
-                        else 
-                            item.layout_flags |= LAYOUT_VERTICAL;
+                        if (c == 'v') item.layout_flags |= LAYOUT_VERTICAL;
                         item.property_flags |= 1 << 0;
                         break;
 
@@ -935,62 +1161,70 @@ static int NU_Generate_Stylesheet(char* src_buffer, uint32_t src_length, struct 
                             item.property_flags |= 1 << 4;
                         }
                         break;
+
+                    // Hide/show
+                    case STYLE_HIDE_PROPERTY:
+                        if (text_ref->char_count == 4 && memcmp(text, "hide", 4) == 0) {
+                            item.layout_flags |= HIDDEN;
+                            item.property_flags |= 1 << 5;
+                        }
+                        break;
                     
                     // Set gap
                     case STYLE_GAP_PROPERTY:
                         if (String_To_Float(&item.gap, text)) 
-                            item.property_flags |= 1 << 5;
+                            item.property_flags |= 1 << 6;
                         break;
 
                     // Set preferred width
                     case STYLE_WIDTH_PROPERTY:
                         if (String_To_Float(&item.preferred_width, text))
-                            item.property_flags |= 1 << 6;
+                            item.property_flags |= 1 << 7;
                         break;
 
                     // Set min width
                     case STYLE_MIN_WIDTH_PROPERTY:
                         if (String_To_Float(&item.min_width, text))
-                            item.property_flags |= 1 << 7;
+                            item.property_flags |= 1 << 8;
                         break;
                     
                     // Set max width
                     case STYLE_MAX_WIDTH_PROPERTY:
                         if (String_To_Float(&item.max_width, text))
-                            item.property_flags |= 1 << 8;
+                            item.property_flags |= 1 << 9;
                         break;
 
                     // Set preferred height
                     case STYLE_HEIGHT_PROPERTY:
                         if (String_To_Float(&item.preferred_height, text)) 
-                            item.property_flags |= 1 << 9;
+                            item.property_flags |= 1 << 10;
                         break;
 
                     // Set min height
                     case STYLE_MIN_HEIGHT_PROPERTY:
                         if (String_To_Float(&item.min_height, text)) 
-                            item.property_flags |= 1 << 10;
+                            item.property_flags |= 1 << 11;
                         break;
 
                     // Set max height
                     case STYLE_MAX_HEIGHT_PROPERTY:
                         if (String_To_Float(&item.max_height, text)) 
-                            item.property_flags |= 1 << 11;
+                            item.property_flags |= 1 << 12;
                         break;
 
                     // Set horizontal alignment
                     case STYLE_ALIGN_H_PROPERTY:
                         if (text_ref->char_count == 4 && memcmp(text, "left", 4) == 0) {
                             item.horizontal_alignment = 0;
-                            item.property_flags |= 1 << 12;
+                            item.property_flags |= 1 << 13;
                         }
                         if (text_ref->char_count == 6 && memcmp(text, "center", 6) == 0) {
                             item.horizontal_alignment = 1;
-                            item.property_flags |= 1 << 12;
+                            item.property_flags |= 1 << 13;
                         }
                         if (text_ref->char_count == 5 && memcmp(text, "right", 5) == 0) {
                             item.horizontal_alignment = 2;
-                            item.property_flags |= 1 << 12;
+                            item.property_flags |= 1 << 13;
                         }
                         break;
 
@@ -998,15 +1232,15 @@ static int NU_Generate_Stylesheet(char* src_buffer, uint32_t src_length, struct 
                     case STYLE_ALIGN_V_PROPERTY:
                         if (text_ref->char_count == 3 && memcmp(text, "top", 3) == 0) {
                             item.vertical_alignment = 0;
-                            item.property_flags |= 1 << 13;
+                            item.property_flags |= 1 << 14;
                         }
                         if (text_ref->char_count == 6 && memcmp(text, "center", 6) == 0) {
                             item.vertical_alignment = 1;
-                            item.property_flags |= 1 << 13;
+                            item.property_flags |= 1 << 14;
                         }
                         if (text_ref->char_count == 6 && memcmp(text, "bottom", 6) == 0) {
                             item.vertical_alignment = 2;
-                            item.property_flags |= 1 << 13;
+                            item.property_flags |= 1 << 14;
                         }
                         break;
 
@@ -1014,15 +1248,15 @@ static int NU_Generate_Stylesheet(char* src_buffer, uint32_t src_length, struct 
                     case STYLE_TEXT_ALIGN_H_PROPERTY:
                         if (text_ref->char_count == 4 && memcmp(text, "left", 4) == 0) {
                             item.horizontal_text_alignment = 0;
-                            item.property_flags |= 1 << 14;
+                            item.property_flags |= 1 << 15;
                         }
                         if (text_ref->char_count == 6 && memcmp(text, "center", 6) == 0) {
                             item.horizontal_text_alignment = 1;
-                            item.property_flags |= 1 << 14;
+                            item.property_flags |= 1 << 15;
                         }
                         if (text_ref->char_count == 5 && memcmp(text, "right", 5) == 0) {
                             item.horizontal_text_alignment = 2;
-                            item.property_flags |= 1 << 14;
+                            item.property_flags |= 1 << 15;
                         }
                         break;
 
@@ -1030,15 +1264,15 @@ static int NU_Generate_Stylesheet(char* src_buffer, uint32_t src_length, struct 
                     case STYLE_TEXT_ALIGN_V_PROPERTY:
                         if (text_ref->char_count == 3 && memcmp(text, "top", 3) == 0) {
                             item.vertical_text_alignment = 0;
-                            item.property_flags |= 1 << 15;
+                            item.property_flags |= 1 << 16;
                         }
                         if (text_ref->char_count == 6 && memcmp(text, "center", 6) == 0) {
                             item.vertical_text_alignment = 1;
-                            item.property_flags |= 1 << 15;
+                            item.property_flags |= 1 << 16;
                         }
                         if (text_ref->char_count == 6 && memcmp(text, "bottom", 6) == 0) {
                             item.vertical_text_alignment = 2;
-                            item.property_flags |= 1 << 15;
+                            item.property_flags |= 1 << 16;
                         }
                         break;
 
@@ -1049,10 +1283,10 @@ static int NU_Generate_Stylesheet(char* src_buffer, uint32_t src_length, struct 
                             item.background_r = rgb.r;
                             item.background_g = rgb.g;
                             item.background_b = rgb.b;
-                            item.property_flags |= 1 << 16;
+                            item.property_flags |= 1 << 17;
                         } else if (text_ref->char_count == 4 && memcmp(text, "none", 4) == 0) {
                             item.hide_background = true;
-                            item.property_flags |= 1 << 17;
+                            item.property_flags |= 1 << 18;
                         }
                         break;
 
@@ -1062,7 +1296,7 @@ static int NU_Generate_Stylesheet(char* src_buffer, uint32_t src_length, struct 
                             item.border_r = rgb.r;
                             item.border_g = rgb.g;
                             item.border_b = rgb.b;
-                            item.property_flags |= 1 << 18;
+                            item.property_flags |= 1 << 19;
                         }
                         break;
 
@@ -1072,7 +1306,7 @@ static int NU_Generate_Stylesheet(char* src_buffer, uint32_t src_length, struct 
                             item.text_r = rgb.r;
                             item.text_g = rgb.g;
                             item.text_b = rgb.b;
-                            item.property_flags |= 1 << 19;
+                            item.property_flags |= 1 << 20;
                         }
                         break;
                     
@@ -1084,30 +1318,30 @@ static int NU_Generate_Stylesheet(char* src_buffer, uint32_t src_length, struct 
                             item.border_bottom = border_width;
                             item.border_left = border_width;
                             item.border_right = border_width;
-                            item.property_flags |= 1 << 20;
                             item.property_flags |= 1 << 21;
                             item.property_flags |= 1 << 22;
                             item.property_flags |= 1 << 23;
+                            item.property_flags |= 1 << 24;
                         }
                         break;
                     case STYLE_BORDER_TOP_WIDTH_PROPERTY:
                         if (String_To_uint8_t(&item.border_top, text)) {
-                            item.property_flags |= 1 << 20;
+                            item.property_flags |= 1 << 21;
                         }
                         break;
                     case STYLE_BORDER_BOTTOM_WIDTH_PROPERTY:
                         if (String_To_uint8_t(&item.border_bottom, text)) {
-                            item.property_flags |= 1 << 21;
+                            item.property_flags |= 1 << 22;
                         }
                         break;
                     case STYLE_BORDER_LEFT_WIDTH_PROPERTY:
                         if (String_To_uint8_t(&item.border_left, text)) {
-                            item.property_flags |= 1 << 22;
+                            item.property_flags |= 1 << 23;
                         }
                         break;
                     case STYLE_BORDER_RIGHT_WIDTH_PROPERTY:
                         if (String_To_uint8_t(&item.border_right, text)) {
-                            item.property_flags |= 1 << 23;
+                            item.property_flags |= 1 << 24;
                         }
                         break;
 
@@ -1119,30 +1353,30 @@ static int NU_Generate_Stylesheet(char* src_buffer, uint32_t src_length, struct 
                             item.border_radius_tr = border_radius;
                             item.border_radius_bl = border_radius;
                             item.border_radius_br = border_radius;
-                            item.property_flags |= 1 << 24;
                             item.property_flags |= 1 << 25;
                             item.property_flags |= 1 << 26;
                             item.property_flags |= 1 << 27;
+                            item.property_flags |= 1 << 28;
                         }
                         break;
                     case STYLE_BORDER_TOP_LEFT_RADIUS_PROPERTY:
                         if (String_To_uint8_t(&item.border_radius_tl, text)) {
-                            item.property_flags |= 1 << 24;
+                            item.property_flags |= 1 << 25;
                         }
                         break;
                     case STYLE_BORDER_TOP_RIGHT_RADIUS_PROPERTY:
                         if (String_To_uint8_t(&item.border_radius_tr, text)) {
-                            item.property_flags |= 1 << 25;
+                            item.property_flags |= 1 << 26;
                         }
                         break;
                     case STYLE_BORDER_BOTTOM_LEFT_RADIUS_PROPERTY:
                         if (String_To_uint8_t(&item.border_radius_bl, text)) {
-                            item.property_flags |= 1 << 26;
+                            item.property_flags |= 1 << 27;
                         }
                         break;
                     case STYLE_BORDER_BOTTOM_RIGHT_RADIUS_PROPERTY:
                         if (String_To_uint8_t(&item.border_radius_br, text)) {
-                            item.property_flags |= 1 << 27;
+                            item.property_flags |= 1 << 28;
                         }
                         break;
 
@@ -1154,46 +1388,80 @@ static int NU_Generate_Stylesheet(char* src_buffer, uint32_t src_length, struct 
                             item.pad_bottom = pad;
                             item.pad_left = pad;
                             item.pad_right = pad;
-                            item.property_flags |= 1 << 28;
                             item.property_flags |= 1 << 29;
                             item.property_flags |= 1 << 30;
                             item.property_flags |= 1 << 31;
+                            item.property_flags |= (uint64_t)1 << 32;
                         }
                         break;
                     case STYLE_PADDING_TOP_PROPERTY:
                         if (String_To_uint8_t(&item.pad_top, text)) {
-                            item.property_flags |= 1 << 28;
+                            item.property_flags |= 1 << 29;
                         }
                         break;
                     case STYLE_PADDING_BOTTOM_PROPERTY:
                         if (String_To_uint8_t(&item.pad_bottom, text)) {
-                            item.property_flags |= 1 << 29;
+                            item.property_flags |= 1 << 30;
                         }
                         break;
                     case STYLE_PADDING_LEFT_PROPERTY:
                         if (String_To_uint8_t(&item.pad_left, text)) {
-                            item.property_flags |= 1 << 30;
+                            item.property_flags |= 1 << 31;
                         }
                         break;
                     case STYLE_PADDING_RIGHT_PROPERTY:
                         if (String_To_uint8_t(&item.pad_right, text)) {
-                            item.property_flags |= 1 << 31;
+                            item.property_flags |= (uint64_t)1 << 32;
+                        }
+                        break;
+
+                    case STYLE_FONT_PROPERTY:
+                        void* found_font = String_Map_Get(&ss->font_name_index_map, text);
+                        if (found_font != NULL) {
+                            item.font_id = *(uint8_t*)found_font;
                         }
                         break;
 
                     default:
                         break;
                 }
-
-                i += 3;
-                continue;
             }
-            else {
-                return -1;
+            else // ctx == 1
+            {
+                switch (token)
+                {
+                    case STYLE_FONT_SRC:
+                        create_font_src = text;
+                        printf("create font src: %s\n", create_font_src);
+                        break;
+
+                    case STYLE_FONT_SIZE:
+                        int size = 0;
+                        if (String_To_Int(&size, text)) {
+                            create_font_size = size;
+                        }
+                        break;
+
+                    case STYLE_FONT_WEIGHT:
+                        int weight = 0;
+                        if (String_To_Int(&weight, text)) {
+                            create_font_weight = weight;
+                        }
+                        break;
+
+                    default:
+                        break;
+                }
             }
         }
 
-        i += 1;
+        i += 3;
+    }
+
+    // Ensure that at least one font is present
+    if (ss->fonts.size == 0) {
+        printf("[NU_Generate_Stylesheet] Error! at least one font must be provided!\n");
+        return -1;
     }
 
     return 0;
@@ -1251,92 +1519,96 @@ static void NU_Apply_Style_Item_To_Node(struct Node* node, struct NU_Stylesheet_
         node->layout_flags = (node->layout_flags & ~(1 << 5)) | (item->layout_flags & (1 << 5)); // Absolute positioning (or not)
     }
     if (item->property_flags & (1 << 5) && !(node->inline_style_flags & (1 << 5))) {
-        node->gap = item->gap;
+        node->layout_flags = (node->layout_flags & ~(1 << 6)) | (item->layout_flags & (1 << 6)); // Hidden or not
     }
     if (item->property_flags & (1 << 6) && !(node->inline_style_flags & (1 << 6))) {
-        node->preferred_width = item->preferred_width;
+        node->gap = item->gap;
     }
     if (item->property_flags & (1 << 7) && !(node->inline_style_flags & (1 << 7))) {
-        node->min_width = item->min_width;
+        node->preferred_width = item->preferred_width;
     }
     if (item->property_flags & (1 << 8) && !(node->inline_style_flags & (1 << 8))) {
-        node->max_width = item->max_width;
+        node->min_width = item->min_width;
     }
     if (item->property_flags & (1 << 9) && !(node->inline_style_flags & (1 << 9))) {
-        node->preferred_height = item->preferred_height;
+        node->max_width = item->max_width;
     }
     if (item->property_flags & (1 << 10) && !(node->inline_style_flags & (1 << 10))) {
-        node->min_height = item->min_height;
+        node->preferred_height = item->preferred_height;
     }
     if (item->property_flags & (1 << 11) && !(node->inline_style_flags & (1 << 11))) {
-        node->max_height = item->max_height;
+        node->min_height = item->min_height;
     }
     if (item->property_flags & (1 << 12) && !(node->inline_style_flags & (1 << 12))) {
-        node->horizontal_alignment = item->horizontal_alignment;
+        node->max_height = item->max_height;
     }
     if (item->property_flags & (1 << 13) && !(node->inline_style_flags & (1 << 13))) {
-        node->vertical_alignment = item->vertical_alignment;
+        node->horizontal_alignment = item->horizontal_alignment;
     }
     if (item->property_flags & (1 << 14) && !(node->inline_style_flags & (1 << 14))) {
-        node->horizontal_text_alignment = item->horizontal_text_alignment;
+        node->vertical_alignment = item->vertical_alignment;
     }
     if (item->property_flags & (1 << 15) && !(node->inline_style_flags & (1 << 15))) {
-        node->vertical_text_alignment = item->vertical_text_alignment;
+        node->horizontal_text_alignment = item->horizontal_text_alignment;
     }
     if (item->property_flags & (1 << 16) && !(node->inline_style_flags & (1 << 16))) {
+        node->vertical_text_alignment = item->vertical_text_alignment;
+    }
+    if (item->property_flags & (1 << 17) && !(node->inline_style_flags & (1 << 17))) {
         node->background_r = item->background_r;
         node->background_g = item->background_g;
         node->background_b = item->background_b;
     }
-    if (item->property_flags & (1 << 17) && !(node->inline_style_flags & (1 << 17))) {
+    if (item->property_flags & (1 << 18) && !(node->inline_style_flags & (1 << 18))) {
         node->hide_background = item->hide_background;
     }
-    if (item->property_flags & (1 << 18) && !(node->inline_style_flags & (1 << 18))) {
+    if (item->property_flags & (1 << 19) && !(node->inline_style_flags & (1 << 19))) {
         node->border_r = item->border_r;
         node->border_g = item->border_g;
         node->border_b = item->border_b;
     }
-    if (item->property_flags & (1 << 19) && !(node->inline_style_flags & (1 << 19))) {
+    if (item->property_flags & (1 << 20) && !(node->inline_style_flags & (1 << 20))) {
         node->text_r = item->text_r;
         node->text_g = item->text_g;
         node->text_b = item->text_b;
     }
-    if (item->property_flags & (1 << 20) && !(node->inline_style_flags & (1 << 20))) {
+    if (item->property_flags & (1 << 21) && !(node->inline_style_flags & (1 << 21))) {
         node->border_top = item->border_top;
     }
-    if (item->property_flags & (1 << 21) && !(node->inline_style_flags & (1 << 21))) {
+    if (item->property_flags & (1 << 22) && !(node->inline_style_flags & (1 << 22))) {
         node->border_bottom = item->border_bottom;
     }
-    if (item->property_flags & (1 << 22) && !(node->inline_style_flags & (1 << 22))) {
+    if (item->property_flags & (1 << 23) && !(node->inline_style_flags & (1 << 23))) {
         node->border_left = item->border_left;
     }
-    if (item->property_flags & (1 << 23) && !(node->inline_style_flags & (1 << 23))) {
+    if (item->property_flags & (1 << 24) && !(node->inline_style_flags & (1 << 24))) {
         node->border_right = item->border_right;
     }
-    if (item->property_flags & (1 << 24) && !(node->inline_style_flags & (1 << 24))) {
+    if (item->property_flags & (1 << 25) && !(node->inline_style_flags & (1 << 25))) {
         node->border_radius_tl = item->border_radius_tl;
     }
-    if (item->property_flags & (1 << 25) && !(node->inline_style_flags & (1 << 25))) {
+    if (item->property_flags & (1 << 26) && !(node->inline_style_flags & (1 << 26))) {
         node->border_radius_tr = item->border_radius_tr;
     }
-    if (item->property_flags & (1 << 26) && !(node->inline_style_flags & (1 << 26))) {
+    if (item->property_flags & (1 << 27) && !(node->inline_style_flags & (1 << 27))) {
         node->border_radius_bl = item->border_radius_bl;
     }
-    if (item->property_flags & (1 << 27) && !(node->inline_style_flags & (1 << 27))) {
+    if (item->property_flags & (1 << 28) && !(node->inline_style_flags & (1 << 28))) {
         node->border_radius_br = item->border_radius_br;
     }
-    if (item->property_flags & (1 << 28) && !(node->inline_style_flags & (1 << 28))) {
+    if (item->property_flags & (1 << 29) && !(node->inline_style_flags & (1 << 29))) {
         node->pad_top = item->pad_top;
     }
-    if (item->property_flags & (1 << 29) && !(node->inline_style_flags & (1 << 29))) {
+    if (item->property_flags & (1 << 30) && !(node->inline_style_flags & (1 << 30))) {
         node->pad_bottom = item->pad_bottom;
     }
-    if (item->property_flags & (1 << 30) && !(node->inline_style_flags & (1 << 30))) {
+    if (item->property_flags & (1 << 31) && !(node->inline_style_flags & (1 << 31))) {
         node->pad_left = item->pad_left;
     }
-    if (item->property_flags & (1 << 31) && !(node->inline_style_flags & (1 << 31))) {
+    if (item->property_flags & ((uint64_t)1 << 32) && !(node->inline_style_flags & ((uint64_t)1 << 32))) {
         node->pad_right = item->pad_right;
     }
+    node->font_id = item->font_id; // set font 
 }
 
 void NU_Apply_Stylesheet_To_Node(struct Node* node, struct NU_Stylesheet* ss)
@@ -1394,6 +1666,11 @@ void NU_Apply_Pseudo_Style_To_Node(struct Node* node, struct NU_Stylesheet* ss, 
     }
 }
 
+
+
+
+
+
 int NU_Stylesheet_Create(struct NU_Stylesheet* stylesheet, char* css_filepath)
 {
     NU_Stylesheet_Init(stylesheet);
@@ -1426,6 +1703,11 @@ int NU_Stylesheet_Create(struct NU_Stylesheet* stylesheet, char* css_filepath)
 
 
     NU_Style_Tokenise(src_buffer, src_length, &tokens, &text_ref_vector);
+    // for (int i=0; i<tokens.size; i++)
+    // {
+    //     const enum NU_Style_Token token = *((enum NU_Style_Token*) Vector_Get(&tokens, i));
+    //     PrintToken(token);
+    // }
     if (NU_Generate_Stylesheet(src_buffer, src_length, &tokens, stylesheet, &text_ref_vector) == -1)
     {
         printf("CSS parsing failed!");

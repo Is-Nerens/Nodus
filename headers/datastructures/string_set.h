@@ -70,7 +70,7 @@ void String_Set_Free(String_Set* set)
     free(set->buffer_chunks);
 }
 
-static uint32_t String_Set_Hash(char* string) {
+static uint32_t String_Set_Hash(const char* string) {
 
     // FNV algorithm https://github.com/aappleby/smhasher/blob/master/src/Hashes.cpp
     uint32_t hash = 2166136261u;
@@ -81,7 +81,7 @@ static uint32_t String_Set_Hash(char* string) {
     return hash;
 }
 
-char* String_Set_Get(String_Set* set, char* key)
+char* String_Set_Get(String_Set* set, const char* key)
 {
     uint32_t searches = 0;
     uint32_t hash = String_Set_Hash(key);
@@ -149,7 +149,7 @@ static void String_Set_Rehash(String_Set* set)
     free(old_strings_map);
 }
 
-char* String_Set_Add(String_Set* set, char* string)
+char* String_Set_Add(String_Set* set, const char* string)
 {
     // Ensure string is not already in the set
     char* get = String_Set_Get(set, string);

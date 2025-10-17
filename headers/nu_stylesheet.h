@@ -5,6 +5,7 @@
 #include "datastructures/vector.h"
 #include "datastructures/string_set.h"
 #include "datastructures/hashmap.h"
+#include "nu_text.h"
 
 struct NU_Stylesheet_Tag_Pseudo_Pair
 {
@@ -31,6 +32,10 @@ struct NU_Stylesheet
     struct Hashmap tag_pseudo_item_hashmap; 
     struct Hashmap class_pseudo_item_hashmap;
     struct Hashmap id_pseudo_item_hashmap;
+
+    String_Map font_name_index_map;
+
+    Vector fonts;
 };
 
 struct NU_Stylesheet_Item
@@ -49,6 +54,7 @@ struct NU_Stylesheet_Item
     uint8_t background_r, background_g, background_b;
     uint8_t border_r, border_g, border_b;
     uint8_t text_r, text_g, text_b;
+    uint8_t font_id; // index of NU_Font in stylesheet fonts vector
     char layout_flags;
     char horizontal_alignment;
     char vertical_alignment;
@@ -68,6 +74,8 @@ void NU_Stylesheet_Init(struct NU_Stylesheet* ss)
     Hashmap_Init(&ss->tag_pseudo_item_hashmap, sizeof(struct NU_Stylesheet_Tag_Pseudo_Pair), sizeof(uint32_t), 20);
     Hashmap_Init(&ss->class_pseudo_item_hashmap, sizeof(struct NU_Stylesheet_String_Pseudo_Pair), sizeof(uint32_t), 20);
     Hashmap_Init(&ss->id_pseudo_item_hashmap, sizeof(struct NU_Stylesheet_String_Pseudo_Pair), sizeof(uint32_t), 20);
+    String_Map_Init(&ss->font_name_index_map, sizeof(uint8_t), 128, 12);
+    Vector_Reserve(&ss->fonts, sizeof(NU_Font), 4);
 }
 
 void NU_Stylesheet_Free(struct NU_Stylesheet* ss)
@@ -81,4 +89,6 @@ void NU_Stylesheet_Free(struct NU_Stylesheet* ss)
     Hashmap_Free(&ss->tag_pseudo_item_hashmap);
     Hashmap_Free(&ss->class_pseudo_item_hashmap);
     Hashmap_Free(&ss->id_pseudo_item_hashmap);
+    String_Map_Free(&ss->font_name_index_map);
+    Vector_Free(&ss->fonts);
 }

@@ -66,7 +66,7 @@ bool EventWatcher(void* data, SDL_Event* event)
         // --- Resize -> redraw --------------------------------------------------------------
         // -----------------------------------------------------------------------------------
         case SDL_EVENT_WINDOW_RESIZED:
-            draw = true;
+            __nu_global_gui.awaiting_redraw = true;
             break;
 
         // -----------------------------------------------------------------------------------
@@ -128,7 +128,7 @@ bool EventWatcher(void* data, SDL_Event* event)
                 struct Node* node = __nu_global_gui.scroll_mouse_down_node;
                 __nu_global_gui.v_scrollbar_top_global_y = node->y + node->border_top + node->scroll_v;
             }
-            draw = true;
+            __nu_global_gui.awaiting_redraw = true;
             break;
 
         // -----------------------------------------------------------------------------------
@@ -136,7 +136,7 @@ bool EventWatcher(void* data, SDL_Event* event)
         // -----------------------------------------------------------------------------------
         case SDL_EVENT_WINDOW_FOCUS_GAINED:
             __nu_global_gui.mouse_down_node = __nu_global_gui.hovered_node;
-            draw = true;
+            __nu_global_gui.awaiting_redraw = true;
             break;
 
         // -----------------------------------------------------------------------------------
@@ -164,12 +164,13 @@ bool EventWatcher(void* data, SDL_Event* event)
                             cb_info->callback(cb_info->handle, cb_info->args);
                         }
                     }
-                    draw = true;
+
+                    __nu_global_gui.awaiting_redraw = true;
                 }
                 // If the mouse is released over something other than the pressed node -> revert pressed node to default style
                 else { 
                     NU_Apply_Stylesheet_To_Node(__nu_global_gui.mouse_down_node, __nu_global_gui.stylesheet);
-                    draw = true;
+                    __nu_global_gui.awaiting_redraw = true;
                 }
 
                 // There is no longer a pressed node
@@ -181,14 +182,10 @@ bool EventWatcher(void* data, SDL_Event* event)
         default:
             break;
     }    
-    if (draw) 
+    if (__nu_global_gui.awaiting_redraw) 
     {
-        // timer_start();
         NU_Reflow();
-        // timer_stop();
-        timer_start();
         NU_Draw();
-        timer_stop();
     }
     return true;
 }

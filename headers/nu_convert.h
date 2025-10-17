@@ -37,6 +37,40 @@ static int String_To_Float(float* result, char* str)
     return 1;
 }
 
+static int String_To_Int(int* result, char* str)
+{
+    *result = 0;
+    int i = 0;
+    int negative = 0;
+
+    if (str[0] == '-') {
+        negative = 1;
+        i = 1;
+    }
+
+    if (str[i] == '\0') {
+        *result = 0;
+        return 0; // no digits after sign
+    }
+
+    while (str[i] != '\0') {
+        char c = str[i];
+        if (c < '0' || c > '9') {
+            *result = 0;
+            return 0;
+        }
+        int digit = c - '0';
+        *result = (*result * 10) + digit;
+        i += 1;
+    }
+
+    if (negative)
+        *result = -*result;
+
+    return 1;
+}
+
+
 static int String_To_uint8_t(uint8_t* result, char* str)
 {
     *result = 0;

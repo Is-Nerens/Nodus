@@ -8,12 +8,12 @@
 #include "datastructures/hashmap.h"
 #include "datastructures/string_arena.h"
 #include "datastructures/hashmap.h"
+#include "nu_draw_structures.h"
 #include "nu_font.h"
 #include "nu_resources.h"
 
 
 // Definitions
-#define LAYOUT_HORIZONTAL            0x00  // 00000000
 #define LAYOUT_VERTICAL              0x01  // 00000001
 #define GROW_HORIZONTAL              0x02  // 00000010
 #define GROW_VERTICAL                0x04  // 00000100
@@ -21,6 +21,7 @@
 #define OVERFLOW_HORIZONTAL_SCROLL   0x10  // 00010000
 #define HIDE_BACKGROUND              0x20  // 00100000
 #define POSITION_ABSOLUTE            0x40  // 01000000
+#define HIDDEN                       0x80  // 10000000
 #define MAX_TREE_DEPTH 32
 
 
@@ -30,7 +31,7 @@ enum Tag
     REC,
     BUTTON,
     GRID,
-    TEXT,
+    CANVAS,
     IMAGE,
     TABLE,
     THEAD,
@@ -78,6 +79,7 @@ struct Node
     uint8_t background_r, background_g, background_b;
     uint8_t border_r, border_g, border_b;
     uint8_t text_r, text_g, text_b;
+    uint8_t font_id;
     uint8_t layout_flags;
     char horizontal_alignment;
     char vertical_alignment;
@@ -100,10 +102,6 @@ struct NU_GUI
     struct Vector windows;
     struct Vector window_nodes;
     StringArena node_text_arena;
-    struct Vector font_resources;
-    struct Vector font_registry;
-
-    Vector fonts;
 
     String_Set class_string_set;
     String_Set id_string_set;
@@ -118,6 +116,7 @@ struct NU_GUI
 
     // Status
     bool running;
+    bool awaiting_redraw;
 
     // Styles
     struct NU_Stylesheet* stylesheet;
@@ -132,6 +131,9 @@ struct NU_GUI
     struct Hashmap on_changed_events;
     struct Hashmap on_drag_events;
     struct Hashmap on_released_events;
+
+    // Canvas drawing contexts
+    struct Hashmap canvas_contexts; // maps (canvas node handle -> context)
 };
 
 struct NU_GUI __nu_global_gui;
@@ -172,10 +174,7 @@ void NU_Init()
 {
     Vector_Reserve(&__nu_global_gui.windows, sizeof(SDL_Window*), 8);
     Vector_Reserve(&__nu_global_gui.window_nodes, sizeof(struct Node*), 8);
-    Vector_Reserve(&__nu_global_gui.font_resources, sizeof(struct Font_Resource), 4);
     StringArena_Init(&__nu_global_gui.node_text_arena, 512);
-    Vector_Reserve(&__nu_global_gui.font_registry, sizeof(int), 8);
-    Vector_Reserve(&__nu_global_gui.fonts, sizeof(NU_Font), 4);
     String_Map_Init(&__nu_global_gui.id_node_map, sizeof(uint32_t), 512, 25);
 
     // Events
@@ -186,6 +185,10 @@ void NU_Init()
 
     String_Set_Init(&__nu_global_gui.class_string_set, 1024, 100);
     String_Set_Init(&__nu_global_gui.id_string_set, 1024, 100);
+
+    // Canvas drawing contexts and flag empty
+    Hashmap_Init(&__nu_global_gui.canvas_contexts, sizeof(uint32_t), sizeof(NU_Canvas_Context), 4);
+
     __nu_global_gui.hovered_node = NULL;
     __nu_global_gui.mouse_down_node = NULL;
     __nu_global_gui.scroll_hovered_node = NULL;
@@ -196,6 +199,7 @@ void NU_Init()
     NU_Create_Main_Window();
 
     __nu_global_gui.running = true;
+    __nu_global_gui.awaiting_redraw = true;
 }
 
 bool NU_Running()
@@ -203,11 +207,12 @@ bool NU_Running()
     return __nu_global_gui.running;
 }
 
-void NU_Load_Font(const char* filepath)
+void NU_Add_Canvas_Context(uint32_t canvas_node_handle)
 {
-    NU_Font font;
-    NU_Font_Create(&font, filepath, 14, true);
-    Vector_Push(&__nu_global_gui.fonts, &font);
+    NU_Canvas_Context ctx;
+    Vertex_RGB_List_Init(&ctx.vertices, 512);
+    Index_List_Init(&ctx.indices, 1024);
+    Hashmap_Set(&__nu_global_gui.canvas_contexts, &canvas_node_handle, &ctx);
 }
 
 void NU_Quit()
@@ -216,16 +221,7 @@ void NU_Quit()
     Vector_Free(&__nu_global_gui.windows);
     Vector_Free(&__nu_global_gui.window_nodes);
     StringArena_Free(&__nu_global_gui.node_text_arena);
-    Vector_Free(&__nu_global_gui.font_resources);
-    Vector_Free(&__nu_global_gui.font_registry);
     String_Map_Free(&__nu_global_gui.id_node_map);
-
-    // Free fonts
-    for (int i=0; i<__nu_global_gui.fonts.size; i++) {
-        NU_Font* font = Vector_Get(&__nu_global_gui.fonts, i);
-        NU_Font_Free(font); 
-    }
-    Vector_Free(&__nu_global_gui.fonts);
 
     // Events
     Hashmap_Free(&__nu_global_gui.on_click_events);
@@ -235,6 +231,10 @@ void NU_Quit()
 
     String_Set_Free(&__nu_global_gui.class_string_set);
     String_Set_Free(&__nu_global_gui.id_string_set);
+
+    // Canvas drawing contexts
+    Hashmap_Free(&__nu_global_gui.canvas_contexts);
+
     __nu_global_gui.hovered_node = NULL;
     __nu_global_gui.mouse_down_node = NULL;
     __nu_global_gui.deepest_layer = 0;
@@ -245,4 +245,5 @@ void NU_Quit()
 #include "nu_layout.h"
 #include "nu_events.h"
 #include "nu_draw.h"
+#include "nu_canvas_draw.h"
 #include "nu_dom.h"

@@ -18,10 +18,10 @@
 #include "nodus.h"
 #include "nu_window.h"
 
-#define NU_XML_PROPERTY_COUNT 37
-#define NU_XML_KEYWORD_COUNT 46
+#define NU_XML_PROPERTY_COUNT 38
+#define NU_XML_KEYWORD_COUNT 47
 static const char* nu_xml_keywords[] = {
-    "id", "class", "dir", "grow", "overflowV", "overflowH", "position", "gap",
+    "id", "class", "dir", "grow", "overflowV", "overflowH", "position", "hide", "gap",
     "width", "minWidth", "maxWidth", "height", "minHeight", "maxHeight", 
     "alignH", "alignV", "textAlignH", "textAlignV",
     "background", "borderColour", "textColour",
@@ -33,14 +33,14 @@ static const char* nu_xml_keywords[] = {
     "rect",
     "button",
     "grid",
-    "text",
+    "canvas",
     "image",
     "table",
     "thead",
     "row",
 };
 static const uint8_t keyword_lengths[] = { 
-    2, 5, 3, 4, 9, 9, 8, 3,
+    2, 5, 3, 4, 9, 9, 8, 4, 3,
     5, 8, 8, 6, 9, 9,          // width height
     6, 6, 10, 10,              // alignment
     10, 12, 10,                // background, border, text colour
@@ -48,7 +48,7 @@ static const uint8_t keyword_lengths[] = {
     12, 19, 20, 22, 23,        // border radius
     3, 6, 9, 7, 8,             // padding
     8,                         // image src
-    6, 4, 6, 4, 4, 5, 5, 5, 3  // tags
+    6, 4, 6, 4, 6, 5, 5, 5, 3  // tags
 };
 enum NU_XML_Token
 {
@@ -57,6 +57,7 @@ enum NU_XML_Token
     LAYOUT_DIRECTION_PROPERTY, GROW_PROPERTY,
     OVERFLOW_V_PROPERTY, OVERFLOW_H_PROPERTY,
     POSITION_PROPERTY,
+    HIDE_PROPERTY,
     GAP_PROPERTY,
     WIDTH_PROPERTY, MIN_WIDTH_PROPERTY, MAX_WIDTH_PROPERTY,
     HEIGHT_PROPERTY, MIN_HEIGHT_PROPERTY, MAX_HEIGHT_PROPERTY,
@@ -461,6 +462,7 @@ static void NU_Apply_Node_Defaults(struct Node* node)
     node->text_r = 255;
     node->text_g = 255;
     node->text_b = 255;
+    node->font_id = 0;
     node->layout_flags = 0;
     node->horizontal_alignment = 0;
     node->vertical_alignment = 0;
@@ -591,6 +593,10 @@ static int NU_Generate_Tree(char* src_buffer, uint32_t src_length, struct Vector
                     current_node->layout_flags |= GROW_HORIZONTAL;
                     if (ctx == 1 || ctx == 3) ctx = 6;
                     else ctx = 5;
+                }
+                else if (current_node->tag == CANVAS)
+                {
+                    NU_Add_Canvas_Context(current_node->handle);
                 }
                 
 
@@ -730,7 +736,6 @@ static int NU_Generate_Tree(char* src_buffer, uint32_t src_length, struct Vector
                     case LAYOUT_DIRECTION_PROPERTY:
                         if (c == 'h') {
                             current_node->inline_style_flags |= 1 << 0;
-                            current_node->layout_flags |= LAYOUT_HORIZONTAL;
                         }  
                         else {
                             current_node->inline_style_flags |= 1 << 0;
@@ -781,12 +786,20 @@ static int NU_Generate_Tree(char* src_buffer, uint32_t src_length, struct Vector
                             current_node->layout_flags |= POSITION_ABSOLUTE;
                         }
                         break;
+
+                    // Show/hide
+                    case HIDE_PROPERTY:
+                        if (current_text_ref->char_count == 4 && memcmp(ptext, "true", 4) == 0) {
+                            current_node->inline_style_flags |= 1 << 5;
+                            current_node->layout_flags |= HIDDEN;
+                        }
+                        break;
                     
                     // Set gap 
                     case GAP_PROPERTY:
                         float property_float;
                         if (String_To_Float(&property_float, ptext)) {
-                            current_node->inline_style_flags |= 1 << 5;
+                            current_node->inline_style_flags |= 1 << 6;
                             current_node->gap = property_float;
                         }
                         break;
@@ -794,7 +807,7 @@ static int NU_Generate_Tree(char* src_buffer, uint32_t src_length, struct Vector
                     // Set preferred width
                     case WIDTH_PROPERTY:
                         if (String_To_Float(&property_float, ptext)) {
-                            current_node->inline_style_flags |= 1 << 6;
+                            current_node->inline_style_flags |= 1 << 7;
                             current_node->preferred_width = property_float;
                         }
                         break;
@@ -802,7 +815,7 @@ static int NU_Generate_Tree(char* src_buffer, uint32_t src_length, struct Vector
                     // Set min width
                     case MIN_WIDTH_PROPERTY:
                         if (String_To_Float(&property_float, ptext)) {
-                            current_node->inline_style_flags |= 1 << 7;
+                            current_node->inline_style_flags |= 1 << 8;
                             current_node->min_width = property_float;
                         }
                         break;
@@ -810,7 +823,7 @@ static int NU_Generate_Tree(char* src_buffer, uint32_t src_length, struct Vector
                     // Set max width
                     case MAX_WIDTH_PROPERTY:
                         if (String_To_Float(&property_float, ptext)) {
-                            current_node->inline_style_flags |= 1 << 8;
+                            current_node->inline_style_flags |= 1 << 9;
                            current_node->max_width = property_float; 
                         }
                         break;
@@ -818,7 +831,7 @@ static int NU_Generate_Tree(char* src_buffer, uint32_t src_length, struct Vector
                     // Set preferred height
                     case HEIGHT_PROPERTY:
                         if (String_To_Float(&property_float, ptext)) {
-                            current_node->inline_style_flags |= 1 << 9;
+                            current_node->inline_style_flags |= 1 << 10;
                             current_node->preferred_height = property_float;
                         }
                         break;
@@ -826,7 +839,7 @@ static int NU_Generate_Tree(char* src_buffer, uint32_t src_length, struct Vector
                     // Set min height
                     case MIN_HEIGHT_PROPERTY:
                         if (String_To_Float(&property_float, ptext)) {
-                            current_node->inline_style_flags |= 1 << 10;
+                            current_node->inline_style_flags |= 1 << 11;
                             current_node->min_height = property_float;
                         }
                         break;
@@ -834,7 +847,7 @@ static int NU_Generate_Tree(char* src_buffer, uint32_t src_length, struct Vector
                     // Set max height
                     case MAX_HEIGHT_PROPERTY:
                         if (String_To_Float(&property_float, ptext)) {
-                            current_node->inline_style_flags |= 1 << 11;
+                            current_node->inline_style_flags |= 1 << 12;
                             current_node->min_height = property_float;
                         }
                         break;
@@ -842,13 +855,13 @@ static int NU_Generate_Tree(char* src_buffer, uint32_t src_length, struct Vector
                     // Set horizontal alignment
                     case ALIGN_H_PROPERTY:
                         if (current_text_ref->char_count == 4 && memcmp(ptext, "left", 4) == 0) {
-                            current_node->inline_style_flags |= 1 << 12;
+                            current_node->inline_style_flags |= 1 << 13;
                             current_node->horizontal_alignment = 0;
                         } else if (current_text_ref->char_count == 6 && memcmp(ptext, "center", 6) == 0) {
-                            current_node->inline_style_flags |= 1 << 12;
+                            current_node->inline_style_flags |= 1 << 13;
                             current_node->horizontal_alignment = 1;
                         } else if (current_text_ref->char_count == 5 && memcmp(ptext, "right", 5) == 0) {
-                            current_node->inline_style_flags |= 1 << 12;
+                            current_node->inline_style_flags |= 1 << 13;
                             current_node->horizontal_alignment = 2;
                         }
                         break;
@@ -856,13 +869,13 @@ static int NU_Generate_Tree(char* src_buffer, uint32_t src_length, struct Vector
                     // Set vertical alignment
                     case ALIGN_V_PROPERTY:
                         if (current_text_ref->char_count == 3 && memcmp(ptext, "top", 3) == 0) {
-                            current_node->inline_style_flags |= 1 << 13;
+                            current_node->inline_style_flags |= 1 << 14;
                             current_node->vertical_alignment = 0;
                         } else if (current_text_ref->char_count == 6 && memcmp(ptext, "center", 6) == 0) {
-                            current_node->inline_style_flags |= 1 << 13;
+                            current_node->inline_style_flags |= 1 << 14;
                             current_node->vertical_alignment = 2;
                         } else if (current_text_ref->char_count == 6 && memcmp(ptext, "bottom", 6) == 0) {
-                            current_node->inline_style_flags |= 1 << 13;
+                            current_node->inline_style_flags |= 1 << 14;
                             current_node->vertical_alignment = 1;
                         }
                         break;
@@ -870,13 +883,13 @@ static int NU_Generate_Tree(char* src_buffer, uint32_t src_length, struct Vector
                     // Set horizontal text alignment
                     case TEXT_ALIGN_H_PROPERTY:
                         if (current_text_ref->char_count == 4 && memcmp(ptext, "left", 4) == 0) {
-                            current_node->inline_style_flags |= 1 << 14;
+                            current_node->inline_style_flags |= 1 << 15;
                             current_node->horizontal_text_alignment = 0;
                         } else if (current_text_ref->char_count == 6 && memcmp(ptext, "center", 6) == 0) {
-                            current_node->inline_style_flags |= 1 << 14;
+                            current_node->inline_style_flags |= 1 << 15;
                             current_node->horizontal_text_alignment = 2;
                         } else if (current_text_ref->char_count == 5 && memcmp(ptext, "right", 5) == 0) {
-                            current_node->inline_style_flags |= 1 << 14;
+                            current_node->inline_style_flags |= 1 << 15;
                             current_node->horizontal_text_alignment = 1;
                         }
                         break;
@@ -884,13 +897,13 @@ static int NU_Generate_Tree(char* src_buffer, uint32_t src_length, struct Vector
                     // Set vertical text alignment
                     case TEXT_ALIGN_V_PROPERTY:
                         if (current_text_ref->char_count == 3 && memcmp(ptext, "top", 3) == 0) {
-                            current_node->inline_style_flags |= 1 << 15;
+                            current_node->inline_style_flags |= 1 << 16;
                             current_node->vertical_text_alignment = 0;
                         } else if (current_text_ref->char_count == 6 && memcmp(ptext, "center", 6) == 0) {
-                            current_node->inline_style_flags |= 1 << 15;
+                            current_node->inline_style_flags |= 1 << 16;
                             current_node->vertical_text_alignment = 2;
                         } else if (current_text_ref->char_count == 6 && memcmp(ptext, "bottom", 6) == 0) {
-                            current_node->inline_style_flags |= 1 << 15;
+                            current_node->inline_style_flags |= 1 << 16;
                             current_node->vertical_text_alignment = 1;
                         }
                         break;
@@ -899,12 +912,12 @@ static int NU_Generate_Tree(char* src_buffer, uint32_t src_length, struct Vector
                     case BACKGROUND_COLOUR_PROPERTY:
                         struct RGB rgb;
                         if (Parse_Hexcode(ptext, current_text_ref->char_count, &rgb)) {
-                            current_node->inline_style_flags |= 1 << 16;
+                            current_node->inline_style_flags |= 1 << 17;
                             current_node->background_r = rgb.r;
                             current_node->background_g = rgb.g;
                             current_node->background_b = rgb.b;
                         } else if (current_text_ref->char_count == 4 && memcmp(ptext, "none", 4) == 0) {
-                            current_node->inline_style_flags |= 1 << 17;
+                            current_node->inline_style_flags |= 1 << 18;
                             current_node->hide_background = true;
                         }
                         break;
@@ -912,7 +925,7 @@ static int NU_Generate_Tree(char* src_buffer, uint32_t src_length, struct Vector
                     // Set border colour
                     case BORDER_COLOUR_PROPERTY:
                         if (Parse_Hexcode(ptext, current_text_ref->char_count, &rgb)) {
-                            current_node->inline_style_flags |= 1 << 18;
+                            current_node->inline_style_flags |= 1 << 19;
                             current_node->border_r = rgb.r;
                             current_node->border_g = rgb.g;
                             current_node->border_b = rgb.b;
@@ -922,7 +935,7 @@ static int NU_Generate_Tree(char* src_buffer, uint32_t src_length, struct Vector
                     // Set text colour
                     case TEXT_COLOUR_PROPERTY:
                         if (Parse_Hexcode(ptext, current_text_ref->char_count, &rgb)) {
-                            current_node->inline_style_flags |= 1 << 19;
+                            current_node->inline_style_flags |= 1 << 20;
                             current_node->text_r = rgb.r;
                             current_node->text_g = rgb.g;
                             current_node->text_b = rgb.b;
@@ -933,7 +946,7 @@ static int NU_Generate_Tree(char* src_buffer, uint32_t src_length, struct Vector
                     case BORDER_WIDTH_PROPERTY:
                         uint8_t property_uint8;
                         if (String_To_uint8_t(&property_uint8, ptext)) {
-                            current_node->inline_style_flags |= (1 << 20) | (1 << 21) | (1 << 22) | (1 << 23);
+                            current_node->inline_style_flags |= (1 << 21) | (1 << 22) | (1 << 23) | (1 << 24);
                             current_node->border_top = property_uint8;
                             current_node->border_bottom = property_uint8;
                             current_node->border_left = property_uint8;
@@ -942,26 +955,26 @@ static int NU_Generate_Tree(char* src_buffer, uint32_t src_length, struct Vector
                         break;
                     case BORDER_TOP_WIDTH_PROPERTY:
                         if (String_To_uint8_t(&property_uint8, ptext)) {
-                            current_node->inline_style_flags |= 1 << 20;
+                            current_node->inline_style_flags |= 1 << 21;
                             current_node->border_top = property_uint8;
                         }
                         break;
                     case BORDER_BOTTOM_WIDTH_PROPERTY:
                         if (String_To_uint8_t(&property_uint8, ptext)) {
-                            current_node->inline_style_flags |= 1 << 21;
+                            current_node->inline_style_flags |= 1 << 22;
                             current_node->border_bottom = property_uint8;
                         }
                         break;
                     case BORDER_LEFT_WIDTH_PROPERTY:
 
                         if (String_To_uint8_t(&property_uint8, ptext)) {
-                            current_node->inline_style_flags |= 1 << 22;
+                            current_node->inline_style_flags |= 1 << 23;
                             current_node->border_left = property_uint8;
                         }
                         break;
                     case BORDER_RIGHT_WIDTH_PROPERTY:
                         if (String_To_uint8_t(&property_uint8, ptext)) {
-                            current_node->inline_style_flags |= 1 << 23;
+                            current_node->inline_style_flags |= 1 << 24;
                             current_node->border_right = property_uint8;
                         }
                         break;
@@ -969,7 +982,7 @@ static int NU_Generate_Tree(char* src_buffer, uint32_t src_length, struct Vector
                     // Set border radii
                     case BORDER_RADIUS_PROPERTY:
                         if (String_To_uint8_t(&property_uint8, ptext)) {
-                            current_node->inline_style_flags |= (1 << 24) | (1 << 25) | (1 << 26) | (1 << 27);
+                            current_node->inline_style_flags |= (1 << 25) | (1 << 26) | (1 << 27) | (1 << 28);
                             current_node->border_radius_tl = property_uint8;
                             current_node->border_radius_tr = property_uint8;
                             current_node->border_radius_bl = property_uint8;
@@ -978,25 +991,25 @@ static int NU_Generate_Tree(char* src_buffer, uint32_t src_length, struct Vector
                         break;
                     case BORDER_TOP_LEFT_RADIUS_PROPERTY:
                         if (String_To_uint8_t(&property_uint8, ptext)) {
-                            current_node->inline_style_flags |= (1 << 24);
+                            current_node->inline_style_flags |= (1 << 25);
                             current_node->border_radius_tl = property_uint8;
                         }
                         break;
                     case BORDER_TOP_RIGHT_RADIUS_PROPERTY:
                         if (String_To_uint8_t(&property_uint8, ptext)) {
-                            current_node->inline_style_flags |= (1 << 25);
+                            current_node->inline_style_flags |= (1 << 26);
                             current_node->border_radius_tr = property_uint8;
                         }
                         break;
                     case BORDER_BOTTOM_LEFT_RADIUS_PROPERTY:
                         if (String_To_uint8_t(&property_uint8, ptext)) {
-                            current_node->inline_style_flags |= (1 << 26);
+                            current_node->inline_style_flags |= (1 << 27);
                             current_node->border_radius_bl = property_uint8;
                         }
                         break;
                     case BORDER_BOTTOM_RIGHT_RADIUS_PROPERTY:
                         if (String_To_uint8_t(&property_uint8, ptext)) {
-                            current_node->inline_style_flags |= (1 << 27);
+                            current_node->inline_style_flags |= (1 << 28);
                             current_node->border_radius_br = property_uint8;
                         }
                         break;
@@ -1004,7 +1017,7 @@ static int NU_Generate_Tree(char* src_buffer, uint32_t src_length, struct Vector
                     // Set padding
                     case PADDING_PROPERTY:
                         if (String_To_uint8_t(&property_uint8, ptext)) {
-                            current_node->inline_style_flags |= (1 << 28) | (1 << 29) | (1 << 30) | (1 << 31);
+                            current_node->inline_style_flags |= (1 << 29) | (1 << 30) | (1 << 31) | ((uint64_t)1 << 32);
                             current_node->pad_top    = property_uint8;
                             current_node->pad_bottom = property_uint8;
                             current_node->pad_left   = property_uint8;
@@ -1013,25 +1026,25 @@ static int NU_Generate_Tree(char* src_buffer, uint32_t src_length, struct Vector
                         break;
                     case PADDING_TOP_PROPERTY:
                         if (String_To_uint8_t(&property_uint8, ptext)) {
-                            current_node->inline_style_flags |= (1 << 28);
+                            current_node->inline_style_flags |= (1 << 29);
                             current_node->pad_top = property_uint8;
                         }
                         break;
                     case PADDING_BOTTOM_PROPERTY:
                         if (String_To_uint8_t(&property_uint8, ptext)) {
-                            current_node->inline_style_flags |= (1 << 29);
+                            current_node->inline_style_flags |= (1 << 30);
                             current_node->pad_bottom = property_uint8;
                         }
                         break;
                     case PADDING_LEFT_PROPERTY:
                         if (String_To_uint8_t(&property_uint8, ptext)) {
-                            current_node->inline_style_flags |= (1 << 30);
+                            current_node->inline_style_flags |= (1 << 31);
                             current_node->pad_left = property_uint8;
                         }
                         break;
                     case PADDING_RIGHT_PROPERTY:
                         if (String_To_uint8_t(&property_uint8, ptext)) {
-                            current_node->inline_style_flags |= (1 << 31);
+                            current_node->inline_style_flags |= (uint64_t)1 << 32;
                             current_node->pad_right = property_uint8;
                         }
                         break;

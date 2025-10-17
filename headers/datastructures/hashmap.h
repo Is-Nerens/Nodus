@@ -400,7 +400,7 @@ struct Hashmap
 
 void Hashmap_Init(struct Hashmap* hmap, uint32_t key_size, uint32_t item_size, uint32_t capacity)
 {
-    capacity = max(capacity, 10); // Ensure capacity for at least 10 element
+    capacity = max(capacity, 10); // Ensure capacity for at least 10 elements
 
     // Calculate number of bytes needed for occupancy bit array
     uint32_t occupancy_remainder = capacity & 7; // capacity % 8 

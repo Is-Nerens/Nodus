@@ -1,5 +1,7 @@
 #pragma once
-#include <GL/glew.h>
+#include <harfbuzz/hb.h>
+#include <harfbuzz/hb-ft.h>
+#include <freetype/freetype.h>
 #include <datastructures/vector.h>
 
 FT_Library nu_global_freetype;
@@ -39,6 +41,7 @@ typedef struct NU_Font
     float line_height;
     NU_Font_Atlas atlas;
     bool subpixel_rendering;
+    hb_font_t* hb_font;
 } NU_Font;
 
 void NU_Font_Atlas_Create(NU_Font_Atlas* atlas, int width, int height, uint8_t channels)
@@ -136,7 +139,7 @@ void NU_Font_Atlas_To_GPU(NU_Font_Atlas* atlas)
     glBindTexture(GL_TEXTURE_2D, 0);
 }
 
-int  NU_Font_Create(NU_Font* font, const char* filepath, int height_pixels, bool subpixel_rendering)
+int NU_Font_Create(NU_Font* font, const char* filepath, int height_pixels, bool subpixel_rendering)
 {
     height_pixels = min(height_pixels, 256);
     font->subpixel_rendering = subpixel_rendering;
@@ -155,6 +158,7 @@ int  NU_Font_Create(NU_Font* font, const char* filepath, int height_pixels, bool
         printf("Error! Could not find font: %s\n", filepath);
         return 0;
     }
+    font->hb_font = hb_ft_font_create(face, NULL);
 
     // Update height pixels
     FT_Set_Pixel_Sizes(face, 0, (FT_UInt)height_pixels);
@@ -211,7 +215,7 @@ int  NU_Font_Create(NU_Font* font, const char* filepath, int height_pixels, bool
         for (char right_char = 32; right_char <= 126; right_char++) {
             FT_UInt right_index = FT_Get_Char_Index(face, right_char);
             FT_Vector kern;
-            if (FT_Get_Kerning(face, left_index, right_index, FT_KERNING_UNFITTED, &kern)) {
+            if (FT_Get_Kerning(face, left_index, right_index, FT_KERNING_DEFAULT, &kern)) {
                 kern.x = 0; // fallback on error
             }
 
@@ -232,6 +236,7 @@ int  NU_Font_Create(NU_Font* font, const char* filepath, int height_pixels, bool
 
 void NU_Font_Free(NU_Font* font)
 {
+    hb_font_destroy(font->hb_font);
     free(font->atlas.buffer);
     Vector_Free(&font->glyphs);
 }

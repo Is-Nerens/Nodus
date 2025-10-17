@@ -3,13 +3,9 @@
 
 #include <stdint.h> 
 #include <string.h> 
-#include <GL/glew.h>
-#include <freetype/freetype.h>
-#include <datastructures/vector.h>
 #include <nu_font.h>
-#include <nu_draw_structures.h>
 #include <nu_shader.h>
-#include <SDL3/SDL.h>
+#include <nu_draw_structures.h>
 
 GLuint Text_Mono_Shader_Program;
 GLuint Text_Subpixel_Shader_Program;
@@ -381,14 +377,13 @@ void NU_Generate_Text_Mesh(Vertex_RGB_UV_List* vertices, Index_List* indices, NU
 
                     float kern = 0.0f;
                     if (prev_char) kern = (float)font->kerning_table[prev_char - 32][c - 32];
-                    float glyph_advance = glyph->advance + kern;
+                    pen_x += kern;
 
                     // Add quad mesh 
                     NU_Add_Glyph_Mesh(vertices, indices, glyph, pen_x, pen_y, r, g, b);
 
                     // Move ahead
-                    word_width += glyph_advance;
-                    pen_x += glyph_advance;
+                    pen_x += glyph->advance;
                     prev_char = c;
                     i += 1;
                 }

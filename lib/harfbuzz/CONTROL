@@ -1,0 +1,15 @@
+Package: harfbuzz
+Version: 11.3.3
+Depends: vcpkg-tool-meson
+Architecture: x64-windows
+Multi-Arch: same
+Abi: a0d8f7608825c4586f23e47e7d89c1e83859b40f3a614ea5aab23118047bd781
+Description: HarfBuzz OpenType text shaping engine
+Default-Features: freetype
+
+Package: harfbuzz
+Feature: freetype
+Depends: freetype
+Architecture: x64-windows
+Multi-Arch: same
+Description: Enable FreeType support

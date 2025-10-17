@@ -138,6 +138,7 @@ void Set_Node_Defaults(struct Node* node)
     node->text_content = NULL;
     node->inline_style_flags = 0;
     node->handle = UINT16_MAX;
+    node->clipping_root_handle = UINT16_MAX;
     node->index = UINT16_MAX;
     node->parent_index = UINT16_MAX;
     node->first_child_index = UINT16_MAX;
@@ -299,6 +300,9 @@ static void NU_Dissociate_Node(struct Node* node)
     } 
     if (node == __nu_global_gui.mouse_down_node) {
         __nu_global_gui.mouse_down_node = NULL;
+    }
+    if (node->tag == CANVAS) {
+        Hashmap_Delete(&__nu_global_gui.canvas_contexts, &node->handle); // Delete canvas context
     }
 }
 
@@ -531,6 +535,9 @@ void NU_Delete_Node(uint32_t handle)
 
     // Case 1: Deleting root node (Cannot do this!)
     if (node->layer == 0) return;
+
+
+    __nu_global_gui.awaiting_redraw = true;
     
 
     // ----------------------------------------------
@@ -551,9 +558,7 @@ void NU_Delete_Node(uint32_t handle)
     // ----------------------------------------------
     // --- Case 2: Deleting node with children ---
     // ----------------------------------------------
-    timer_start();
     NU_Delete_Node_Branch(node);
-    timer_stop();
     return;
 }
 
@@ -569,4 +574,52 @@ void NU_Reparent_Node(struct Node* node, struct Node* new_parent)
 void NU_Reorder_In_Parent(struct Node* node, uint32_t index) 
 {
 
+}
+
+
+
+
+
+
+// -------------------------------------
+// --- Node special property updates ---
+// -------------------------------------
+void NU_Set_Class(uint32_t handle, char* class)
+{
+    struct Node* node = NODE(handle);
+     node->class = NULL;
+
+    // Look for class in gui class string set
+    char* gui_class_get = String_Set_Get(&__nu_global_gui.class_string_set, class);
+    if (gui_class_get == NULL) { // Not found? Look in the stylesheet
+        char* style_class_get = String_Set_Get(&__nu_global_gui.stylesheet->class_string_set, class);
+
+        // If found in the stylesheet -> add it to the gui class set
+        if (style_class_get) {
+            node->class = String_Set_Add(&__nu_global_gui.class_string_set, class);
+        }
+    } 
+    else {
+        node->class = gui_class_get; 
+    }
+
+    // Update styling
+    NU_Apply_Stylesheet_To_Node(node, __nu_global_gui.stylesheet);
+    if (node == __nu_global_gui.scroll_mouse_down_node) {
+        NU_Apply_Pseudo_Style_To_Node(node, __nu_global_gui.stylesheet, PSEUDO_PRESS);
+    } else if (node == __nu_global_gui.hovered_node) {
+        NU_Apply_Pseudo_Style_To_Node(node, __nu_global_gui.stylesheet, PSEUDO_HOVER);
+    }
+
+    __nu_global_gui.awaiting_redraw = true;
+}
+
+void NU_Hide(uint32_t handle)
+{
+    NODE(handle)->layout_flags |= HIDDEN;
+}
+
+void NU_Show(uint32_t handle)
+{
+    NODE(handle)->layout_flags &= ~HIDDEN;
 }

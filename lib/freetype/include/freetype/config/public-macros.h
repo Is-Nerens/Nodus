@@ -67,7 +67,7 @@ FT_BEGIN_HEADER
 
 #if defined( FT2_BUILD_LIBRARY ) && defined( DLL_EXPORT )
 #define FT_PUBLIC_FUNCTION_ATTRIBUTE  __declspec( dllexport )
-#elif defined( DLL_IMPORT )
+#elif 1
 #define FT_PUBLIC_FUNCTION_ATTRIBUTE  __declspec( dllimport )
 #endif
 

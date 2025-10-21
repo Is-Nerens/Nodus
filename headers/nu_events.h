@@ -78,35 +78,32 @@ bool EventWatcher(void* data, SDL_Event* event)
             struct Node* hovered_node = __nu_global_gui.hovered_node;
             NU_Mouse_Hover();
 
-            // Get mouse coordinates
-            float mouse_x, mouse_y;
-            SDL_GetGlobalMouseState(&mouse_x, &mouse_y);
+            // Get golbal mouse coordinates
+            float mouse_x_global, mouse_y_global;
+            SDL_GetGlobalMouseState(&mouse_x_global, &mouse_y_global);
 
 
             if (__nu_global_gui.scroll_mouse_down_node) { // Is dragging scrollbar
                 struct Node* node = __nu_global_gui.scroll_mouse_down_node;
-
                 NU_Layer* child_layer = &__nu_global_gui.tree.layers[node->layer + 1];
-                struct Node* first_child = NU_Layer_Get(child_layer, node->first_child_index);
 
-                float scroll_view_height = node->content_height;
+                // Get relative mouse coords within window
+                int win_x, win_y; 
+                SDL_GetWindowPosition(__nu_global_gui.scroll_mouse_down_node->window, &win_x, &win_y);
+                float mouse_y_local = mouse_y_global - win_y;
 
-                // Subtract header row height from total scroll region height
-                if (first_child->tag == THEAD) {
-                    // scroll_view_height -= first_child->height; 
-                }
-
-                float y_drag_dist = mouse_y - __nu_global_gui.mouse_down_global_y;
-                float scrollbar_top_dist_moved = __nu_global_gui.v_scrollbar_top_global_y - node->y + node->border_top;
-                float track_h = node->height - node->border_top - node->border_bottom;
-                float inner_height_w_pad = track_h - node->pad_top - node->pad_bottom;
+                // Calculate track_height thumb_height drag_dist
+                float track_height = node->height - node->border_top - node->border_bottom;
+                float inner_height_w_pad = track_height - node->pad_top - node->pad_bottom;
                 float inner_proportion_of_content_height = inner_height_w_pad / node->content_height;
-                float thumb_h = inner_proportion_of_content_height * track_h;
+                float thumb_height = inner_proportion_of_content_height * track_height;
+                float track_top_y = node->y + node->border_top;
+                float drag_dist = (mouse_y_local - __nu_global_gui.v_scroll_thumb_grab_offset) - track_top_y;
 
                 // Apply scroll and clamp
-                node->scroll_v = y_drag_dist + scrollbar_top_dist_moved;
+                node->scroll_v = drag_dist / (track_height - thumb_height);
                 node->scroll_v = max(node->scroll_v, 0.0f);
-                node->scroll_v = min(node->scroll_v, track_h - thumb_h);
+                node->scroll_v = min(node->scroll_v, 1.0f);
             }
             if (hovered_node != __nu_global_gui.hovered_node || __nu_global_gui.scroll_mouse_down_node != NULL) draw = true;
             break;
@@ -124,9 +121,17 @@ bool EventWatcher(void* data, SDL_Event* event)
             if (__nu_global_gui.mouse_down_node != NULL) {
                 NU_Apply_Pseudo_Style_To_Node(__nu_global_gui.hovered_node, __nu_global_gui.stylesheet, PSEUDO_PRESS);
             } 
-            if (__nu_global_gui.scroll_mouse_down_node != NULL) { // Get the global (y coord) of the scrollbar's top
+            if (__nu_global_gui.scroll_mouse_down_node != NULL) { 
                 struct Node* node = __nu_global_gui.scroll_mouse_down_node;
-                __nu_global_gui.v_scrollbar_top_global_y = node->y + node->border_top + node->scroll_v;
+                int win_x, win_y; 
+                SDL_GetWindowPosition(__nu_global_gui.scroll_mouse_down_node->window, &win_x, &win_y);
+                float mouse_y_local = __nu_global_gui.mouse_down_global_y - win_y;
+                float track_height = node->height - node->border_top - node->border_bottom;
+                float inner_height_w_pad = track_height - node->pad_top - node->pad_bottom;
+                float inner_proportion_of_content_height = inner_height_w_pad / node->content_height;
+                float thumb_height = inner_proportion_of_content_height * track_height;
+                float thumb_top_y = node->y + node->border_top + (node->scroll_v * (track_height - thumb_height));
+                __nu_global_gui.v_scroll_thumb_grab_offset = mouse_y_local - thumb_top_y;
             }
             __nu_global_gui.awaiting_redraw = true;
             break;

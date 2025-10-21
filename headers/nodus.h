@@ -1,5 +1,6 @@
 #pragma once
 
+#include <math.h>
 #include <SDL3/SDL.h>
 #include <GL/glew.h>
 
@@ -111,7 +112,7 @@ struct NU_GUI
     struct Node* scroll_mouse_down_node;
     float mouse_down_global_x;
     float mouse_down_global_y;
-    float v_scrollbar_top_global_y;
+    float v_scroll_thumb_grab_offset;
     uint16_t deepest_layer;
 
     // Status
@@ -167,11 +168,33 @@ inline struct Node* NODE(uint32_t handle)
     return __nu_global_gui.tree.node_table.data[handle];
 }
 
+void NU_Add_Canvas_Context(uint32_t canvas_node_handle)
+{
+    NU_Canvas_Context ctx;
+    Vertex_RGB_List_Init(&ctx.vertices, 512);
+    Index_List_Init(&ctx.indices, 1024);
+    Hashmap_Set(&__nu_global_gui.canvas_contexts, &canvas_node_handle, &ctx);
+}
+
 
 #include "nu_window.h"
+#include "nu_xml_parser.h"
+#include "nu_style_parser.h"
+#include "nu_layout.h"
+#include "nu_events.h"
+#include "nu_draw.h"
+#include "nu_canvas_draw.h"
+#include "nu_dom.h"
 
-void NU_Init()
+int NU_Init()
 {
+    // Check if SDL initialised
+    if (!SDL_Init(SDL_INIT_VIDEO)) 
+    {
+        printf("SDL could not initialize! SDL_Error: %s\n", SDL_GetError());
+        return -1;
+    }
+
     Vector_Reserve(&__nu_global_gui.windows, sizeof(SDL_Window*), 8);
     Vector_Reserve(&__nu_global_gui.window_nodes, sizeof(struct Node*), 8);
     StringArena_Init(&__nu_global_gui.node_text_arena, 512);
@@ -196,23 +219,25 @@ void NU_Init()
     __nu_global_gui.deepest_layer = 0;
     __nu_global_gui.stylesheet = NULL;
     __nu_global_gui.hovered_window = NULL;
-    NU_Create_Main_Window();
-
     __nu_global_gui.running = true;
     __nu_global_gui.awaiting_redraw = true;
+
+    NU_Create_Main_Window();
+    NU_Text_Renderer_Init();
+    SDL_AddEventWatch(EventWatcher, NULL);
+
+    return 1; // Success
 }
 
-bool NU_Running()
+void NU_Mainloop()
 {
-    return __nu_global_gui.running;
-}
-
-void NU_Add_Canvas_Context(uint32_t canvas_node_handle)
-{
-    NU_Canvas_Context ctx;
-    Vertex_RGB_List_Init(&ctx.vertices, 512);
-    Index_List_Init(&ctx.indices, 1024);
-    Hashmap_Set(&__nu_global_gui.canvas_contexts, &canvas_node_handle, &ctx);
+    SDL_Event event;
+    while (__nu_global_gui.running)
+    {
+        if (SDL_WaitEvent(&event)) {
+            EventWatcher(NULL, &event); // you already have this function
+        }
+    }
 }
 
 void NU_Quit()
@@ -238,12 +263,6 @@ void NU_Quit()
     __nu_global_gui.hovered_node = NULL;
     __nu_global_gui.mouse_down_node = NULL;
     __nu_global_gui.deepest_layer = 0;
-}
 
-#include "nu_xml_parser.h"
-#include "nu_style_parser.h"
-#include "nu_layout.h"
-#include "nu_events.h"
-#include "nu_draw.h"
-#include "nu_canvas_draw.h"
-#include "nu_dom.h"
+    SDL_Quit();
+}

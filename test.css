@@ -1,11 +1,17 @@
 @font font-normal {
     src: ./fonts/Inter/Inter_Variable_Weight.ttf;
-    size: 16;
+    size: 14;
     weight: 400;
 }
 
 @font font-arial {
     src: ./fonts/arial/ARIAL.ttf;
+    size: 12;
+    weight: 400;
+}
+
+@font font-table-cell {
+    src: ./fonts/Inter/Inter_Variable_Weight.ttf;
     size: 12;
     weight: 400;
 }
@@ -19,33 +25,30 @@ window {
 
 #toolbar {
     pad: 3;
-    padLeft: 0;
-    padRight: 0;
-    gap: 3;
+    gap: 1;
     borderRadius: 5;
     grow: h;
-    background: #2f2f2f;
+    background: #151515;
+    alignV: center;
 }
 
 .toolbar-button {
     border: 1;
-    borderBottom: 2;
     borderRadius: 3;
     background: #2f2f2f;
     borderColour: #000000;
-    textColour: #ffffff;
+    textColour: #c1d5e3;
     pad: 5;
     textAlignH: center;
-    font: font-arial;
 }
 
 .toolbar-button-selected {
-    textColour: #000000;
-    background: #d8903d;
+    textColour: #0b1528;
+    background: #4f7fd9;
 }
 .toolbar-button-selected:hover {
-    textColour: #000000;
-    background: #d8903d;
+    textColour: #0b1528;
+    background: #4f7fd9;
 }
 .toolbar-item {
     pad: 5;
@@ -100,9 +103,14 @@ thead {
     borderColour: #9b5920;
     borderRadius: 3;
 }
+.watchlist-header-text {
+    pad: 3;
+    background: #060606;
+}
 .watchlist-text {
     pad: 3;
-    background: none;
+    background: #060606;
+    font: font-table-cell;
 }
 .crypto-icon {
     width: 20;
@@ -270,14 +278,91 @@ thead {
     borderRadiusTopLeft: 5;
     borderRadiusTopRight: 5;
 }
+thead {
+    pad: 3;
+}
 row {
-    borderBottom: 1;
-    borderLeft: 1;
-    borderRight: 1;
+    pad: 3;
+    borderRadius: 3;
+    border: 1;
+    borderTop: 0;
     borderColour: #000000;
     background: #2f2f2f;
 }
 .cell {
+    pad: 3;
+    background: #060606;
+    alignV: center;
+    font: font-table-cell;
+}
+.table-order-delete {
+    width: 32;
+    height: 33;
+}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+#editor-tab-container {
+    grow: b;
+}
+#scripts-column {
+    grow: b;
+    maxWidth: 200;
+    dir: v;
+    pad: 3;
+    border: 1;
+    gap: 3;
+    background: #2f2f2f;
+    borderColour: #000000;
+}
+#scripts-column-header {
+    pad: 3;
+    background: #151515;
+    grow: h;
+}
+#scripts-list {
+    grow: b;
+    dir: v;
+}
+#code-editor-column {
+    grow: b;
     pad: 5;
-    background: none;
+    border: 1;
+    background: #2f2f2f;
+    borderColour: #000000;
+    dir: v;
+}
+#backtest-column {
+    grow: b;
+    dir: v;
+}
+#backtest-chart {
+    grow: b;
+    pad: 5;
+    border: 1;
+    background: #2f2f2f;
+    borderColour: #000000;
+}
+#backtest-settings {
+    grow: b;
+    pad: 5;
+    border: 1;
+    background: #2f2f2f;
+    borderColour: #000000;
 }

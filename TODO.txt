@@ -1,31 +1,17 @@
-Maybe I should worry about click handling after I have solved the layout problem:
-(1) text rendering, positioning and wrapping
-(3) border radius
-(2) image rendering, placement styling (repeat, stretch, keep aspect, center etc)
-(3) overflow scroll (both axes) and overflow hidden
-(4) window and subwindow management + close behaviour
-(5) have a look at all the existing systems and codebase and refector + test to reduce complexity and 
-improve maintainability and performance
+What have I solved?
+text rendering (apart from kerning) positionong and wrapping
+border radius
+image rendering (simple placement)
+overflow scroll vertical_alignment
+table layout
+canvas drawing
 
 
-Then I can move onto a unified UI event system
-
-Then I can cuild a simple example app using the system
-
-Next, I will work on a clever ground-breaking solution to handle styling
-
-Then, I will work on dynamic tree manipulation and XML components + import tags
-
-Then I will add: <tab> <dropdown> <grid> <table> <heirarchy> nodes
-
-Then I will work on <canvas> and canvas drawing
-
-Then I will work on relative positioning for elements
-
-Then I will work on a real application
-
-
-
+What haven't I solved
+overflow scroll horizontal_alignment
+creation and destruction of window elements
+import tags and xml components
+relative positioning (the actual positioning of these and the rendering of them in a separate pass)
 
 
 
@@ -46,6 +32,7 @@ need resize observing and a window popup/nested window mechanism with closing
 need to calculate ui element sizes and positions (with text size measuring and positioning)
 need to render ui elements
 
+MOSTLY DONE!!!
 need to handle overflow scroll hidden, enforce winow min size
 need to handle text wrapping
 need to handle mouse hover detetion -> with events
@@ -55,15 +42,19 @@ need to implement element creation and deletion + bulk add & bulk delete for spe
 
 build a simple app using these systems.
 
+DONE!!!
 add a canvas node type where users can draw (SDL draw functionality?)
 
 re-implement candlestick chart
 add line chart
 add that other one
 
+
+DONE!!!
 start developing either a scripting system or ship with a sandboxed c compiler for users to write
 trading algorithms. 
 
+DONE!!!
 develop networking system to handle JSON communication with exchanges
 
 start developing different UI layout prototypes to find a suitable one

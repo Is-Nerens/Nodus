@@ -481,20 +481,20 @@ void Construct_Scroll_Thumb(struct Node* node,
     if (vertices->size + additional_vertices > vertices->capacity) Vertex_RGB_List_Grow(vertices, additional_vertices);
     if (indices->size + additional_indices > indices->capacity) Index_List_Grow(indices, additional_indices);
 
-    float x = node->x + node->width - node->border_right - 12.0f;
-    float y = node->y + node->border_top;
-    float thumb_y = node->y + node->border_top + node->scroll_v;
-    float w = 12.0f;
-
 
     NU_Layer* child_layer = &__nu_global_gui.tree.layers[node->layer + 1];
     struct Node* first_child = NU_Layer_Get(child_layer, node->first_child_index);
     float scroll_view_height = node->content_height;
-    float track_h = node->height - node->border_top - node->border_bottom;
-    float inner_height_w_pad = track_h - node->pad_top - node->pad_bottom;
+    float track_height = node->height - node->border_top - node->border_bottom;
+    float inner_height_w_pad = track_height - node->pad_top - node->pad_bottom;
     float inner_proportion_of_content_height = inner_height_w_pad / scroll_view_height;
-    float thumb_h = inner_proportion_of_content_height * track_h;
+    float thumb_height = inner_proportion_of_content_height * track_height;
 
+
+    float x = node->x + node->width - node->border_right - 12.0f;
+    float y = node->y + node->border_top;
+    float thumb_y = node->y + node->border_top + (node->scroll_v * (track_height - thumb_height));
+    float w = 12.0f;
 
     uint32_t vertex_offset = vertices->size;
 
@@ -514,14 +514,14 @@ void Construct_Scroll_Thumb(struct Node* node,
 
     // Background Rect BL
     vertices->array[vertex_offset + 2].x = x;
-    vertices->array[vertex_offset + 2].y = y + track_h;
+    vertices->array[vertex_offset + 2].y = y + track_height;
     vertices->array[vertex_offset + 2].r = 0.1f;
     vertices->array[vertex_offset + 2].g = 0.1f;
     vertices->array[vertex_offset + 2].b = 0.1f;
 
     // Background Rect BR
     vertices->array[vertex_offset + 3].x = x + w;
-    vertices->array[vertex_offset + 3].y = y + track_h;
+    vertices->array[vertex_offset + 3].y = y + track_height;
     vertices->array[vertex_offset + 3].r = 0.1f;
     vertices->array[vertex_offset + 3].g = 0.1f;
     vertices->array[vertex_offset + 3].b = 0.1f;
@@ -542,14 +542,14 @@ void Construct_Scroll_Thumb(struct Node* node,
 
     // Background Thumb BL
     vertices->array[vertex_offset + 6].x = x;
-    vertices->array[vertex_offset + 6].y = thumb_y + thumb_h;
+    vertices->array[vertex_offset + 6].y = thumb_y + thumb_height;
     vertices->array[vertex_offset + 6].r = 1.0f;
     vertices->array[vertex_offset + 6].g = 1.0f;
     vertices->array[vertex_offset + 6].b = 1.0f;
 
     // Background Thumb BR
     vertices->array[vertex_offset + 7].x = x + w;
-    vertices->array[vertex_offset + 7].y = thumb_y + thumb_h;
+    vertices->array[vertex_offset + 7].y = thumb_y + thumb_height;
     vertices->array[vertex_offset + 7].r = 1.0f;
     vertices->array[vertex_offset + 7].g = 1.0f;
     vertices->array[vertex_offset + 7].b = 1.0f;

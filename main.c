@@ -1,13 +1,5 @@
-#define _CRT_SECURE_NO_WARNINGS 
-
-
 
 #include "performance.h"
-
-#include <math.h>
-#include <SDL3/SDL.h>
-#include <GL/glew.h>
-#include <nu_text.h>
 #include "headers/nodus.h"
 
 
@@ -97,24 +89,14 @@ void cloud_tab_select(uint32_t handle, void* args)
 
 int main()
 {
-    // Check if SDL initialised
-    if (!SDL_Init(SDL_INIT_VIDEO)) 
-    {
-        printf("SDL could not initialize! SDL_Error: %s\n", SDL_GetError());
-        return -1;
-    }
-
-
     // ---------------------------------------
     // --- Create GUI and apply stylesheet ---
     // ---------------------------------------
-    NU_Init();
-    NU_Text_Renderer_Init();
+    if (!NU_Init()) return -1;
     if (!NU_From_XML("test.xml")) return -1;
     struct NU_Stylesheet stylesheet;
     NU_Stylesheet_Create(&stylesheet,"test.css"); 
     NU_Stylesheet_Apply(&stylesheet);
-    SDL_AddEventWatch(EventWatcher, NULL);
 
 
     NU_RGB border_col;
@@ -157,27 +139,15 @@ int main()
 
 
 
-    NU_Reflow();
-    NU_Mouse_Hover();
-    NU_Draw();
-
-
     // ------------------------
     // --- Application loop ---
     // ------------------------
-    while (NU_Running()) 
-    {
-        SDL_Event event;
-        if (SDL_WaitEvent(&event)) {
-            EventWatcher(NULL, &event); // you already have this function
-        }
-    }
+    NU_Mainloop();
 
 
     // -------------------
     // --- Free Memory ---
     // -------------------
     NU_Quit();
-    SDL_Quit();
     NU_Stylesheet_Free(&stylesheet);
 }

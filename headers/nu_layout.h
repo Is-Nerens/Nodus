@@ -573,10 +573,10 @@ static void NU_Calculate_Table_Column_Widths()
         // Iterate over  layer
         for (int i=0; i<table_layer->size; i++)
         {       
-            struct Node* node = NU_Layer_Get(table_layer, i);
-            if (node->node_present == 0 || node->node_present == 2) continue;
+            struct Node* table = NU_Layer_Get(table_layer, i);
+            if (table->node_present == 0 || table->node_present == 2) continue;
 
-            if (node->tag == TABLE && node->child_count > 0) 
+            if (table->tag == TABLE && table->child_count > 0) 
             {
 
                 struct Vector widest_in_each_column;
@@ -586,7 +586,7 @@ static void NU_Calculate_Table_Column_Widths()
                 // ------------------------------------------------------------
                 // --- Calculate the widest cell width in each table column ---
                 // ------------------------------------------------------------
-                for (uint16_t r=node->first_child_index; r<node->first_child_index + node->child_count; r++)
+                for (uint16_t r=table->first_child_index; r<table->first_child_index + table->child_count; r++)
                 {
                     struct Node* row = NU_Layer_Get(row_layer, r);
                     if (row->node_present == 2 || row->child_count == 0) break;
@@ -613,18 +613,19 @@ static void NU_Calculate_Table_Column_Widths()
                 // -----------------------------------------------
                 // --- Apply widest column widths to all cells ---
                 // -----------------------------------------------
-                float row_width = node->width - node->border_left - node->border_right - node->pad_left - node->pad_right - (!!(node->layout_flags & OVERFLOW_VERTICAL_SCROLL)) * 12.0f;
-                float remaining_width = row_width;
+                float table_inner_width = table->width - table->border_left - table->border_right - table->pad_left - table->pad_right - (!!(table->layout_flags & OVERFLOW_VERTICAL_SCROLL)) * 12.0f;
+                float remaining_table_inner_width = table_inner_width;
                 for (int k=0; k<widest_in_each_column.size; k++) {
-                    remaining_width -= *(float*)Vector_Get(&widest_in_each_column, k);
+                    remaining_table_inner_width -= *(float*)Vector_Get(&widest_in_each_column, k);
                 }
-                float used_width = row_width - remaining_width;
-                for (uint16_t r=node->first_child_index; r<node->first_child_index + node->child_count; r++)
+                float used_table_width = table_inner_width - remaining_table_inner_width;
+                for (uint16_t r=table->first_child_index; r<table->first_child_index + table->child_count; r++)
                 {
                     struct Node* row = NU_Layer_Get(row_layer, r);
                     if (row->node_present == 2) continue;
-                    row->width = row_width;
-                    
+                    row->width = table_inner_width;
+                    float row_border_pad = row->border_left + row->border_right + row->pad_left + row->pad_right;
+
                     if (row->child_count == 0) break;
 
                     // Iterate over cells in row
@@ -635,8 +636,8 @@ static void NU_Calculate_Table_Column_Widths()
                         struct Node* cell = NU_Layer_Get(cell_layer, c);
                         if (cell->node_present == 2) continue;
                         float column_width = *(float*)Vector_Get(&widest_in_each_column, cell_index);
-                        float proportion = column_width / used_width;
-                        cell->width = column_width + remaining_width * proportion;
+                        float proportion = column_width / (used_table_width);
+                        cell->width = column_width + (remaining_table_inner_width - row_border_pad) * proportion;
                         cell_index++;
                     }
                 }
@@ -748,7 +749,8 @@ static void NU_Horizontally_Place_Children(struct Node* parent, NU_Layer* child_
 static void NU_Vertically_Place_Children(struct Node* parent, NU_Layer* child_layer)
 {
     float y_scroll_offset = 0.0f;
-    if (parent->layout_flags & OVERFLOW_VERTICAL_SCROLL && parent->child_count > 0) 
+    if (parent->layout_flags & OVERFLOW_VERTICAL_SCROLL && parent->child_count > 0 && 
+        parent->content_height > parent->height - parent->pad_top - parent->pad_bottom - parent->border_top - parent->border_bottom) 
     {
         float track_h = parent->height - parent->border_top - parent->border_bottom;
         float inner_height_w_pad = track_h - parent->pad_top - parent->pad_bottom;
@@ -757,7 +759,7 @@ static void NU_Vertically_Place_Children(struct Node* parent, NU_Layer* child_la
         float content_scroll_range = parent->content_height - inner_height_w_pad;
         float thumb_scroll_range = track_h - thumb_h;
         float scroll_factor = content_scroll_range / max(thumb_scroll_range, 1.0f);
-        y_scroll_offset += (-parent->scroll_v) * scroll_factor;
+        y_scroll_offset += (-parent->scroll_v * (track_h - thumb_h)) * scroll_factor;
 
         struct Node* first_child = NU_Layer_Get(child_layer, parent->first_child_index);
         if (first_child->node_present != 2 && first_child->tag == THEAD) {
@@ -881,10 +883,10 @@ static bool NU_Mouse_Over_Node(struct Node* node, float mouse_x, float mouse_y)
 
 // Check against scrollbar v thumb
 static bool NU_Mouse_Over_Node_V_Scrollbar(struct Node* node, float mouse_x, float mouse_y) {
+    float track_height = node->height - node->border_top - node->border_bottom;
+    float thumb_height = (track_height / node->content_height) * track_height;
     float scroll_thumb_left_wall = node->x + node->width - node->border_right - 12.0f;
-    float scroll_thumb_top_wall = node->y + node->border_top + node->scroll_v;
-    float inner_height = node->height - node->border_top - node->border_bottom;
-    float thumb_height = (inner_height / node->content_height) * inner_height;
+    float scroll_thumb_top_wall = node->y + node->border_top + (node->scroll_v * (track_height - thumb_height));
     bool within_x_bound = mouse_x >= scroll_thumb_left_wall && mouse_x <= scroll_thumb_left_wall + 12.0f;
     bool within_y_bound = mouse_y >= scroll_thumb_top_wall && mouse_y <= scroll_thumb_top_wall + thumb_height;
     return within_x_bound && within_y_bound;
@@ -1082,14 +1084,24 @@ struct Clip_Bounds
 void NU_Draw()
 {
     // Initialise node lists
-    struct Vector window_nodes_list[__nu_global_gui.windows.size];
-    struct Vector window_clipped_nodes_list[__nu_global_gui.windows.size];
-    struct Vector window_canvas_nodes_list[__nu_global_gui.windows.size];
+    uint32_t window_count = __nu_global_gui.windows.size;
+    struct Vector window_nodes_list[window_count];
+    struct Vector window_clipped_nodes_list[window_count];
+    struct Vector window_canvas_nodes_list[window_count];
     for (uint32_t i=0; i<__nu_global_gui.windows.size; i++) 
     {
         Vector_Reserve(&window_nodes_list[i], sizeof(struct Node*), 512);
         Vector_Reserve(&window_clipped_nodes_list[i], sizeof(struct Node*), 128);
         Vector_Reserve(&window_canvas_nodes_list[i], sizeof(struct Node*), 4);
+    }
+
+    // Initialise text vertex and index buffers (per font)
+    Vertex_RGB_UV_List text_vertex_buffers[__nu_global_gui.stylesheet->fonts.size];
+    Index_List text_index_buffers[__nu_global_gui.stylesheet->fonts.size];
+    for (uint32_t i=0; i<__nu_global_gui.stylesheet->fonts.size; i++)
+    {
+        Vertex_RGB_UV_List_Init(&text_vertex_buffers[i], 512);
+        Index_List_Init(&text_index_buffers[i], 512);
     }
 
     // Create a clipping hashmap
@@ -1110,7 +1122,14 @@ void NU_Draw()
         for (int p=0; p<parent_layer->size; p++)
         {       
             struct Node* parent = NU_Layer_Get(parent_layer, p);
-            if (parent->node_present == 0 || parent->node_present == 2) continue;
+            if (parent->node_present == 0) continue;
+            if (parent->node_present == 2) { // Parent not visible -> children must inherit this
+                for (uint16_t i=parent->first_child_index; i<parent->first_child_index + parent->child_count; i++) {
+                    struct Node* child = NU_Layer_Get(child_layer, i);
+                    child->node_present = 2;
+                }
+                continue;
+            }
 
             // Precompute once (optimisation)
             float parent_inner_x, parent_inner_y, parent_inner_width, parent_inner_height = 0;
@@ -1147,7 +1166,7 @@ void NU_Draw()
                     continue;
                 }
 
-                // If node is positioned relatively (it mus be drawn on top of siblings)
+                // If node is positioned relatively (it must be drawn on top of siblings)
 
                 // Skip node if not visible in parent (due to overflow)
                 if (parent->layout_flags & OVERFLOW_VERTICAL_SCROLL && child->tag != THEAD) 
@@ -1275,16 +1294,14 @@ void NU_Draw()
         // ------------------------------------------------------------------
         // --- Generate text meshes and draw in one go (also draw images) ---
         // ------------------------------------------------------------------
-        Vertex_RGB_UV_List text_vertices;
-        Index_List text_indices;
-        Vertex_RGB_UV_List_Init(&text_vertices, 4000);
-        Index_List_Init(&text_indices, 6000);
         // Construct mesh for all nodes with text
-        for (int n=0; n<window_nodes_list[i].size; n++) {
+        for (int n=0; n<window_nodes_list[i].size; n++) 
+        {
             struct Node* node = *(struct Node**) Vector_Get(&window_nodes_list[i], n);
             if (node->text_content != NULL) {
-                NU_Font* node_font = Vector_Get(&__nu_global_gui.stylesheet->fonts, node->font_id);
-                NU_Add_Text_Mesh(&text_vertices, &text_indices, node);
+                Vertex_RGB_UV_List* text_vertices = &text_vertex_buffers[node->font_id];
+                Index_List* text_indices = &text_index_buffers[node->font_id];
+                NU_Add_Text_Mesh(text_vertices, text_indices, node);
             }
 
             // Draw image
@@ -1303,10 +1320,15 @@ void NU_Draw()
             }
         }
         // Draw all text
-        NU_Font* node_font = Vector_Get(&__nu_global_gui.stylesheet->fonts, 0);
-        NU_Render_Text(&text_vertices, &text_indices, node_font, w_fl, h_fl, -1.0f, 100000.0f, -1.0f, 100000.0f);
-        Vertex_RGB_UV_List_Free(&text_vertices);
-        Index_List_Free(&text_indices);
+        for (uint32_t t=0; t<__nu_global_gui.stylesheet->fonts.size; t++)
+        {
+            Vertex_RGB_UV_List* text_vertices = &text_vertex_buffers[t];
+            Index_List* text_indices = &text_index_buffers[t];
+            NU_Font* node_font = Vector_Get(&__nu_global_gui.stylesheet->fonts, t);
+            NU_Render_Text(text_vertices, text_indices, node_font, w_fl, h_fl, -1.0f, 100000.0f, -1.0f, 100000.0f);
+            text_vertices->size = 0;
+            text_indices->size = 0;
+        }
         // ---------------------------------------------
         // --- Generate text mesh and draw in one go ---
         // ---------------------------------------------
@@ -1365,16 +1387,18 @@ void NU_Draw()
         SDL_GL_SwapWindow(window); 
     }
     
-    // Free window node lists
-    for (uint32_t i=0; i<__nu_global_gui.windows.size; i++) 
-    {
+    // -----------------------
+    // --- Free memory -------
+    // -----------------------
+    for (uint32_t i=0; i<__nu_global_gui.windows.size; i++) {
         Vector_Free(&window_nodes_list[i]);
         Vector_Free(&window_clipped_nodes_list[i]);
         Vector_Free(&window_canvas_nodes_list[i]);
     }
-
-
-    // Free clip hashmap
+    for (uint32_t i=0; i<__nu_global_gui.stylesheet->fonts.size; i++) {
+        Vertex_RGB_UV_List_Free(&text_vertex_buffers[i]);
+        Index_List_Free(&text_index_buffers[i]);
+    }
     Hashmap_Free(&clip_map);
 }
 

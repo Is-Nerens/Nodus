@@ -47,7 +47,7 @@ typedef struct {
 
 typedef struct {
     char** strings_map;        // sparse hash vector of char*
-    char** buffer_chunks;      // array of char arrays
+    char** buffer_chunks;      // array of char arrays (stores keys)
     void* item_data;           // sparse array of items
     String_Map_Free_Element* freelist;
     uint32_t first_chunk_size; // chars in first chunk
@@ -128,7 +128,7 @@ void* String_Map_Get(String_Map* map, char* key)
         if (map_string == NULL) {
             return NULL;
         }
-
+        
         // Check for match 
         if (strcmp(map_string, key) == 0) {
             return (char*)map->item_data + i * map->item_size;
@@ -190,6 +190,13 @@ void String_Map_Grow_Rehash(String_Map* map)
 
 void String_Map_Set(String_Map* map, char* key, void* item)
 {   
+    // If the key already exists in the map -> update value and return
+    void* exists = String_Map_Get(map, key);
+    if (exists != NULL) {
+        memcpy(exists, item, map->item_size);
+        return;
+    }
+
     // If the hashmap load factor is too high -> expand and rehash
     float load_factor = (float)map->string_count / (float)map->string_map_capacity;
     if (load_factor > 0.7f) {
@@ -240,18 +247,21 @@ void String_Map_Set(String_Map* map, char* key, void* item)
         if (map->chunks_used == map->chunks_available) {
             map->chunks_available *= 2;
             map->buffer_chunks = realloc(map->buffer_chunks, map->chunks_available * sizeof(char*));
+            for (uint16_t z=map->chunks_used; z<map->chunks_available; z++) {
+                map->buffer_chunks[z] = NULL;
+            }
         }
         map->buffer_chunks[map->chunks_used-1] = malloc(chunk_size);
 
         // Add a free element
         if (map->freelist_size == map->freelist_capacity) {
             map->freelist_capacity *= 2;
-            map->freelist = realloc(map->freelist, map->freelist_capacity * sizeof(String_Map_Free));
+            map->freelist = realloc(map->freelist, map->freelist_capacity * sizeof(String_Map_Free_Element));
         }
         String_Map_Free_Element new_free;
         new_free.chunk = map->chunks_used-1;
-        new_free.index = 0;
-        new_free.size = chunk_size;
+        new_free.index = string_len;
+        new_free.size = chunk_size - string_len;
         map->freelist[map->freelist_size] = new_free;
         map->freelist_size += 1;
         space_index = 0;
@@ -285,7 +295,7 @@ void String_Map_Set(String_Map* map, char* key, void* item)
 
 void String_Map_Delete(String_Map* map, char* key)
 {
-    uint32_t string_len = (uint32_t)strlen(key);
+    uint32_t string_len = (uint32_t)strlen(key) + 1;
     uint32_t string_index = UINT32_MAX;
     uint32_t chunk_index = UINT32_MAX;
     for (uint32_t i=0; i<map->chunks_used; i++) {

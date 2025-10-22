@@ -111,6 +111,9 @@ char* StringArena_Add(StringArena* arena, char* string)
         if (arena->chunks_used == arena->chunks_available) {
             arena->chunks_available *= 2;
             arena->buffer_chunks = realloc(arena->buffer_chunks, arena->chunks_available * sizeof(char*));
+            for (uint16_t z=arena->chunks_used; z<arena->chunks_available; z++) {
+                arena->buffer_chunks[z] = NULL;
+            }
         }
         arena->buffer_chunks[arena->chunks_used-1] = malloc(chunk_size);
 
@@ -121,8 +124,8 @@ char* StringArena_Add(StringArena* arena, char* string)
         }
         StringArenaFree free;
         free.chunk = arena->chunks_used-1;
-        free.index = 0;
-        free.size = chunk_size;
+        free.index = string_len;
+        free.size = chunk_size - string_len;
         arena->freelist[arena->freelist_size] = free;
         arena->freelist_size += 1;
         space_index = 0;

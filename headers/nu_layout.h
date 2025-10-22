@@ -39,26 +39,21 @@ static void NU_Clear_Node_Sizes()
         // Iterate over parent layer
         for (int p=0; p<parent_layer->size; p++)
         {       
-            struct Node* parent = NU_Layer_Get(parent_layer, p);
-            if (parent->node_present == 0) continue;
-
+            struct Node* parent = NU_Layer_Get(parent_layer, p); if (parent->node_present == 0) continue;
 
             // Iterate over children
             for (uint16_t i=parent->first_child_index; i<parent->first_child_index + parent->child_count; i++)
             {
                 struct Node* child = NU_Layer_Get(child_layer, i);
 
-                // Inherit "hidden" property from parent
-                if (parent->layout_flags & HIDDEN || child->layout_flags & HIDDEN || parent->node_present == 2) {
+                // Hide child if parent is hidden or child is hidden
+                child->node_present = 1;
+                if (parent->layout_flags & HIDDEN || child->layout_flags & HIDDEN) {
                     child->node_present = 2; 
                     continue;
                 }
-                else 
-                {
-                    child->node_present = 1;
-                }
 
-                // Reset Node Size
+                // Reset position
                 child->x = 0.0f;
                 child->y = 0.0f;
 
@@ -80,11 +75,6 @@ static void NU_Clear_Node_Sizes()
                 child->height = child->preferred_height;
                 child->content_width = 0;
                 child->content_height = 0;
-
-                // Enforce Window Dimensions (This is very slow and must not be done each time I call Reflow!!!)
-                // if (node->tag == WINDOW) {
-                //     SDL_SetWindowMinimumSize(node->window, node->min_width, node->min_height);
-                // }
             }
         }
     }
@@ -106,8 +96,6 @@ static void NU_Calculate_Text_Fit_Widths()
             if (node->text_content != NULL) 
             {
                 NU_Font* node_font = Vector_Get(&__nu_global_gui.stylesheet->fonts, node->font_id);
-                // printf("node font_id: %d\n", (int)node->font_id);
-                // printf("node text: %s\n", node->text_content);
                 
                 // Calculate text width & height
                 float text_width = NU_Calculate_Text_Unwrapped_Width(node_font, node->text_content);
@@ -128,6 +116,7 @@ static void NU_Calculate_Text_Fit_Widths()
 
 static void NU_Calculate_Fit_Size_Widths()
 {
+    // Traverse the tree bottom-up
     for (int l=__nu_global_gui.deepest_layer-1; l>=0; l--)
     {
         NU_Layer* parent_layer = &__nu_global_gui.tree.layers[l];
@@ -138,9 +127,9 @@ static void NU_Calculate_Fit_Size_Widths()
         {       
             struct Node* parent = NU_Layer_Get(parent_layer, p);
             if (parent->node_present == 0 || parent->node_present == 2) continue;
-
             int is_layout_horizontal = !(parent->layout_flags & LAYOUT_VERTICAL);
 
+            // If parent is a window -> set dimensions equal to window
             if (parent->tag == WINDOW) {
                 int window_width, window_height;
                 SDL_GetWindowSize(parent->window, &window_width, &window_height);
@@ -148,19 +137,18 @@ static void NU_Calculate_Fit_Size_Widths()
                 parent->height = (float) window_height;
             }
 
-            if (parent->child_count == 0) continue; // Skip acummulating child sizes (no children)
+            // Skip (no children)
+            if (parent->child_count == 0) continue; 
 
             // Accumulate content width
             int visible_children = 0;
             for (uint16_t i=parent->first_child_index; i<parent->first_child_index + parent->child_count; i++)
             {
-                struct Node* child = NU_Layer_Get(child_layer, i);
-                if (child->node_present == 2) continue; // Child is hidden
+                struct Node* child = NU_Layer_Get(child_layer, i); 
 
-                if (child->tag == WINDOW && is_layout_horizontal) { 
-                    parent->content_width -= parent->gap + child->width; 
-                }   
-                
+                // Ignore if child is hidden or window
+                if (child->node_present == 2 || child->tag == WINDOW) continue; 
+
                 // Horizontal Layout
                 if (is_layout_horizontal) parent->content_width += child->width;
 
@@ -171,7 +159,7 @@ static void NU_Calculate_Fit_Size_Widths()
             }
 
             // Expand parent width to account for content width
-            if (is_layout_horizontal) parent->content_width += (visible_children - 1) * parent->gap;
+            if (is_layout_horizontal && visible_children > 0) parent->content_width += (visible_children - 1) * parent->gap;
             if (parent->tag != WINDOW && parent->content_width > parent->width) {
                 parent->width = parent->content_width + parent->border_left + parent->border_right + parent->pad_left + parent->pad_right;
                 NU_Apply_Min_Max_Width_Constraint(parent);
@@ -182,8 +170,7 @@ static void NU_Calculate_Fit_Size_Widths()
 
 static void NU_Calculate_Fit_Size_Heights()
 {
-    if (__nu_global_gui.deepest_layer == 0) return;
-
+    // Traverse the tree bottom-up
     for (int l=__nu_global_gui.deepest_layer-1; l>= 0; l--)
     {
         NU_Layer* parent_layer = &__nu_global_gui.tree.layers[l];
@@ -194,22 +181,20 @@ static void NU_Calculate_Fit_Size_Heights()
         {       
             struct Node* parent = NU_Layer_Get(parent_layer, p);
             if (parent->node_present == 0 || parent->node_present == 2) continue;
-
             int is_layout_horizontal = !(parent->layout_flags & LAYOUT_VERTICAL);
 
-            if (parent->child_count == 0) { continue; } // Skip acummulating child sizes (no children)
+            // Skip (no children)
+            if (parent->child_count == 0) continue; 
 
             // Iterate over children
             int visible_children = 0;
             for (uint16_t i=parent->first_child_index; i<parent->first_child_index + parent->child_count; i++)
             {
                 struct Node* child = NU_Layer_Get(child_layer, i);
-                if (child->node_present == 2) continue;
 
-                if (child->tag == WINDOW) {
-                    if (!is_layout_horizontal) parent->content_height -= parent->gap + child->height;
-                }   
-                
+                // Ignore if child is hidden or window
+                if (child->node_present == 2 || child->tag == WINDOW) continue;
+
                 // Horizontal Layout
                 if (is_layout_horizontal) parent->content_height = MAX(parent->content_height, child->height);
                 
@@ -220,7 +205,7 @@ static void NU_Calculate_Fit_Size_Heights()
             }
 
             // Expand parent height to account for content height
-            if (!is_layout_horizontal) parent->content_height += (visible_children - 1) * parent->gap;
+            if (!is_layout_horizontal && visible_children > 0) parent->content_height += (visible_children - 1) * parent->gap;
             if (parent->tag != WINDOW) {
                 if (!(parent->layout_flags & OVERFLOW_VERTICAL_SCROLL)) parent->height = parent->content_height + parent->border_top + parent->border_bottom + parent->pad_top + parent->pad_bottom;
                 NU_Apply_Min_Max_Height_Constraint(parent);
@@ -310,7 +295,7 @@ static void NU_Grow_Shrink_Child_Node_Widths(struct Node* parent, NU_Layer* chil
             bool grew_any = false;
             for (uint16_t i=parent->first_child_index; i<parent->first_child_index + parent->child_count; i++) {
                 struct Node* child = NU_Layer_Get(child_layer, i); if (child->node_present == 2) continue;        
-                if (child->layout_flags & GROW_HORIZONTAL && child->tag != WINDOW && child->width < child->max_width) {// if child is growable
+                if (child->layout_flags & GROW_HORIZONTAL && child->tag != WINDOW && child->width < child->max_width) { // if child is growable
                     if (child->width == smallest) {
                         float available = child->max_width - child->width;
                         float grow = min(width_to_add, available);
@@ -535,7 +520,6 @@ static void NU_Grow_Shrink_Widths()
         NU_Layer* parent_layer = &__nu_global_gui.tree.layers[l];
         NU_Layer* child_layer = &__nu_global_gui.tree.layers[l+1];
 
-        // Iterate over parent layer
         for (int p=0; p<parent_layer->size; p++)
         {       
             struct Node* parent = NU_Layer_Get(parent_layer, p);
@@ -553,7 +537,6 @@ static void NU_Grow_Shrink_Heights()
         NU_Layer* parent_layer = &__nu_global_gui.tree.layers[l];
         NU_Layer* child_layer = &__nu_global_gui.tree.layers[l+1];
 
-        // Iterate over parent layer
         for (int p=0; p<parent_layer->size; p++)
         {       
             struct Node* parent = NU_Layer_Get(parent_layer, p);
@@ -570,79 +553,78 @@ static void NU_Calculate_Table_Column_Widths()
     {
         NU_Layer* table_layer = &__nu_global_gui.tree.layers[l];
 
-        // Iterate over  layer
         for (int i=0; i<table_layer->size; i++)
         {       
             struct Node* table = NU_Layer_Get(table_layer, i);
-            if (table->node_present == 0 || table->node_present == 2) continue;
+            if (table->node_present == 0 || table->node_present == 2 || table->tag != TABLE || table->child_count == 0) continue;
 
-            if (table->tag == TABLE && table->child_count > 0) 
+
+            struct Vector widest_cell_in_each_column;
+            Vector_Reserve(&widest_cell_in_each_column, sizeof(float), 25);
+            NU_Layer* row_layer = &__nu_global_gui.tree.layers[l+1];
+
+            // ------------------------------------------------------------
+            // --- Calculate the widest cell width in each table column ---
+            // ------------------------------------------------------------
+            for (uint16_t r=table->first_child_index; r<table->first_child_index + table->child_count; r++)
             {
+                struct Node* row = NU_Layer_Get(row_layer, r);
+                if (row->node_present == 2 || row->child_count == 0) break;
 
-                struct Vector widest_in_each_column;
-                Vector_Reserve(&widest_in_each_column, sizeof(float), 50);
-                NU_Layer* row_layer = &__nu_global_gui.tree.layers[l+1];
-
-                // ------------------------------------------------------------
-                // --- Calculate the widest cell width in each table column ---
-                // ------------------------------------------------------------
-                for (uint16_t r=table->first_child_index; r<table->first_child_index + table->child_count; r++)
+                // Iterate over cells in row
+                int cell_index = 0;
+                NU_Layer* cell_layer = &__nu_global_gui.tree.layers[l+2];
+                for (uint16_t c=row->first_child_index; c<row->first_child_index + row->child_count; c++)
                 {
-                    struct Node* row = NU_Layer_Get(row_layer, r);
-                    if (row->node_present == 2 || row->child_count == 0) break;
-
-                    // Iterate over cells in row
-                    NU_Layer* cell_layer = &__nu_global_gui.tree.layers[l+2];
-                    int cell_index = 0;
-                    for (uint16_t c=row->first_child_index; c<row->first_child_index + row->child_count; c++)
-                    {
-                        if (cell_index == widest_in_each_column.size) {
-                            float val = 0;
-                            Vector_Push(&widest_in_each_column, &val);
-                        }
-                        float* val = Vector_Get(&widest_in_each_column, cell_index);
-                        struct Node* cell = NU_Layer_Get(cell_layer, c);
-                        if (cell->node_present == 2) continue;
-                        if (cell->width > *val) {
-                            *val = cell->width;
-                        }
-                        cell_index++;
+                    // Expand the vector if there are more columns that the vector has capacity for
+                    if (cell_index == widest_cell_in_each_column.size) {
+                        float val = 0;
+                        Vector_Push(&widest_cell_in_each_column, &val);
                     }
-                }
 
-                // -----------------------------------------------
-                // --- Apply widest column widths to all cells ---
-                // -----------------------------------------------
-                float table_inner_width = table->width - table->border_left - table->border_right - table->pad_left - table->pad_right - (!!(table->layout_flags & OVERFLOW_VERTICAL_SCROLL)) * 12.0f;
-                float remaining_table_inner_width = table_inner_width;
-                for (int k=0; k<widest_in_each_column.size; k++) {
-                    remaining_table_inner_width -= *(float*)Vector_Get(&widest_in_each_column, k);
-                }
-                float used_table_width = table_inner_width - remaining_table_inner_width;
-                for (uint16_t r=table->first_child_index; r<table->first_child_index + table->child_count; r++)
-                {
-                    struct Node* row = NU_Layer_Get(row_layer, r);
-                    if (row->node_present == 2) continue;
-                    row->width = table_inner_width;
-                    float row_border_pad = row->border_left + row->border_right + row->pad_left + row->pad_right;
-
-                    if (row->child_count == 0) break;
-
-                    // Iterate over cells in row
-                    NU_Layer* cell_layer = &__nu_global_gui.tree.layers[l+2];
-                    int cell_index = 0;
-                    for (uint16_t c=row->first_child_index; c<row->first_child_index + row->child_count; c++)
-                    {
-                        struct Node* cell = NU_Layer_Get(cell_layer, c);
-                        if (cell->node_present == 2) continue;
-                        float column_width = *(float*)Vector_Get(&widest_in_each_column, cell_index);
-                        float proportion = column_width / (used_table_width);
-                        cell->width = column_width + (remaining_table_inner_width - row_border_pad) * proportion;
-                        cell_index++;
+                    // Get current column width and update if cell is wider
+                    float* val = Vector_Get(&widest_cell_in_each_column, cell_index);
+                    struct Node* cell = NU_Layer_Get(cell_layer, c);
+                    if (cell->node_present == 2) continue;
+                    if (cell->width > *val) {
+                        *val = cell->width;
                     }
+                    cell_index++;
                 }
-                Vector_Free(&widest_in_each_column);
             }
+
+            // -----------------------------------------------
+            // --- Apply widest column widths to all cells ---
+            // -----------------------------------------------
+            float table_inner_width = table->width - table->border_left - table->border_right - table->pad_left - table->pad_right - (!!(table->layout_flags & OVERFLOW_VERTICAL_SCROLL)) * 12.0f;
+            float remaining_table_inner_width = table_inner_width;
+            for (int k=0; k<widest_cell_in_each_column.size; k++) {
+                remaining_table_inner_width -= *(float*)Vector_Get(&widest_cell_in_each_column, k);
+            }
+            float used_table_width = table_inner_width - remaining_table_inner_width;
+
+            // Interate over all the rows in the table
+            for (uint16_t r=table->first_child_index; r<table->first_child_index + table->child_count; r++)
+            {
+                struct Node* row = NU_Layer_Get(row_layer, r);
+                if (row->node_present == 2) continue;
+                row->width = table_inner_width;
+                float row_border_pad = row->border_left + row->border_right + row->pad_left + row->pad_right;
+
+                // Grow the width of all cells 
+                NU_Layer* cell_layer = &__nu_global_gui.tree.layers[l+2];
+                int cell_index = 0;
+                for (uint16_t c=row->first_child_index; c<row->first_child_index + row->child_count; c++)
+                {
+                    struct Node* cell = NU_Layer_Get(cell_layer, c);
+                    if (cell->node_present == 2) continue;
+                    float column_width = *(float*)Vector_Get(&widest_cell_in_each_column, cell_index);
+                    float proportion = column_width / (used_table_width);
+                    cell->width = column_width + (remaining_table_inner_width - row_border_pad) * proportion;
+                    cell_index++;
+                }
+            }
+            Vector_Free(&widest_cell_in_each_column);
         }
     }
 }
@@ -659,7 +641,6 @@ static void NU_Calculate_Text_Heights()
         {       
             struct Node* node = &layer->node_array[i];
             if (node->node_present == 0 || node->node_present == 2) continue;
-
 
             if (node->text_content != NULL) 
             {
@@ -873,12 +854,58 @@ static bool NU_Mouse_Over_Node(struct Node* node, float mouse_x, float mouse_y)
 {
     bool within_x_bound = mouse_x >= node->x && mouse_x <= node->x + node->width;
     bool within_y_bound = mouse_y >= node->y && mouse_y <= node->y + node->height;
-    if (within_x_bound && within_y_bound)
+    if (!(within_x_bound && within_y_bound)) return false; // Not in bounding rect
+
+    // --- Constrain border radii ---
+    float border_radius_bl = node->border_radius_bl;
+    float border_radius_br = node->border_radius_br;
+    float border_radius_tl = node->border_radius_tl;
+    float border_radius_tr = node->border_radius_tr;
+    float left_radii_sum   = border_radius_tl + border_radius_bl;
+    float right_radii_sum  = border_radius_tr + border_radius_br;
+    float top_radii_sum    = border_radius_tl + border_radius_tr;
+    float bottom_radii_sum = border_radius_bl + border_radius_br;
+    if (left_radii_sum   > node->height)  { float scale = node->height / left_radii_sum;   border_radius_tl *= scale; border_radius_bl *= scale; }
+    if (right_radii_sum  > node->height)  { float scale = node->height / right_radii_sum;  border_radius_tr *= scale; border_radius_br *= scale; }
+    if (top_radii_sum    > node->width )  { float scale = node->width  / top_radii_sum;    border_radius_tl *= scale; border_radius_tr *= scale; }
+    if (bottom_radii_sum > node->width )  { float scale = node->width  / bottom_radii_sum; border_radius_bl *= scale; border_radius_br *= scale; }
+
+    // --- Rounded border anchors ---
+    vec2 tl_a = { floorf(node->x + border_radius_tl),               floorf(node->y + border_radius_tl) };
+    vec2 tr_a = { floorf(node->x + node->width - border_radius_tr), floorf(node->y + border_radius_tr) };
+    vec2 bl_a = { floorf(node->x + border_radius_bl),               floorf(node->y + node->height - border_radius_bl) };
+    vec2 br_a = { floorf(node->x + node->width - border_radius_br), floorf(node->y + node->height - border_radius_br) };
+
+
+    // --- Ensure mouse is not in top left rounded deadzone
+    if (mouse_x < tl_a.x && mouse_y < tl_a.y)
     {
-        // Must also consider border radius
-        return true;
+        float dist = sqrtf((mouse_x - tl_a.x) * (mouse_x - tl_a.x) + (mouse_y - tl_a.y) * (mouse_y - tl_a.y)); 
+        if (dist > border_radius_tl) return false;
     }
-    return false;
+
+    // --- Ensure mouse is not in top right rounded deadzone
+    if (mouse_x > tr_a.x && mouse_y < tr_a.y)
+    {
+        float dist = sqrtf((mouse_x - tr_a.x) * (mouse_x - tr_a.x) + (mouse_y - tr_a.y) * (mouse_y - tr_a.y)); 
+        if (dist > border_radius_tr) return false;
+    }
+
+    // --- Ensure mouse is not in bottom left rounded deadzone
+    if (mouse_x < bl_a.x && mouse_y > bl_a.y)
+    {
+        float dist = sqrtf((mouse_x - bl_a.x) * (mouse_x - bl_a.x) + (mouse_y - bl_a.y) * (mouse_y - bl_a.y)); 
+        if (dist > border_radius_bl) return false;
+    }
+
+    // --- Ensure mouse is not in bottom right rounded deadzone
+    if (mouse_x > br_a.x && mouse_y > br_a.y)
+    {
+        float dist = sqrtf((mouse_x - br_a.x) * (mouse_x - br_a.x) + (mouse_y - br_a.y) * (mouse_y - br_a.y)); 
+        if (dist > border_radius_br) return false;
+    }
+
+    return true;
 }
 
 // Check against scrollbar v thumb
@@ -954,7 +981,7 @@ void NU_Mouse_Hover()
             // ---------------------------------
             // --- If child is not a window node
             // ---------------------------------
-            if (child->tag != WINDOW && NU_Mouse_Over_Node_Bounds(child, rel_x, rel_y)) 
+            if (child->tag != WINDOW && NU_Mouse_Over_Node(child, rel_x, rel_y)) 
             {
                 __nu_global_gui.hovered_node = child;
 

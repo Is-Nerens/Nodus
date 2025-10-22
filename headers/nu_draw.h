@@ -344,7 +344,7 @@ void Construct_Border_Rect(
 {
     const float PI = 3.14159265f;
 
-    // --- Border radii ---
+    // --- Constrain border radii ---
     float border_radius_bl = node->border_radius_bl;
     float border_radius_br = node->border_radius_br;
     float border_radius_tl = node->border_radius_tl;

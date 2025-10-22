@@ -717,7 +717,6 @@ static int NU_Generate_Stylesheet(char* src_buffer, uint32_t src_length, struct 
                     create_font_index = (uint8_t)(ss->fonts.size - 1);
                     create_font = Vector_Get(&ss->fonts, create_font_index);
                     String_Map_Set(&ss->font_name_index_map, create_font_name, &create_font_index);
-                    printf("creating new font with name: %s at index: %d\n", create_font_name, create_font_index);
                 } 
 
                 ctx = 1;
@@ -797,7 +796,6 @@ static int NU_Generate_Stylesheet(char* src_buffer, uint32_t src_length, struct 
                 if (create_font_src != NULL)
                 {
                     NU_Font_Create(create_font, create_font_src, create_font_size, true);
-                    printf("create font index: %d\n", (int)create_font_index);
                     create_font_index = UINT8_MAX;
                     create_font_size = 18;
                     create_font_weight = 400;
@@ -1432,7 +1430,6 @@ static int NU_Generate_Stylesheet(char* src_buffer, uint32_t src_length, struct 
                 {
                     case STYLE_FONT_SRC:
                         create_font_src = text;
-                        printf("create font src: %s\n", create_font_src);
                         break;
 
                     case STYLE_FONT_SIZE:

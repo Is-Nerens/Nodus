@@ -196,13 +196,16 @@ char* String_Set_Add(String_Set* set, const char* string)
         if (set->chunks_used == set->chunks_available) {
             set->chunks_available *= 2;
             set->buffer_chunks = realloc(set->buffer_chunks, set->chunks_available * sizeof(char*));
+            for (uint16_t z=set->chunks_used; z<set->chunks_available; z++) {
+                set->buffer_chunks[z] = NULL;
+            }
         }
         set->buffer_chunks[set->chunks_used-1] = malloc(set->chunk_size);
 
         // Add a free element for new chunk
         String_Set_Free_Element new_free = { 
-            0, 
-            set->chunk_size, 
+            string_len, 
+            set->chunk_size - string_len, 
             set->chunks_used-1, 
         };
         Vector_Push(&set->freelist, &new_free);

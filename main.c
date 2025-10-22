@@ -11,79 +11,35 @@ void on_click(uint32_t node_handle, void *args) {
 }
 
 
-struct Tab_Select_Data
-{
+struct Tab_Manager {
     uint32_t current_tab_btn;
     uint32_t current_tab_container;
 };
 
-void charts_tab_select(uint32_t handle, void* args)
+struct Tab_Select_Data {
+    struct Tab_Manager* manager; // shared state
+    uint32_t tab_btn;
+    uint32_t tab_container;
+};
+
+
+
+void tab_select(uint32_t handle, void* args)
 {
     struct Tab_Select_Data* data = (struct Tab_Select_Data*)args;
+    struct Tab_Manager* mgr = data->manager;
 
-    NU_Set_Class(handle, "toolbar-button-selected");
-    uint32_t charts_tab_container = NU_Get_Node_By_Id("charts-tab-container");
-    NU_Show(charts_tab_container);
+    // Deactivate previous tab
+    NU_Set_Class(mgr->current_tab_btn, "tab-button");
+    NU_Hide(mgr->current_tab_container);
 
-    if (data->current_tab_btn != 0 && data->current_tab_btn != handle) {
-        NU_Set_Class(data->current_tab_btn, "toolbar-button");
-        NU_Hide(data->current_tab_container);
-    }
+    // Activate the clicked one
+    NU_Set_Class(data->tab_btn, "tab-button-selected");
+    NU_Show(data->tab_container);
 
-    // Update selected tab data struct
-    data->current_tab_btn = handle;
-    data->current_tab_container = charts_tab_container;
-}
-void editor_tab_select(uint32_t handle, void* args)
-{
-    struct Tab_Select_Data* data = (struct Tab_Select_Data*)args;
-
-    NU_Set_Class(handle, "toolbar-button-selected");
-    uint32_t editor_tab_container = NU_Get_Node_By_Id("editor-tab-container");
-    NU_Show(editor_tab_container);
-
-    if (data->current_tab_btn != 0 && data->current_tab_btn != handle) {
-        NU_Set_Class(data->current_tab_btn, "toolbar-button");
-        NU_Hide(data->current_tab_container);
-    }
-
-    // Update selected tab data struct
-    data->current_tab_btn = handle;
-    data->current_tab_container = editor_tab_container;
-}
-void perf_tab_select(uint32_t handle, void* args)
-{
-    struct Tab_Select_Data* data = (struct Tab_Select_Data*)args;
-
-    NU_Set_Class(handle, "toolbar-button-selected");
-    uint32_t perf_tab_container = NU_Get_Node_By_Id("perf-tab-container");
-    NU_Show(perf_tab_container);
-
-    if (data->current_tab_btn != 0 && data->current_tab_btn != handle) {
-        NU_Set_Class(data->current_tab_btn, "toolbar-button");
-        NU_Hide(data->current_tab_container);
-    }
-
-    // Update selected tab data struct
-    data->current_tab_btn = handle;
-    data->current_tab_container = perf_tab_container;
-}
-void cloud_tab_select(uint32_t handle, void* args)
-{
-    struct Tab_Select_Data* data = (struct Tab_Select_Data*)args;
-
-    NU_Set_Class(handle, "toolbar-button-selected");
-    uint32_t cloud_tab_container = NU_Get_Node_By_Id("cloud-tab-container");
-    NU_Show(cloud_tab_container);
-
-    if (data->current_tab_btn != 0 && data->current_tab_btn != handle) {
-        NU_Set_Class(data->current_tab_btn, "toolbar-button");
-        NU_Hide(data->current_tab_container);
-    }
-
-    // Update selected tab data struct
-    data->current_tab_btn = handle;
-    data->current_tab_container = cloud_tab_container;
+    // Update manager state
+    mgr->current_tab_btn = data->tab_btn;
+    mgr->current_tab_container = data->tab_container;
 }
 
 
@@ -117,33 +73,46 @@ int main()
     Line(chart, 20.5, 20.5, 300.5, 300.5, 1, &border_col);
 
 
-
+    // --- Main Tab Selection ---
     uint32_t charts_tab_btn = NU_Get_Node_By_Id("charts-tab-btn");
     uint32_t editor_tab_btn = NU_Get_Node_By_Id("editor-tab-btn");
     uint32_t perf_tab_btn = NU_Get_Node_By_Id("perf-tab-btn");
     uint32_t cloud_tab_btn = NU_Get_Node_By_Id("cloud-tab-btn");
     uint32_t charts_tab_container = NU_Get_Node_By_Id("charts-tab-container");
     uint32_t editor_tab_container = NU_Get_Node_By_Id("editor-tab-container");
+
+
     uint32_t perf_tab_container = NU_Get_Node_By_Id("perf-tab-container");
     uint32_t cloud_tab_container = NU_Get_Node_By_Id("cloud-tab-container");
+    struct Tab_Manager main_tabs = { .current_tab_btn = charts_tab_btn, .current_tab_container = charts_tab_container };
+    struct Tab_Select_Data charts_tab = { &main_tabs, charts_tab_btn, charts_tab_container };
+    struct Tab_Select_Data editor_tab = { &main_tabs, editor_tab_btn, editor_tab_container };
+    struct Tab_Select_Data perf_tab   = { &main_tabs, perf_tab_btn,  perf_tab_container };
+    struct Tab_Select_Data cloud_tab  = { &main_tabs, cloud_tab_btn, cloud_tab_container };
+    NU_Register_Event(charts_tab_btn, &charts_tab, tab_select, NU_EVENT_ON_CLICK);
+    NU_Register_Event(editor_tab_btn, &editor_tab, tab_select, NU_EVENT_ON_CLICK);
+    NU_Register_Event(perf_tab_btn,   &perf_tab,   tab_select, NU_EVENT_ON_CLICK);
+    NU_Register_Event(cloud_tab_btn,  &cloud_tab,  tab_select, NU_EVENT_ON_CLICK);
 
-
-    struct Tab_Select_Data major_tab_select;
-    major_tab_select.current_tab_btn = charts_tab_btn;
-    major_tab_select.current_tab_container = charts_tab_container;
-
-    NU_Register_Event(charts_tab_btn, &major_tab_select, charts_tab_select, NU_EVENT_ON_CLICK);
-    NU_Register_Event(editor_tab_btn, &major_tab_select, editor_tab_select, NU_EVENT_ON_CLICK);
-    NU_Register_Event(perf_tab_btn, &major_tab_select, perf_tab_select, NU_EVENT_ON_CLICK);
-    NU_Register_Event(cloud_tab_btn, &major_tab_select, cloud_tab_select, NU_EVENT_ON_CLICK);
-
-
+    // --- Trade Table Selection ---
+    uint32_t positions_table_selector = NU_Get_Node_By_Id("positions-table-selector");
+    uint32_t orders_table_selector = NU_Get_Node_By_Id("orders-table-selector");
+    uint32_t trades_table_selector = NU_Get_Node_By_Id("trades-table-selector");
+    uint32_t positions_table = NU_Get_Node_By_Id("positions-table");
+    uint32_t orders_table = NU_Get_Node_By_Id("orders-table");
+    uint32_t trades_table = NU_Get_Node_By_Id("trades-table");
+    struct Tab_Manager trade_table_tabs = {.current_tab_btn = positions_table_selector, .current_tab_container = positions_table };
+    struct Tab_Select_Data positions_table_tab = { &trade_table_tabs, positions_table_selector, positions_table };
+    struct Tab_Select_Data orders_table_tab = { &trade_table_tabs, orders_table_selector, orders_table };
+    struct Tab_Select_Data trades_table_tab = { &trade_table_tabs, trades_table_selector, trades_table };
+    NU_Register_Event(positions_table_selector, &positions_table_tab, tab_select, NU_EVENT_ON_CLICK);
+    NU_Register_Event(orders_table_selector, &orders_table_tab, tab_select, NU_EVENT_ON_CLICK);
+    NU_Register_Event(trades_table_selector, &trades_table_tab, tab_select, NU_EVENT_ON_CLICK);
 
     // ------------------------
     // --- Application loop ---
     // ------------------------
     NU_Mainloop();
-
 
     // -------------------
     // --- Free Memory ---

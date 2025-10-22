@@ -17,26 +17,38 @@
 }
 
 window {
-    background: #2f2f2f;
     pad: 3;
     gap: 3;
+}
+button {
+    textColour: #ffffff;
+    pad: 5;
+    textAlignH: center;
+    border: 1;
+    borderColour: #ffffff;
+}
+button:hover {
+}
+button:press {
+}
+rect {
+    border: 1;
+    borderColour: #ffffff;
+}
+image {
+    border: 1;
+    borderColour: #10ff10;
 }
 
 
 #toolbar {
     pad: 3;
     gap: 1;
-    borderRadius: 5;
     grow: h;
-    background: #151515;
     alignV: center;
 }
 
 .tab-button {
-    border: 1;
-    borderRadius: 3;
-    background: #2f2f2f;
-    borderColour: #000000;
     textColour: #c1d5e3;
     pad: 5;
     textAlignH: center;
@@ -44,107 +56,60 @@ window {
 
 .tab-button-selected {
     textColour: #0b1528;
-    background: #4f7fd9;
 }
 .tab-button-selected:hover {
     textColour: #0b1528;
-    background: #4f7fd9;
 }
 .tab-item {
     pad: 5;
-    borderColour: #404040;
-    border: 1
-    borderRadius: 3;
-}
-button {
-    border: 1;
-    borderBottom: 2;
-    borderRadius: 3;
-    background: #2f2f2f;
-    borderColour: #000000;
-    textColour: #ffffff;
-    pad: 5;
-    textAlignH: center;
-}
-button:hover {
-    background: #4b4b4b;
-}
-button:press {
-    background: #222222;
 }
 
 
 #side-bar {
     width: 300;
-    background: #2f2f2f;
-    borderColour: #151515;
-    borderRadius: 6;
 }
 #watchlist {
     dir: v;
     grow: b;
     pad: 5;
     overflowV: s;
-    borderRadius: 5;
-    background: #151515;
 }
 thead {
     position: absolute;
 }
 #watchlist-searchbar {
-    border: 1;
-    borderRadius: 3;
-    borderColour: #000000;
-    background: #000000;
     pad: 5;
     grow: h;
 }
 #watchlist-searchbar:hover {
-    borderColour: #9b5920;
-    borderRadius: 3;
 }
 .watchlist-header-text {
     pad: 3;
-    background: #060606;
 }
 .watchlist-text {
     pad: 3;
-    background: #060606;
     font: font-table-cell;
 }
 .crypto-icon {
     width: 20;
     height: 20;
     pad: 2;
-    background: none;
 }
 #watchlist-dom-selector {
     grow: h;
     dir: h;
-    background: #2f2f2f;
 }
 #watchlist-selector-btn, #orderbook-selector-btn {
     grow: h;
     pad: 5;
-    border: 0;
-    borderBottom: 3;
-    borderRadius: 0;
-    borderColour: #2f2f2f;
-    background: #2f2f2f;
 }
 #watchlist-selector-btn:hover, #orderbook-selector-btn:hover {
-    background: #515151;
-    borderColour: #9b5920;
 }
 
 
 
 #trade-panel {
-    background: #000000;
-    border: 4;
-    borderRadius: 5;
     pad: 5;
-    borderColour: #151515;
     dir: v;
     grow: b;
     maxHeight: 500;
@@ -152,68 +117,44 @@ thead {
 #trade-panel-side-selection {
     dir: h;
     grow: h;
-    background: none;
 }
 #buy-side-btn {
     dir: v;
     grow: h;
-    borderRadius: 5;
-    borderRadiusTopRight: 0;
-    borderRadiusBottomRight: 0;
-    background: #02a95b;
 }
 #sell-side-btn {
     dir: v;
     grow: h;
-    borderRadius: 5;
-    borderRadiusTopLeft: 0;
-    borderRadiusBottomLeft: 0;
-    background: #db2626;
 }
 .buy-side-text, .sell-side-text {
-    background: none;
     grow: h;
     textAlignH: center;
     textColour: #000000ff;
 }   
 .input-label {
     pad: 3;
-    background: none;
 }
 .number-input {
-    border: 1;
-    borderRadius: 3;
-    borderColour: #2f2f2f;
-    background: #000000;
     pad: 5;
     grow: h;
 }
 .number-input:hover {
-    borderColour: #9b5920;
-    borderRadius: 3;
 }
 
 
 
 
 #right-bar {
-    background: none;
     grow: b;
     dir: v;
     gap: 3;
 }
 #chart {
-    border: 4;
-    borderRadius: 5;
-    borderColour: #151515;
-    background: #000000;
     grow: b;
 }
 #drawing-toolbar {
     dir: v;
     grow: v;
-    background: #2f2f2f;
-    borderRadius: 3
     padTop: 4;
     padBottom: 4;
 }
@@ -221,20 +162,10 @@ thead {
     width: 43;
     height: 40;
     pad: 5;
-    border: 0;
-    borderLeft: 3;
-    borderRadius: 0;
-    borderRadiusTopRight: 5;
-    borderRadiusBottomRight: 5;
-    borderColour: #2f2f2f;
-    background: #2f2f2f;
 }
 .drawing-tool:hover {
-    borderColour: #9b5920;
 }
 .drawing-tool:press {
-    borderColour: #151515;
-    background: #151515;
 }
 
 
@@ -244,17 +175,13 @@ thead {
 
 #trade-history-container {
     grow: b;
-    background: #2f2f2f;
-    borderRadius: 5;
     gap: 3;
     maxHeight: 300;
 }
 #trade-history-toolbar {
-    background: #151515;
     grow: h;
     alignV: center;
     pad: 3;
-    borderRadius: 5;
 }
 .page-icon {
     width: 30;
@@ -273,15 +200,9 @@ thead {
 }
 row {
     pad: 3;
-    borderRadius: 3;
-    border: 1;
-    borderTop: 0;
-    borderColour: #000000;
-    background: #2f2f2f;
 }
 .cell {
     pad: 3;
-    background: #060606;
     alignV: center;
     font: font-table-cell;
 }
@@ -316,14 +237,10 @@ row {
     maxWidth: 200;
     dir: v;
     pad: 3;
-    border: 1;
     gap: 3;
-    background: #2f2f2f;
-    borderColour: #000000;
 }
 #scripts-column-header {
     pad: 3;
-    background: #151515;
     grow: h;
 }
 #scripts-list {
@@ -333,9 +250,6 @@ row {
 #code-editor-column {
     grow: b;
     pad: 5;
-    border: 1;
-    background: #2f2f2f;
-    borderColour: #000000;
     dir: v;
 }
 #backtest-column {
@@ -345,14 +259,8 @@ row {
 #backtest-chart {
     grow: b;
     pad: 5;
-    border: 1;
-    background: #2f2f2f;
-    borderColour: #000000;
 }
 #backtest-settings {
     grow: b;
     pad: 5;
-    border: 1;
-    background: #2f2f2f;
-    borderColour: #000000;
 }

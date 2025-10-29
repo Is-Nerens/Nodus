@@ -2,7 +2,14 @@
 #include <nu_draw_structures.h>
 #include <math.h>
 
-void Border_Rect(
+void NU_Internal_Clear_Canvas(uint32_t canvas_handle)
+{
+    NU_Canvas_Context* canvas_context = Hashmap_Get(&__nu_global_gui.canvas_contexts, &canvas_handle);
+    canvas_context->vertices.size = 0;
+    canvas_context->indices.size = 0;
+}
+
+void NU_Internal_Border_Rect(
     uint32_t canvas_handle,
     float x, float y, float w, float h, 
     float thickness,
@@ -159,7 +166,7 @@ void Border_Rect(
     indices->size += additional_indices;
 }
 
-void Line(
+void NU_Internal_Line(
     uint32_t canvas_handle,
     float x1, float y1, float x2, float y2,
     float thickness,

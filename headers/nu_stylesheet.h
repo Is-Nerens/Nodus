@@ -19,7 +19,7 @@ struct NU_Stylesheet_String_Pseudo_Pair
     int pseudo_class;
 };
 
-struct NU_Stylesheet
+typedef struct NU_Stylesheet
 {
     struct Vector items;
     String_Set class_string_set;
@@ -36,9 +36,9 @@ struct NU_Stylesheet
     String_Map font_name_index_map;
 
     Vector fonts;
-};
+} NU_Stylesheet;
 
-struct NU_Stylesheet_Item
+typedef struct NU_Stylesheet_Item
 {
     uint64_t property_flags;
     char* class;
@@ -61,11 +61,11 @@ struct NU_Stylesheet_Item
     char horizontal_text_alignment;
     char vertical_text_alignment;
     bool hide_background;
-};
+} NU_Stylesheet_Item;
 
-void NU_Stylesheet_Init(struct NU_Stylesheet* ss)
+void NU_Stylesheet_Init(NU_Stylesheet* ss)
 {
-    Vector_Reserve(&ss->items, sizeof(struct NU_Stylesheet_Item), 500);
+    Vector_Reserve(&ss->items, sizeof(NU_Stylesheet_Item), 500);
     String_Set_Init(&ss->class_string_set, 1024, 100);
     String_Set_Init(&ss->id_string_set, 1024, 100);
     Hashmap_Init(&ss->class_item_hashmap, sizeof(char*), sizeof(uint32_t), 100);
@@ -78,7 +78,7 @@ void NU_Stylesheet_Init(struct NU_Stylesheet* ss)
     Vector_Reserve(&ss->fonts, sizeof(NU_Font), 4);
 }
 
-void NU_Stylesheet_Free(struct NU_Stylesheet* ss)
+void NU_Internal_Stylesheet_Free(NU_Stylesheet* ss)
 {
     Vector_Free(&ss->items);
     String_Set_Free(&ss->class_string_set);

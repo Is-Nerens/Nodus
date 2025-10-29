@@ -672,12 +672,12 @@ static int AssertPropertyIdentifierGrammar(struct Vector* tokens, int i)
     return 0;
 }
 
-static int NU_Generate_Stylesheet(char* src_buffer, uint32_t src_length, struct Vector* tokens, struct NU_Stylesheet* ss, struct Vector* text_refs)
+static int NU_Generate_Stylesheet(char* src_buffer, uint32_t src_length, struct Vector* tokens, NU_Stylesheet* ss, struct Vector* text_refs)
 {
     uint32_t text_index = 0;
     struct Style_Text_Ref* text_ref;
 
-    struct NU_Stylesheet_Item item;
+    NU_Stylesheet_Item item;
     item.property_flags = 0;
     item.font_id = 0;
 
@@ -752,7 +752,7 @@ static int NU_Generate_Stylesheet(char* src_buffer, uint32_t src_length, struct 
             {   
                 for (int i=0; i<selector_count; i++) {
                     uint32_t item_index = selector_indexes[i];
-                    struct NU_Stylesheet_Item* curr_item = Vector_Get(&ss->items, item_index);
+                    NU_Stylesheet_Item* curr_item = Vector_Get(&ss->items, item_index);
                     curr_item->property_flags |= item.property_flags;
                     if (item.property_flags & (1 << 0) ) curr_item->layout_flags = (curr_item->layout_flags & ~(1 << 0)) | (item.layout_flags & (1 << 0)); // Layout direction
                     if (item.property_flags & (1 << 1) ) curr_item->layout_flags = (curr_item->layout_flags & ~((1 << 1) | (1 << 2))) | (item.layout_flags & ((1 << 1) | (1 << 2))); // Grow
@@ -826,12 +826,12 @@ static int NU_Generate_Stylesheet(char* src_buffer, uint32_t src_length, struct 
                     void* found = Hashmap_Get(&ss->tag_item_hashmap, &tag);
                     if (found != NULL) // Style item exists
                     {
-                        struct NU_Stylesheet_Item* found_item = Vector_Get(&ss->items, *(uint32_t*)found);
+                        NU_Stylesheet_Item* found_item = Vector_Get(&ss->items, *(uint32_t*)found);
                         selector_indexes[selector_count] = *(uint32_t*)found;
                     } 
                     else // Style item does not exist -> add one
                     { 
-                        struct NU_Stylesheet_Item new_item;
+                        NU_Stylesheet_Item new_item;
                         new_item.class = NULL;
                         new_item.id = NULL;
                         new_item.tag = tag;
@@ -858,12 +858,12 @@ static int NU_Generate_Stylesheet(char* src_buffer, uint32_t src_length, struct 
 
                         if (found != NULL) // Style item exists
                         {
-                            struct NU_Stylesheet_Item* found_item = Vector_Get(&ss->items, *(uint32_t*)found);
+                            NU_Stylesheet_Item* found_item = Vector_Get(&ss->items, *(uint32_t*)found);
                             selector_indexes[selector_count] = *(uint32_t*)found;
                         }
                         else
                         {
-                            struct NU_Stylesheet_Item new_item;
+                            NU_Stylesheet_Item new_item;
                             new_item.class = NULL;
                             new_item.id = NULL;
                             new_item.tag = tag;
@@ -913,12 +913,12 @@ static int NU_Generate_Stylesheet(char* src_buffer, uint32_t src_length, struct 
                     void* found = Hashmap_Get(&ss->class_item_hashmap, &stored_class);
                     if (found != NULL) 
                     {
-                        struct NU_Stylesheet_Item* found_item = Vector_Get(&ss->items, *(uint32_t*)found);
+                        NU_Stylesheet_Item* found_item = Vector_Get(&ss->items, *(uint32_t*)found);
                         selector_indexes[selector_count] = *(uint32_t*)found;
                     } 
                     else // does not exist -> add item
                     { 
-                        struct NU_Stylesheet_Item new_item;
+                        NU_Stylesheet_Item new_item;
                         new_item.class = stored_class;
                         new_item.id = NULL;
                         new_item.tag = -1;
@@ -952,12 +952,12 @@ static int NU_Generate_Stylesheet(char* src_buffer, uint32_t src_length, struct 
                         void* found = Hashmap_Get(&ss->class_pseudo_item_hashmap, &key);
                         if (found != NULL) 
                         {
-                            struct NU_Stylesheet_Item* found_item = Vector_Get(&ss->items, *(uint32_t*)found);
+                            NU_Stylesheet_Item* found_item = Vector_Get(&ss->items, *(uint32_t*)found);
                             selector_indexes[selector_count] = *(uint32_t*)found;
                         }
                         else // does not exist -> add item
                         {
-                            struct NU_Stylesheet_Item new_item;
+                            NU_Stylesheet_Item new_item;
                             new_item.class = stored_class;
                             new_item.id = NULL;
                             new_item.tag = -1;
@@ -1007,12 +1007,12 @@ static int NU_Generate_Stylesheet(char* src_buffer, uint32_t src_length, struct 
                     void* found = Hashmap_Get(&ss->id_item_hashmap, &stored_id);
                     if (found != NULL)
                     {
-                        struct NU_Stylesheet_Item* found_item = Vector_Get(&ss->items, *(uint32_t*)found);
+                        NU_Stylesheet_Item* found_item = Vector_Get(&ss->items, *(uint32_t*)found);
                         selector_indexes[selector_count] = *(uint32_t*)found;
                     }
                     else // does not exist -> add item
                     {
-                        struct NU_Stylesheet_Item new_item;
+                        NU_Stylesheet_Item new_item;
                         new_item.class = NULL;
                         new_item.id = stored_id;
                         new_item.tag = -1;
@@ -1046,12 +1046,12 @@ static int NU_Generate_Stylesheet(char* src_buffer, uint32_t src_length, struct 
                         void* found = Hashmap_Get(&ss->id_pseudo_item_hashmap, &key);
                         if (found != NULL) 
                         {
-                            struct NU_Stylesheet_Item* found_item = Vector_Get(&ss->items, *(uint32_t*)found);
+                            NU_Stylesheet_Item* found_item = Vector_Get(&ss->items, *(uint32_t*)found);
                             selector_indexes[selector_count] = *(uint32_t*)found;
                         }
                         else // does not exist -> add item
                         {
-                            struct NU_Stylesheet_Item new_item;
+                            NU_Stylesheet_Item new_item;
                             new_item.class = NULL;
                             new_item.id = stored_id;
                             new_item.tag = -1;
@@ -1464,7 +1464,7 @@ static int NU_Generate_Stylesheet(char* src_buffer, uint32_t src_length, struct 
     return 0;
 }
 
-static void NU_Stylesheet_Find_Match(struct Node* node, struct NU_Stylesheet* ss, int* match_index_list)
+static void NU_Stylesheet_Find_Match(struct Node* node, NU_Stylesheet* ss, int* match_index_list)
 {
     int count = 0;
 
@@ -1497,7 +1497,7 @@ static void NU_Stylesheet_Find_Match(struct Node* node, struct NU_Stylesheet* ss
     }
 }
 
-static void NU_Apply_Style_Item_To_Node(struct Node* node, struct NU_Stylesheet_Item* item)
+static void NU_Apply_Style_Item_To_Node(struct Node* node, NU_Stylesheet_Item* item)
 {
     if (item->property_flags & (1 << 0) && !(node->inline_style_flags & (1 << 0))) {
         node->layout_flags = (node->layout_flags & ~(1 << 0)) | (item->layout_flags & (1 << 0)); // Layout direction
@@ -1608,14 +1608,14 @@ static void NU_Apply_Style_Item_To_Node(struct Node* node, struct NU_Stylesheet_
     node->font_id = item->font_id; // set font 
 }
 
-void NU_Apply_Stylesheet_To_Node(struct Node* node, struct NU_Stylesheet* ss)
+void NU_Apply_Stylesheet_To_Node(struct Node* node, NU_Stylesheet* ss)
 {
     int match_index_list[3] = {-1, -1, -1};
     NU_Stylesheet_Find_Match(node, ss, &match_index_list[0]);
 
     int i = 0;
     while (match_index_list[i] != -1) {
-        struct NU_Stylesheet_Item* item = (struct NU_Stylesheet_Item*)Vector_Get(&ss->items, (uint32_t)match_index_list[i]);
+        NU_Stylesheet_Item* item = (NU_Stylesheet_Item*)Vector_Get(&ss->items, (uint32_t)match_index_list[i]);
         i += 1;
 
         // --- Apply style ---
@@ -1623,14 +1623,14 @@ void NU_Apply_Stylesheet_To_Node(struct Node* node, struct NU_Stylesheet* ss)
     }
 }
 
-void NU_Apply_Pseudo_Style_To_Node(struct Node* node, struct NU_Stylesheet* ss, enum NU_Pseudo_Class pseudo)
+void NU_Apply_Pseudo_Style_To_Node(struct Node* node, NU_Stylesheet* ss, enum NU_Pseudo_Class pseudo)
 {
     // Tag pseudo style match and apply
     struct NU_Stylesheet_Tag_Pseudo_Pair key = { node->tag, pseudo };
     void* tag_pseudo_found = Hashmap_Get(&ss->tag_pseudo_item_hashmap, &key);
     if (tag_pseudo_found != NULL) {
         uint32_t index = *(uint32_t*)tag_pseudo_found;
-        struct NU_Stylesheet_Item* item = (struct NU_Stylesheet_Item*)Vector_Get(&ss->items, index);
+        NU_Stylesheet_Item* item = (NU_Stylesheet_Item*)Vector_Get(&ss->items, index);
         NU_Apply_Style_Item_To_Node(node, item);
     }
 
@@ -1642,7 +1642,7 @@ void NU_Apply_Pseudo_Style_To_Node(struct Node* node, struct NU_Stylesheet* ss, 
             void* class_pseudo_found = Hashmap_Get(&ss->class_pseudo_item_hashmap, &key);
             if (class_pseudo_found != NULL) {
                 uint32_t index = *(uint32_t*)class_pseudo_found;
-                struct NU_Stylesheet_Item* item = (struct NU_Stylesheet_Item*)Vector_Get(&ss->items, index);
+                NU_Stylesheet_Item* item = (NU_Stylesheet_Item*)Vector_Get(&ss->items, index);
                 NU_Apply_Style_Item_To_Node(node, item);
             }
         }
@@ -1656,7 +1656,7 @@ void NU_Apply_Pseudo_Style_To_Node(struct Node* node, struct NU_Stylesheet* ss, 
             void* id_pseudo_found = Hashmap_Get(&ss->id_pseudo_item_hashmap, &key);
             if (id_pseudo_found != NULL) {
                 uint32_t index = *(uint32_t*)id_pseudo_found;
-                struct NU_Stylesheet_Item* item = (struct NU_Stylesheet_Item*)Vector_Get(&ss->items, index);
+                NU_Stylesheet_Item* item = (NU_Stylesheet_Item*)Vector_Get(&ss->items, index);
                 NU_Apply_Style_Item_To_Node(node, item);
             }
         }
@@ -1668,7 +1668,7 @@ void NU_Apply_Pseudo_Style_To_Node(struct Node* node, struct NU_Stylesheet* ss, 
 
 
 
-int NU_Stylesheet_Create(struct NU_Stylesheet* stylesheet, char* css_filepath)
+int NU_Internal_Stylesheet_Create(NU_Stylesheet* stylesheet, char* css_filepath)
 {
     NU_Stylesheet_Init(stylesheet);
 
@@ -1714,7 +1714,7 @@ int NU_Stylesheet_Create(struct NU_Stylesheet* stylesheet, char* css_filepath)
     return 1;
 }
 
-void NU_Stylesheet_Apply(struct NU_Stylesheet* stylesheet)
+void NU_Internal_Stylesheet_Apply(NU_Stylesheet* stylesheet)
 {
     struct Node* root_window = NU_Tree_Get(&__nu_global_gui.tree, 0, 0);
     NU_Apply_Stylesheet_To_Node(root_window, stylesheet);

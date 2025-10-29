@@ -1087,7 +1087,7 @@ static int NU_Generate_Tree(char* src_buffer, uint32_t src_length, struct Vector
 // ---------------------------------- //
 // --- Public Functions ------------- //
 // ---------------------------------- //
-int NU_From_XML(char* filepath)
+int NU_Internal_From_XML(char* filepath)
 {
     // Open XML source file and load into buffer
     FILE* f = fopen(filepath, "r");
@@ -1123,9 +1123,7 @@ int NU_From_XML(char* filepath)
     NU_Tokenise(src_buffer, src_length, &NU_Token_vector, &text_ref_vector);
 
     // Generate UI tree
-    timer_start();
     if (NU_Generate_Tree(src_buffer, src_length, &NU_Token_vector, &text_ref_vector) != 0) return 0; // Failure
-    timer_stop();
 
     // Free token and property text reference memory
     Vector_Free(&NU_Token_vector);

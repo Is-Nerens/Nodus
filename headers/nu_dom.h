@@ -69,17 +69,17 @@ static void NU_Verify_Tree() {
 // --------------------------------
 // --- Node Retrieval Functions ---
 // --------------------------------
-uint32_t NU_Get_Node_By_Id(char* id)
+uint32_t NU_Internal_Get_Node_By_Id(char* id)
 {
     uint32_t* handle = String_Map_Get(&__nu_global_gui.id_node_map, id);
     if (handle == NULL) return UINT16_MAX;
     return *handle;
 }
 
-struct Vector NU_Get_Nodes_By_Class(char* class)
+NU_Nodelist NU_Internal_Get_Nodes_By_Class(char* class)
 {
-    struct Vector result;
-    Vector_Reserve(&result, sizeof(uint32_t), 8);
+    NU_Nodelist result;
+    NU_Nodelist_Init(&result, 8);
 
     // For each layer
     for (uint16_t l=0; l<=__nu_global_gui.deepest_layer; l++)
@@ -93,7 +93,7 @@ struct Vector NU_Get_Nodes_By_Class(char* class)
             if (!node->node_present) continue;
 
             if (node->class != NULL && strcmp(class, node->class) == 0) {
-                Vector_Push(&result, &node->handle);
+                NU_Nodelist_Push(&result, node->handle);
             }
         }
     }
@@ -101,10 +101,10 @@ struct Vector NU_Get_Nodes_By_Class(char* class)
     return result;
 }
 
-struct Vector NU_Get_Nodes_By_Tag(enum Tag tag)
+NU_Nodelist NU_Internal_Get_Nodes_By_Tag(enum Tag tag)
 {
-    struct Vector result;
-    Vector_Reserve(&result, sizeof(uint32_t), 8);
+    NU_Nodelist result;
+    NU_Nodelist_Init(&result, 8);
 
     // For each layer
     for (uint16_t l=0; l<=__nu_global_gui.deepest_layer; l++)
@@ -118,7 +118,7 @@ struct Vector NU_Get_Nodes_By_Tag(enum Tag tag)
             if (!node->node_present) continue;
 
             if (node->tag == tag) {
-                Vector_Push(&result, &node->handle);
+                NU_Nodelist_Push(&result, node->handle);
             }
         }
     }
@@ -178,7 +178,7 @@ void Set_Node_Defaults(struct Node* node)
     node->event_flags = 0;
 }
 
-uint32_t NU_Create_Node(uint32_t parent_handle, enum Tag tag)
+uint32_t NU_Internal_Create_Node(uint32_t parent_handle, enum Tag tag)
 {
     struct Node* parent = NODE(parent_handle);
     NU_Layer* create_node_layer = &__nu_global_gui.tree.layers[parent->layer + 1];
@@ -529,7 +529,7 @@ static void NU_Delete_Node_Branch(struct Node* node)
     Vector_Free(&delete_ranges);
 }
 
-void NU_Delete_Node(uint32_t handle)
+void NU_Internal_Delete_Node(uint32_t handle)
 {
     struct Node* node = NODE(handle);
 
@@ -584,7 +584,7 @@ void NU_Reorder_In_Parent(struct Node* node, uint32_t index)
 // -------------------------------------
 // --- Node special property updates ---
 // -------------------------------------
-void NU_Set_Class(uint32_t handle, char* class)
+void NU_Internal_Set_Class(uint32_t handle, char* class)
 {
     struct Node* node = NODE(handle);
      node->class = NULL;
@@ -614,12 +614,12 @@ void NU_Set_Class(uint32_t handle, char* class)
     __nu_global_gui.awaiting_redraw = true;
 }
 
-void NU_Hide(uint32_t handle)
+void NU_Internal_Hide(uint32_t handle)
 {
     NODE(handle)->layout_flags |= HIDDEN;
 }
 
-void NU_Show(uint32_t handle)
+void NU_Internal_Show(uint32_t handle)
 {
     NODE(handle)->layout_flags &= ~HIDDEN;
 }

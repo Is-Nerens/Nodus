@@ -406,6 +406,7 @@ struct Hashmap
     uint32_t item_count;
     uint32_t capacity;
     uint32_t max_probes;
+    uint32_t iterate_index;
 };
 
 void Hashmap_Init(struct Hashmap* hmap, uint32_t key_size, uint32_t item_size, uint32_t capacity)
@@ -636,6 +637,48 @@ void Hashmap_Delete(struct Hashmap* hmap, void* key)
         }
         probes++;
     }
+}
+
+void Hashmap_Iterate_Begin(struct Hashmap* hmap)
+{
+    hmap->iterate_index = 0;
+}
+
+int Hashmap_Iterate_Continue(struct Hashmap* hmap)
+{   
+    return hmap->iterate_index < hmap->capacity;
+}
+
+void Hashmap_Iterate_Get(struct Hashmap* hmap, void** return_key, void** return_val)
+{
+    if (hmap->item_count == 0) 
+    {
+        return_key = NULL;
+        return_val = NULL;
+    }
+
+    // Probe until next item is found
+    while(hmap->iterate_index < hmap->capacity)
+    {
+        uint32_t rem = hmap->iterate_index & 7; // i % 8
+        uint32_t occupancy_index = hmap->iterate_index >> 3; // i / 8
+
+        // Found item -> return pointer
+        if (hmap->occupancy[occupancy_index] & (1u << rem)) { 
+            char* base = (char*)hmap->data + hmap->iterate_index * (hmap->key_size + hmap->item_size);
+            hmap->iterate_index++;
+            *return_key = base;
+            *return_val = base + hmap->key_size;
+            return;
+        }
+
+        hmap->iterate_index++;
+    }
+
+    // Error
+    return_key = NULL;
+    return_val = NULL;
+    return;
 }
 
 void Hashmap_Free(struct Hashmap* hmap)

@@ -16,11 +16,55 @@
     weight: 400;
 }
 
+
+/* tag styles */
 window {
     background: #2f2f2f;
     pad: 3;
     gap: 3;
 }
+button {
+    border: 1;
+    borderBottom: 2;
+    borderRadius: 3;
+    background: #2f2f2f;
+    borderColour: #000000;
+    textColour: #ffffff;
+    pad: 5;
+    textAlignH: center;
+}
+button:hover {
+    background: #4b4b4b;
+}
+button:press {
+    background: #222222;
+}
+thead {
+    pad: 2;
+    border: 1;
+    borderColour: #000000;
+    background: #2f2f2f;
+}
+row {
+    pad: 2;
+    border: 1;
+    borderRadius: 5;
+    borderTop: 0;
+    borderColour: #000000;
+    background: #2f2f2f;
+    alignV: center;
+    position: absolute;
+}
+.cell {
+    pad: 3;
+    background: #0c0c0c;
+    alignV: center;
+    font: font-table-cell;
+}
+
+
+
+
 
 
 #toolbar {
@@ -56,22 +100,6 @@ window {
     border: 1
     borderRadius: 3;
 }
-button {
-    border: 1;
-    borderBottom: 2;
-    borderRadius: 3;
-    background: #2f2f2f;
-    borderColour: #000000;
-    textColour: #ffffff;
-    pad: 5;
-    textAlignH: center;
-}
-button:hover {
-    background: #4b4b4b;
-}
-button:press {
-    background: #222222;
-}
 
 
 #side-bar {
@@ -87,9 +115,6 @@ button:press {
     overflowV: s;
     borderRadius: 5;
     background: #151515;
-}
-thead {
-    position: absolute;
 }
 #watchlist-searchbar {
     border: 1;
@@ -107,15 +132,9 @@ thead {
     pad: 3;
     background: #060606;
 }
-.watchlist-text {
-    pad: 3;
-    background: #060606;
-    font: font-table-cell;
-}
 .crypto-icon {
     width: 20;
     height: 20;
-    pad: 2;
     background: none;
 }
 #watchlist-dom-selector {
@@ -266,25 +285,6 @@ thead {
     width: 50;
     pad: 4;
 }
-
-
-thead {
-    pad: 3;
-}
-row {
-    pad: 3;
-    borderRadius: 3;
-    border: 1;
-    borderTop: 0;
-    borderColour: #000000;
-    background: #2f2f2f;
-}
-.cell {
-    pad: 3;
-    background: #060606;
-    alignV: center;
-    font: font-table-cell;
-}
 .table-order-delete {
     width: 32;
     height: 33;
@@ -315,21 +315,35 @@ row {
     grow: b;
     maxWidth: 200;
     dir: v;
-    pad: 3;
-    border: 1;
-    gap: 3;
     background: #2f2f2f;
-    borderColour: #000000;
 }
 #scripts-column-header {
     pad: 3;
+    padBottom: 0;
     background: #151515;
     grow: h;
 }
 #scripts-list {
     grow: b;
     dir: v;
+    pad: 3;
+    gap: 1;
+    background: #151515;
+    overflowV: s;
 }
+.script-item {
+    border: 1;
+    borderColour: #2f2f2f;
+    background: #2f2f2f;
+    pad: 5;
+    grow: h;
+}
+.script-item:hover {
+    borderColour: #ffffff;
+}
+
+
+
 #code-editor-column {
     grow: b;
     pad: 5;

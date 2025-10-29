@@ -491,10 +491,10 @@ void Construct_Scroll_Thumb(struct Node* node,
     float thumb_height = inner_proportion_of_content_height * track_height;
 
 
-    float x = node->x + node->width - node->border_right - 12.0f;
+    float x = node->x + node->width - node->border_right - 8.0f;
     float y = node->y + node->border_top;
     float thumb_y = node->y + node->border_top + (node->scroll_v * (track_height - thumb_height));
-    float w = 12.0f;
+    float w = 8.0f;
 
     uint32_t vertex_offset = vertices->size;
 
@@ -529,30 +529,30 @@ void Construct_Scroll_Thumb(struct Node* node,
     // Background Thumb TL
     vertices->array[vertex_offset + 4].x = x;
     vertices->array[vertex_offset + 4].y = thumb_y;
-    vertices->array[vertex_offset + 4].r = 1.0f;
-    vertices->array[vertex_offset + 4].g = 1.0f;
-    vertices->array[vertex_offset + 4].b = 1.0f;
+    vertices->array[vertex_offset + 4].r = 0.9f;
+    vertices->array[vertex_offset + 4].g = 0.9f;
+    vertices->array[vertex_offset + 4].b = 0.9f;
 
     // Background Thumb TR
     vertices->array[vertex_offset + 5].x = x + w;
     vertices->array[vertex_offset + 5].y = thumb_y;
-    vertices->array[vertex_offset + 5].r = 1.0f;
-    vertices->array[vertex_offset + 5].g = 1.0f;
-    vertices->array[vertex_offset + 5].b = 1.0f;
+    vertices->array[vertex_offset + 5].r = 0.9f;
+    vertices->array[vertex_offset + 5].g = 0.9f;
+    vertices->array[vertex_offset + 5].b = 0.9f;
 
     // Background Thumb BL
     vertices->array[vertex_offset + 6].x = x;
     vertices->array[vertex_offset + 6].y = thumb_y + thumb_height;
-    vertices->array[vertex_offset + 6].r = 1.0f;
-    vertices->array[vertex_offset + 6].g = 1.0f;
-    vertices->array[vertex_offset + 6].b = 1.0f;
+    vertices->array[vertex_offset + 6].r = 0.9f;
+    vertices->array[vertex_offset + 6].g = 0.9f;
+    vertices->array[vertex_offset + 6].b = 0.9f;
 
     // Background Thumb BR
     vertices->array[vertex_offset + 7].x = x + w;
     vertices->array[vertex_offset + 7].y = thumb_y + thumb_height;
-    vertices->array[vertex_offset + 7].r = 1.0f;
-    vertices->array[vertex_offset + 7].g = 1.0f;
-    vertices->array[vertex_offset + 7].b = 1.0f;
+    vertices->array[vertex_offset + 7].r = 0.9f;
+    vertices->array[vertex_offset + 7].g = 0.9f;
+    vertices->array[vertex_offset + 7].b = 0.9f;
 
     // Indices
     uint32_t* indices_write = indices->array + indices->size;

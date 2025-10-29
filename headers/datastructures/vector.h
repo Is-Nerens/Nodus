@@ -49,8 +49,8 @@ void Vector_Delete_Backfill(Vector* vector, uint32_t index)
 
     uint32_t last_index = vector->size - 1;
 
+    // Copy last element into the deleted slot
     if (index != last_index) {
-        // Copy last element into the deleted slot
         void* dst = (char*)vector->data + index * vector->element_size;
         void* src = (char*)vector->data + last_index * vector->element_size;
         memcpy(dst, src, vector->element_size);

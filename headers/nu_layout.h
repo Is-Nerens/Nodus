@@ -216,7 +216,7 @@ static void NU_Calculate_Fit_Size_Heights()
 
 static void NU_Grow_Shrink_Child_Node_Widths(struct Node* parent, NU_Layer* child_layer)
 {
-    float remaining_width = parent->width - parent->pad_left - parent->pad_right - parent->border_left - parent->border_right - (!!(parent->layout_flags & OVERFLOW_VERTICAL_SCROLL)) * 12.0f;
+    float remaining_width = parent->width - parent->pad_left - parent->pad_right - parent->border_left - parent->border_right - (!!(parent->layout_flags & OVERFLOW_VERTICAL_SCROLL)) * 8.0f;
 
     // ------------------------------------------------
     // If parent lays out children vertically ---------
@@ -369,7 +369,7 @@ static void NU_Grow_Shrink_Child_Node_Widths(struct Node* parent, NU_Layer* chil
 
 static void NU_Grow_Shrink_Child_Node_Heights(struct Node* parent, NU_Layer* child_layer)
 {
-    float remaining_height = parent->height - parent->pad_top - parent->pad_bottom - parent->border_top - parent->border_bottom - (!!(parent->layout_flags & OVERFLOW_HORIZONTAL_SCROLL)) * 12.0f;
+    float remaining_height = parent->height - parent->pad_top - parent->pad_bottom - parent->border_top - parent->border_bottom - (!!(parent->layout_flags & OVERFLOW_HORIZONTAL_SCROLL)) * 8.0f;
     if (!(parent->layout_flags & LAYOUT_VERTICAL))
     {
         for (uint16_t i=parent->first_child_index; i<parent->first_child_index + parent->child_count; i++)
@@ -596,7 +596,7 @@ static void NU_Calculate_Table_Column_Widths()
             // -----------------------------------------------
             // --- Apply widest column widths to all cells ---
             // -----------------------------------------------
-            float table_inner_width = table->width - table->border_left - table->border_right - table->pad_left - table->pad_right - (!!(table->layout_flags & OVERFLOW_VERTICAL_SCROLL)) * 12.0f;
+            float table_inner_width = table->width - table->border_left - table->border_right - table->pad_left - table->pad_right - (!!(table->layout_flags & OVERFLOW_VERTICAL_SCROLL)) * 8.0f;
             float remaining_table_inner_width = table_inner_width;
             for (int k=0; k<widest_cell_in_each_column.size; k++) {
                 remaining_table_inner_width -= *(float*)Vector_Get(&widest_cell_in_each_column, k);
@@ -608,11 +608,23 @@ static void NU_Calculate_Table_Column_Widths()
             {
                 struct Node* row = NU_Layer_Get(row_layer, r);
                 if (row->node_present == 2) continue;
+                NU_Layer* cell_layer = &__nu_global_gui.tree.layers[l+2];
+
                 row->width = table_inner_width;
-                float row_border_pad = row->border_left + row->border_right + row->pad_left + row->pad_right;
+
+                // Reduce available growth space by acounting for row pad, border and child gaps
+                float row_border_pad_gap = row->border_left + row->border_right + row->pad_left + row->pad_right;
+                if (row->gap != 0.0f) {
+                    int visible_cells = 0;
+                    for (uint16_t c=row->first_child_index; c<row->first_child_index + row->child_count; c++) {
+                        struct Node* cell = NU_Layer_Get(cell_layer, c);
+                        if (cell->node_present == 2) continue;
+                        visible_cells++;
+                    }
+                    row_border_pad_gap += row->gap * (visible_cells - 1);
+                }
 
                 // Grow the width of all cells 
-                NU_Layer* cell_layer = &__nu_global_gui.tree.layers[l+2];
                 int cell_index = 0;
                 for (uint16_t c=row->first_child_index; c<row->first_child_index + row->child_count; c++)
                 {
@@ -620,7 +632,7 @@ static void NU_Calculate_Table_Column_Widths()
                     if (cell->node_present == 2) continue;
                     float column_width = *(float*)Vector_Get(&widest_cell_in_each_column, cell_index);
                     float proportion = column_width / (used_table_width);
-                    cell->width = column_width + (remaining_table_inner_width - row_border_pad) * proportion;
+                    cell->width = column_width + (remaining_table_inner_width - row_border_pad_gap) * proportion;
                     cell_index++;
                 }
             }
@@ -693,7 +705,7 @@ static void NU_Horizontally_Place_Children(struct Node* parent, NU_Layer* child_
     else
     {
         // Calculate remaining width (optimise this by caching this value inside parent's content width variable)
-        float remaining_width = (parent->width - parent->pad_left - parent->pad_right - parent->border_left - parent->border_right) - (parent->child_count - 1) * parent->gap - (!!(parent->layout_flags & OVERFLOW_VERTICAL_SCROLL)) * 12.0f;
+        float remaining_width = (parent->width - parent->pad_left - parent->pad_right - parent->border_left - parent->border_right) - (parent->child_count - 1) * parent->gap - (!!(parent->layout_flags & OVERFLOW_VERTICAL_SCROLL)) * 8.0f;
         for (uint16_t i=parent->first_child_index; i<parent->first_child_index + parent->child_count; i++)
         {
             struct Node* child = NU_Layer_Get(child_layer, i);
@@ -776,7 +788,7 @@ static void NU_Vertically_Place_Children(struct Node* parent, NU_Layer* child_la
     else
     {
         // Calculate remaining height (optimise this by caching this value inside parent's content height variable)
-        float remaining_height = (parent->height - parent->pad_top - parent->pad_bottom - parent->border_top - parent->border_bottom) - (parent->child_count - 1) * parent->gap - (!!(parent->layout_flags & OVERFLOW_HORIZONTAL_SCROLL)) * 12.0f;
+        float remaining_height = (parent->height - parent->pad_top - parent->pad_bottom - parent->border_top - parent->border_bottom) - (parent->child_count - 1) * parent->gap - (!!(parent->layout_flags & OVERFLOW_HORIZONTAL_SCROLL)) * 8.0f;
         for (uint16_t i=parent->first_child_index; i<parent->first_child_index + parent->child_count; i++)
         {
             struct Node* child = NU_Layer_Get(child_layer, i);
@@ -912,9 +924,9 @@ static bool NU_Mouse_Over_Node(struct Node* node, float mouse_x, float mouse_y)
 static bool NU_Mouse_Over_Node_V_Scrollbar(struct Node* node, float mouse_x, float mouse_y) {
     float track_height = node->height - node->border_top - node->border_bottom;
     float thumb_height = (track_height / node->content_height) * track_height;
-    float scroll_thumb_left_wall = node->x + node->width - node->border_right - 12.0f;
+    float scroll_thumb_left_wall = node->x + node->width - node->border_right - 8.0f;
     float scroll_thumb_top_wall = node->y + node->border_top + (node->scroll_v * (track_height - thumb_height));
-    bool within_x_bound = mouse_x >= scroll_thumb_left_wall && mouse_x <= scroll_thumb_left_wall + 12.0f;
+    bool within_x_bound = mouse_x >= scroll_thumb_left_wall && mouse_x <= scroll_thumb_left_wall + 8.0f;
     bool within_y_bound = mouse_y >= scroll_thumb_top_wall && mouse_y <= scroll_thumb_top_wall + thumb_height;
     return within_x_bound && within_y_bound;
 }
@@ -987,7 +999,7 @@ void NU_Mouse_Hover()
 
                 if (child->layout_flags & OVERFLOW_V_PROPERTY) {
                     bool overflow_v = child->content_height > child->height - child->border_top - child->border_bottom;
-                    if (overflow_v && NU_Mouse_Over_Node_V_Scrollbar(child, rel_x, rel_y)) {
+                    if (overflow_v) {
                         __nu_global_gui.scroll_hovered_node = child;
                     }
                 }
@@ -1431,7 +1443,6 @@ void NU_Draw()
 
 void NU_Reflow()
 {
-    // timer_start();
     NU_Clear_Node_Sizes();            // Reset dimensions and positions
     NU_Calculate_Text_Fit_Widths();   // Width and height of unwrapped text nodes
     NU_Calculate_Fit_Size_Widths();   
@@ -1441,5 +1452,4 @@ void NU_Reflow()
     NU_Calculate_Fit_Size_Heights();
     NU_Grow_Shrink_Heights();
     NU_Calculate_Positions();
-    // timer_stop();
 }

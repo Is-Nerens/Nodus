@@ -1,6 +1,4 @@
-
-#include "performance.h"
-#include "headers/nodus.h"
+#include <nodus.h>
 
 
 
@@ -42,6 +40,25 @@ void tab_select(uint32_t handle, void* args)
     mgr->current_tab_container = data->tab_container;
 }
 
+void create_new_script(uint32_t handle, void* args)
+{
+    uint32_t scripts_list = NU_Get_Node_By_Id("scripts-list");
+    uint32_t new_script = NU_Create_Node(scripts_list, REC);
+    NU_NODE(new_script)->text_content = (char*)malloc(15);
+    strcpy(NU_NODE(new_script)->text_content, "New Script");
+    NU_Set_Class(new_script, "script-item");
+}
+
+void delete_script(uint32_t handle, void* args)
+{
+
+}
+
+
+void chart_resize(uint32_t handle, void* args)
+{
+    printf("chart resized!\n");
+}
 
 int main()
 {
@@ -49,9 +66,9 @@ int main()
     // --- Create GUI and apply stylesheet ---
     // ---------------------------------------
     if (!NU_Init()) return -1;
-    if (!NU_From_XML("test.xml")) return -1;
-    struct NU_Stylesheet stylesheet;
-    NU_Stylesheet_Create(&stylesheet,"test.css"); 
+    if (!NU_From_XML("app.xml")) return -1;
+    NU_Stylesheet stylesheet;
+    NU_Stylesheet_Create(&stylesheet,"app.css"); 
     NU_Stylesheet_Apply(&stylesheet);
 
 
@@ -66,11 +83,13 @@ int main()
     fill_col.b = 0.6f;
 
     uint32_t chart = NU_Get_Node_By_Id("chart");
-    Border_Rect(chart, 100, 250, 10, 200, 1, &border_col, &fill_col);
-    Border_Rect(chart, 120, 200, 10, 200, 1, &border_col, &fill_col);
-    Border_Rect(chart, 140, 230, 10, 200, 1, &border_col, &fill_col);
-    Border_Rect(chart, 160, 240, 10, 200, 1, &border_col, &fill_col);
-    Line(chart, 20.5, 20.5, 300.5, 300.5, 1, &border_col);
+    NU_Register_Event(chart, NULL, chart_resize, NU_EVENT_ON_RESIZE);  
+
+    NU_Border_Rect(chart, 100, 250, 10, 200, 1, &border_col, &fill_col);
+    NU_Border_Rect(chart, 120, 200, 10, 200, 1, &border_col, &fill_col);
+    NU_Border_Rect(chart, 140, 230, 10, 200, 1, &border_col, &fill_col);
+    NU_Border_Rect(chart, 160, 240, 10, 200, 1, &border_col, &fill_col);
+    NU_Line(chart, 20.5, 20.5, 300.5, 300.5, 1, &border_col);
 
 
     // --- Main Tab Selection ---
@@ -109,10 +128,20 @@ int main()
     NU_Register_Event(orders_table_selector, &orders_table_tab, tab_select, NU_EVENT_ON_CLICK);
     NU_Register_Event(trades_table_selector, &trades_table_tab, tab_select, NU_EVENT_ON_CLICK);
 
+    // --- Editor ---
+    uint32_t editor_new_script_btn = NU_Get_Node_By_Id("editor-new-script");
+    NU_Register_Event(editor_new_script_btn, NULL, create_new_script, NU_EVENT_ON_CLICK);
+
+    uint32_t editor_delete_script_btn = NU_Get_Node_By_Id("editor-delete-script");
+    NU_Register_Event(editor_delete_script_btn, NULL, delete_script, NU_EVENT_ON_CLICK);
+
     // ------------------------
     // --- Application loop ---
     // ------------------------
-    NU_Mainloop();
+    while(NU_Running())
+    {
+
+    }
 
     // -------------------
     // --- Free Memory ---

@@ -48,6 +48,9 @@
         "xiosbase": "c",
         "nu_layer.h": "c",
         "nodus.h": "c",
-        "nu_draw_structures.h": "c"
+        "nu_draw_structures.h": "c",
+        "string.h": "c",
+        "thread": "c",
+        "stdlib.h": "c"
     }
 }

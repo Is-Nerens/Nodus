@@ -12,6 +12,7 @@
 #include "nu_draw_structures.h"
 #include "nu_font.h"
 #include "nu_resources.h"
+#include "nu_nodelist.h"
 
 
 // Definitions
@@ -97,6 +98,11 @@ struct Node
 #include "nu_node_table.h"
 #include "nu_layer.h"
 
+typedef struct NU_Node_Dimensions
+{
+    float width, height;
+} NU_Node_Dimensions;
+
 struct NU_GUI
 {
     NU_Tree tree;
@@ -132,9 +138,15 @@ struct NU_GUI
     struct Hashmap on_changed_events;
     struct Hashmap on_drag_events;
     struct Hashmap on_released_events;
+    struct Hashmap on_resize_events;
+
+    struct Hashmap node_resize_tracking; // Stores the current dimensions of nodes with resize events
 
     // Canvas drawing contexts
     struct Hashmap canvas_contexts; // maps (canvas node handle -> context)
+
+    Uint32 SDL_CUSTOM_RENDER_EVENT;
+    Uint32 SDL_CUSTOM_UNBLOCK_LOOP_EVENT;
 };
 
 struct NU_GUI __nu_global_gui;
@@ -144,7 +156,8 @@ enum NU_Event
     NU_EVENT_ON_CLICK,
     NU_EVENT_ON_CHANGED,
     NU_EVENT_ON_DRAG,
-    NU_EVENT_ON_RELEASED
+    NU_EVENT_ON_RELEASED,
+    NU_EVENT_ON_RESIZE
 };
 
 typedef void (*NU_Callback)(uint32_t handle, void* args);
@@ -186,7 +199,7 @@ void NU_Add_Canvas_Context(uint32_t canvas_node_handle)
 #include "nu_canvas_draw.h"
 #include "nu_dom.h"
 
-int NU_Init()
+int NU_Internal_Init()
 {
     // Check if SDL initialised
     if (!SDL_Init(SDL_INIT_VIDEO)) 
@@ -205,6 +218,9 @@ int NU_Init()
     Hashmap_Init(&__nu_global_gui.on_changed_events,  sizeof(uint32_t), sizeof(struct NU_Callback_Info), 25);
     Hashmap_Init(&__nu_global_gui.on_drag_events,     sizeof(uint32_t), sizeof(struct NU_Callback_Info), 25);
     Hashmap_Init(&__nu_global_gui.on_released_events, sizeof(uint32_t), sizeof(struct NU_Callback_Info), 25);
+    Hashmap_Init(&__nu_global_gui.on_resize_events,   sizeof(uint32_t), sizeof(struct NU_Callback_Info), 25);
+
+    Hashmap_Init(&__nu_global_gui.node_resize_tracking, sizeof(uint32_t), sizeof(NU_Node_Dimensions), 25);
 
     String_Set_Init(&__nu_global_gui.class_string_set, 1024, 100);
     String_Set_Init(&__nu_global_gui.id_string_set, 1024, 100);
@@ -222,47 +238,83 @@ int NU_Init()
     __nu_global_gui.running = true;
     __nu_global_gui.awaiting_redraw = true;
 
+
+    // Register custom render event type
+    __nu_global_gui.SDL_CUSTOM_RENDER_EVENT = SDL_RegisterEvents(1);
+    if (__nu_global_gui.SDL_CUSTOM_RENDER_EVENT == (Uint32)-1) {
+        printf("Failed to register custom SDL render event! SDL_Error: %s\n", SDL_GetError());
+        return -1;
+    }
+
+    // Register unblock event type
+    __nu_global_gui.SDL_CUSTOM_UNBLOCK_LOOP_EVENT = SDL_RegisterEvents(1);
+    if (__nu_global_gui.SDL_CUSTOM_UNBLOCK_LOOP_EVENT == (Uint32)-1) {
+        printf("Failed to register custom SDL unblock event! SDL_Error: %s\n", SDL_GetError());
+        return -1;
+    }
+
     NU_Create_Main_Window();
     NU_Text_Renderer_Init();
     SDL_AddEventWatch(EventWatcher, NULL);
+    
 
     return 1; // Success
 }
 
-void NU_Mainloop()
+int NU_Internal_Running()
 {
-    SDL_Event event;
-    while (__nu_global_gui.running)
+    if (__nu_global_gui.running)
     {
+        SDL_Event event;
         if (SDL_WaitEvent(&event)) {
-            EventWatcher(NULL, &event); // you already have this function
+            EventWatcher(NULL, &event);
         }
+        return 1;
+    }
+    else
+    {
+        return 0;
     }
 }
 
-void NU_Quit()
+void NU_Internal_Render()
+{
+    SDL_Event e;
+    SDL_zero(e);
+    e.type = __nu_global_gui.SDL_CUSTOM_RENDER_EVENT;
+    SDL_PushEvent(&e);       
+}
+
+void NU_Internal_Unblock()
+{
+    SDL_Event e;
+    SDL_zero(e);
+    e.type = __nu_global_gui.SDL_CUSTOM_UNBLOCK_LOOP_EVENT;
+    SDL_PushEvent(&e);   
+}
+
+void NU_Internal_Quit()
 {
     NU_Tree_Free(&__nu_global_gui.tree);
     Vector_Free(&__nu_global_gui.windows);
     Vector_Free(&__nu_global_gui.window_nodes);
     StringArena_Free(&__nu_global_gui.node_text_arena);
     String_Map_Free(&__nu_global_gui.id_node_map);
+    String_Set_Free(&__nu_global_gui.class_string_set);
+    String_Set_Free(&__nu_global_gui.id_string_set);
 
     // Events
     Hashmap_Free(&__nu_global_gui.on_click_events);
     Hashmap_Free(&__nu_global_gui.on_changed_events);
     Hashmap_Free(&__nu_global_gui.on_drag_events);
     Hashmap_Free(&__nu_global_gui.on_released_events);
+    Hashmap_Free(&__nu_global_gui.on_resize_events);
 
-    String_Set_Free(&__nu_global_gui.class_string_set);
-    String_Set_Free(&__nu_global_gui.id_string_set);
+    Hashmap_Free(&__nu_global_gui.node_resize_tracking);
 
     // Canvas drawing contexts
     Hashmap_Free(&__nu_global_gui.canvas_contexts);
 
-    __nu_global_gui.hovered_node = NULL;
-    __nu_global_gui.mouse_down_node = NULL;
-    __nu_global_gui.deepest_layer = 0;
-
+    // SDL 
     SDL_Quit();
 }

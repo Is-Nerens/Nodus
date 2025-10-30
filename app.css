@@ -56,8 +56,9 @@ row {
     position: absolute;
 }
 .cell {
-    pad: 3;
-    background: #0c0c0c;
+    pad: 0;
+    background: #761212;
+    border: 1;
     alignV: center;
     font: font-table-cell;
 }
@@ -75,7 +76,6 @@ row {
     background: #151515;
     alignV: center;
 }
-
 .tab-button {
     border: 1;
     borderRadius: 3;
@@ -85,7 +85,6 @@ row {
     pad: 5;
     textAlignH: center;
 }
-
 .tab-button-selected {
     textColour: #0b1528;
     background: #4f7fd9;
@@ -100,6 +99,10 @@ row {
     border: 1
     borderRadius: 3;
 }
+
+
+
+
 
 
 #side-bar {
@@ -155,6 +158,8 @@ row {
     background: #515151;
     borderColour: #9b5920;
 }
+
+
 
 
 

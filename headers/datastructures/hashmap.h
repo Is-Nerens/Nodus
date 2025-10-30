@@ -1,6 +1,5 @@
 #pragma once
 
-
 // ------------------------------------
 // --- Import -------------------------
 // ------------------------------------
@@ -397,7 +396,7 @@ void String_Map_Delete(String_Map* map, char* key)
 // ------------------------------------------------------
 // --- Datastructure For Mapping (generic -> generic) ---
 // ------------------------------------------------------
-struct Hashmap
+typedef struct Hashmap
 {
     uint8_t* occupancy;
     void* data;
@@ -407,9 +406,9 @@ struct Hashmap
     uint32_t capacity;
     uint32_t max_probes;
     uint32_t iterate_index;
-};
+} Hashmap;
 
-void Hashmap_Init(struct Hashmap* hmap, uint32_t key_size, uint32_t item_size, uint32_t capacity)
+void Hashmap_Init(Hashmap* hmap, uint32_t key_size, uint32_t item_size, uint32_t capacity)
 {
     capacity = max(capacity, 10); // Ensure capacity for at least 10 elements
 
@@ -430,7 +429,7 @@ void Hashmap_Init(struct Hashmap* hmap, uint32_t key_size, uint32_t item_size, u
     hmap->max_probes = 0;
 }
 
-void Hashmap_Resize_Add(struct Hashmap* hmap, void* key, void* value)
+void Hashmap_Resize_Add(Hashmap* hmap, void* key, void* value)
 {
     uint32_t probes = 0;
     uint32_t hash = Hash_Generic(key, hmap->key_size);
@@ -455,7 +454,7 @@ void Hashmap_Resize_Add(struct Hashmap* hmap, void* key, void* value)
     hmap->max_probes = max(hmap->max_probes, probes);
 }
 
-void Hashmap_Resize(struct Hashmap* hmap)
+void Hashmap_Resize(Hashmap* hmap)
 {
     uint32_t old_capacity = hmap->capacity;
     uint8_t* old_occupancy = hmap->occupancy;
@@ -488,7 +487,7 @@ void Hashmap_Resize(struct Hashmap* hmap)
     free(old_data);
 }
 
-int Hashmap_Contains(struct Hashmap* hmap, void* key)
+int Hashmap_Contains(Hashmap* hmap, void* key)
 {
     uint32_t probes = 0;
     uint32_t hash = Hash_Generic(key, hmap->key_size);
@@ -515,7 +514,7 @@ int Hashmap_Contains(struct Hashmap* hmap, void* key)
     return 0;
 }
 
-void* Hashmap_Get(struct Hashmap* hmap, void* key)
+void* Hashmap_Get(Hashmap* hmap, void* key)
 {
     uint32_t probes = 0;
     uint32_t hash = Hash_Generic(key, hmap->key_size);
@@ -543,7 +542,7 @@ void* Hashmap_Get(struct Hashmap* hmap, void* key)
     return NULL;
 }
 
-void Hashmap_Set(struct Hashmap* hmap, void* key, void* value)
+void Hashmap_Set(Hashmap* hmap, void* key, void* value)
 {
     // Resize if surpased max load factor 
     if ((float)hmap->item_count / (float)hmap->capacity > 0.5f) {
@@ -573,7 +572,7 @@ void Hashmap_Set(struct Hashmap* hmap, void* key, void* value)
     hmap->max_probes = max(hmap->max_probes, probes);
 }
 
-void Hashmap_Delete(struct Hashmap* hmap, void* key)
+void Hashmap_Delete(Hashmap* hmap, void* key)
 {
     uint32_t probes = 0;
     uint32_t hash = Hash_Generic(key, hmap->key_size);
@@ -639,17 +638,17 @@ void Hashmap_Delete(struct Hashmap* hmap, void* key)
     }
 }
 
-void Hashmap_Iterate_Begin(struct Hashmap* hmap)
+void Hashmap_Iterate_Begin(Hashmap* hmap)
 {
     hmap->iterate_index = 0;
 }
 
-int Hashmap_Iterate_Continue(struct Hashmap* hmap)
+int Hashmap_Iterate_Continue(Hashmap* hmap)
 {   
     return hmap->iterate_index < hmap->capacity;
 }
 
-void Hashmap_Iterate_Get(struct Hashmap* hmap, void** return_key, void** return_val)
+void Hashmap_Iterate_Get(Hashmap* hmap, void** return_key, void** return_val)
 {
     if (hmap->item_count == 0) 
     {
@@ -681,7 +680,7 @@ void Hashmap_Iterate_Get(struct Hashmap* hmap, void** return_key, void** return_
     return;
 }
 
-void Hashmap_Free(struct Hashmap* hmap)
+void Hashmap_Free(Hashmap* hmap)
 {
     free(hmap->occupancy);
     free(hmap->data);

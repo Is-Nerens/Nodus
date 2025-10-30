@@ -62,10 +62,6 @@ typedef struct {
     Index_List indices;
 } NU_Canvas_Context;
 
-// typedef struct {
-
-// } Canvas_Context_List;
-
 void RGB_From_Hex(const char* hexstring, NU_RGB* result)
 {
     // Ensure string is 7 chars long and first char is '#'

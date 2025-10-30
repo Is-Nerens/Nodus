@@ -5,8 +5,6 @@
 #include <stdint.h> 
 #include <SDL3/SDL.h>
 #include <GL/glew.h>
-#include <harfbuzz/hb.h>
-#include <harfbuzz/hb-ft.h>
 #include <freetype/freetype.h>
 
 #ifdef __cplusplus

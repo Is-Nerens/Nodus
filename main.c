@@ -99,8 +99,6 @@ int main()
     uint32_t cloud_tab_btn = NU_Get_Node_By_Id("cloud-tab-btn");
     uint32_t charts_tab_container = NU_Get_Node_By_Id("charts-tab-container");
     uint32_t editor_tab_container = NU_Get_Node_By_Id("editor-tab-container");
-
-
     uint32_t perf_tab_container = NU_Get_Node_By_Id("perf-tab-container");
     uint32_t cloud_tab_container = NU_Get_Node_By_Id("cloud-tab-container");
     struct Tab_Manager main_tabs = { .current_tab_btn = charts_tab_btn, .current_tab_container = charts_tab_container };

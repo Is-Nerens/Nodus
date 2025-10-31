@@ -65,6 +65,7 @@ struct Node
     uint16_t child_count;
     uint8_t node_present;
     uint8_t layer; 
+    uint8_t position_absolute;
 
 
     // ------------------------------
@@ -112,10 +113,10 @@ struct NU_GUI
 
     String_Set class_string_set;
     String_Set id_string_set;
-    struct Node* hovered_node;
-    struct Node* mouse_down_node;
-    struct Node* scroll_hovered_node;
-    struct Node* scroll_mouse_down_node;
+    uint32_t hovered_node;
+    uint32_t mouse_down_node;
+    uint32_t scroll_hovered_node;
+    uint32_t scroll_mouse_down_node;
     float mouse_down_global_x;
     float mouse_down_global_y;
     float v_scroll_thumb_grab_offset;
@@ -228,10 +229,10 @@ int NU_Internal_Init()
     // Canvas drawing contexts and flag empty
     Hashmap_Init(&__nu_global_gui.canvas_contexts, sizeof(uint32_t), sizeof(NU_Canvas_Context), 4);
 
-    __nu_global_gui.hovered_node = NULL;
-    __nu_global_gui.mouse_down_node = NULL;
-    __nu_global_gui.scroll_hovered_node = NULL;
-    __nu_global_gui.scroll_mouse_down_node = NULL;
+    __nu_global_gui.hovered_node = UINT32_MAX;
+    __nu_global_gui.mouse_down_node = UINT32_MAX;
+    __nu_global_gui.scroll_hovered_node = UINT32_MAX;
+    __nu_global_gui.scroll_mouse_down_node = UINT32_MAX;
     __nu_global_gui.deepest_layer = 0;
     __nu_global_gui.stylesheet = NULL;
     __nu_global_gui.hovered_window = NULL;

@@ -218,11 +218,6 @@ int NU_Font_Create(NU_Font* font, const char* filepath, int height_pixels, bool 
             // Convert 26.6 fixed point to pixels
             float kern_pixels = kern.x >> 6;
             font->kerning_table[left_char - 32][right_char - 32] = kern_pixels;
-
-            if (kern_pixels != 0) {
-                printf("kerning: %f\n", kern_pixels);
-                printf("kerning stored: %f\n", font->kerning_table[left_char - 32][right_char - 32]);
-            }
         }
     }
 

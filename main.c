@@ -57,7 +57,7 @@ void delete_script(uint32_t handle, void* args)
 
 void chart_resize(uint32_t handle, void* args)
 {
-    printf("chart resized!\n");
+    // printf("chart resized!\n");
 }
 
 int main()

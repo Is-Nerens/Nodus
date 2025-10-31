@@ -38,7 +38,6 @@ static void NU_Verify_Tree() {
         }
     }
 
-
     // For each layer
     for (uint16_t l=0; l<=__nu_global_gui.deepest_layer; l++)
     {
@@ -188,7 +187,9 @@ uint32_t NU_Internal_Create_Node(uint32_t parent_handle, enum Tag tag)
     if (parent->child_count > parent->child_capacity) { // Parent requires extra slab space
 
         // If need to expand layer
-        if (create_node_layer->size == create_node_layer->capacity) {
+        if (create_node_layer->size + 5 > create_node_layer->capacity) {
+            struct Node* old_node_array = create_node_layer->node_array;
+            size_t old_size = create_node_layer->size;
             NU_Layer_Grow(&__nu_global_gui.tree, create_node_layer);
         }
 
@@ -207,8 +208,13 @@ uint32_t NU_Internal_Create_Node(uint32_t parent_handle, enum Tag tag)
         create_node_layer->size += 5;
         for (uint16_t i=create_node_index+5; i<create_node_layer->size; i++) {
             struct Node* node = NU_Layer_Get(create_node_layer, i);
+            if (!node->node_present) continue;
+
+            // Update node index and table mapping (node->handle -> node*)
             node->index = i;
             NU_Node_Table_Update(&__nu_global_gui.tree.node_table, node->handle, node);
+
+            // Update parent index of node's children
             if (node->child_count > 0) {
                 NU_Layer* child_layer = &__nu_global_gui.tree.layers[parent->layer + 2];
                 for (uint16_t c=node->first_child_index; c<node->first_child_index + node->child_count; c++) {
@@ -217,13 +223,13 @@ uint32_t NU_Internal_Create_Node(uint32_t parent_handle, enum Tag tag)
             }
         }
 
+        // Give the parent more child capacity
+        parent->child_capacity += 5;
+        
         // Mark parent's new additional slots as free
         for (uint16_t i=create_node_index+1; i<create_node_index + 5; i++) {
             create_node_layer->node_array[i].node_present = false;
         }
-
-        // Give the parent more child capacity
-        parent->child_capacity += 5;
 
         // Create new node at location
         struct Node* created_node = &create_node_layer->node_array[create_node_index];
@@ -295,11 +301,19 @@ static void NU_Dissociate_Node(struct Node* node)
     if (node->event_flags & NU_EVENT_FLAG_ON_RELEASED) {
         Hashmap_Delete(&__nu_global_gui.on_released_events, &node->handle); // Delete on_released event
     }
-    if (node == __nu_global_gui.hovered_node) {
-        __nu_global_gui.hovered_node = NULL;
+    if (node->handle == __nu_global_gui.hovered_node) {
+        __nu_global_gui.hovered_node = UINT32_MAX;
     } 
-    if (node == __nu_global_gui.mouse_down_node) {
-        __nu_global_gui.mouse_down_node = NULL;
+    if (node->handle == __nu_global_gui.mouse_down_node) {
+        __nu_global_gui.mouse_down_node = UINT32_MAX;
+    }
+    if (node->handle == __nu_global_gui.scroll_hovered_node)
+    {
+        __nu_global_gui.scroll_hovered_node = UINT32_MAX;
+    }
+    if (node->handle == __nu_global_gui.scroll_mouse_down_node)
+    {
+        __nu_global_gui.scroll_mouse_down_node = UINT32_MAX;
     }
     if (node->tag == CANVAS) {
         Hashmap_Delete(&__nu_global_gui.canvas_contexts, &node->handle); // Delete canvas context
@@ -605,9 +619,9 @@ void NU_Internal_Set_Class(uint32_t handle, char* class)
 
     // Update styling
     NU_Apply_Stylesheet_To_Node(node, __nu_global_gui.stylesheet);
-    if (node == __nu_global_gui.scroll_mouse_down_node) {
+    if (node->handle == __nu_global_gui.scroll_mouse_down_node) {
         NU_Apply_Pseudo_Style_To_Node(node, __nu_global_gui.stylesheet, PSEUDO_PRESS);
-    } else if (node == __nu_global_gui.hovered_node) {
+    } else if (node->handle == __nu_global_gui.hovered_node) {
         NU_Apply_Pseudo_Style_To_Node(node, __nu_global_gui.stylesheet, PSEUDO_HOVER);
     }
 

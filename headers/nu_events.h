@@ -87,7 +87,7 @@ bool EventWatcher(void* data, SDL_Event* event)
     {
         Uint32 id = event->motion.windowID;
         __nu_global_gui.hovered_window = SDL_GetWindowFromID(id);
-        struct Node* hovered_node = __nu_global_gui.hovered_node;
+        uint32_t hovered_node = __nu_global_gui.hovered_node;
         NU_Mouse_Hover();
 
         // Get golbal mouse coordinates
@@ -95,13 +95,13 @@ bool EventWatcher(void* data, SDL_Event* event)
         SDL_GetGlobalMouseState(&mouse_x_global, &mouse_y_global);
 
 
-        if (__nu_global_gui.scroll_mouse_down_node) { // Is dragging scrollbar
-            struct Node* node = __nu_global_gui.scroll_mouse_down_node;
+        if (__nu_global_gui.scroll_mouse_down_node != UINT32_MAX) { // Is dragging scrollbar
+            struct Node* node = NODE(__nu_global_gui.scroll_mouse_down_node);
             NU_Layer* child_layer = &__nu_global_gui.tree.layers[node->layer + 1];
 
             // Get relative mouse coords within window
             int win_x, win_y; 
-            SDL_GetWindowPosition(__nu_global_gui.scroll_mouse_down_node->window, &win_x, &win_y);
+            SDL_GetWindowPosition(NODE(__nu_global_gui.scroll_mouse_down_node)->window, &win_x, &win_y);
             float mouse_y_local = mouse_y_global - win_y;
 
             // Calculate track_height thumb_height drag_dist
@@ -117,7 +117,7 @@ bool EventWatcher(void* data, SDL_Event* event)
             node->scroll_v = max(node->scroll_v, 0.0f);
             node->scroll_v = min(node->scroll_v, 1.0f);
         }
-        if (hovered_node != __nu_global_gui.hovered_node || __nu_global_gui.scroll_mouse_down_node != NULL) draw = true;
+        if (hovered_node != __nu_global_gui.hovered_node || __nu_global_gui.scroll_mouse_down_node != UINT32_MAX) draw = true;
     }
     // -----------------------------------------------------------------------------------
     // --- Mouse button pressed down -----------------------------------------------------
@@ -127,7 +127,7 @@ bool EventWatcher(void* data, SDL_Event* event)
         // Get mouse down coordinates
         int win_x, win_y; 
         SDL_GetGlobalMouseState(&__nu_global_gui.mouse_down_global_x, &__nu_global_gui.mouse_down_global_y);
-        SDL_GetWindowPosition(__nu_global_gui.hovered_node->window, &win_x, &win_y);
+        SDL_GetWindowPosition(NODE(__nu_global_gui.hovered_node)->window, &win_x, &win_y);
         float mouse_x_local = __nu_global_gui.mouse_down_global_x - win_x;
         float mouse_y_local = __nu_global_gui.mouse_down_global_y - win_y;
 
@@ -135,15 +135,15 @@ bool EventWatcher(void* data, SDL_Event* event)
         __nu_global_gui.mouse_down_node = __nu_global_gui.hovered_node;
 
         // If mouse is hovered over scroll thumb -> set scroll mouse down node
-        if (__nu_global_gui.scroll_hovered_node != NULL) {
-            if (NU_Mouse_Over_Node_V_Scrollbar(__nu_global_gui.scroll_hovered_node, mouse_x_local, mouse_y_local)) {
+        if (__nu_global_gui.scroll_hovered_node != UINT32_MAX) {
+            if (NU_Mouse_Over_Node_V_Scrollbar(NODE(__nu_global_gui.scroll_hovered_node), mouse_x_local, mouse_y_local)) {
                 __nu_global_gui.scroll_mouse_down_node = __nu_global_gui.scroll_hovered_node;
             }
         }
 
         // Record scroll thumb grab offset
-        if (__nu_global_gui.scroll_mouse_down_node != NULL) { 
-            struct Node* node = __nu_global_gui.scroll_mouse_down_node;
+        if (__nu_global_gui.scroll_mouse_down_node != UINT32_MAX) { 
+            struct Node* node = NODE(__nu_global_gui.scroll_mouse_down_node);
             float track_height = node->height - node->border_top - node->border_bottom;
             float inner_height_w_pad = track_height - node->pad_top - node->pad_bottom;
             float inner_proportion_of_content_height = inner_height_w_pad / node->content_height;
@@ -153,8 +153,8 @@ bool EventWatcher(void* data, SDL_Event* event)
         }
 
         // Apply presses pseudo style
-        if (__nu_global_gui.mouse_down_node != NULL) {
-            NU_Apply_Pseudo_Style_To_Node(__nu_global_gui.hovered_node, __nu_global_gui.stylesheet, PSEUDO_PRESS);
+        if (__nu_global_gui.mouse_down_node != UINT32_MAX) {
+            NU_Apply_Pseudo_Style_To_Node(NODE(__nu_global_gui.hovered_node), __nu_global_gui.stylesheet, PSEUDO_PRESS);
         } 
 
         __nu_global_gui.awaiting_redraw = true;
@@ -172,21 +172,21 @@ bool EventWatcher(void* data, SDL_Event* event)
     // -----------------------------------------------------------------------------------
     else if (event->type == SDL_EVENT_MOUSE_BUTTON_UP)
     {
-        __nu_global_gui.scroll_mouse_down_node = NULL;
+        __nu_global_gui.scroll_mouse_down_node = UINT32_MAX;
 
         // If there is a pressed node
-        if (__nu_global_gui.mouse_down_node != NULL)
+        if (__nu_global_gui.mouse_down_node != UINT32_MAX)
         {   
             // If the mouse is hovering over pressed node
             if (__nu_global_gui.mouse_down_node == __nu_global_gui.hovered_node) 
             { 
                 // Apply hover style
-                NU_Apply_Pseudo_Style_To_Node(__nu_global_gui.mouse_down_node, __nu_global_gui.stylesheet, PSEUDO_HOVER);
+                NU_Apply_Pseudo_Style_To_Node(NODE(__nu_global_gui.mouse_down_node), __nu_global_gui.stylesheet, PSEUDO_HOVER);
 
                 // If there is a click event assigned to the pressed node
-                if (__nu_global_gui.hovered_node->event_flags & NU_EVENT_FLAG_ON_CLICK) 
+                if (NODE(__nu_global_gui.hovered_node)->event_flags & NU_EVENT_FLAG_ON_CLICK) 
                 {
-                    void* found_cb = Hashmap_Get(&__nu_global_gui.on_click_events, &__nu_global_gui.hovered_node->handle);
+                    void* found_cb = Hashmap_Get(&__nu_global_gui.on_click_events, &NODE(__nu_global_gui.hovered_node)->handle);
                     if (found_cb != NULL) {
                         struct NU_Callback_Info* cb_info = (struct NU_Callback_Info*)found_cb;
                         cb_info->callback(cb_info->handle, cb_info->args);
@@ -197,17 +197,17 @@ bool EventWatcher(void* data, SDL_Event* event)
             }
             // If the mouse is released over something other than the pressed node -> revert pressed node to default style
             else { 
-                NU_Apply_Stylesheet_To_Node(__nu_global_gui.mouse_down_node, __nu_global_gui.stylesheet);
+                NU_Apply_Stylesheet_To_Node(NODE(__nu_global_gui.mouse_down_node), __nu_global_gui.stylesheet);
                 __nu_global_gui.awaiting_redraw = true;
             }
 
             // There is no longer a pressed node
-            __nu_global_gui.mouse_down_node = NULL;
+            __nu_global_gui.mouse_down_node = UINT32_MAX;
         }
     }
     else if (event->type == SDL_EVENT_MOUSE_WHEEL)
     {
-        struct Node* node = __nu_global_gui.scroll_hovered_node;
+        struct Node* node = NODE(__nu_global_gui.scroll_hovered_node);
         if (node != NULL) 
         {
             float track_height = node->height - node->border_top - node->border_bottom;

@@ -57,8 +57,7 @@ row {
 }
 .cell {
     pad: 0;
-    background: #761212;
-    border: 1;
+    background: #000000;
     alignV: center;
     font: font-table-cell;
 }

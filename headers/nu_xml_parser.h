@@ -422,6 +422,7 @@ static void NU_Apply_Node_Defaults(struct Node* node)
     node->text_content = NULL;
     node->inline_style_flags = 0;
     node->clipping_root_handle = 0;
+    node->position_absolute = 0;
     node->tag = NAT;
     node->gl_image_handle = 0;
     node->preferred_width = 0.0f;

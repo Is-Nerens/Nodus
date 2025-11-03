@@ -872,9 +872,9 @@ static bool NU_Mouse_Over_Node(struct Node* node, float mouse_x, float mouse_y)
     {
         NU_Clip_Bounds* clip = Hashmap_Get(&__nu_global_gui.node_clip_map, &node->clipping_root_handle);
         left_wall = max(clip->clip_left, node->x);
-        right_wall = max(clip->clip_right, node->x + node->width);
+        right_wall = min(clip->clip_right, node->x + node->width);
         top_wall = max(clip->clip_top, node->y);
-        bottom_wall = max(clip->clip_bottom, node->y + node->height);
+        bottom_wall = min(clip->clip_bottom, node->y + node->height);
     }
 
     // --- Check if mouse is within clipped bounding box

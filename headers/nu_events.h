@@ -218,6 +218,10 @@ bool EventWatcher(void* data, SDL_Event* event)
             node->scroll_v -= event->wheel.y * (track_height / node->content_height) * 0.2f;
             node->scroll_v = max(node->scroll_v, 0.0f);
             node->scroll_v = min(node->scroll_v, 1.0f); 
+
+            NU_Reflow();
+            NU_Mouse_Hover();
+            NU_Draw();
         }
     }
 

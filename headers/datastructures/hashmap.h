@@ -680,6 +680,22 @@ void Hashmap_Iterate_Get(Hashmap* hmap, void** return_key, void** return_val)
     return;
 }
 
+void Hashmap_Clear(Hashmap* hmap)
+{
+    if (hmap->capacity == 0) return;
+
+    // Calculate number of bytes needed for occupancy bit array
+    uint32_t occupancy_remainder = hmap->capacity & 7; // capacity % 8 
+    uint32_t occupancy_bytes = hmap->capacity >> 3;    // capacity / 8
+    if (occupancy_remainder != 0) occupancy_bytes += 1;
+
+    // Set occupancy bits to 0
+    memset(hmap->occupancy, 0, occupancy_bytes);
+    
+    // Clear items
+    hmap->item_count = 0;
+}
+
 void Hashmap_Free(Hashmap* hmap)
 {
     free(hmap->occupancy);

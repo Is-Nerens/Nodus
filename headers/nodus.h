@@ -104,15 +104,48 @@ typedef struct NU_Node_Dimensions
     float width, height;
 } NU_Node_Dimensions;
 
+
+typedef struct NU_Clip_Bounds 
+{
+    float clip_top;
+    float clip_bottom;
+    float clip_left;
+    float clip_right;
+    float tl_radius_x, tl_radius_y;
+    float tr_radius_x, tr_radius_y;
+    float bl_radius_x, bl_radius_y;
+    float br_radius_x, br_radius_y;
+} NU_Clip_Bounds;
+
+
+
+typedef struct NU_Window_Draw_Lists
+{
+    Vector relative_node_list;
+    Vector clipped_relative_node_list;
+    Vector absolute_node_list;
+    Vector clipped_absolute_node_list;
+    Vector canvas_node_list;
+    Vector clipped_canvas_node_list;
+} NU_Window_Draw_Lists;
+
+
 struct NU_GUI
 {
     NU_Tree tree;
-    struct Vector windows;
-    struct Vector window_nodes;
+    Vector windows;
+    Vector window_nodes;
     StringArena node_text_arena;
-
     String_Set class_string_set;
     String_Set id_string_set;
+
+
+    Vector windows_draw_lists; // Vector of NU_Window_Draw_Lists (a meta vector?)
+    Vector absolute_root_nodes;
+    Hashmap node_clip_map;
+
+
+
     uint32_t hovered_node;
     uint32_t mouse_down_node;
     uint32_t scroll_hovered_node;
@@ -213,6 +246,14 @@ int NU_Internal_Init()
     Vector_Reserve(&__nu_global_gui.window_nodes, sizeof(struct Node*), 8);
     StringArena_Init(&__nu_global_gui.node_text_arena, 512);
     String_Map_Init(&__nu_global_gui.id_node_map, sizeof(uint32_t), 512, 25);
+    String_Set_Init(&__nu_global_gui.class_string_set, 1024, 100);
+    String_Set_Init(&__nu_global_gui.id_string_set, 1024, 100);
+
+    // Draw lists and clipping 
+    Vector_Reserve(&__nu_global_gui.windows_draw_lists, sizeof(NU_Window_Draw_Lists), 8);
+    Vector_Reserve(&__nu_global_gui.absolute_root_nodes, sizeof(struct Node*), 8);
+    Hashmap_Init(&__nu_global_gui.node_clip_map, sizeof(uint32_t), sizeof(NU_Clip_Bounds), 16);
+
 
     // Events
     Hashmap_Init(&__nu_global_gui.on_click_events,    sizeof(uint32_t), sizeof(struct NU_Callback_Info), 25);
@@ -220,11 +261,7 @@ int NU_Internal_Init()
     Hashmap_Init(&__nu_global_gui.on_drag_events,     sizeof(uint32_t), sizeof(struct NU_Callback_Info), 25);
     Hashmap_Init(&__nu_global_gui.on_released_events, sizeof(uint32_t), sizeof(struct NU_Callback_Info), 25);
     Hashmap_Init(&__nu_global_gui.on_resize_events,   sizeof(uint32_t), sizeof(struct NU_Callback_Info), 25);
-
     Hashmap_Init(&__nu_global_gui.node_resize_tracking, sizeof(uint32_t), sizeof(NU_Node_Dimensions), 25);
-
-    String_Set_Init(&__nu_global_gui.class_string_set, 1024, 100);
-    String_Set_Init(&__nu_global_gui.id_string_set, 1024, 100);
 
     // Canvas drawing contexts and flag empty
     Hashmap_Init(&__nu_global_gui.canvas_contexts, sizeof(uint32_t), sizeof(NU_Canvas_Context), 4);
@@ -303,6 +340,10 @@ void NU_Internal_Quit()
     String_Map_Free(&__nu_global_gui.id_node_map);
     String_Set_Free(&__nu_global_gui.class_string_set);
     String_Set_Free(&__nu_global_gui.id_string_set);
+
+    Vector_Free(&__nu_global_gui.windows_draw_lists);
+    Vector_Free(&__nu_global_gui.absolute_root_nodes);
+    Hashmap_Free(&__nu_global_gui.node_clip_map);
 
     // Events
     Hashmap_Free(&__nu_global_gui.on_click_events);

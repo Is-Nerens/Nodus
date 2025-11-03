@@ -860,19 +860,26 @@ static void NU_Calculate_Positions()
 // --- Interaction -------------
 // -----------------------------
 
-// Checks against bounding rect
-static bool NU_Mouse_Over_Node_Bounds(struct Node* node, float mouse_x, float mouse_y)
-{
-    bool within_x_bound = mouse_x >= node->x && mouse_x <= node->x + node->width;
-    bool within_y_bound = mouse_y >= node->y && mouse_y <= node->y + node->height;
-    return (within_x_bound && within_y_bound);
-}
-
 // Checks against rounded corners
 static bool NU_Mouse_Over_Node(struct Node* node, float mouse_x, float mouse_y)
 {
-    bool within_x_bound = mouse_x >= node->x && mouse_x <= node->x + node->width;
-    bool within_y_bound = mouse_y >= node->y && mouse_y <= node->y + node->height;
+    // --- Get clipping info
+    float left_wall = node->x;
+    float right_wall = node->x + node->width;
+    float top_wall = node->y;
+    float bottom_wall = node->y + node->height; 
+    if (node->clipping_root_handle != UINT32_MAX)
+    {
+        NU_Clip_Bounds* clip = Hashmap_Get(&__nu_global_gui.node_clip_map, &node->clipping_root_handle);
+        left_wall = max(clip->clip_left, node->x);
+        right_wall = max(clip->clip_right, node->x + node->width);
+        top_wall = max(clip->clip_top, node->y);
+        bottom_wall = max(clip->clip_bottom, node->y + node->height);
+    }
+
+    // --- Check if mouse is within clipped bounding box
+    bool within_x_bound = mouse_x >= left_wall && mouse_x <= right_wall;
+    bool within_y_bound = mouse_y >= top_wall && mouse_y <= bottom_wall;
     if (!(within_x_bound && within_y_bound)) return false; // Not in bounding rect
 
     // --- Constrain border radii ---
@@ -938,11 +945,12 @@ static bool NU_Mouse_Over_Node_V_Scrollbar(struct Node* node, float mouse_x, flo
     return within_x_bound && within_y_bound;
 }
 
+
 void NU_Mouse_Hover()
 {   
-    // --------------------------------------
-    // --- Clear ui tree hovered nodes vector
-    // --------------------------------------
+    // -----------------------------------------------------------
+    // --- Remove potential pseudo style from current hovered node
+    // -----------------------------------------------------------
     if (__nu_global_gui.hovered_node != UINT32_MAX && __nu_global_gui.hovered_node != __nu_global_gui.mouse_down_node) {
         NU_Apply_Stylesheet_To_Node(NODE(__nu_global_gui.hovered_node), __nu_global_gui.stylesheet);
     }
@@ -951,74 +959,83 @@ void NU_Mouse_Hover()
 
     if (__nu_global_gui.hovered_window == NULL) return;
 
-    // -------------------------------------------------
-    // --- Create a traversal stack and append root node
-    // -------------------------------------------------
+
+    // -----------------------------
+    // --- Get local mouse position
+    // -----------------------------
+    float global_mouse_x, global_mouse_y;
+    int window_x, window_y;
+    SDL_GetGlobalMouseState(&global_mouse_x, &global_mouse_y);
+    SDL_GetWindowPosition(__nu_global_gui.hovered_window, &window_x, &window_y);
+    float mouse_x = global_mouse_x - window_x;
+    float mouse_y = global_mouse_y - window_y;
+
+
+    // ----------------------------
+    // --- Create a traversal stack
+    // ----------------------------
     struct Vector stack;
     Vector_Reserve(&stack, sizeof(struct Node*), 32);
     
-    // ----------------------------------------------------
-    // --- Find the window node that mouse is hovering over
-    // ----------------------------------------------------
-    for (int i=0; i<__nu_global_gui.window_nodes.size; i++)
+    // -----------------------------------------------
+    // --- Push all the nodes to start traversing from
+    // -----------------------------------------------
+    for (uint32_t i=0; i<__nu_global_gui.absolute_root_nodes.size; i++)
     {
-        struct Node* window_node = *(struct Node**) Vector_Get(&__nu_global_gui.window_nodes, i);
-        if (window_node->window == __nu_global_gui.hovered_window) {
-            Vector_Push(&stack, &window_node);
+        struct Node* absolute_node = *(struct Node**)Vector_Get(&__nu_global_gui.absolute_root_nodes, i);
+        if (absolute_node->window == __nu_global_gui.hovered_window && NU_Mouse_Over_Node(absolute_node, mouse_x, mouse_y)) {
+            Vector_Push(&stack, &absolute_node);
+        }
+    }
+
+    for (uint32_t i=0; i<__nu_global_gui.window_nodes.size; i++)
+    {
+        struct Node* node = *(struct Node**)Vector_Get(&__nu_global_gui.window_nodes, i);
+        if (node->window == __nu_global_gui.hovered_window){
+            Vector_Push(&stack, &node);
             break;
         }
     }
 
-    // -----------------------------
-    // --- Get global mouse position
-    // -----------------------------
-    float mouse_x, mouse_y, rel_x, rel_y;
-    int window_x, window_y;
-    SDL_GetGlobalMouseState(&mouse_x, &mouse_y);
-    SDL_GetWindowPosition(__nu_global_gui.hovered_window, &window_x, &window_y);
-    rel_x = mouse_x - window_x;
-    rel_y = mouse_y - window_y;
+    // -------------------------
+    // --- Traverse the tree ---
+    // -------------------------
     bool break_loop = false;
     while (stack.size > 0 && !break_loop) 
-    {   
+    {
         // -----------------
         // --- Pop the stack
         // -----------------
         struct Node* current_node = *(struct Node**)Vector_Get(&stack, stack.size - 1);
-        if (current_node->window != __nu_global_gui.hovered_window) break;
+        __nu_global_gui.hovered_node = current_node->handle;
         stack.size -= 1;
 
+        if (current_node->tag == BUTTON) continue; // Skip children
+
         // ------------------------------
-        // --- Iterate over node children
+        // --- Iterate over children
         // ------------------------------
         NU_Layer* child_layer = &__nu_global_gui.tree.layers[current_node->layer+1];
         for (uint16_t i=current_node->first_child_index; i<current_node->first_child_index + current_node->child_count; i++)
         {
             struct Node* child = NU_Layer_Get(child_layer, i);
-            if (child->node_present == 2) continue;
+            if (child->node_present == 2 || 
+                child->layout_flags & POSITION_ABSOLUTE || 
+                child->tag == WINDOW ||
+                !NU_Mouse_Over_Node(child, mouse_x, mouse_y)) continue; // Skip
 
-            // ---------------------------------
-            // --- If child is not a window node
-            // ---------------------------------
-            if (child->tag != WINDOW && NU_Mouse_Over_Node(child, rel_x, rel_y)) 
-            {
-                __nu_global_gui.hovered_node = child->handle;
-
-                if (child->layout_flags & OVERFLOW_V_PROPERTY) {
-                    bool overflow_v = child->content_height > child->height - child->border_top - child->border_bottom;
-                    if (overflow_v) {
-                        __nu_global_gui.scroll_hovered_node = child->handle;
-                    }
+            // Check for scroll hover
+            if (child->layout_flags & OVERFLOW_V_PROPERTY) {
+                bool overflow_v = child->content_height > child->height - child->border_top - child->border_bottom;
+                if (overflow_v) {
+                    __nu_global_gui.scroll_hovered_node = child->handle;
                 }
-                else if (child->tag == BUTTON) {
-                    break_loop = true;
-                    break;
-                }
-
-                Vector_Push(&stack, &child);
             }
+            Vector_Push(&stack, &child);
         }
     }
+
+
 
     // ----------------------------------------
     // Apply hover pseudo style to hovered node
@@ -1028,7 +1045,6 @@ void NU_Mouse_Hover()
     } 
     Vector_Free(&stack);
 }
-
 
 
 
@@ -1119,25 +1135,34 @@ static int NU_Draw_Find_Window(struct Node* node) {
     return 0;
 }
 
-struct Clip_Bounds 
+void NU_Populate_Draw_Lists()
 {
-    float clip_top;
-    float clip_bottom;
-    float clip_left;
-    float clip_right;
-};
+    // Initialise draw lists
+    uint32_t window_count = __nu_global_gui.windows.size;
+    for (uint32_t i=0; i<window_count; i++) 
+    {
+        NU_Window_Draw_Lists* lists = Vector_Get(&__nu_global_gui.windows_draw_lists, i);
+        Vector_Reserve(&lists->relative_node_list, sizeof(struct Node*), 512);
+        Vector_Reserve(&lists->clipped_relative_node_list, sizeof(struct Node*), 64);
+        Vector_Reserve(&lists->absolute_node_list, sizeof(struct Node*), 64);
+        Vector_Reserve(&lists->clipped_absolute_node_list, sizeof(struct Node*), 16);
+        Vector_Reserve(&lists->canvas_node_list, sizeof(struct Node*), 4);
+        Vector_Reserve(&lists->clipped_canvas_node_list, sizeof(struct Node*), 1);
+    }
 
-void NU_Populate_Draw_Lists(
-    Vector* window_nodes_list,
-    Vector* window_clipped_nodes_list,
-    Vector* window_absolute_nodes_list,
-    Vector* window_absolute_clipped_nodes_list,
-    Vector* window_canvas_nodes_list,
-    Hashmap* relative_clip_map,
-    Hashmap* absolute_clip_map)
-{
+    // Clear clip map
+    Hashmap* node_clip_map = &__nu_global_gui.node_clip_map;
+    Hashmap_Clear(&__nu_global_gui.node_clip_map);
+
+    __nu_global_gui.absolute_root_nodes.size = 0;
+
+    
+
+    NU_Window_Draw_Lists* root_lists = Vector_Get(&__nu_global_gui.windows_draw_lists, 0);
+
+
     struct Node* root = &__nu_global_gui.tree.layers[0].node_array[0];
-    Vector_Push(&window_nodes_list[0], &root);
+    Vector_Push(&root_lists->relative_node_list, &root);
     for (int l=0; l<=__nu_global_gui.deepest_layer; l++)
     {
         NU_Layer* parent_layer = &__nu_global_gui.tree.layers[l];
@@ -1191,6 +1216,14 @@ void NU_Populate_Draw_Lists(
                     continue;
                 }
 
+                // Add child to list of root absolute nodes
+                if (child->layout_flags & POSITION_ABSOLUTE) {
+                    Vector_Push(&__nu_global_gui.absolute_root_nodes, &child);
+                }
+
+                // Get correct draw lists
+                NU_Window_Draw_Lists* lists = Vector_Get(&__nu_global_gui.windows_draw_lists, window_index);
+
 
 
                 // Skip node if not visible in parent (due to overflow)
@@ -1208,7 +1241,7 @@ void NU_Populate_Draw_Lists(
                     else if (intersect_state == 1) 
                     {
                         // Determine clipping
-                        struct Clip_Bounds clip;
+                        NU_Clip_Bounds clip;
                         clip.clip_top = fmaxf(child->y - 1, parent_inner_y);
                         clip.clip_bottom = fminf(child->y + child->height, parent_inner_y + parent_inner_height);
                         clip.clip_left = -1.0f;
@@ -1219,17 +1252,17 @@ void NU_Populate_Draw_Lists(
                         {
                             // If parent is also clipped -> merge clips (stack clipping behaviour)
                             if (parent->clipping_root_handle != UINT32_MAX) {
-                                struct Clip_Bounds* parent_clip = Hashmap_Get(absolute_clip_map, &parent->clipping_root_handle);
+                                NU_Clip_Bounds* parent_clip = Hashmap_Get(node_clip_map, &parent->clipping_root_handle);
                                 clip.clip_top = fmaxf(clip.clip_top, parent_clip->clip_top);
                                 clip.clip_bottom = fminf(clip.clip_bottom, parent_clip->clip_bottom);
                             }
                             
                             // Add clipping to hashmap
-                            Hashmap_Set(absolute_clip_map, &child->handle, &clip);
+                            Hashmap_Set(node_clip_map, &child->handle, &clip);
                             child->clipping_root_handle = child->handle; // Set clip root to self
 
                             // Append node to correct window clipped node list
-                            Vector_Push(&window_absolute_clipped_nodes_list[window_index], &child);
+                            Vector_Push(&lists->clipped_absolute_node_list, &child);
                             continue;
                         }
                         // Position Relative -> main drawing list
@@ -1237,17 +1270,17 @@ void NU_Populate_Draw_Lists(
                         {
                             // If parent is also clipped -> merge clips (stack clipping behaviour)
                             if (parent->clipping_root_handle != UINT32_MAX) {
-                                struct Clip_Bounds* parent_clip = Hashmap_Get(relative_clip_map, &parent->clipping_root_handle);
+                                NU_Clip_Bounds* parent_clip = Hashmap_Get(node_clip_map, &parent->clipping_root_handle);
                                 clip.clip_top = fmaxf(clip.clip_top, parent_clip->clip_top);
                                 clip.clip_bottom = fminf(clip.clip_bottom, parent_clip->clip_bottom);
                             }
                             
                             // Add clipping to hashmap
-                            Hashmap_Set(relative_clip_map, &child->handle, &clip);
+                            Hashmap_Set(node_clip_map, &child->handle, &clip);
                             child->clipping_root_handle = child->handle; // Set clip root to self
 
                             // Append node to correct window clipped node list
-                            Vector_Push(&window_clipped_nodes_list[window_index], &child);
+                            Vector_Push(&lists->clipped_relative_node_list, &child);
                             continue;
                         }
                     }
@@ -1260,12 +1293,12 @@ void NU_Populate_Draw_Lists(
                     // Position Absolute -> secondary drawing list
                     if (child->position_absolute)
                     {
-                        Vector_Push(&window_absolute_clipped_nodes_list[window_index], &child);
+                        Vector_Push(&lists->clipped_absolute_node_list, &child);
                     }
                     // Position Relative -> main drawing list
                     else
                     {
-                        Vector_Push(&window_clipped_nodes_list[window_index], &child);
+                        Vector_Push(&lists->clipped_relative_node_list, &child);
                     }
                     continue;
                 }
@@ -1275,16 +1308,16 @@ void NU_Populate_Draw_Lists(
                 // Neither child nor parent is clipped -> append node to correct window node list
                 if (child->position_absolute) // Position Absolute -> secondary drawing list
                 {
-                    Vector_Push(&window_absolute_nodes_list[window_index], &child);
+                    Vector_Push(&lists->absolute_node_list, &child);
                 }
                 else // Position Relative -> main drawing list
                 {
-                    Vector_Push(&window_nodes_list[window_index], &child);
+                    Vector_Push(&lists->relative_node_list, &child);
                 }
 
                 // Append node to canvas API drawing list
                 if (child->tag == CANVAS) {
-                    Vector_Push(&window_canvas_nodes_list[window_index], &child);
+                    Vector_Push(&lists->canvas_node_list, &child);
                 }
             }
         }
@@ -1293,21 +1326,7 @@ void NU_Populate_Draw_Lists(
 
 void NU_Draw()
 {
-    // Initialise node lists
     uint32_t window_count = __nu_global_gui.windows.size;
-    struct Vector window_nodes_list[window_count];
-    struct Vector window_clipped_nodes_list[window_count];
-    struct Vector window_absolute_nodes_list[window_count];
-    struct Vector window_absolute_clipped_nodes_list[window_count];
-    struct Vector window_canvas_nodes_list[window_count];
-    for (uint32_t i=0; i<__nu_global_gui.windows.size; i++) 
-    {
-        Vector_Reserve(&window_nodes_list[i], sizeof(struct Node*), 512);
-        Vector_Reserve(&window_clipped_nodes_list[i], sizeof(struct Node*), 64);
-        Vector_Reserve(&window_absolute_nodes_list[i], sizeof(struct Node*), 64);
-        Vector_Reserve(&window_absolute_clipped_nodes_list[i], sizeof(struct Node*), 16);
-        Vector_Reserve(&window_canvas_nodes_list[i], sizeof(struct Node*), 4);
-    }
 
     // Initialise text vertex and index buffers (per font)
     Vertex_RGB_UV_List text_relative_vertex_buffers[__nu_global_gui.stylesheet->fonts.size];
@@ -1322,29 +1341,10 @@ void NU_Draw()
         Index_List_Init(&text_absolute_index_buffers[i], 128);
     }
 
-    // Create clipping hashmaps
-    struct Hashmap relative_clip_map;
-    struct Hashmap absolute_clip_map;
-    Hashmap_Init(&relative_clip_map, sizeof(uint32_t), sizeof(struct Clip_Bounds), 16);
-    Hashmap_Init(&absolute_clip_map, sizeof(uint32_t), sizeof(struct Clip_Bounds), 16);
-
-    // ---------------------------------------
-    // --- Add nodes to correct draw lists ---
-    // ---------------------------------------
-    NU_Populate_Draw_Lists(
-        window_nodes_list, 
-        window_clipped_nodes_list, 
-        window_absolute_nodes_list,
-        window_absolute_clipped_nodes_list,
-        window_canvas_nodes_list,
-        &relative_clip_map,
-        &absolute_clip_map
-    );
-
-
     // For each window
-    for (uint32_t i=0; i<__nu_global_gui.windows.size; i++)
+    for (uint32_t i=0; i<window_count; i++)
     {
+        NU_Window_Draw_Lists* lists = Vector_Get(&__nu_global_gui.windows_draw_lists, i);
         SDL_Window* window = *(SDL_Window**) Vector_Get(&__nu_global_gui.windows, i);
         SDL_GL_MakeCurrent(window, __nu_global_gui.gl_ctx);
 
@@ -1367,8 +1367,8 @@ void NU_Draw()
         // --- Draw Border Rects ---
         Vertex_RGB_List border_rect_vertices;              Index_List border_rect_indices;
         Vertex_RGB_List_Init(&border_rect_vertices, 5000); Index_List_Init(&border_rect_indices, 15000);
-        for (int n=0; n<window_nodes_list[i].size; n++) { // Construct border rect vertices and indices for each node
-            struct Node* node = *(struct Node**) Vector_Get(&window_nodes_list[i], n);
+        for (int n=0; n<lists->relative_node_list.size; n++) { // Construct border rect vertices and indices for each node
+            struct Node* node = *(struct Node**) Vector_Get(&lists->relative_node_list, n);
             Construct_Border_Rect(node, w_fl, h_fl, &border_rect_vertices, &border_rect_indices);
             if (node->layout_flags & OVERFLOW_VERTICAL_SCROLL 
                 && node->content_height > (node->height - node->pad_top - node->pad_bottom - node->border_top - node->border_bottom)) {
@@ -1381,9 +1381,9 @@ void NU_Draw()
 
 
         // --- Draw Canvas API Content ---
-        for (uint32_t n=0; n<window_canvas_nodes_list[i].size; n++)
+        for (uint32_t n=0; n<lists->canvas_node_list.size; n++)
         {
-            struct Node* canvas_node = *(struct Node**) Vector_Get(&window_canvas_nodes_list[i], n);
+            struct Node* canvas_node = *(struct Node**) Vector_Get(&lists->canvas_node_list, n);
             float offset_x = canvas_node->x + canvas_node->border_left + canvas_node->pad_left;
             float offset_y = canvas_node->y + canvas_node->border_top + canvas_node->pad_top;
             float clip_top    = canvas_node->y + canvas_node->border_top + canvas_node->pad_top;
@@ -1402,11 +1402,11 @@ void NU_Draw()
 
 
         // --- Construct Text Meshes & Draw Images ---
-        for (int n=0; n<window_nodes_list[i].size; n++) 
+        for (int n=0; n<lists->relative_node_list.size; n++) 
         {
 
             // Construct text mesh for node
-            struct Node* node = *(struct Node**) Vector_Get(&window_nodes_list[i], n);
+            struct Node* node = *(struct Node**) Vector_Get(&lists->relative_node_list, n);
             if (node->text_content != NULL) {
                 Vertex_RGB_UV_List* text_vertices = &text_relative_vertex_buffers[node->font_id];
                 Index_List* text_indices = &text_relative_index_buffers[node->font_id];
@@ -1439,9 +1439,9 @@ void NU_Draw()
 
 
         // --- Draw Partially Visible Nodes ---
-        for (int n=0; n<window_clipped_nodes_list[i].size; n++) {
-            struct Node* node = *(struct Node**) Vector_Get(&window_clipped_nodes_list[i], n);
-            struct Clip_Bounds* clip = (struct Clip_Bounds*)Hashmap_Get(&relative_clip_map, &node->clipping_root_handle);
+        for (int n=0; n<lists->clipped_relative_node_list.size; n++) {
+            struct Node* node = *(struct Node**) Vector_Get(&lists->clipped_relative_node_list, n);
+            NU_Clip_Bounds* clip = (NU_Clip_Bounds*)Hashmap_Get(&__nu_global_gui.node_clip_map, &node->clipping_root_handle);
 
             // Draw border rects
             Vertex_RGB_List vertices;
@@ -1505,8 +1505,8 @@ void NU_Draw()
 
         // --- Draw Border Rects ---
         Vertex_RGB_List_Init(&border_rect_vertices, 5000); Index_List_Init(&border_rect_indices, 15000);
-        for (int n=0; n<window_absolute_nodes_list[i].size; n++) { // Construct border rect vertices and indices for each node
-            struct Node* node = *(struct Node**) Vector_Get(&window_absolute_nodes_list[i], n);
+        for (int n=0; n<lists->absolute_node_list.size; n++) { // Construct border rect vertices and indices for each node
+            struct Node* node = *(struct Node**) Vector_Get(&lists->absolute_node_list, n);
             Construct_Border_Rect(node, w_fl, h_fl, &border_rect_vertices, &border_rect_indices);
             if (node->layout_flags & OVERFLOW_VERTICAL_SCROLL 
                 && node->content_height > (node->height - node->pad_top - node->pad_bottom - node->border_top - node->border_bottom)) {
@@ -1519,11 +1519,11 @@ void NU_Draw()
 
 
         // --- Construct Text Meshes & Draw Images ---
-        for (int n=0; n<window_absolute_nodes_list[i].size; n++) 
+        for (int n=0; n<lists->absolute_node_list.size; n++) 
         {
 
             // Construct text mesh for node
-            struct Node* node = *(struct Node**) Vector_Get(&window_absolute_nodes_list[i], n);
+            struct Node* node = *(struct Node**) Vector_Get(&lists->absolute_node_list, n);
             if (node->text_content != NULL) {
                 Vertex_RGB_UV_List* text_vertices = &text_absolute_vertex_buffers[node->font_id];
                 Index_List* text_indices = &text_absolute_index_buffers[node->font_id];
@@ -1555,9 +1555,9 @@ void NU_Draw()
         }
 
         // --- Draw Partially Visible Nodes ---
-        for (int n=0; n<window_absolute_clipped_nodes_list[i].size; n++) {
-            struct Node* node = *(struct Node**) Vector_Get(&window_absolute_clipped_nodes_list[i], n);
-            struct Clip_Bounds* clip = (struct Clip_Bounds*)Hashmap_Get(&absolute_clip_map, &node->clipping_root_handle);
+        for (int n=0; n<lists->clipped_absolute_node_list.size; n++) {
+            struct Node* node = *(struct Node**) Vector_Get(&lists->clipped_absolute_node_list, n);
+            NU_Clip_Bounds* clip = (NU_Clip_Bounds*)Hashmap_Get(&__nu_global_gui.node_clip_map, &node->clipping_root_handle);
 
             // Draw border rects
             Vertex_RGB_List vertices;
@@ -1609,12 +1609,14 @@ void NU_Draw()
     // -----------------------
     // --- Free memory -------
     // -----------------------
-    for (uint32_t i=0; i<__nu_global_gui.windows.size; i++) {
-        Vector_Free(&window_nodes_list[i]);
-        Vector_Free(&window_clipped_nodes_list[i]);
-        Vector_Free(&window_absolute_nodes_list[i]);
-        Vector_Free(&window_absolute_clipped_nodes_list[i]);
-        Vector_Free(&window_canvas_nodes_list[i]);
+    for (uint32_t i=0; i<window_count; i++) {
+        NU_Window_Draw_Lists* lists = Vector_Get(&__nu_global_gui.windows_draw_lists, i);
+        Vector_Free(&lists->relative_node_list);
+        Vector_Free(&lists->clipped_relative_node_list);
+        Vector_Free(&lists->absolute_node_list);
+        Vector_Free(&lists->clipped_absolute_node_list);
+        Vector_Free(&lists->canvas_node_list);
+        Vector_Free(&lists->clipped_canvas_node_list);
     }
     for (uint32_t i=0; i<__nu_global_gui.stylesheet->fonts.size; i++) {
         Vertex_RGB_UV_List_Free(&text_relative_vertex_buffers[i]);
@@ -1622,8 +1624,6 @@ void NU_Draw()
         Vertex_RGB_UV_List_Free(&text_absolute_vertex_buffers[i]);
         Index_List_Free(&text_absolute_index_buffers[i]);
     }
-    Hashmap_Free(&relative_clip_map);
-    Hashmap_Free(&absolute_clip_map);
 }
 
 void NU_Reflow()
@@ -1637,4 +1637,5 @@ void NU_Reflow()
     NU_Calculate_Fit_Size_Heights();
     NU_Grow_Shrink_Heights();
     NU_Calculate_Positions();
+    NU_Populate_Draw_Lists();
 }

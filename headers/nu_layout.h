@@ -1015,6 +1015,7 @@ void NU_Mouse_Hover()
     if (__nu_global_gui.hovered_node != UINT32_MAX && __nu_global_gui.hovered_node != __nu_global_gui.mouse_down_node) {
         NU_Apply_Stylesheet_To_Node(NODE(__nu_global_gui.hovered_node), __nu_global_gui.stylesheet);
     }
+    uint32_t prev_hovered_node = __nu_global_gui.hovered_node;
     __nu_global_gui.hovered_node = UINT32_MAX;
     __nu_global_gui.scroll_hovered_node = UINT32_MAX;
 
@@ -1105,6 +1106,11 @@ void NU_Mouse_Hover()
         NU_Apply_Pseudo_Style_To_Node(NODE(__nu_global_gui.hovered_node), __nu_global_gui.stylesheet, PSEUDO_HOVER);
     } 
     Vector_Free(&stack);
+
+    // If hovered node change -> must redraw later
+    if (prev_hovered_node != __nu_global_gui.hovered_node) {
+        __nu_global_gui.awaiting_redraw = true;
+    }
 }
 
 
@@ -1685,6 +1691,8 @@ void NU_Draw()
         Vertex_RGB_UV_List_Free(&text_absolute_vertex_buffers[i]);
         Index_List_Free(&text_absolute_index_buffers[i]);
     }
+
+    __nu_global_gui.awaiting_redraw = false;
 }
 
 void NU_Reflow()

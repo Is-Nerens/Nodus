@@ -130,53 +130,6 @@ NU_Nodelist NU_Internal_Get_Nodes_By_Tag(enum Tag tag)
 // -------------------------------
 // --- Node Creation Functions ---
 // -------------------------------
-void Set_Node_Defaults(struct Node* node)
-{
-    node->class = NULL;
-    node->id = NULL;
-    node->text_content = NULL;
-    node->inline_style_flags = 0;
-    node->handle = UINT16_MAX;
-    node->clipping_root_handle = UINT16_MAX;
-    node->index = UINT16_MAX;
-    node->parent_index = UINT16_MAX;
-    node->first_child_index = UINT16_MAX;
-    node->child_capacity = UINT16_MAX;
-    node->child_count = 0;
-    node->node_present = true;
-    node->gl_image_handle = 0;
-    node->preferred_width = 0.0f;
-    node->preferred_height = 0.0f;
-    node->gap = 0.0f;
-    node->content_width = 0.0f;
-    node->content_height = 0.0f;
-    node->pad_top = 0;
-    node->pad_bottom = 0;
-    node->pad_left = 0;
-    node->pad_right = 0;
-    node->border_top = 0;
-    node->border_bottom = 0;
-    node->border_left = 0;
-    node->border_right = 0;
-    node->border_radius_tl = 0;
-    node->border_radius_tr = 0;
-    node->border_radius_bl = 0;
-    node->border_radius_br = 0;
-    node->background_r = 2;
-    node->background_g = 2;
-    node->background_b = 2;
-    node->border_r = 156;
-    node->border_g = 100;
-    node->border_b = 5;
-    node->text_r = 255;
-    node->text_g = 255;
-    node->text_b = 255;
-    node->layout_flags = 0;
-    node->horizontal_alignment = 0;
-    node->vertical_alignment = 0;
-    node->event_flags = 0;
-}
-
 uint32_t NU_Internal_Create_Node(uint32_t parent_handle, enum Tag tag)
 {
     struct Node* parent = NODE(parent_handle);
@@ -233,7 +186,7 @@ uint32_t NU_Internal_Create_Node(uint32_t parent_handle, enum Tag tag)
 
         // Create new node at location
         struct Node* created_node = &create_node_layer->node_array[create_node_index];
-        Set_Node_Defaults(created_node);
+        NU_Apply_Node_Defaults(created_node);
         created_node->index = create_node_index;
         created_node->parent_index = parent->index;
         created_node->layer = parent->layer + 1;
@@ -243,7 +196,7 @@ uint32_t NU_Internal_Create_Node(uint32_t parent_handle, enum Tag tag)
 
     } else { // Instant creation
         struct Node* created_node = &create_node_layer->node_array[parent->first_child_index + parent->child_count - 1];
-        Set_Node_Defaults(created_node);
+        NU_Apply_Node_Defaults(created_node);
         created_node->index = parent->first_child_index + parent->child_count - 1;
         created_node->parent_index = parent->index;
         created_node->layer = parent->layer + 1;
@@ -300,6 +253,19 @@ static void NU_Dissociate_Node(struct Node* node)
     }
     if (node->event_flags & NU_EVENT_FLAG_ON_RELEASED) {
         Hashmap_Delete(&__nu_global_gui.on_released_events, &node->handle); // Delete on_released event
+    }
+    if (node->event_flags & NU_EVENT_FLAG_ON_RESIZE) {
+        Hashmap_Delete(&__nu_global_gui.on_resize_events, &node->handle); // Delete on_resize event
+        Hashmap_Delete(&__nu_global_gui.node_resize_tracking, &node->handle); 
+    }
+    if (node->event_flags & NU_EVENT_FLAG_ON_MOUSE_DOWN) {
+        Hashmap_Delete(&__nu_global_gui.on_mouse_down_events, &node->handle); // Delete on_mouse_down event
+    }
+    if (node->event_flags & NU_EVENT_FLAG_ON_MOUSE_UP) {
+        Hashmap_Delete(&__nu_global_gui.on_mouse_up_events, &node->handle); // Delete on_mouse_up event
+    }
+    if (node->event_flags & NU_EVENT_FLAG_ON_MOUSE_MOVED) {
+        Hashmap_Delete(&__nu_global_gui.on_mouse_move_events, &node->handle); // Delete on_mouse_move event
     }
     if (node->handle == __nu_global_gui.hovered_node) {
         __nu_global_gui.hovered_node = UINT32_MAX;

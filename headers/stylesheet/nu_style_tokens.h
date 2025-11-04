@@ -31,10 +31,11 @@ static const char* style_keywords[] = {
 };
 
 static const uint8_t style_keyword_lengths[] = { 
-    3, 4, 9, 9, 8, 4, 3, 5, 8, 8, 6, 9, 9, 
+    3, 4, 9, 9, 8, 4, 3, 
+    5, 8, 8, 6, 9, 9,             // width height
     6, 6, 10, 10,                 // alignment
     4, 5, 3, 6,                   // absolute positioning
-    10, 12, 10,                   // colours
+    10, 12, 10,                   // background, border, text colour
     6, 9, 12, 10, 11,             // border width
     12, 19, 20, 22, 23,           // border radius
     3, 6, 9, 7, 8,                // padding

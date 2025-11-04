@@ -55,12 +55,11 @@ row {
     position: absolute;
 }
 .cell {
-    pad: 0;
-    background: #000000;
+    pad: 3;
+    background: #0c0c0c;
     alignV: center;
     font: font-table-cell;
 }
-
 
 
 
@@ -103,6 +102,8 @@ row {
 
 
 
+
+
 #side-bar {
     width: 300;
     background: #2f2f2f;
@@ -110,6 +111,11 @@ row {
     borderRadius: 6;
 }
 #watchlist {
+    grow: b;
+    dir: v;
+    background: none;
+}
+#watchlist-table {
     dir: v;
     grow: b;
     pad: 5;
@@ -155,6 +161,12 @@ row {
 #watchlist-selector-btn:hover, #orderbook-selector-btn:hover {
     background: #515151;
     borderColour: #9b5920;
+}
+
+
+
+#orderbook {
+    grow: b;
 }
 
 
@@ -228,9 +240,9 @@ row {
     border: 4;
     borderRadius: 5;
     borderColour: #151515;
-    background: #000000;
-    pad: 0;
+    background: #363131;
     grow: b;
+    pad: 0;
 }
 #drawing-toolbar {
     dir: v;
@@ -253,16 +265,29 @@ row {
     background: #2f2f2f;
 }
 .drawing-tool:hover {
-    borderColour: #9b5920;
+    background: #4b4b4b;
+    borderColour: #4b4b4b;
 }
 .drawing-tool:press {
     borderColour: #151515;
     background: #151515;
 }
-
-
-
-
+.drawing-tool-selected {
+    width: 43;
+    height: 40;
+    pad: 5;
+    border: 0;
+    borderLeft: 3;
+    borderRadius: 0;
+    borderRadiusTopRight: 5;
+    borderRadiusBottomRight: 5;
+    borderColour: #151515;
+    background: #151515;
+}
+.drawing-tool-selected:hover {
+    borderColour: #151515;
+    background: #151515;
+}
 
 
 #trade-history-container {
@@ -315,62 +340,27 @@ row {
 #editor-tab-container {
     grow: b;
 }
-#scripts-column {
-    grow: b;
-    maxWidth: 200;
-    dir: v;
-    background: #2f2f2f;
-}
-#scripts-column-header {
-    pad: 3;
-    padBottom: 0;
+#function-btns {
     background: #151515;
+    pad: 5;
+    dir: v;
+    grow: v;
+}
+.function-btn {
     grow: h;
 }
-#scripts-list {
+#backtest-results-canvas {
     grow: b;
+}
+#backtest-results {
+    grow: v;
     dir: v;
-    pad: 3;
-    gap: 1;
     background: #151515;
+    pad: 5;
+    maxHeight: 500;
     overflowV: s;
 }
-.script-item {
-    border: 1;
-    borderColour: #2f2f2f;
-    background: #2f2f2f;
-    pad: 5;
-    grow: h;
-}
-.script-item:hover {
-    borderColour: #ffffff;
-}
-
-
-
-#code-editor-column {
-    grow: b;
-    pad: 5;
-    border: 1;
-    background: #2f2f2f;
-    borderColour: #000000;
-    dir: v;
-}
-#backtest-column {
-    grow: b;
-    dir: v;
-}
-#backtest-chart {
-    grow: b;
-    pad: 5;
-    border: 1;
-    background: #2f2f2f;
-    borderColour: #000000;
-}
-#backtest-settings {
-    grow: b;
-    pad: 5;
-    border: 1;
-    background: #2f2f2f;
-    borderColour: #000000;
+.res-text {
+    background: none;
+    pad: 3;
 }

@@ -73,9 +73,9 @@ __declspec(dllexport) void NU_Register_Event(
   uint32_t node_handle, 
   void* args,
   NU_Callback callback, 
-  enum NU_Event event) 
+  enum NU_Event_Type event_type) 
 {
-  NU_Internal_Register_Event(node_handle, args, callback, event);
+  NU_Internal_Register_Event(node_handle, args, callback, event_type);
 }
 
 // -----------------------------

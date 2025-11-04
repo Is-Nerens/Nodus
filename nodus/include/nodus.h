@@ -99,11 +99,13 @@ struct Node
     uint16_t child_count;
     uint8_t node_present;
     uint8_t layer; 
+    uint8_t position_absolute;
     enum Tag tag;
     GLuint gl_image_handle;
     float x, y, width, height, preferred_width, preferred_height;
     float min_width, max_width, min_height, max_height;
     float gap, content_width, content_height, scroll_x, scroll_v;
+    float left, right, top, bottom;
     uint8_t pad_top, pad_bottom, pad_left, pad_right;
     uint8_t border_top, border_bottom, border_left, border_right;
     uint8_t border_radius_tl, border_radius_tr, border_radius_bl, border_radius_br;
@@ -141,16 +143,37 @@ typedef struct NU_Stylesheet
 
     Vector fonts;
 } NU_Stylesheet;
-enum NU_Event
+
+enum NU_Event_Type
 {
     NU_EVENT_ON_CLICK,
     NU_EVENT_ON_CHANGED,
     NU_EVENT_ON_DRAG,
     NU_EVENT_ON_RELEASED,
-    NU_EVENT_ON_RESIZE
+    NU_EVENT_ON_RESIZE,
+    NU_EVENT_ON_MOUSE_DOWN,
+    NU_EVENT_ON_MOUSE_UP,
+    NU_EVENT_ON_MOUSE_MOVED
+};
+typedef struct NU_Event_Info_Mouse
+{
+    int mouse_x, mouse_y;
+    float delta_x, delta_y;
+} NU_Event_Info_Mouse;
+
+typedef struct NU_Event
+{
+    uint32_t handle;
+    NU_Event_Info_Mouse mouse;
+} NU_Event;
+typedef void (*NU_Callback)(NU_Event event, void* args);
+struct NU_Callback_Info
+{
+    NU_Event event;
+    void* args;
+    NU_Callback callback;
 };
 
-typedef void (*NU_Callback)(uint32_t handle, void* args);
 
 
 // UI functions
@@ -181,7 +204,7 @@ __declspec(dllimport) void NU_Register_Event(
   uint32_t node_handle, 
   void* args,
   NU_Callback callback, 
-  enum NU_Event event
+  enum NU_Event_Type event
 ); 
 
 // Canvas functions

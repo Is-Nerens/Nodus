@@ -22,7 +22,7 @@ struct Tab_Select_Data {
 
 
 
-void tab_select(uint32_t handle, void* args)
+void tab_select(NU_Event event, void* args)
 {
     struct Tab_Select_Data* data = (struct Tab_Select_Data*)args;
     struct Tab_Manager* mgr = data->manager;
@@ -40,7 +40,7 @@ void tab_select(uint32_t handle, void* args)
     mgr->current_tab_container = data->tab_container;
 }
 
-void create_new_script(uint32_t handle, void* args)
+void create_new_script(NU_Event event, void* args)
 {
     uint32_t scripts_list = NU_Get_Node_By_Id("scripts-list");
     uint32_t new_script = NU_Create_Node(scripts_list, REC);
@@ -49,13 +49,13 @@ void create_new_script(uint32_t handle, void* args)
     NU_Set_Class(new_script, "script-item");
 }
 
-void delete_script(uint32_t handle, void* args)
+void delete_script(NU_Event event, void* args)
 {
 
 }
 
 
-void chart_resize(uint32_t handle, void* args)
+void chart_resize(NU_Event evente, void* args)
 {
     // printf("chart resized!\n");
 }
@@ -89,7 +89,7 @@ int main()
     NU_Border_Rect(chart, 120, 200, 10, 200, 1, &border_col, &fill_col);
     NU_Border_Rect(chart, 140, 230, 10, 200, 1, &border_col, &fill_col);
     NU_Border_Rect(chart, 160, 240, 10, 200, 1, &border_col, &fill_col);
-    NU_Line(chart, 20.5, 20.5, 300.5, 300.5, 1, &border_col);
+    NU_Line(chart, 20, 20, 20, 300, 1, &border_col);
 
 
     // --- Main Tab Selection ---

@@ -186,6 +186,11 @@ void NU_Internal_Line(
     if (vertices->size + additional_vertices > vertices->capacity) Vertex_RGB_List_Grow(vertices, additional_vertices);
     if (indices->size + additional_indices > indices->capacity) Index_List_Grow(indices, additional_indices);
 
+    x1 += 0.5f;
+    x2 += 0.5f;
+    y1 += 0.5f;
+    y2 += 0.5f;
+
 
     float dx = x2 - x1;
     float dy = y2 - y1;

@@ -72,8 +72,10 @@ struct NU_GUI
     struct Hashmap on_drag_events;
     struct Hashmap on_released_events;
     struct Hashmap on_resize_events;
-
     struct Hashmap node_resize_tracking; // Stores the current dimensions of nodes with resize events
+    struct Hashmap on_mouse_down_events;
+    struct Hashmap on_mouse_up_events;
+    struct Hashmap on_mouse_move_events;
 
     // Canvas drawing contexts
     struct Hashmap canvas_contexts; // maps (canvas node handle -> context)
@@ -137,12 +139,15 @@ int NU_Internal_Init()
 
 
     // Events
-    Hashmap_Init(&__nu_global_gui.on_click_events,    sizeof(uint32_t), sizeof(struct NU_Callback_Info), 25);
-    Hashmap_Init(&__nu_global_gui.on_changed_events,  sizeof(uint32_t), sizeof(struct NU_Callback_Info), 25);
-    Hashmap_Init(&__nu_global_gui.on_drag_events,     sizeof(uint32_t), sizeof(struct NU_Callback_Info), 25);
-    Hashmap_Init(&__nu_global_gui.on_released_events, sizeof(uint32_t), sizeof(struct NU_Callback_Info), 25);
-    Hashmap_Init(&__nu_global_gui.on_resize_events,   sizeof(uint32_t), sizeof(struct NU_Callback_Info), 25);
-    Hashmap_Init(&__nu_global_gui.node_resize_tracking, sizeof(uint32_t), sizeof(NU_Node_Dimensions), 25);
+    Hashmap_Init(&__nu_global_gui.on_click_events,      sizeof(uint32_t), sizeof(struct NU_Callback_Info), 25);
+    Hashmap_Init(&__nu_global_gui.on_changed_events,    sizeof(uint32_t), sizeof(struct NU_Callback_Info), 25);
+    Hashmap_Init(&__nu_global_gui.on_drag_events,       sizeof(uint32_t), sizeof(struct NU_Callback_Info), 25);
+    Hashmap_Init(&__nu_global_gui.on_released_events,   sizeof(uint32_t), sizeof(struct NU_Callback_Info), 25);
+    Hashmap_Init(&__nu_global_gui.on_resize_events,     sizeof(uint32_t), sizeof(struct NU_Callback_Info), 25);
+    Hashmap_Init(&__nu_global_gui.node_resize_tracking, sizeof(uint32_t), sizeof(NU_Node_Dimensions)     , 25);
+    Hashmap_Init(&__nu_global_gui.on_mouse_down_events, sizeof(uint32_t), sizeof(struct NU_Callback_Info), 10);
+    Hashmap_Init(&__nu_global_gui.on_mouse_up_events,   sizeof(uint32_t), sizeof(struct NU_Callback_Info), 10);
+    Hashmap_Init(&__nu_global_gui.on_mouse_move_events,  sizeof(uint32_t), sizeof(struct NU_Callback_Info), 10);
 
     // Canvas drawing contexts and flag empty
     Hashmap_Init(&__nu_global_gui.canvas_contexts, sizeof(uint32_t), sizeof(NU_Canvas_Context), 4);
@@ -232,8 +237,10 @@ void NU_Internal_Quit()
     Hashmap_Free(&__nu_global_gui.on_drag_events);
     Hashmap_Free(&__nu_global_gui.on_released_events);
     Hashmap_Free(&__nu_global_gui.on_resize_events);
-
     Hashmap_Free(&__nu_global_gui.node_resize_tracking);
+    Hashmap_Free(&__nu_global_gui.on_mouse_down_events);
+    Hashmap_Free(&__nu_global_gui.on_mouse_up_events);
+    Hashmap_Free(&__nu_global_gui.on_mouse_move_events);
 
     // Canvas drawing contexts
     Hashmap_Free(&__nu_global_gui.canvas_contexts);

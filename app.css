@@ -48,7 +48,6 @@ thead {
 row {
     pad: 2;
     border: 1;
-    borderRadius: 5;
     borderTop: 0;
     borderColour: #000000;
     background: #2f2f2f;
@@ -230,6 +229,7 @@ row {
     borderRadius: 5;
     borderColour: #151515;
     background: #000000;
+    pad: 0;
     grow: b;
 }
 #drawing-toolbar {

@@ -3,9 +3,9 @@
 
 #include <stdint.h> 
 #include <string.h> 
-#include <nu_font.h>
-#include <nu_shader.h>
-#include <nu_draw_structures.h>
+#include "nu_font.h"
+#include "../draw/nu_draw_structures.h"
+#include "../draw/nu_shader.h"
 
 GLuint Text_Mono_Shader_Program;
 GLuint Text_Subpixel_Shader_Program;
@@ -174,87 +174,6 @@ float NU_Calculate_Text_Min_Wrap_Width(NU_Font* font, const char* string)
     }
     return result;
 }
-
-// float NU_Calculate_FreeText_Height_From_Wrap_Width(NU_Font* font, const char* string, float width)
-// {
-//     size_t string_len = strlen(string);
-//     char prev_char = 0;
-//     float pen_x = 0.0f;
-//     float pen_y = 0.0f + font->y_max;
-//     float word_width = 0.0f;
-//     NU_Glyph* space_glyph = (NU_Glyph*)Vector_Get(&font->glyphs, 0);
-//     float space_advance = space_glyph->advance;
-
-//     int lines = 0;
-
-//     int word_start_i = 0;
-//     int word_len = 0;
-//     int k=0;
-//     while (k < string_len)
-//     {
-//         char word_c = string[k];
-//         if (word_c < 32 || word_c > 126) continue;
-//         if (word_c == ' ' || k == string_len - 1) { // Word completes
-//             if (k == string_len - 1 && word_c != ' ') word_len += 1;
-
-//             // Loop over all the letters in the word
-//             if (word_len > 0)
-//             {
-//                 // Remove tiny extra x space before first glyph and after last glyph in the word
-//                 NU_Glyph* first_glyph_in_word = (NU_Glyph*)Vector_Get(&font->glyphs, string[word_start_i] - 32);
-//                 NU_Glyph* last_glyph_in_word = (NU_Glyph*)Vector_Get(&font->glyphs, string[word_start_i + word_len - 1] - 32);
-//                 word_width -= (last_glyph_in_word->advance - last_glyph_in_word->bearingX - last_glyph_in_word->width) - first_glyph_in_word->bearingX;
-
-//                 // Wrap onto new line
-//                 if (pen_x + word_width > width) {
-//                     pen_x = 0.0f - first_glyph_in_word->bearingX;
-//                     pen_y += font->line_height;
-//                     lines += 1;
-//                 }
-
-//                 int i=word_start_i;
-//                 while (i < word_start_i + word_len) {
-//                     char c = string[i];
-//                     if (c < 32 || c > 126) continue;
-//                     NU_Glyph* glyph = (NU_Glyph*)Vector_Get(&font->glyphs, c - 32);
-
-//                     float kern = 0.0f;
-//                     if (prev_char) kern = font->kerning_table[prev_char - 32][c - 32];
-//                     float glyph_advance = glyph->advance + kern;
-
-//                     // Move ahead
-//                     word_width += glyph_advance;
-//                     pen_x += glyph_advance;
-//                     prev_char = c;
-//                     i += 1;
-//                 }
-//             }
-
-//             if (word_c == ' ')
-//             {
-//                 float kern = font->kerning_table[prev_char - 32][word_c - 32];
-//                 pen_x += space_advance;
-//                 prev_char = word_c;
-//             }
-
-//             word_len = 0;
-//             word_start_i = k + 1;
-//             word_width = 0.0f;
-//         }
-//         else
-//         {
-//             NU_Glyph* glyph = (NU_Glyph*)Vector_Get(&font->glyphs, word_c - 32);
-//             float kern = 0.0f;
-//             if (prev_char) kern = font->kerning_table[prev_char - 32][word_c - 32];
-//             word_width += glyph->advance + kern;
-//             word_len += 1;
-//         }
-//         k += 1;
-//     }
-    
-//     float total_height = lines * font->line_height + font->ascent - font->descent;
-//     return total_height;
-// }
 
 float NU_Calculate_FreeText_Height_From_Wrap_Width(NU_Font* font, const char* string, float width)
 {

@@ -4,8 +4,8 @@
 #include <GL/glew.h>
 #include <stdbool.h>
 #include <math.h>
-#include <nu_text.h>
-#include "nu_draw.h"
+#include "./text/nu_text.h"
+#include "./draw/nu_draw.h"
 #include "nu_window.h"
 
 // ---------------------------
@@ -21,11 +21,13 @@ static void NU_Apply_Min_Max_Size_Constraint(struct Node* node)
 static void NU_Apply_Min_Max_Width_Constraint(struct Node* node)
 {
     node->width = min(max(node->width, node->min_width), node->max_width);
+    node->width = max(node->width, node->preferred_width);
 }
 
 static void NU_Apply_Min_Max_Height_Constraint(struct Node* node)
 {
     node->height = min(max(node->height, node->min_height), node->max_height);
+    node->height = max(node->height, node->preferred_height);
 }
 
 static void NU_Clear_Node_Sizes()
@@ -225,7 +227,22 @@ static void NU_Calculate_Fit_Size_Heights()
 
 static void NU_Grow_Shrink_Child_Node_Widths(struct Node* parent, NU_Layer* child_layer)
 {
-    float remaining_width = parent->width - parent->pad_left - parent->pad_right - parent->border_left - parent->border_right - (!!(parent->layout_flags & OVERFLOW_VERTICAL_SCROLL)) * 8.0f;
+    float remaining_width = parent->width - parent->pad_left - parent->pad_right - parent->border_left - parent->border_right;
+
+    // ---------------------------------------------------------------------------------------
+    // --- Expand widths of absolute elements if left and right distances are both defined ---
+    // ---------------------------------------------------------------------------------------
+    for (uint16_t i=parent->first_child_index; i<parent->first_child_index + parent->child_count; i++)
+    {
+        struct Node* child = NU_Layer_Get(child_layer, i); if (child->node_present == 2 || child->tag == WINDOW || !(child->layout_flags & POSITION_ABSOLUTE)) continue;
+        if (child->left > 0.0f && child->right > 0.0f) {
+            float expanded_width = remaining_width - child->left - child->right;
+            if (expanded_width > child->width) child->width = expanded_width;
+            NU_Apply_Min_Max_Width_Constraint(child);
+        }
+    }
+
+    remaining_width -= (!!(parent->layout_flags & OVERFLOW_VERTICAL_SCROLL)) * 8.0f;
 
     // ------------------------------------------------
     // If parent lays out children vertically ---------
@@ -377,7 +394,23 @@ static void NU_Grow_Shrink_Child_Node_Widths(struct Node* parent, NU_Layer* chil
 
 static void NU_Grow_Shrink_Child_Node_Heights(struct Node* parent, NU_Layer* child_layer)
 {
-    float remaining_height = parent->height - parent->pad_top - parent->pad_bottom - parent->border_top - parent->border_bottom - (!!(parent->layout_flags & OVERFLOW_HORIZONTAL_SCROLL)) * 8.0f;
+    float remaining_height = parent->height - parent->pad_top - parent->pad_bottom - parent->border_top - parent->border_bottom;
+    
+    // ----------------------------------------------------------------------------------------
+    // --- Expand heights of absolute elements if top and bottom distances are both defined ---
+    // ----------------------------------------------------------------------------------------
+    for (uint16_t i=parent->first_child_index; i<parent->first_child_index + parent->child_count; i++)
+    {
+        struct Node* child = NU_Layer_Get(child_layer, i); if (child->node_present == 2 || child->tag == WINDOW || !(child->layout_flags & POSITION_ABSOLUTE)) continue;
+        if (child->top > 0.0f && child->bottom > 0.0f) {
+            float expanded_height = remaining_height - child->top - child->bottom;
+            if (expanded_height > child->height) child->height = expanded_height;
+            NU_Apply_Min_Max_Height_Constraint(child);
+        }
+    }
+
+    remaining_height -= (!!(parent->layout_flags & OVERFLOW_HORIZONTAL_SCROLL)) * 8.0f;
+
     if (!(parent->layout_flags & LAYOUT_VERTICAL))
     {
         for (uint16_t i=parent->first_child_index; i<parent->first_child_index + parent->child_count; i++)
@@ -696,6 +729,13 @@ static void NU_Horizontally_Place_Children(struct Node* parent, NU_Layer* child_
             if (child->layout_flags & POSITION_ABSOLUTE) 
             {
                 child->x = parent->x + parent->pad_left + parent->border_left;
+                if (child->left > 0.0f) {
+                    child->x = parent->x + child->left + parent->pad_left + parent->border_left;
+                }
+                else if (child->right > 0.0f) {
+                    float inner_width = parent->width - parent->pad_left - parent->pad_right - parent->border_left - parent->border_right;
+                    child->x = parent->x + inner_width - child->width - child->right;
+                }
             }
 
             // Position relative
@@ -733,6 +773,13 @@ static void NU_Horizontally_Place_Children(struct Node* parent, NU_Layer* child_
             if (child->layout_flags & POSITION_ABSOLUTE) 
             {
                 child->x = parent->x + parent->pad_left + parent->border_left;
+                if (child->left > 0.0f) {
+                    child->x = parent->x + child->left + parent->pad_left + parent->border_left;
+                }
+                else if (child->right > 0.0f) {
+                    float inner_width = parent->width - parent->pad_left - parent->pad_right - parent->border_left - parent->border_right;
+                    child->x = parent->x + inner_width - child->width - child->right;
+                }
             }
 
             // Position relative
@@ -779,6 +826,13 @@ static void NU_Vertically_Place_Children(struct Node* parent, NU_Layer* child_la
             if (child->layout_flags & POSITION_ABSOLUTE) 
             {
                 child->y = parent->y + parent->pad_top + parent->border_top;
+                if (child->top > 0.0f) {
+                    child->y = parent->y + child->top + parent->pad_top + parent->border_top;
+                }
+                else if (child->bottom > 0.0f) {
+                    float inner_height = parent->height - parent->pad_top - parent->pad_bottom - parent->border_top - parent->border_bottom;
+                    child->y = parent->y + inner_height - child->height - child->bottom;
+                }
             }
 
             // Position relative
@@ -815,6 +869,13 @@ static void NU_Vertically_Place_Children(struct Node* parent, NU_Layer* child_la
             if (child->layout_flags & POSITION_ABSOLUTE) 
             {
                 child->y = parent->y + parent->pad_top + parent->border_top;
+                if (child->top > 0.0f) {
+                    child->y = parent->y + child->top + parent->pad_top + parent->border_top;
+                }
+                else if (child->bottom > 0.0f) {
+                    float inner_height = parent->height - parent->pad_top - parent->pad_bottom - parent->border_top - parent->border_bottom;
+                    child->y = parent->y + inner_height - child->height - child->bottom;
+                }
             }
 
             // Position relative

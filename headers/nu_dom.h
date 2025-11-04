@@ -190,7 +190,7 @@ uint32_t NU_Internal_Create_Node(uint32_t parent_handle, enum Tag tag)
         if (create_node_layer->size + 5 > create_node_layer->capacity) {
             struct Node* old_node_array = create_node_layer->node_array;
             size_t old_size = create_node_layer->size;
-            NU_Layer_Grow(&__nu_global_gui.tree, create_node_layer);
+            NU_Tree_Layer_Grow(&__nu_global_gui.tree, create_node_layer);
         }
 
         uint16_t create_node_index = parent->first_child_index + parent->child_count - 1;

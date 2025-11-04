@@ -1,18 +1,23 @@
-#pragma once
+// -----------------------------------------------------------------------------------------
+// --- | PURPOSE:      to maintain a mapping from a node handle (uint32_t) to a stored Node*
+// --- | USED IN:      nu_tree.h
+// --- | DEPENDENCIES: nu_node.h
+// -----------------------------------------------------------------------------------------
 
+
+#pragma once
 #define MAX(a, b) ((a) > (b) ? (a) : (b))
 
 #include <stdlib.h>
 #include <stdint.h>
 
-typedef struct
+typedef struct NU_Node_Table
 {
     struct Node** data;
     uint8_t* occupancy;
     uint32_t capacity;
     uint32_t used;
-}NU_Node_Table;
-
+} NU_Node_Table;
 
 void NU_Node_Table_Reserve(NU_Node_Table* table, uint32_t capacity)
 {

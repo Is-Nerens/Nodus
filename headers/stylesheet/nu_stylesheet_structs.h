@@ -1,12 +1,5 @@
 #pragma once
 
-#include <stdint.h>
-#include <string.h>
-#include "datastructures/vector.h"
-#include "datastructures/string_set.h"
-#include "datastructures/hashmap.h"
-#include "nu_text.h"
-
 struct NU_Stylesheet_Tag_Pseudo_Pair
 {
     int tag;
@@ -48,6 +41,7 @@ typedef struct NU_Stylesheet_Item
     float preferred_width, preferred_height;
     float min_width, max_width, min_height, max_height;
     float gap;
+    float left, right, top, bottom;
     uint8_t pad_top, pad_bottom, pad_left, pad_right;
     uint8_t border_top, border_bottom, border_left, border_right;
     uint8_t border_radius_tl, border_radius_tr, border_radius_bl, border_radius_br;

@@ -8,6 +8,24 @@
 #define NU_EVENT_FLAG_ON_RELEASED    0x08        // 0b00001000
 #define NU_EVENT_FLAG_ON_RESIZE      0x10        // 0b00010000
 
+enum NU_Event
+{
+    NU_EVENT_ON_CLICK,
+    NU_EVENT_ON_CHANGED,
+    NU_EVENT_ON_DRAG,
+    NU_EVENT_ON_RELEASED,
+    NU_EVENT_ON_RESIZE
+};
+
+typedef void (*NU_Callback)(uint32_t handle, void* args);
+
+struct NU_Callback_Info
+{
+    uint32_t handle;
+    void* args;
+    NU_Callback callback;
+};
+
 
 
 void NU_Internal_Register_Event(uint32_t node_handle, void* args, NU_Callback callback, enum NU_Event event)
@@ -40,8 +58,6 @@ void NU_Internal_Register_Event(uint32_t node_handle, void* args, NU_Callback ca
             break;
     }
 }
-
-
 
 
 

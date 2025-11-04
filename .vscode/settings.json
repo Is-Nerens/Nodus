@@ -51,6 +51,12 @@
         "nu_draw_structures.h": "c",
         "string.h": "c",
         "thread": "c",
-        "stdlib.h": "c"
+        "stdlib.h": "c",
+        "nu_nodelist.h": "c",
+        "nu_canvas_draw.h": "c",
+        "errno.h": "c",
+        "nu_style_parser.h": "c",
+        "nu_dom.h": "c",
+        "nu_node.h": "c"
     }
 }

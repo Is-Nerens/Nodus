@@ -4,7 +4,7 @@
 #include <SDL3/SDL.h>
 #include <GL/glew.h>
 
-#include "nu_draw.h"
+#include "draw/nu_draw.h"
 
 void NU_Create_Main_Window() 
 {

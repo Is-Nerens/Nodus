@@ -3,9 +3,8 @@
 #include <SDL3/SDL.h>
 #include <GL/glew.h>
 #include <math.h>
-#include "nu_image.h"
-#include <nu_draw_structures.h>
-#include <nu_shader.h>
+#include "nu_draw_structures.h"
+#include "nu_shader.h"
 
 GLuint Border_Rect_Shader_Program;
 GLuint Clipped_Border_Rect_Shader_Program;

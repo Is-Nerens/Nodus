@@ -252,7 +252,7 @@ static int NU_Generate_Tree(char* src_buffer, uint32_t src_length, struct Vector
     root_node.tag = WINDOW;
     root_node.window = *(SDL_Window**) Vector_Get(&__nu_global_gui.windows, 0);
     struct Node* root_window_node = NU_Tree_Append(&__nu_global_gui.tree, &root_node, 0);
-    Vector_Push(&__nu_global_gui.window_nodes, &root_window_node);
+    Vector_Push(&__nu_global_gui.window_nodes, &root_window_node->handle);
 
     // ---------------------------------
     // Get first property text reference
@@ -329,7 +329,7 @@ static int NU_Generate_Tree(char* src_buffer, uint32_t src_length, struct Vector
                 if (current_node->tag == WINDOW) // If node is a window -> create SDL window
                 {
                     NU_Create_Subwindow(current_node);
-                    Vector_Push(&__nu_global_gui.window_nodes, &current_node);
+                    Vector_Push(&__nu_global_gui.window_nodes, &current_node->handle);
                 }
                 else if (current_node->tag == TABLE) {
                     current_node->inline_style_flags |= 1 << 0; // Enforce vertical direction

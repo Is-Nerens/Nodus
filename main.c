@@ -126,12 +126,6 @@ int main()
     NU_Register_Event(orders_table_selector, &orders_table_tab, tab_select, NU_EVENT_ON_CLICK);
     NU_Register_Event(trades_table_selector, &trades_table_tab, tab_select, NU_EVENT_ON_CLICK);
 
-    // --- Editor ---
-    uint32_t editor_new_script_btn = NU_Get_Node_By_Id("editor-new-script");
-    NU_Register_Event(editor_new_script_btn, NULL, create_new_script, NU_EVENT_ON_CLICK);
-
-    uint32_t editor_delete_script_btn = NU_Get_Node_By_Id("editor-delete-script");
-    NU_Register_Event(editor_delete_script_btn, NULL, delete_script, NU_EVENT_ON_CLICK);
 
     // ------------------------
     // --- Application loop ---

@@ -14,7 +14,7 @@ void NU_Create_Main_Window()
     SDL_GL_SetAttribute(SDL_GL_MULTISAMPLEBUFFERS, 1);
     SDL_GL_SetAttribute(SDL_GL_MULTISAMPLESAMPLES, 8);
     SDL_SetHint("SDL_MOUSE_FOCUS_CLICKTHROUGH", "1");
-    SDL_Window* main_window = SDL_CreateWindow("Wickburner", 500, 400, SDL_WINDOW_OPENGL | SDL_WINDOW_RESIZABLE);
+    SDL_Window* main_window = SDL_CreateWindow("Wickburner", 1000, 800, SDL_WINDOW_OPENGL | SDL_WINDOW_RESIZABLE);
 
     // Create OpenGL context for the main window
     SDL_GLContext context = SDL_GL_CreateContext(main_window);

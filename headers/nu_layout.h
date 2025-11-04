@@ -1052,7 +1052,8 @@ void NU_Mouse_Hover()
 
     for (uint32_t i=0; i<__nu_global_gui.window_nodes.size; i++)
     {
-        struct Node* node = *(struct Node**)Vector_Get(&__nu_global_gui.window_nodes, i);
+        uint32_t handle = *(uint32_t*)Vector_Get(&__nu_global_gui.window_nodes, i);
+        struct Node* node = NODE(handle);
         if (node->window == __nu_global_gui.hovered_window){
             Vector_Push(&stack, &node);
             break;
@@ -1096,7 +1097,6 @@ void NU_Mouse_Hover()
             Vector_Push(&stack, &child);
         }
     }
-
 
 
     // ----------------------------------------

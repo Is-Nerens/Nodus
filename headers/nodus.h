@@ -126,7 +126,7 @@ int NU_Internal_Init()
     }
 
     Vector_Reserve(&__nu_global_gui.windows, sizeof(SDL_Window*), 8);
-    Vector_Reserve(&__nu_global_gui.window_nodes, sizeof(struct Node*), 8);
+    Vector_Reserve(&__nu_global_gui.window_nodes, sizeof(uint32_t), 8);
     StringArena_Init(&__nu_global_gui.node_text_arena, 512);
     String_Map_Init(&__nu_global_gui.id_node_map, sizeof(uint32_t), 512, 25);
     String_Set_Init(&__nu_global_gui.class_string_set, 1024, 100);
@@ -136,7 +136,6 @@ int NU_Internal_Init()
     Vector_Reserve(&__nu_global_gui.windows_draw_lists, sizeof(NU_Window_Draw_Lists), 8);
     Vector_Reserve(&__nu_global_gui.absolute_root_nodes, sizeof(struct Node*), 8);
     Hashmap_Init(&__nu_global_gui.node_clip_map, sizeof(uint32_t), sizeof(NU_Clip_Bounds), 16);
-
 
     // Events
     Hashmap_Init(&__nu_global_gui.on_click_events,      sizeof(uint32_t), sizeof(struct NU_Callback_Info), 25);
@@ -226,12 +225,9 @@ void NU_Internal_Quit()
     String_Map_Free(&__nu_global_gui.id_node_map);
     String_Set_Free(&__nu_global_gui.class_string_set);
     String_Set_Free(&__nu_global_gui.id_string_set);
-
     Vector_Free(&__nu_global_gui.windows_draw_lists);
     Vector_Free(&__nu_global_gui.absolute_root_nodes);
     Hashmap_Free(&__nu_global_gui.node_clip_map);
-
-    // Events
     Hashmap_Free(&__nu_global_gui.on_click_events);
     Hashmap_Free(&__nu_global_gui.on_changed_events);
     Hashmap_Free(&__nu_global_gui.on_drag_events);
@@ -241,10 +237,6 @@ void NU_Internal_Quit()
     Hashmap_Free(&__nu_global_gui.on_mouse_down_events);
     Hashmap_Free(&__nu_global_gui.on_mouse_up_events);
     Hashmap_Free(&__nu_global_gui.on_mouse_move_events);
-
-    // Canvas drawing contexts
     Hashmap_Free(&__nu_global_gui.canvas_contexts);
-
-    // SDL 
     SDL_Quit();
 }

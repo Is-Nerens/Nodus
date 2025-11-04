@@ -104,7 +104,6 @@ void NU_Internal_Register_Event(uint32_t node_handle, void* args, NU_Callback ca
 // ---------------------------------
 void Check_For_Resizes_Events()
 {
-    // Check for resize events
     if (__nu_global_gui.on_resize_events.item_count > 0)
     {
         Hashmap_Iterate_Begin(&__nu_global_gui.on_resize_events);
@@ -113,22 +112,33 @@ void Check_For_Resizes_Events()
             void* key; 
             void* val;
             Hashmap_Iterate_Get(&__nu_global_gui.on_resize_events, &key, &val);
+            if (key == NULL || val == NULL) continue; // Error (shouldn't happen ever)
             uint32_t handle = *(uint32_t*)key; 
-
-            NU_Node_Dimensions* dims = Hashmap_Get(&__nu_global_gui.node_resize_tracking, &handle);
+            struct NU_Callback_Info* cb_info = (struct NU_Callback_Info*)val;
             struct Node* node = NODE(handle);
+            void* dims_get =  Hashmap_Get(&__nu_global_gui.node_resize_tracking, &handle);
+            if (dims_get == NULL) continue; // Error (shouldn't happen ever)
+            NU_Node_Dimensions* dims = (NU_Node_Dimensions*)dims_get;
 
             // Resize detected!
-            if (node->width != -1.0f && (node->width != dims->width || node->height != dims->height))
+            if (dims->width != -1.0f && (node->width != dims->width || node->height != dims->height))
             {
+                // Upate dims 
+                dims->width = node->width;
+                dims->height = node->height;
+
                 // Call callback
-                struct NU_Callback_Info* cb_info = (struct NU_Callback_Info*)val;
                 cb_info->callback(cb_info->event, cb_info->args);
+                continue;
+
             }
 
-            // Upate dims 
-            dims->width = node->width;
-            dims->height = node->height;
+            // Init dims
+            if (dims->width == -1.0f) 
+            {
+                dims->width = node->width;
+                dims->height = node->height;
+            }
         }
     }
 }
@@ -233,11 +243,7 @@ bool EventWatcher(void* data, SDL_Event* event)
     else if (event->type == SDL_EVENT_MOUSE_BUTTON_DOWN)
     {
         // Get mouse down coordinates
-        int win_x, win_y; 
         SDL_GetGlobalMouseState(&__nu_global_gui.mouse_down_global_x, &__nu_global_gui.mouse_down_global_y);
-        SDL_GetWindowPosition(NODE(__nu_global_gui.hovered_node)->window, &win_x, &win_y);
-        float mouse_x = __nu_global_gui.mouse_down_global_x - win_x;
-        float mouse_y = __nu_global_gui.mouse_down_global_y - win_y;
 
         // Set mouse down node
         __nu_global_gui.mouse_down_node = __nu_global_gui.hovered_node;
@@ -245,21 +251,24 @@ bool EventWatcher(void* data, SDL_Event* event)
         // If mouse is hovered over scroll thumb -> set scroll mouse down node
         if (__nu_global_gui.scroll_hovered_node != UINT32_MAX) 
         {
-            if (NU_Mouse_Over_Node_V_Scrollbar(NODE(__nu_global_gui.scroll_hovered_node), mouse_x, mouse_y)) {
+            int win_x, win_y; 
+            SDL_GetWindowPosition(NODE(__nu_global_gui.scroll_hovered_node)->window, &win_x, &win_y);
+            float mouse_x = __nu_global_gui.mouse_down_global_x - win_x;
+            float mouse_y = __nu_global_gui.mouse_down_global_y - win_y;
+            
+            if (NU_Mouse_Over_Node_V_Scrollbar(NODE(__nu_global_gui.scroll_hovered_node), mouse_x, mouse_y)) 
+            {
                 __nu_global_gui.scroll_mouse_down_node = __nu_global_gui.scroll_hovered_node;
-            }
-        }
 
-        // Record scroll thumb grab offset
-        if (__nu_global_gui.scroll_mouse_down_node != UINT32_MAX) 
-        { 
-            struct Node* node = NODE(__nu_global_gui.scroll_mouse_down_node);
-            float track_height = node->height - node->border_top - node->border_bottom;
-            float inner_height_w_pad = track_height - node->pad_top - node->pad_bottom;
-            float inner_proportion_of_content_height = inner_height_w_pad / node->content_height;
-            float thumb_height = inner_proportion_of_content_height * track_height;
-            float thumb_top_y = node->y + node->border_top + (node->scroll_v * (track_height - thumb_height));
-            __nu_global_gui.v_scroll_thumb_grab_offset = mouse_y - thumb_top_y;
+                // Record scroll thumb grab offset
+                struct Node* node = NODE(__nu_global_gui.scroll_mouse_down_node);
+                float track_height = node->height - node->border_top - node->border_bottom;
+                float inner_height_w_pad = track_height - node->pad_top - node->pad_bottom;
+                float inner_proportion_of_content_height = inner_height_w_pad / node->content_height;
+                float thumb_height = inner_proportion_of_content_height * track_height;
+                float thumb_top_y = node->y + node->border_top + (node->scroll_v * (track_height - thumb_height));
+                __nu_global_gui.v_scroll_thumb_grab_offset = mouse_y - thumb_top_y;
+            }
         }
 
         // If there is a mouse down node
@@ -273,6 +282,11 @@ bool EventWatcher(void* data, SDL_Event* event)
             {
                 void* found_cb = Hashmap_Get(&__nu_global_gui.on_mouse_down_events, &__nu_global_gui.mouse_down_node);
                 if (found_cb != NULL) {
+                    int win_x, win_y; 
+                    SDL_GetWindowPosition(NODE(__nu_global_gui.mouse_down_node)->window, &win_x, &win_y);
+                    float mouse_x = __nu_global_gui.mouse_down_global_x - win_x;
+                    float mouse_y = __nu_global_gui.mouse_down_global_y - win_y;
+                    
                     struct NU_Callback_Info* cb_info = (struct NU_Callback_Info*)found_cb;
                     cb_info->event.mouse.mouse_x = mouse_x;
                     cb_info->event.mouse.mouse_y = mouse_y;

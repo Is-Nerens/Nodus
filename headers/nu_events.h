@@ -26,6 +26,7 @@ enum NU_Event_Type
 
 typedef struct NU_Event_Info_Mouse
 {
+    int mouse_btn;
     int mouse_x, mouse_y;
     float delta_x, delta_y;
 } NU_Event_Info_Mouse;
@@ -139,6 +140,27 @@ void Check_For_Resizes_Events()
                 dims->width = node->width;
                 dims->height = node->height;
             }
+        }
+    }
+}
+
+void Trigger_Mouse_Up_Events(float mouse_x, float mouse_y, int mouse_btn)
+{
+    if (__nu_global_gui.on_mouse_up_events.item_count > 0)
+    {
+        Hashmap_Iterate_Begin(&__nu_global_gui.on_mouse_up_events);
+        while(Hashmap_Iterate_Continue(&__nu_global_gui.on_mouse_up_events))
+        {
+            void* key;
+            void* val;
+            Hashmap_Iterate_Get(&__nu_global_gui.on_mouse_up_events, &key, &val);
+            if (key == NULL || val == NULL) continue; // Error (shouldn't happen ever)
+            uint32_t handle = *(uint32_t*)key; 
+            struct NU_Callback_Info* cb_info = (struct NU_Callback_Info*)val;
+            cb_info->event.mouse.mouse_btn = mouse_btn;
+            cb_info->event.mouse.mouse_x = mouse_x;
+            cb_info->event.mouse.mouse_y = mouse_y;
+            cb_info->callback(cb_info->event, cb_info->args);
         }
     }
 }
@@ -288,6 +310,7 @@ bool EventWatcher(void* data, SDL_Event* event)
                     float mouse_y = __nu_global_gui.mouse_down_global_y - win_y;
                     
                     struct NU_Callback_Info* cb_info = (struct NU_Callback_Info*)found_cb;
+                    cb_info->event.mouse.mouse_btn = (int)event->button.button;
                     cb_info->event.mouse.mouse_x = mouse_x;
                     cb_info->event.mouse.mouse_y = mouse_y;
                     cb_info->callback(cb_info->event, cb_info->args);
@@ -312,6 +335,18 @@ bool EventWatcher(void* data, SDL_Event* event)
     {
         __nu_global_gui.scroll_mouse_down_node = UINT32_MAX;
 
+        SDL_GetGlobalMouseState(&__nu_global_gui.mouse_down_global_x, &__nu_global_gui.mouse_down_global_y);
+
+        // Trigger all mouse up events
+        if (__nu_global_gui.hovered_window != NULL)
+        {
+            int win_x, win_y; 
+            SDL_GetWindowPosition(NODE(__nu_global_gui.hovered_node)->window, &win_x, &win_y);
+            float mouse_x = __nu_global_gui.mouse_down_global_x - win_x;
+            float mouse_y = __nu_global_gui.mouse_down_global_y - win_y;
+            Trigger_Mouse_Up_Events(mouse_x, mouse_y, (int)event->button.button);
+        }
+
         // If there is a pressed node
         if (__nu_global_gui.mouse_down_node != UINT32_MAX)
         {   
@@ -335,18 +370,6 @@ bool EventWatcher(void* data, SDL_Event* event)
                     void* found_cb = Hashmap_Get(&__nu_global_gui.on_click_events, &__nu_global_gui.hovered_node);
                     if (found_cb != NULL) {
                         struct NU_Callback_Info* cb_info = (struct NU_Callback_Info*)found_cb;
-                        cb_info->callback(cb_info->event, cb_info->args);
-                    }
-                }
-
-                // If there is a mouse up event assigned to the pressed node
-                if (NODE(__nu_global_gui.hovered_node)->event_flags & NU_EVENT_FLAG_ON_MOUSE_UP) 
-                {
-                    void* found_cb = Hashmap_Get(&__nu_global_gui.on_mouse_up_events, &__nu_global_gui.hovered_node);
-                    if (found_cb != NULL) {
-                        struct NU_Callback_Info* cb_info = (struct NU_Callback_Info*)found_cb;
-                        cb_info->event.mouse.mouse_x = mouse_x;
-                        cb_info->event.mouse.mouse_y = mouse_y;
                         cb_info->callback(cb_info->event, cb_info->args);
                     }
                 }

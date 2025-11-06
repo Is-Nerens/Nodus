@@ -157,10 +157,10 @@ enum NU_Event_Type
 };
 typedef struct NU_Event_Info_Mouse
 {
+    int mouse_btn;
     int mouse_x, mouse_y;
     float delta_x, delta_y;
 } NU_Event_Info_Mouse;
-
 typedef struct NU_Event
 {
     uint32_t handle;

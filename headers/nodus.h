@@ -82,6 +82,11 @@ struct NU_GUI
 
     Uint32 SDL_CUSTOM_RENDER_EVENT;
     Uint32 SDL_CUSTOM_UNBLOCK_LOOP_EVENT;
+
+    SDL_Mutex* unblock_mutex;
+    SDL_Mutex* custom_event_mutex;
+
+    bool unblock;
 };
 
 struct NU_GUI __nu_global_gui;
@@ -161,6 +166,10 @@ int NU_Internal_Init()
     __nu_global_gui.running = true;
     __nu_global_gui.awaiting_redraw = true;
 
+    __nu_global_gui.unblock_mutex = NULL;
+    __nu_global_gui.custom_event_mutex = NULL;
+    __nu_global_gui.unblock = false;
+
 
     // Register custom render event type
     __nu_global_gui.SDL_CUSTOM_RENDER_EVENT = SDL_RegisterEvents(1);
@@ -189,8 +198,17 @@ int NU_Internal_Running()
     if (__nu_global_gui.running)
     {
         SDL_Event event;
-        if (SDL_WaitEvent(&event)) {
-            EventWatcher(NULL, &event);
+        for (;;) {
+            SDL_LockMutex(__nu_global_gui.unblock_mutex);
+            if (__nu_global_gui.unblock) {
+                __nu_global_gui.unblock = false;
+                SDL_UnlockMutex(__nu_global_gui.unblock_mutex);
+                break;
+            }
+            SDL_UnlockMutex(__nu_global_gui.unblock_mutex);
+            if (SDL_WaitEventTimeout(&event, 5)) { 
+                EventWatcher(NULL, &event);
+            }
         }
         return 1;
     }
@@ -200,21 +218,26 @@ int NU_Internal_Running()
     }
 }
 
+void NU_Internal_Unblock()
+{
+    SDL_LockMutex(__nu_global_gui.unblock_mutex);
+    __nu_global_gui.unblock = true;
+    SDL_UnlockMutex(__nu_global_gui.unblock_mutex);
+}
+
 void NU_Internal_Render()
 {
     SDL_Event e;
     SDL_zero(e);
     e.type = __nu_global_gui.SDL_CUSTOM_RENDER_EVENT;
-    SDL_PushEvent(&e);       
+    printf("pushing render event\n");
+    SDL_PushEvent(&e);      
+    printf("done pushing render event\n"); 
 }
 
-void NU_Internal_Unblock()
-{
-    SDL_Event e;
-    SDL_zero(e);
-    e.type = __nu_global_gui.SDL_CUSTOM_UNBLOCK_LOOP_EVENT;
-    SDL_PushEvent(&e);   
-}
+
+
+
 
 void NU_Internal_Quit()
 {

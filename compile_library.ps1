@@ -6,7 +6,7 @@ $glewLib = "lib\glew\lib"
 $freetypeInclude = "lib\freetype\include"
 $freetypeLib = "lib\freetype\lib"
 
-clang -std=c99 library.c `
+clang -std=c99 -O2 library.c `
 -I"$headersInclude" `
 -I"$glewInclude" `
 -I"$sdlInclude" `

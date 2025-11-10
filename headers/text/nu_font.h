@@ -6,9 +6,7 @@ FT_Library nu_global_freetype;
 
 typedef struct NU_Glyph {
     int width;
-    int height;
-    float x_offset;   
-    float y_offset;   
+    int height; 
     float bearingX;   
     float bearingY;   
     float advance;     
@@ -188,13 +186,11 @@ int NU_Font_Create(NU_Font* font, const char* filepath, int height_pixels, bool 
         
         // Store glyph metrics
         NU_Glyph glyph;
-        glyph.width    = (int)bmp->width / channels; 
-        glyph.height   = (int)bmp->rows;
-        glyph.bearingX = (float)(face->glyph->metrics.horiBearingX >> 6);
-        glyph.bearingY = (float)(face->glyph->metrics.horiBearingY >> 6);
-        glyph.advance  = (float)(face->glyph->advance.x >> 6); // FreeType uses 1/64th pixel units
-        glyph.x_offset = (float)(glyph.advance - (float)(glyph.width)) * 0.5f;
-        glyph.y_offset = (float)(face->bbox.yMax >> 6) - glyph.bearingY;
+        glyph.width    = (int)bmp->width / channels;            // pixel width of bitmap
+        glyph.height   = bmp->rows;            // pixel height of bitmap
+        glyph.bearingX = face->glyph->bitmap_left;
+        glyph.bearingY = face->glyph->bitmap_top;
+        glyph.advance  = (float)(face->glyph->advance.x >> 6); // pen advance in pixels
         Vector_Push(&font->glyphs, &glyph);
         NU_Glyph* stored_glyph = Vector_Get(&font->glyphs, glyph_char - 32);
 

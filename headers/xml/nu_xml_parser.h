@@ -17,24 +17,12 @@
 #include "nu_xml_tokens.h"
 #include "nu_xml_grammar_assertions.h"
 
-struct Text_Ref
-{
-    uint32_t NU_Token_index;
-    uint32_t src_index;
-    uint8_t char_count;
-};
-
 static void NU_Tokenise(char* src_buffer, uint32_t src_length, struct Vector* NU_Token_vector, struct Vector* text_ref_vector) 
 {
-    // Store current NU_XML_Token word
-    uint8_t word_char_index = 0;
     char word[32];
-
-    // Store global text char indexes
+    uint8_t word_char_index = 0; // Store current NU_XML_Token word
     uint32_t text_char_count = 0; // Number of chars in text
-
-    // Context
-    uint8_t ctx = 0; // 0 == globalspace, 1 == commentspace, 2 == tagspace, 3 == propertyspace
+    uint8_t ctx = 0; // Context: 0 == globalspace, 1 == commentspace, 2 == tagspace, 3 == propertyspace
 
     // Iterate over src file 
     uint32_t i = 0;
@@ -43,175 +31,159 @@ static void NU_Tokenise(char* src_buffer, uint32_t src_length, struct Vector* NU
         char c = src_buffer[i];
 
         // Comment begins
-        if (ctx == 0 && i < src_length - 3 && c == '<' && src_buffer[i+1] == '!' && src_buffer[i+2] == '-' && src_buffer[i+3] == '-')
-        {
+        if (ctx == 0 && i < src_length - 3 && c == '<' && src_buffer[i+1] == '!' && src_buffer[i+2] == '-' && src_buffer[i+3] == '-') {
             ctx = 1;
             i+=4;
             continue;
         }
 
         // Comment ends
-        if (ctx == 1 && i < src_length - 2 && c == '-' && src_buffer[i+1] == '-' && src_buffer[i+2] == '>')
-        {
+        if (ctx == 1 && i < src_length - 2 && c == '-' && src_buffer[i+1] == '-' && src_buffer[i+2] == '>') {
             ctx = 0;
             i+=3;
             continue;
         }
 
         // In comment -> skip rest
-        if (ctx == 1)
-        {
+        if (ctx == 1) {
             i+=1;
             continue;
         }
 
-        // Open end tag
-        if (ctx == 0 && i < src_length - 1 && c == '<' && src_buffer[i+1] == '/')
+        // In globalspace
+        if (ctx == 0)
         {
-            // Reset global text character count
-            if (text_char_count > 0)
+            // Open end tag
+            if (i < src_length - 1 && c == '<' && src_buffer[i+1] == '/') {
+
+                if (text_char_count > 0) 
+                {
+                    // Add text content token
+                    enum NU_XML_Token t = TEXT_CONTENT;
+                    Vector_Push(NU_Token_vector, &t);
+
+                    // Add text reference
+                    struct Text_Ref ref = { NU_Token_vector->size - 1, i - text_char_count, text_char_count };
+                    Vector_Push(text_ref_vector, &ref);
+                    text_char_count = 0;
+                }
+
+                enum NU_XML_Token t = OPEN_END_TAG;
+                Vector_Push(NU_Token_vector, &t);
+                word_char_index = 0;
+                ctx = 2;
+                i+=2;
+                continue;
+            }
+            // Tag begins
+            else if (c == '<')
             {
-                // Add text content token
-                enum NU_XML_Token t = TEXT_CONTENT;
+                if (text_char_count > 0)
+                {
+                    // Add text content token
+                    enum NU_XML_Token t = TEXT_CONTENT;
+                    Vector_Push(NU_Token_vector, &t);
+
+                    // Add text reference
+                    struct Text_Ref ref = { NU_Token_vector->size - 1, i - text_char_count, text_char_count };
+                    Vector_Push(text_ref_vector, &ref);
+                    text_char_count = 0;
+                }
+
+                enum NU_XML_Token t = OPEN_TAG;
                 Vector_Push(NU_Token_vector, &t);
-
-                // Add text reference
-                struct Text_Ref ref;
-                ref.NU_Token_index = NU_Token_vector->size - 1;
-                ref.src_index = i - text_char_count;
-                ref.char_count = text_char_count;
-                Vector_Push(text_ref_vector, &ref);
+                word_char_index = 0;
+                ctx = 2;
+                i+=1;
+                continue;
             }
-            text_char_count = 0;
-
-            enum NU_XML_Token t = OPEN_END_TAG;
-            Vector_Push(NU_Token_vector, &t);
-            word_char_index = 0;
-            ctx = 2;
-            i+=2;
-            continue;
-        }
-
-        // Tag begins
-        if (ctx == 0 && c == '<')
-        {
-            // Reset global text character count
-            if (text_char_count > 0)
+            // If global space and NOT split character
+            else if (c != '\t' && c != '\n')
             {
-                // Add text content token
-                enum NU_XML_Token t = TEXT_CONTENT;
-                Vector_Push(NU_Token_vector, &t);
+                // text continues
+                if (text_char_count > 0)
+                {
+                    text_char_count += 1;
+                }
 
-                // Add text reference
-                struct Text_Ref ref;
-                ref.NU_Token_index = NU_Token_vector->size - 1;
-                ref.src_index = i - text_char_count;
-                ref.char_count = text_char_count;
-                Vector_Push(text_ref_vector, &ref);
+                // text starts
+                if (text_char_count == 0 && c != ' ')
+                {
+                    text_char_count = 1;
+                }
+                i+=1;
+                continue;
             }
-            text_char_count = 0;
-
-            enum NU_XML_Token t = OPEN_TAG;
-            Vector_Push(NU_Token_vector, &t);
-            word_char_index = 0;
-            ctx = 2;
-            i+=1;
-            continue;
         }
 
-        // Self closing end tag
-        if (ctx == 2 && i < src_length - 1 && c == '/' && src_buffer[i+1] == '>')
+        // In tagspace
+        if (ctx == 2)
         {
-            if (word_char_index > 0) {
-                enum NU_XML_Token t = NU_Word_To_Token(word, word_char_index);
+            // Self closing end tag
+            if (i < src_length - 1 && c == '/' && src_buffer[i+1] == '>') { 
+                if (word_char_index > 0) {
+                    enum NU_XML_Token t = NU_Word_To_Token(word, word_char_index);
+                    Vector_Push(NU_Token_vector, &t);
+                }
+                enum NU_XML_Token t = CLOSE_END_TAG;
                 Vector_Push(NU_Token_vector, &t);
+                word_char_index = 0;
+                ctx = 0;
+                i+=2;
+                continue;
             }
-            enum NU_XML_Token t = CLOSE_END_TAG;
-            Vector_Push(NU_Token_vector, &t);
-            word_char_index = 0;
-            ctx = 0;
-            i+=2;
-            continue;
-        }
-
-        // Tag ends
-        if (ctx == 2 && c == '>')
-        {
-            if (word_char_index > 0) {
-                enum NU_XML_Token t = NU_Word_To_Token(word, word_char_index);
+            // Tag ends
+            else if (c == '>')
+            {
+                if (word_char_index > 0) {
+                    enum NU_XML_Token t = NU_Word_To_Token(word, word_char_index);
+                    Vector_Push(NU_Token_vector, &t);
+                }
+                enum NU_XML_Token t = CLOSE_TAG;
                 Vector_Push(NU_Token_vector, &t);
+                word_char_index = 0;
+                ctx = 0;
+                i+=1;
+                continue;
             }
-            enum NU_XML_Token t = CLOSE_TAG;
-            Vector_Push(NU_Token_vector, &t);
-            word_char_index = 0;
-            ctx = 0;
-            i+=1;
-            continue;
-        }
-
-        // Property assignment
-        if (ctx == 2 && c == '=')
-        {
-            if (word_char_index > 0) {
-                enum NU_XML_Token t = NU_Word_To_Token(word, word_char_index);
+            // Property assignment
+            else if (c == '=')
+            {
+                if (word_char_index > 0) {
+                    enum NU_XML_Token t = NU_Word_To_Token(word, word_char_index);
+                    Vector_Push(NU_Token_vector, &t);
+                }
+                word_char_index = 0;
+                enum NU_XML_Token t = PROPERTY_ASSIGNMENT;
                 Vector_Push(NU_Token_vector, &t);
+                i+=1;
+                continue;
             }
-            word_char_index = 0;
-            enum NU_XML_Token t = PROPERTY_ASSIGNMENT;
-            Vector_Push(NU_Token_vector, &t);
-            i+=1;
-            continue;
-        }
-
-        // Property value begins
-        if (ctx == 2 && c == '"')
-        {
-            ctx = 3;
-            i+=1;
-            continue;
+            // Property value begins
+            else if (c == '"') {
+                ctx = 3;
+                i+=1;
+                continue;
+            }
         }
 
         // Property value ends
-        if (ctx == 3 && c == '"')
-        {
+        if (ctx == 3 && c == '"') {
             enum NU_XML_Token t = PROPERTY_VALUE;
             Vector_Push(NU_Token_vector, &t);
             if (word_char_index > 0)
             {
-                struct Text_Ref ref;
-                ref.NU_Token_index = NU_Token_vector->size - 1;
-                ref.src_index = i - word_char_index;
-                ref.char_count = word_char_index;
+                struct Text_Ref ref = { NU_Token_vector->size - 1, i - word_char_index, word_char_index };
                 Vector_Push(text_ref_vector, &ref);
             }
             word_char_index = 0;
             ctx = 2;
-            i+=1;
-            continue;
-        }
-
-        // If global space and NOT split character
-        if (ctx == 0 && c != '\t' && c != '\n')
-        {
-            // text continues
-            if (text_char_count > 0)
-            {
-                text_char_count += 1;
-            }
-
-            // text starts
-            if (text_char_count == 0 && c != ' ')
-            {
-                text_char_count = 1;
-            }
-
             i+=1;
             continue;
         }
 
         // If split character
-        if (c == ' ' || c == '\t' || c == '\n')
-        {
+        if (c == ' ' || c == '\t' || c == '\n') {
             if (word_char_index > 0) {
                 enum NU_XML_Token t = NU_Word_To_Token(word, word_char_index);
                 Vector_Push(NU_Token_vector, &t);
@@ -222,8 +194,7 @@ static void NU_Tokenise(char* src_buffer, uint32_t src_length, struct Vector* NU
         }
 
         // If tag space or property space
-        if (ctx == 2 || ctx == 3)
-        {
+        if (ctx == 2 || ctx == 3) {
             word[word_char_index] = c;
             word_char_index+=1;
         }
@@ -231,6 +202,7 @@ static void NU_Tokenise(char* src_buffer, uint32_t src_length, struct Vector* NU
         i+=1;
     }
 
+    // Remember last word
     if (word_char_index > 0) {
         enum NU_XML_Token t = NU_Word_To_Token(word, word_char_index);
         Vector_Push(NU_Token_vector, &t);
@@ -241,7 +213,7 @@ static int NU_Generate_Tree(char* src_buffer, uint32_t src_length, struct Vector
 {
     // Enforce root grammar
     if (AssertRootGrammar(NU_Token_vector) != 0) {
-        return -1; // Failure 
+        return 0; // Failure 
     }
 
     // -----------------------
@@ -299,19 +271,19 @@ static int NU_Generate_Tree(char* src_buffer, uint32_t src_length, struct Vector
                 enum Tag tag = NU_Token_To_Tag(*((enum NU_XML_Token*) Vector_Get(NU_Token_vector, i+1)));
 
                 if (ctx == 1 && tag != ROW && tag != THEAD) { 
-                    printf("%s\n", "[Generate_Tree] Error! first child of <table> must be <row> or <thead>."); return -1; // Failure
+                    printf("%s\n", "[Generate_Tree] Error! first child of <table> must be <row> or <thead>."); return 0; // Failure
                 }
                 else if (ctx == 2 && tag == THEAD) {
-                    printf("%s\n", "[Generate_Tree] Error! <table> cannot have more than ONE <thead>."); return -1; // Failure
+                    printf("%s\n", "[Generate_Tree] Error! <table> cannot have more than ONE <thead>."); return 0; // Failure
                 }
                 else if ((ctx == 2 || ctx == 3) && tag != ROW) {
-                    printf("%s\n", "[Generate_Tree] Error! All children of <table> (except optional first child <thead>) must be <row>."); return -1; // Failure
+                    printf("%s\n", "[Generate_Tree] Error! All children of <table> (except optional first child <thead>) must be <row>."); return 0; // Failure
                 }
                 else if (!(ctx == 1 || ctx == 2 || ctx == 3) && tag == ROW) {
-                    printf("%s\n", "[Generate_Tree] Error! <row> must be the child of <table>."); return -1; // Failure
+                    printf("%s\n", "[Generate_Tree] Error! <row> must be the child of <table>."); return 0; // Failure
                 } 
                 else if (ctx != 1 && tag == THEAD) {
-                    printf("%s\n", "[Generate_Tree] Error! <thead> can only be the FIRST child of <table>."); return -1; // Failure
+                    printf("%s\n", "[Generate_Tree] Error! <thead> can only be the FIRST child of <table>."); return 0; // Failure
                 }
 
                 // ----------------------------------------
@@ -352,8 +324,6 @@ static int NU_Generate_Tree(char* src_buffer, uint32_t src_length, struct Vector
                 {
                     NU_Add_Canvas_Context(current_node->handle);
                 }
-                
-
 
                 // -------------------------------
                 // Add node to parent's child list
@@ -380,7 +350,7 @@ static int NU_Generate_Tree(char* src_buffer, uint32_t src_length, struct Vector
             else
             {
                 String_Map_Free(&image_filepath_to_handle_hmap);
-                return -1;
+                return 0;
             }
         }
 
@@ -393,26 +363,21 @@ static int NU_Generate_Tree(char* src_buffer, uint32_t src_length, struct Vector
             // Check close grammar
             struct Node* open_node = NU_Tree_Get(&__nu_global_gui.tree, current_layer, __nu_global_gui.tree.layers[current_layer].size - 1);
             enum Tag openTag = open_node->tag;
-            if (AssertTagCloseStartGrammar(NU_Token_vector, i, openTag) != 0)
-            {
+            if (AssertTagCloseStartGrammar(NU_Token_vector, i, openTag) != 0) {
                 String_Map_Free(&image_filepath_to_handle_hmap);
-                return -1; // Failure
+                return 0; // Failure
             }
 
             // Multi node structure context switch
-            if (open_node->tag == TABLE) { // <table> closes
-                ctx = 0;
-            } 
-            else if (open_node->tag == THEAD) { // <thead> closes
-                ctx = 2;
-            }
-            else if (open_node->tag == ROW) { // <row> closes
+            if (open_node->tag == TABLE) ctx = 0;      // <table> closes
+            else if (open_node->tag == THEAD) ctx = 2; // <thead> closes
+            else if (open_node->tag == ROW) {          // <row> closes
                 if (ctx == 5) ctx = 2;
                 else ctx = 3;
             } 
 
             current_layer--; // Move one layer up (towards root)
-            i+=3; // Increment token index
+            i+=3;            // Increment token index
             continue;
         }
 
@@ -423,19 +388,15 @@ static int NU_Generate_Tree(char* src_buffer, uint32_t src_length, struct Vector
         {
 
             // Multi node structure context switch
-            if (current_node->tag == TABLE) { // <table> closes
-                ctx = 0;
-            } 
-            else if (current_node->tag == THEAD) { // <thead> closes
-                ctx = 2;
-            }
-            else if (current_node->tag == ROW) { // <row> closes
+            if (current_node->tag == TABLE) ctx = 0;      // <table> closes 
+            else if (current_node->tag == THEAD) ctx = 2; // <thead> closes
+            else if (current_node->tag == ROW) {          // <row> closes
                 if (ctx == 5) ctx = 2;
                 else ctx = 3;
             } 
 
             current_layer--; // Move one layer up (towards root)
-            i+=1; // Increment token index
+            i+=1;            // Increment token index
             continue;
         }
 
@@ -449,7 +410,6 @@ static int NU_Generate_Tree(char* src_buffer, uint32_t src_length, struct Vector
             char c = src_buffer[current_text_ref->src_index];
             char* text = &src_buffer[current_text_ref->src_index];
             src_buffer[current_text_ref->src_index + current_text_ref->char_count] = '\0';
-            
             current_node->text_content = StringArena_Add(&__nu_global_gui.node_text_arena, text);
 
             i+=1; // Increment token index
@@ -833,6 +793,7 @@ static int NU_Generate_Tree(char* src_buffer, uint32_t src_length, struct Vector
                         }
                         break;
 
+                    // Image source
                     case IMAGE_SOURCE_PROPERTY:
                         void* found = String_Map_Get(&image_filepath_to_handle_hmap, ptext);
                         if (found == NULL) {
@@ -855,31 +816,30 @@ static int NU_Generate_Tree(char* src_buffer, uint32_t src_length, struct Vector
                 i+=3;
                 continue;
             }
-            else {
+            else 
+            {
                 String_Map_Free(&image_filepath_to_handle_hmap);
-                return -1;
+                return 0;
             }
         }
         i+=1; // Increment token index
     }
     String_Map_Free(&image_filepath_to_handle_hmap);
-    return 0; // Success
+    return 1; // Success
 }
 
-int NU_Internal_From_XML(char* filepath)
+int NU_Internal_Load_XML(char* filepath)
 {
     // Open XML source file and load into buffer
     FILE* f = fopen(filepath, "r");
     if (!f) {
-        fprintf(stderr, "Cannot open file '%s': %s\n", filepath, strerror(errno));
-        return 0;
+        fprintf(stderr, "Cannot open file '%s': %s\n", filepath, strerror(errno)); return 0;
     }
     fseek(f, 0, SEEK_END);
     long file_size_long = ftell(f);
     fseek(f, 0, SEEK_SET);
     if (file_size_long > UINT32_MAX) {
-        printf("%s", "Src file is too large! It must be < 4 294 967 295 Bytes");
-        return 0;
+        printf("%s", "Src file is too large! It must be < 4 294 967 295 Bytes"); return 0;
     }
     uint32_t src_length = (uint32_t)file_size_long;
     char* src_buffer = malloc(src_length + 1);
@@ -887,22 +847,18 @@ int NU_Internal_From_XML(char* filepath)
     src_buffer[src_length] = '\0'; 
     fclose(f);
 
-    // Init Token vector and reserve ~1MB
+    // Init token and text ref vectors
     struct Vector NU_Token_vector;
     struct Vector text_ref_vector;
-
-    // Init vectors
     Vector_Reserve(&NU_Token_vector, sizeof(enum NU_XML_Token), 25000); // reserve ~100KB
     Vector_Reserve(&text_ref_vector, sizeof(struct Text_Ref), 25000); // reserve ~225KB
 
     // Init UI tree 
     NU_Tree_Init(&__nu_global_gui.tree, 100, 10);
 
-    // Tokenise the file source
-    NU_Tokenise(src_buffer, src_length, &NU_Token_vector, &text_ref_vector);
-
-    // Generate UI tree
-    if (NU_Generate_Tree(src_buffer, src_length, &NU_Token_vector, &text_ref_vector) != 0) return 0; // Failure
+    // Tokenise and generate
+    NU_Tokenise(src_buffer, src_length, &NU_Token_vector, &text_ref_vector); 
+    if (!NU_Generate_Tree(src_buffer, src_length, &NU_Token_vector, &text_ref_vector)) return 0; 
 
     // Free token and property text reference memory
     Vector_Free(&NU_Token_vector);

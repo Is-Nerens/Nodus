@@ -3,14 +3,16 @@
 #include <SDL3/SDL.h>
 #include "performance.h"
 
-#define NU_EVENT_FLAG_ON_CLICK       0x01        // 0b00000001
-#define NU_EVENT_FLAG_ON_CHANGED     0x02        // 0b00000010
-#define NU_EVENT_FLAG_ON_DRAG        0x04        // 0b00000100
-#define NU_EVENT_FLAG_ON_RELEASED    0x08        // 0b00001000
-#define NU_EVENT_FLAG_ON_RESIZE      0x10        // 0b00010000
-#define NU_EVENT_FLAG_ON_MOUSE_DOWN  0x20        // 0b00100000
-#define NU_EVENT_FLAG_ON_MOUSE_UP    0x40        // 0b01000000
-#define NU_EVENT_FLAG_ON_MOUSE_MOVED 0x80        // 0b10000000
+#define NU_EVENT_FLAG_ON_CLICK       0x01         // 0b0000000000000001
+#define NU_EVENT_FLAG_ON_CHANGED     0x02         // 0b0000000000000010
+#define NU_EVENT_FLAG_ON_DRAG        0x04         // 0b0000000000000100
+#define NU_EVENT_FLAG_ON_RELEASED    0x08         // 0b0000000000001000
+#define NU_EVENT_FLAG_ON_RESIZE      0x10         // 0b0000000000010000
+#define NU_EVENT_FLAG_ON_MOUSE_DOWN  0x20         // 0b0000000000100000
+#define NU_EVENT_FLAG_ON_MOUSE_UP    0x40         // 0b0000000001000000
+#define NU_EVENT_FLAG_ON_MOUSE_MOVED 0x80         // 0b0000000010000000
+#define NU_EVENT_FLAG_ON_MOUSE_IN    0x100        // 0b0000000100000000
+#define NU_EVENT_FLAG_ON_MOUSE_OUT   0x200        // 0b0000001000000000
 
 enum NU_Event_Type
 {
@@ -21,7 +23,9 @@ enum NU_Event_Type
     NU_EVENT_ON_RESIZE,
     NU_EVENT_ON_MOUSE_DOWN,
     NU_EVENT_ON_MOUSE_UP,
-    NU_EVENT_ON_MOUSE_MOVED
+    NU_EVENT_ON_MOUSE_MOVED,
+    NU_EVENT_ON_MOUSE_IN,
+    NU_EVENT_ON_MOUSE_OUT,
 };
 
 typedef struct NU_Event_Info_Mouse
@@ -88,6 +92,14 @@ void NU_Internal_Register_Event(uint32_t node_handle, void* args, NU_Callback ca
         case NU_EVENT_ON_MOUSE_MOVED:
             node->event_flags |= NU_EVENT_FLAG_ON_MOUSE_MOVED;
             Hashmap_Set(&__nu_global_gui.on_mouse_move_events, &node_handle, &cb_info);
+            break;
+        case NU_EVENT_ON_MOUSE_IN:
+            node->event_flags |= NU_EVENT_FLAG_ON_MOUSE_IN;
+            Hashmap_Set(&__nu_global_gui.on_mouse_in_events, &node_handle, &cb_info);
+            break;
+        case NU_EVENT_ON_MOUSE_OUT:
+            node->event_flags |= NU_EVENT_FLAG_ON_MOUSE_OUT;
+            Hashmap_Set(&__nu_global_gui.on_mouse_out_events, &node_handle, &cb_info);
             break;
     }
 }
@@ -206,6 +218,7 @@ bool EventWatcher(void* data, SDL_Event* event)
     {
         Uint32 id = event->motion.windowID;
         __nu_global_gui.hovered_window = SDL_GetWindowFromID(id);
+        uint32_t prev_hovered_node = __nu_global_gui.hovered_node;
         NU_Mouse_Hover();
 
         // Get global mouse coordinates
@@ -215,6 +228,38 @@ bool EventWatcher(void* data, SDL_Event* event)
         SDL_GetWindowPosition(__nu_global_gui.hovered_window, &win_x, &win_y);
         float mouse_x = mouse_x_global - win_x;
         float mouse_y = mouse_y_global - win_y;
+
+        // On mouse in event triggered
+        if (__nu_global_gui.hovered_node != UINT32_MAX &&
+            prev_hovered_node != __nu_global_gui.hovered_node && 
+            NODE(__nu_global_gui.hovered_node)->event_flags & NU_EVENT_FLAG_ON_MOUSE_IN)
+        {
+            void* found_cb = Hashmap_Get(&__nu_global_gui.on_mouse_in_events, &__nu_global_gui.hovered_node);
+            if (found_cb != NULL) {
+                struct NU_Callback_Info* cb_info = (struct NU_Callback_Info*)found_cb;
+                cb_info->event.mouse.mouse_x = mouse_x;
+                cb_info->event.mouse.mouse_y = mouse_y;
+                cb_info->event.mouse.delta_x = event->motion.xrel;
+                cb_info->event.mouse.delta_y = event->motion.yrel;
+                cb_info->callback(cb_info->event, cb_info->args);
+            }
+        }
+
+        // On mouse out event triggered
+        if (prev_hovered_node != UINT32_MAX &&
+            prev_hovered_node != __nu_global_gui.hovered_node && 
+            NODE(prev_hovered_node)->event_flags & NU_EVENT_FLAG_ON_MOUSE_OUT)
+        {
+            void* found_cb = Hashmap_Get(&__nu_global_gui.on_mouse_out_events, &prev_hovered_node);
+            if (found_cb != NULL) {
+                struct NU_Callback_Info* cb_info = (struct NU_Callback_Info*)found_cb;
+                cb_info->event.mouse.mouse_x = mouse_x;
+                cb_info->event.mouse.mouse_y = mouse_y;
+                cb_info->event.mouse.delta_x = event->motion.xrel;
+                cb_info->event.mouse.delta_y = event->motion.yrel;
+                cb_info->callback(cb_info->event, cb_info->args);
+            }
+        }
 
         // If dragging scrollbar -> update node->scroll_v 
         if (__nu_global_gui.scroll_mouse_down_node != UINT32_MAX) 

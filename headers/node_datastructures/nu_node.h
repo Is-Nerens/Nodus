@@ -41,6 +41,9 @@ struct Node
     // --- Tracks which styles were applied in xml ---
     uint64_t inline_style_flags;
 
+    // --- Event Information
+    uint16_t event_flags;
+
     // --- Tree information ---
     uint32_t handle;
     uint32_t clipping_root_handle;
@@ -73,9 +76,6 @@ struct Node
     char horizontal_text_alignment;
     char vertical_text_alignment;
     bool hide_background;
-
-    // --- Event Information
-    char event_flags;
 };
 
 typedef struct NU_Node_Dimensions

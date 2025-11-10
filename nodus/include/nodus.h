@@ -22,7 +22,7 @@ typedef struct Vector
     uint32_t capacity;
     uint32_t size;
     void* data;
-    size_t element_size;
+    uint32_t element_size;
 } Vector;
 typedef struct {
     struct Vector freelist;
@@ -90,6 +90,7 @@ struct Node
     char* id;
     char* text_content;
     uint64_t inline_style_flags;
+    uint16_t event_flags;
     uint32_t handle;
     uint32_t clipping_root_handle;
     uint16_t index;
@@ -119,31 +120,10 @@ struct Node
     char horizontal_text_alignment;
     char vertical_text_alignment;
     bool hide_background;
-    char event_flags;
 };
 typedef struct {
     float r, g, b;
 } NU_RGB;
-
-typedef struct NU_Stylesheet
-{
-    struct Vector items;
-    String_Set class_string_set;
-    String_Set id_string_set;
-    struct Hashmap class_item_hashmap;
-    struct Hashmap id_item_hashmap;
-    struct Hashmap tag_item_hashmap;
-
-    // (NU_Stylesheet_Tag_Pseudo_Pair -> style item index) in items vector
-    struct Hashmap tag_pseudo_item_hashmap; 
-    struct Hashmap class_pseudo_item_hashmap;
-    struct Hashmap id_pseudo_item_hashmap;
-
-    String_Map font_name_index_map;
-
-    Vector fonts;
-} NU_Stylesheet;
-
 enum NU_Event_Type
 {
     NU_EVENT_ON_CLICK,
@@ -153,7 +133,9 @@ enum NU_Event_Type
     NU_EVENT_ON_RESIZE,
     NU_EVENT_ON_MOUSE_DOWN,
     NU_EVENT_ON_MOUSE_UP,
-    NU_EVENT_ON_MOUSE_MOVED
+    NU_EVENT_ON_MOUSE_MOVED,
+    NU_EVENT_ON_MOUSE_IN,
+    NU_EVENT_ON_MOUSE_OUT,
 };
 typedef struct NU_Event_Info_Mouse
 {
@@ -181,12 +163,11 @@ __declspec(dllimport) int NU_Init(void);
 __declspec(dllimport) void NU_Quit(void);
 __declspec(dllimport) int NU_Running(void);
 __declspec(dllimport) void NU_Unblock(void);
-__declspec(dllimport) int NU_From_XML(char* filepath);
+__declspec(dllimport) int NU_Load_XML(char* filepath);
 
 // Stylesheet functions
-__declspec(dllimport) int NU_Stylesheet_Create(void* stylesheet, char* css_filepath);
-__declspec(dllimport) void NU_Stylesheet_Apply(void* stylesheet);
-__declspec(dllimport) void NU_Stylesheet_Free(void* stylesheet);
+__declspec(dllimport) uint32_t NU_Load_Stylesheet(char* css_filepath);
+__declspec(dllimport) int NU_Apply_Stylesheet(uint32_t stylesheet_handle);
 
 // DOM functions
 __declspec(dllimport) inline struct Node* NU_NODE(uint32_t handle);
@@ -216,15 +197,24 @@ __declspec(dllimport) void NU_Border_Rect(
     uint32_t canvas_handle,
     float x, float y, float w, float h,
     float thickness,
-    void* border_col,
-    void* fill_col
+    NU_RGB* border_col,
+    NU_RGB* fill_col
 );
 
 __declspec(dllimport) void NU_Line(
     uint32_t canvas_handle,
     float x1, float y1, float x2, float y2,
     float thickness,
-    void* col
+    NU_RGB* col
+);
+
+__declspec(dllimport) void NU_Dashed_Line(
+    uint32_t canvas_handle,
+    float x1, float y1, float x2, float y2,
+    float thickness,
+    uint8_t* dash_pattern,
+    uint32_t dash_pattern_len,
+    NU_RGB* col
 );
 
 #ifdef __cplusplus

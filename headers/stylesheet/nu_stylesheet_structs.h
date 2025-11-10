@@ -56,33 +56,3 @@ typedef struct NU_Stylesheet_Item
     char vertical_text_alignment;
     bool hide_background;
 } NU_Stylesheet_Item;
-
-void NU_Stylesheet_Init(NU_Stylesheet* ss)
-{
-    Vector_Reserve(&ss->items, sizeof(NU_Stylesheet_Item), 500);
-    String_Set_Init(&ss->class_string_set, 1024, 100);
-    String_Set_Init(&ss->id_string_set, 1024, 100);
-    Hashmap_Init(&ss->class_item_hashmap, sizeof(char*), sizeof(uint32_t), 100);
-    Hashmap_Init(&ss->id_item_hashmap, sizeof(char*), sizeof(uint32_t), 100);
-    Hashmap_Init(&ss->tag_item_hashmap, sizeof(int), sizeof(uint32_t), 20);
-    Hashmap_Init(&ss->tag_pseudo_item_hashmap, sizeof(struct NU_Stylesheet_Tag_Pseudo_Pair), sizeof(uint32_t), 20);
-    Hashmap_Init(&ss->class_pseudo_item_hashmap, sizeof(struct NU_Stylesheet_String_Pseudo_Pair), sizeof(uint32_t), 20);
-    Hashmap_Init(&ss->id_pseudo_item_hashmap, sizeof(struct NU_Stylesheet_String_Pseudo_Pair), sizeof(uint32_t), 20);
-    String_Map_Init(&ss->font_name_index_map, sizeof(uint8_t), 128, 12);
-    Vector_Reserve(&ss->fonts, sizeof(NU_Font), 4);
-}
-
-void NU_Internal_Stylesheet_Free(NU_Stylesheet* ss)
-{
-    Vector_Free(&ss->items);
-    String_Set_Free(&ss->class_string_set);
-    String_Set_Free(&ss->id_string_set);
-    Hashmap_Free(&ss->class_item_hashmap);
-    Hashmap_Free(&ss->id_item_hashmap);
-    Hashmap_Free(&ss->tag_item_hashmap);
-    Hashmap_Free(&ss->tag_pseudo_item_hashmap);
-    Hashmap_Free(&ss->class_pseudo_item_hashmap);
-    Hashmap_Free(&ss->id_pseudo_item_hashmap);
-    String_Map_Free(&ss->font_name_index_map);
-    Vector_Free(&ss->fonts);
-}

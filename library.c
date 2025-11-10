@@ -18,21 +18,18 @@ __declspec(dllexport) void NU_Unblock(void) {
     NU_Internal_Unblock();
 }
 
-__declspec(dllexport) int NU_From_XML(char* filepath) {
-    return NU_Internal_From_XML(filepath);
+__declspec(dllexport) int NU_Load_XML(char* filepath) {
+    return NU_Internal_Load_XML(filepath);
 }
 
 // ----------------------------
 // --- Stylesheet functions ---
 // ----------------------------
-__declspec(dllexport) int NU_Stylesheet_Create(NU_Stylesheet* stylesheet, char* css_filepath) {
-    return NU_Internal_Stylesheet_Create(stylesheet, css_filepath);
+__declspec(dllexport) int NU_Load_Stylesheet(char* css_filepath) {
+    return NU_Internal_Load_Stylesheet(css_filepath);
 }
-__declspec(dllexport) void NU_Stylesheet_Apply(NU_Stylesheet* stylesheet) {
-    NU_Internal_Stylesheet_Apply(stylesheet);
-}
-__declspec(dllexport) void NU_Stylesheet_Free(NU_Stylesheet* stylesheet) {
-    NU_Internal_Stylesheet_Free(stylesheet);
+__declspec(dllexport) int NU_Apply_Stylesheet(uint32_t stylesheet_handle) {
+    return NU_Internal_Apply_Stylesheet(stylesheet_handle);
 }
 
 // ---------------------
@@ -107,3 +104,21 @@ __declspec(dllexport) void NU_Line(
 {
     NU_Internal_Line(canvas_handle, x1, y1, x2, y2, thickness, col);
 }
+
+__declspec(dllexport) void NU_Dashed_Line(
+    uint32_t canvas_handle,
+    float x1, float y1, float x2, float y2,
+    float thickness,
+    uint8_t* dash_pattern,
+    uint32_t dash_pattern_len,
+    NU_RGB* col) 
+{
+    NU_Internal_Dashed_Line(
+        canvas_handle, 
+        x1, y1, x2, y2, 
+        thickness, 
+        dash_pattern,
+        dash_pattern_len,
+        col);
+}
+

@@ -74,6 +74,13 @@ enum NU_XML_Token
     UNDEFINED
 };
 
+struct Text_Ref
+{
+    uint32_t NU_Token_index;
+    uint32_t src_index;
+    uint8_t char_count;
+};
+
 static enum NU_XML_Token NU_Word_To_Token(char word[], uint8_t word_char_count)
 {
     for (uint8_t i=0; i<NU_XML_KEYWORD_COUNT; i++) {

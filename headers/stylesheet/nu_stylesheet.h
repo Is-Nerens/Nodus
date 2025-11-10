@@ -13,6 +13,40 @@
 
 
 // -------------------------------------------------
+// --- STYLESHEET INIT AND FREE ====================
+// -------------------------------------------------
+void NU_Stylesheet_Init(NU_Stylesheet* ss)
+{
+    Vector_Reserve(&ss->items, sizeof(NU_Stylesheet_Item), 500);
+    String_Set_Init(&ss->class_string_set, 1024, 100);
+    String_Set_Init(&ss->id_string_set, 1024, 100);
+    Hashmap_Init(&ss->class_item_hashmap, sizeof(char*), sizeof(uint32_t), 100);
+    Hashmap_Init(&ss->id_item_hashmap, sizeof(char*), sizeof(uint32_t), 100);
+    Hashmap_Init(&ss->tag_item_hashmap, sizeof(int), sizeof(uint32_t), 20);
+    Hashmap_Init(&ss->tag_pseudo_item_hashmap, sizeof(struct NU_Stylesheet_Tag_Pseudo_Pair), sizeof(uint32_t), 20);
+    Hashmap_Init(&ss->class_pseudo_item_hashmap, sizeof(struct NU_Stylesheet_String_Pseudo_Pair), sizeof(uint32_t), 20);
+    Hashmap_Init(&ss->id_pseudo_item_hashmap, sizeof(struct NU_Stylesheet_String_Pseudo_Pair), sizeof(uint32_t), 20);
+    String_Map_Init(&ss->font_name_index_map, sizeof(uint8_t), 128, 12);
+    Vector_Reserve(&ss->fonts, sizeof(NU_Font), 4);
+}
+
+void NU_Stylesheet_Free(NU_Stylesheet* ss)
+{
+    Vector_Free(&ss->items);
+    String_Set_Free(&ss->class_string_set);
+    String_Set_Free(&ss->id_string_set);
+    Hashmap_Free(&ss->class_item_hashmap);
+    Hashmap_Free(&ss->id_item_hashmap);
+    Hashmap_Free(&ss->tag_item_hashmap);
+    Hashmap_Free(&ss->tag_pseudo_item_hashmap);
+    Hashmap_Free(&ss->class_pseudo_item_hashmap);
+    Hashmap_Free(&ss->id_pseudo_item_hashmap);
+    String_Map_Free(&ss->font_name_index_map);
+    Vector_Free(&ss->fonts);
+}
+
+
+// -------------------------------------------------
 // --- STYLESHEET PARSING AND CREATION =============
 // -------------------------------------------------
 struct Style_Text_Ref
@@ -1124,22 +1158,20 @@ static int NU_Stylesheet_Parse(char* src_buffer, uint32_t src_length, struct Vec
     return 0;
 }
 
-int NU_Internal_Stylesheet_Create(NU_Stylesheet* stylesheet, char* css_filepath)
+int NU_Stylesheet_Create(NU_Stylesheet* stylesheet, char* css_filepath)
 {
     NU_Stylesheet_Init(stylesheet);
 
     // Open XML source file and load into buffer
     FILE* f = fopen(css_filepath, "r");
     if (!f) {
-        fprintf(stderr, "Cannot open file '%s': %s\n", css_filepath, strerror(errno));
-        return 0;
+        fprintf(stderr, "Cannot open file '%s': %s\n", css_filepath, strerror(errno)); return 0;
     }
     fseek(f, 0, SEEK_END);
     long file_size_long = ftell(f);
     fseek(f, 0, SEEK_SET);
     if (file_size_long > UINT32_MAX) {
-        printf("%s", "Src file is too large! It must be < 4 294 967 295 Bytes");
-        return 0;
+        printf("%s", "Src file is too large! It must be < 4 294 967 295 Bytes"); return 0;
     }
     uint32_t src_length = (uint32_t)file_size_long;
     char* src_buffer = malloc(src_length + 1);
@@ -1147,22 +1179,23 @@ int NU_Internal_Stylesheet_Create(NU_Stylesheet* stylesheet, char* css_filepath)
     src_buffer[src_length] = '\0'; 
     fclose(f);
 
-    // Init Token vector and reserve ~1MB
+    // Init token and text ref vectors and reserve
     struct Vector tokens;
-    Vector_Reserve(&tokens, sizeof(enum NU_Style_Token), 50000); // reserve ~200KB
-
     struct Vector text_ref_vector;
+    Vector_Reserve(&tokens, sizeof(enum NU_Style_Token), 10000);
     Vector_Reserve(&text_ref_vector, sizeof(struct Style_Text_Ref), 4000);
 
-
+    // Tokenise and generate stylesheet
     NU_Style_Tokenise(src_buffer, src_length, &tokens, &text_ref_vector);
-    if (NU_Stylesheet_Parse(src_buffer, src_length, &tokens, stylesheet, &text_ref_vector) == -1)
-    {
-        printf("CSS parsing failed!");
+    if (NU_Stylesheet_Parse(src_buffer, src_length, &tokens, stylesheet, &text_ref_vector) == -1) {
+        printf("CSS parsing failed!"); return 0;
     }
 
+    // Free token and text reference memory
     Vector_Free(&tokens);
-    return 1;
+    Vector_Free(&text_ref_vector);
+    
+    return 1;// Success
 }
 
 
@@ -1206,78 +1239,36 @@ static void NU_Stylesheet_Find_Match(struct Node* node, NU_Stylesheet* ss, int* 
 
 static void NU_Apply_Style_Item_To_Node(struct Node* node, NU_Stylesheet_Item* item)
 {
-    if (item->property_flags & (1 << 0) && !(node->inline_style_flags & (1 << 0))) {
-        node->layout_flags = (node->layout_flags & ~(1 << 0)) | (item->layout_flags & (1 << 0)); // Layout direction
-    }
+    if (item->property_flags & (1 << 0) && !(node->inline_style_flags & (1 << 0))) node->layout_flags = (node->layout_flags & ~(1 << 0)) | (item->layout_flags & (1 << 0)); // Layout direction
     if (item->property_flags & (1 << 1) && !(node->inline_style_flags & (1 << 1))) {
         node->layout_flags = (node->layout_flags & ~(1 << 1)) | (item->layout_flags & (1 << 1)); // Grow horizontal
         node->layout_flags = (node->layout_flags & ~(1 << 2)) | (item->layout_flags & (1 << 2)); // Grow vertical
     }
-    if (item->property_flags & (1 << 2) && !(node->inline_style_flags & (1 << 2))) {
-        node->layout_flags = (node->layout_flags & ~(1 << 3)) | (item->layout_flags & (1 << 3)); // Overflow vertical scroll (or not)
-    }
-    if (item->property_flags & (1 << 3) && !(node->inline_style_flags & (1 << 3))) {
-        node->layout_flags = (node->layout_flags & ~(1 << 4)) | (item->layout_flags & (1 << 4)); // Overflow horizontal scroll (or not)
-    }
-    if (item->property_flags & (1 << 4) && !(node->inline_style_flags & (1 << 4))) {
-        node->layout_flags = (node->layout_flags & ~(1 << 5)) | (item->layout_flags & (1 << 5)); // Absolute positioning (or not)
-    }
-    if (item->property_flags & (1 << 5) && !(node->inline_style_flags & (1 << 5))) {
-        node->layout_flags = (node->layout_flags & ~(1 << 6)) | (item->layout_flags & (1 << 6)); // Hidden or not
-    }
-    if (item->property_flags & (1 << 6) && !(node->inline_style_flags & (1 << 6))) {
-        node->gap = item->gap;
-    }
-    if (item->property_flags & (1 << 7) && !(node->inline_style_flags & (1 << 7))) {
-        node->preferred_width = item->preferred_width;
-    }
-    if (item->property_flags & (1 << 8) && !(node->inline_style_flags & (1 << 8))) {
-        node->min_width = item->min_width;
-    }
-    if (item->property_flags & (1 << 9) && !(node->inline_style_flags & (1 << 9))) {
-        node->max_width = item->max_width;
-    }
-    if (item->property_flags & (1 << 10) && !(node->inline_style_flags & (1 << 10))) {
-        node->preferred_height = item->preferred_height;
-    }
-    if (item->property_flags & (1 << 11) && !(node->inline_style_flags & (1 << 11))) {
-        node->min_height = item->min_height;
-    }
-    if (item->property_flags & (1 << 12) && !(node->inline_style_flags & (1 << 12))) {
-        node->max_height = item->max_height;
-    }
-    if (item->property_flags & (1 << 13) && !(node->inline_style_flags & (1 << 13))) {
-        node->horizontal_alignment = item->horizontal_alignment;
-    }
-    if (item->property_flags & (1 << 14) && !(node->inline_style_flags & (1 << 14))) {
-        node->vertical_alignment = item->vertical_alignment;
-    }
-    if (item->property_flags & (1 << 15) && !(node->inline_style_flags & (1 << 15))) {
-        node->horizontal_text_alignment = item->horizontal_text_alignment;
-    }
-    if (item->property_flags & (1 << 16) && !(node->inline_style_flags & (1 << 16))) {
-        node->vertical_text_alignment = item->vertical_text_alignment;
-    }
-    if (item->property_flags & (1 << 17) && !(node->inline_style_flags & (1 << 17))) {
-        node->left = item->left;
-    }
-    if (item->property_flags & (1 << 18) && !(node->inline_style_flags & (1 << 18))) {
-        node->right = item->right;
-    }
-    if (item->property_flags & (1 << 19) && !(node->inline_style_flags & (1 << 19))) {
-        node->top = item->top;
-    }
-    if (item->property_flags & (1 << 20) && !(node->inline_style_flags & (1 << 20))) {
-        node->bottom = item->bottom;
-    }
+    if (item->property_flags & (1 << 2) && !(node->inline_style_flags & (1 << 2))) node->layout_flags = (node->layout_flags & ~(1 << 3)) | (item->layout_flags & (1 << 3)); // Overflow vertical scroll (or not)
+    if (item->property_flags & (1 << 3) && !(node->inline_style_flags & (1 << 3))) node->layout_flags = (node->layout_flags & ~(1 << 4)) | (item->layout_flags & (1 << 4)); // Overflow horizontal scroll (or not)
+    if (item->property_flags & (1 << 4) && !(node->inline_style_flags & (1 << 4))) node->layout_flags = (node->layout_flags & ~(1 << 5)) | (item->layout_flags & (1 << 5)); // Absolute positioning (or not)
+    if (item->property_flags & (1 << 5) && !(node->inline_style_flags & (1 << 5))) node->layout_flags = (node->layout_flags & ~(1 << 6)) | (item->layout_flags & (1 << 6)); // Hidden or not
+    if (item->property_flags & (1 << 6) && !(node->inline_style_flags & (1 << 6))) node->gap = item->gap;
+    if (item->property_flags & (1 << 7) && !(node->inline_style_flags & (1 << 7))) node->preferred_width = item->preferred_width;
+    if (item->property_flags & (1 << 8) && !(node->inline_style_flags & (1 << 8))) node->min_width = item->min_width;
+    if (item->property_flags & (1 << 9) && !(node->inline_style_flags & (1 << 9))) node->max_width = item->max_width;
+    if (item->property_flags & (1 << 10) && !(node->inline_style_flags & (1 << 10))) node->preferred_height = item->preferred_height;
+    if (item->property_flags & (1 << 11) && !(node->inline_style_flags & (1 << 11))) node->min_height = item->min_height;
+    if (item->property_flags & (1 << 12) && !(node->inline_style_flags & (1 << 12))) node->max_height = item->max_height;
+    if (item->property_flags & (1 << 13) && !(node->inline_style_flags & (1 << 13))) node->horizontal_alignment = item->horizontal_alignment;
+    if (item->property_flags & (1 << 14) && !(node->inline_style_flags & (1 << 14))) node->vertical_alignment = item->vertical_alignment;
+    if (item->property_flags & (1 << 15) && !(node->inline_style_flags & (1 << 15))) node->horizontal_text_alignment = item->horizontal_text_alignment;
+    if (item->property_flags & (1 << 16) && !(node->inline_style_flags & (1 << 16))) node->vertical_text_alignment = item->vertical_text_alignment;
+    if (item->property_flags & (1 << 17) && !(node->inline_style_flags & (1 << 17))) node->left = item->left;
+    if (item->property_flags & (1 << 18) && !(node->inline_style_flags & (1 << 18))) node->right = item->right;
+    if (item->property_flags & (1 << 19) && !(node->inline_style_flags & (1 << 19))) node->top = item->top;
+    if (item->property_flags & (1 << 20) && !(node->inline_style_flags & (1 << 20))) node->bottom = item->bottom;
     if (item->property_flags & (1 << 21) && !(node->inline_style_flags & (1 << 21))) {
         node->background_r = item->background_r;
         node->background_g = item->background_g;
         node->background_b = item->background_b;
     }
-    if (item->property_flags & (1 << 22) && !(node->inline_style_flags & (1 << 22))) {
-        node->hide_background = item->hide_background;
-    }
+    if (item->property_flags & (1 << 22) && !(node->inline_style_flags & (1 << 22))) node->hide_background = item->hide_background;
     if (item->property_flags & (1 << 23) && !(node->inline_style_flags & (1 << 23))) {
         node->border_r = item->border_r;
         node->border_g = item->border_g;
@@ -1288,42 +1279,18 @@ static void NU_Apply_Style_Item_To_Node(struct Node* node, NU_Stylesheet_Item* i
         node->text_g = item->text_g;
         node->text_b = item->text_b;
     }
-    if (item->property_flags & (1 << 25) && !(node->inline_style_flags & (1 << 25))) {
-        node->border_top = item->border_top;
-    }
-    if (item->property_flags & (1 << 26) && !(node->inline_style_flags & (1 << 26))) {
-        node->border_bottom = item->border_bottom;
-    }
-    if (item->property_flags & (1 << 27) && !(node->inline_style_flags & (1 << 27))) {
-        node->border_left = item->border_left;
-    }
-    if (item->property_flags & (1 << 28) && !(node->inline_style_flags & (1 << 28))) {
-        node->border_right = item->border_right;
-    }
-    if (item->property_flags & (1 << 29) && !(node->inline_style_flags & (1 << 29))) {
-        node->border_radius_tl = item->border_radius_tl;
-    }
-    if (item->property_flags & (1 << 30) && !(node->inline_style_flags & (1 << 30))) {
-        node->border_radius_tr = item->border_radius_tr;
-    }
-    if (item->property_flags & (1 << 31) && !(node->inline_style_flags & (1 << 31))) {
-        node->border_radius_bl = item->border_radius_bl;
-    }
-    if (item->property_flags & ((uint64_t)1 << 32) && !(node->inline_style_flags & ((uint64_t)1 << 32))) {
-        node->border_radius_br = item->border_radius_br;
-    }
-    if (item->property_flags & ((uint64_t)1 << 33) && !(node->inline_style_flags & ((uint64_t)1 << 33))) {
-        node->pad_top = item->pad_top;
-    }
-    if (item->property_flags & ((uint64_t)1 << 34) && !(node->inline_style_flags & ((uint64_t)1 << 34))) {
-        node->pad_bottom = item->pad_bottom;
-    }
-    if (item->property_flags & ((uint64_t)1 << 35) && !(node->inline_style_flags & ((uint64_t)1 << 35))) {
-        node->pad_left = item->pad_left;
-    }
-    if (item->property_flags & ((uint64_t)1 << 36) && !(node->inline_style_flags & ((uint64_t)1 << 36))) {
-        node->pad_right = item->pad_right;
-    }
+    if (item->property_flags & (1 << 25) && !(node->inline_style_flags & (1 << 25))) node->border_top = item->border_top;
+    if (item->property_flags & (1 << 26) && !(node->inline_style_flags & (1 << 26))) node->border_bottom = item->border_bottom;
+    if (item->property_flags & (1 << 27) && !(node->inline_style_flags & (1 << 27))) node->border_left = item->border_left;
+    if (item->property_flags & (1 << 28) && !(node->inline_style_flags & (1 << 28))) node->border_right = item->border_right;
+    if (item->property_flags & (1 << 29) && !(node->inline_style_flags & (1 << 29))) node->border_radius_tl = item->border_radius_tl;
+    if (item->property_flags & (1 << 30) && !(node->inline_style_flags & (1 << 30))) node->border_radius_tr = item->border_radius_tr;
+    if (item->property_flags & (1 << 31) && !(node->inline_style_flags & (1 << 31))) node->border_radius_bl = item->border_radius_bl;
+    if (item->property_flags & ((uint64_t)1 << 32) && !(node->inline_style_flags & ((uint64_t)1 << 32))) node->border_radius_br = item->border_radius_br;
+    if (item->property_flags & ((uint64_t)1 << 33) && !(node->inline_style_flags & ((uint64_t)1 << 33))) node->pad_top = item->pad_top;
+    if (item->property_flags & ((uint64_t)1 << 34) && !(node->inline_style_flags & ((uint64_t)1 << 34))) node->pad_bottom = item->pad_bottom;
+    if (item->property_flags & ((uint64_t)1 << 35) && !(node->inline_style_flags & ((uint64_t)1 << 35))) node->pad_left = item->pad_left;
+    if (item->property_flags & ((uint64_t)1 << 36) && !(node->inline_style_flags & ((uint64_t)1 << 36))) node->pad_right = item->pad_right;
     node->font_id = item->font_id; // set font 
 }
 
@@ -1382,8 +1349,13 @@ void NU_Apply_Pseudo_Style_To_Node(struct Node* node, NU_Stylesheet* ss, enum NU
     }
 }
 
-void NU_Internal_Stylesheet_Apply(NU_Stylesheet* stylesheet)
+int NU_Internal_Apply_Stylesheet(uint32_t stylesheet_handle)
 {
+    // Passing in a corrupted stylesheet
+    if (stylesheet_handle == -1) return 0;
+
+    NU_Stylesheet* stylesheet = Vector_Get(&__nu_global_gui.stylesheets, stylesheet_handle - 1);   
+
     struct Node* root_window = NU_Tree_Get(&__nu_global_gui.tree, 0, 0);
     NU_Apply_Stylesheet_To_Node(root_window, stylesheet);
 
@@ -1391,16 +1363,13 @@ void NU_Internal_Stylesheet_Apply(NU_Stylesheet* stylesheet)
     for (uint16_t l=0; l<=__nu_global_gui.deepest_layer; l++)
     {
         NU_Layer* layer = &__nu_global_gui.tree.layers[l];
-
-        // Iterate over layer
         for (uint32_t i=0; i<layer->size; i++)
         {
-            struct Node* node = NU_Layer_Get(layer, i);
-            if (!node->node_present) continue;
-
+            struct Node* node = NU_Layer_Get(layer, i); if (!node->node_present) continue;
             NU_Apply_Stylesheet_To_Node(node, stylesheet);
         }
     }
 
     __nu_global_gui.stylesheet = stylesheet;
+    return 1; // success
 }

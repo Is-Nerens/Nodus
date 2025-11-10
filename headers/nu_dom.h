@@ -133,7 +133,16 @@ NU_Nodelist NU_Internal_Get_Nodes_By_Tag(enum Tag tag)
 uint32_t NU_Internal_Create_Node(uint32_t parent_handle, enum Tag tag)
 {
     struct Node* parent = NODE(parent_handle);
+
+    // Moving deeper -> Grow tree layer capacity
+    if (parent->layer == __nu_global_gui.deepest_layer) {
+        NU_Tree_Grow_Layer_Capacity(&__nu_global_gui.tree);
+        __nu_global_gui.deepest_layer++;
+    }
+
+    // Get layer references
     NU_Layer* create_node_layer = &__nu_global_gui.tree.layers[parent->layer + 1];
+    NU_Layer* parent_layer = &__nu_global_gui.tree.layers[parent->layer];
 
     create_node_layer->node_count++;
     parent->child_count++;
@@ -146,13 +155,28 @@ uint32_t NU_Internal_Create_Node(uint32_t parent_handle, enum Tag tag)
             NU_Tree_Layer_Grow(&__nu_global_gui.tree, create_node_layer);
         }
 
+        // No child capacity -> Get first child insert index
+        if (parent->child_capacity == 0) {
+            uint16_t insert_index = 0;
+
+            // Find nearest preceeding parent with children
+            if (parent->index > 0) {
+                for (int i=parent->index-1; i>=0; i--) {
+                    struct Node* prev_parent = NU_Layer_Get(parent_layer, i);
+                    if (prev_parent->node_present && prev_parent->child_capacity > 0) {
+                        insert_index = prev_parent->first_child_index + prev_parent->child_capacity;
+                        break;
+                    }
+                }
+            }
+            parent->first_child_index = insert_index;
+        }
         uint16_t create_node_index = parent->first_child_index + parent->child_count - 1;
-        NU_Layer* parent_layer = &__nu_global_gui.tree.layers[parent->layer];
 
         // Update first child indices for proceeding parent nodes
         for (uint16_t i=parent->index+1; i<parent_layer->size; i++) {
             struct Node* next_parent = NU_Layer_Get(parent_layer, i);
-            if (next_parent->node_present) next_parent->first_child_index += 5;
+            if (next_parent->node_present && next_parent->child_capacity > 0) next_parent->first_child_index += 5;
         }
 
         // Update node self indices and node child parent indices for proceeding layer nodes
@@ -266,6 +290,9 @@ static void NU_Dissociate_Node(struct Node* node)
     }
     if (node->event_flags & NU_EVENT_FLAG_ON_MOUSE_MOVED) {
         Hashmap_Delete(&__nu_global_gui.on_mouse_move_events, &node->handle); // Delete on_mouse_move event
+    }
+    if (node->event_flags & NU_EVENT_FLAG_ON_MOUSE_OUT) {
+        Hashmap_Delete(&__nu_global_gui.on_mouse_out_events, &node->handle); // Delete on_mouse_out event
     }
     if (node->handle == __nu_global_gui.hovered_node) {
         __nu_global_gui.hovered_node = UINT32_MAX;

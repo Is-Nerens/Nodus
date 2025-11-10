@@ -6,10 +6,10 @@ typedef struct Vector
     uint32_t capacity;
     uint32_t size;
     void* data;
-    size_t element_size;
+    uint32_t element_size;
 } Vector;
 
-void Vector_Reserve(Vector* vector, size_t element_size, uint32_t capacity)
+void Vector_Reserve(Vector* vector, uint32_t element_size, uint32_t capacity)
 {
     vector->capacity = capacity;
     vector->size = 0;
@@ -69,7 +69,7 @@ void Vector_Delete_Backshift(Vector* vector, uint32_t index)
     {
         void* dest = (char*)vector->data + (index * vector->element_size);
         void* src  = (char*)vector->data + ((index + 1) * vector->element_size);
-        size_t num_bytes_to_move = (vector->size - index - 1) * vector->element_size;
+        uint32_t num_bytes_to_move = (vector->size - index - 1) * vector->element_size;
         memmove(dest, src, num_bytes_to_move);
     }
     vector->size--;
@@ -84,4 +84,14 @@ void Vector_Set(Vector* vector, uint32_t index, void* value) // Unsafe but very 
 {
     void* dst = (char*)vector->data + index * vector->element_size;
     memcpy(dst, value, vector->element_size);
+}
+
+void* Vector_Create_Uninitialised(Vector* vector)
+{
+    if (vector->size == vector->capacity) {
+        Vector_Grow(vector);
+    }
+    void* destination = (char*)vector->data + vector->size * vector->element_size;
+    vector->size += 1;
+    return destination;
 }

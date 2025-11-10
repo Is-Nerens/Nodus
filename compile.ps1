@@ -28,7 +28,7 @@ $freetypeLib = "lib\freetype\lib"
 $nodusInclude = "nodus\include"
 $nodusLib = "nodus\lib"
 
-clang -std=c99 main.c `
+clang -std=c99 -O2 main.c `
 -I"$glewInclude" `
 -I"$sdlInclude" `
 -I"$freetypeInclude" `

@@ -26,33 +26,35 @@ typedef struct NU_Stylesheet
     struct Hashmap class_pseudo_item_hashmap;
     struct Hashmap id_pseudo_item_hashmap;
 
-    String_Map font_name_index_map;
+    NU_Stringmap image_filepath_to_handle_hmap;
+    NU_Stringmap font_name_index_map;
 
     Vector fonts;
 } NU_Stylesheet;
 
 typedef struct NU_Stylesheet_Item
 {
-    uint64_t property_flags;
+    uint64_t propertyFlags;
     char* class;
     char* id;
     int tag;
     int item_index;
+    GLuint glImageHandle;
     float preferred_width, preferred_height;
-    float min_width, max_width, min_height, max_height;
+    float minWidth, maxWidth, minHeight, maxHeight;
     float gap;
     float left, right, top, bottom;
-    uint8_t pad_top, pad_bottom, pad_left, pad_right;
-    uint8_t border_top, border_bottom, border_left, border_right;
-    uint8_t border_radius_tl, border_radius_tr, border_radius_bl, border_radius_br;
-    uint8_t background_r, background_g, background_b;
-    uint8_t border_r, border_g, border_b;
-    uint8_t text_r, text_g, text_b;
-    uint8_t font_id; // index of NU_Font in stylesheet fonts vector
-    char layout_flags;
-    char horizontal_alignment;
-    char vertical_alignment;
-    char horizontal_text_alignment;
-    char vertical_text_alignment;
-    bool hide_background;
+    uint8_t padTop, padBottom, padLeft, padRight;
+    uint8_t borderTop, borderBottom, borderLeft, borderRight;
+    uint8_t borderRadiusTl, borderRadiusTr, borderRadiusBl, borderRadiusBr;
+    uint8_t backgroundR, backgroundG, backgroundB;
+    uint8_t borderR, borderG, borderB;
+    uint8_t textR, textG, textB;
+    uint8_t fontId; // index of NU_Font in stylesheet fonts vector
+    char layoutFlags;
+    char horizontalAlignment;
+    char verticalAlignment;
+    char horizontalTextAlignment;
+    char verticalTextAlignment;
+    bool hideBackground;
 } NU_Stylesheet_Item;

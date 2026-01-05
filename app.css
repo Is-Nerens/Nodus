@@ -1,37 +1,44 @@
 @font font-normal {
-    src: ./fonts/Inter/Inter_Variable_Weight.ttf;
+    src: "./fonts/Inter/Inter_Variable_Weight.ttf";
     size: 14;
     weight: 400;
 }
 
 @font font-arial {
-    src: ./fonts/arial/ARIAL.ttf;
+    src: "./fonts/arial/ARIAL.ttf";
     size: 12;
     weight: 400;
 }
 
 @font font-table-cell {
-    src: ./fonts/Inter/Inter_Variable_Weight.ttf;
+    src: "./fonts/Inter/Inter_Variable_Weight.ttf";
     size: 12;
     weight: 400;
 }
 
 
+
+image {
+    width: 40;
+    height: 40;
+}
+
+
 /* tag styles */
 window {
-    background: #2f2f2f;
-    pad: 3;
+    background: #2f2f2f; /* tag styles */
+    padding: 3;
     gap: 3;
 }
 button {
     border: 1;
-    borderBottom: 2;
-    borderRadius: 3;
-    background: #2f2f2f;
-    borderColour: #000000;
-    textColour: #ffffff;
-    pad: 5;
-    textAlignH: center;
+    border-bottom: 2;
+    border-radius: 3;
+    background: "#2f2f2f";
+    border-colour: #000000;
+    text-colour: #ffffff;
+    padding: 5;
+    text-align-h: "center";
 }
 button:hover {
     background: #4b4b4b;
@@ -40,24 +47,24 @@ button:press {
     background: #222222;
 }
 thead {
-    pad: 2;
+    padding: 2;
     border: 1;
-    borderColour: #000000;
+    border-colour: #000000;
     background: #2f2f2f;
 }
 row {
-    pad: 2;
+    padding: 2;
     border: 1;
-    borderTop: 0;
-    borderColour: #000000;
+    border-top: 0;
+    border-colour: #000000;
     background: #2f2f2f;
-    alignV: center;
+    align-v: center;
     position: absolute;
 }
 .cell {
-    pad: 3;
+    padding: 3;
     background: #0c0c0c;
-    alignV: center;
+    align-v: center;
     font: font-table-cell;
 }
 
@@ -66,35 +73,35 @@ row {
 
 
 #toolbar {
-    pad: 3;
+    padding: 3;
     gap: 1;
-    borderRadius: 5;
+    border-radius: 5;
     grow: h;
     background: #151515;
-    alignV: center;
+    align-v: center;
 }
 .tab-button {
     border: 1;
-    borderRadius: 3;
+    border-radius: 3;
     background: #2f2f2f;
-    borderColour: #000000;
-    textColour: #c1d5e3;
-    pad: 5;
-    textAlignH: center;
+    border-colour: #000000;
+    text-colour: #c1d5e3;
+    padding: 5;
+    text-align-h: center;
 }
 .tab-button-selected {
-    textColour: #0b1528;
+    text-colour: #0b1528;
     background: #4f7fd9;
 }
 .tab-button-selected:hover {
-    textColour: #0b1528;
+    text-colour: #0b1528;
     background: #4f7fd9;
 }
 .tab-item {
-    pad: 5;
-    borderColour: #404040;
+    padding: 5;
+    border-colour: #404040;
     border: 1
-    borderRadius: 3;
+    border-radius: 3;
 }
 
 
@@ -107,8 +114,8 @@ row {
 #side-bar {
     width: 300;
     background: #2f2f2f;
-    borderColour: #151515;
-    borderRadius: 6;
+    border-colour: #151515;
+    border-radius: 6;
 }
 #watchlist {
     grow: b;
@@ -118,25 +125,25 @@ row {
 #watchlist-table {
     dir: v;
     grow: b;
-    pad: 5;
-    overflowV: s;
-    borderRadius: 5;
+    padding: 5;
+    overflow-v: s;
+    border-radius: 5;
     background: #151515;
 }
 #watchlist-searchbar {
     border: 1;
-    borderRadius: 3;
-    borderColour: #000000;
+    border-radius: 3;
+    border-colour: #000000;
     background: #000000;
-    pad: 5;
+    padding: 5;
     grow: h;
 }
 #watchlist-searchbar:hover {
-    borderColour: #9b5920;
-    borderRadius: 3;
+    border-colour: #9b5920;
+    border-radius: 3;
 }
 .watchlist-header-text {
-    pad: 3;
+    padding: 3;
     background: #060606;
 }
 .crypto-icon {
@@ -151,16 +158,16 @@ row {
 }
 #watchlist-selector-btn, #orderbook-selector-btn {
     grow: h;
-    pad: 5;
+    padding: 5;
     border: 0;
-    borderBottom: 3;
-    borderRadius: 0;
-    borderColour: #2f2f2f;
+    border-bottom: 3;
+    border-radius: 0;
+    border-colour: #2f2f2f;
     background: #2f2f2f;
 }
 #watchlist-selector-btn:hover, #orderbook-selector-btn:hover {
     background: #515151;
-    borderColour: #9b5920;
+    border-colour: #9b5920;
 }
 
 
@@ -176,12 +183,12 @@ row {
 #trade-panel {
     background: #000000;
     border: 4;
-    borderRadius: 5;
-    pad: 5;
-    borderColour: #151515;
+    border-radius: 5;
+    padding: 5;
+    border-colour: #151515;
     dir: v;
     grow: b;
-    maxHeight: 500;
+    max-height: 500;
 }
 #trade-panel-side-selection {
     dir: h;
@@ -191,40 +198,40 @@ row {
 #buy-side-btn {
     dir: v;
     grow: h;
-    borderRadius: 5;
-    borderRadiusTopRight: 0;
-    borderRadiusBottomRight: 0;
+    border-radius: 5;
+    border-radius-top-right: 0;
+    border-radius-bottom-right: 0;
     background: #02a95b;
 }
 #sell-side-btn {
     dir: v;
     grow: h;
-    borderRadius: 5;
-    borderRadiusTopLeft: 0;
-    borderRadiusBottomLeft: 0;
+    border-radius: 5;
+    border-radius-top-left: 0;
+    border-radius-bottom-left: 0;
     background: #db2626;
 }
 .buy-side-text, .sell-side-text {
     background: none;
     grow: h;
-    textAlignH: center;
-    textColour: #000000ff;
+    text-align-h: center;
+    text-colour: #000000ff;
 }   
 .input-label {
-    pad: 3;
+    padding: 3;
     background: none;
 }
 .number-input {
     border: 1;
-    borderRadius: 3;
-    borderColour: #2f2f2f;
+    border-radius: 3;
+    border-colour: #2f2f2f;
     background: #000000;
-    pad: 5;
+    padding: 5;
     grow: h;
 }
 .number-input:hover {
-    borderColour: #9b5920;
-    borderRadius: 3;
+    border-colour: #9b5920;
+    border-radius: 3;
 }
 
 
@@ -238,54 +245,54 @@ row {
 }
 #chart {
     border: 4;
-    borderRadius: 5;
-    borderColour: #151515;
+    border-radius: 5;
+    border-colour: #151515;
     background: #000000;
     grow: b;
-    pad: 0;
+    padding: 0;
 }
 #drawing-toolbar {
     dir: v;
     grow: v;
     background: #2f2f2f;
-    borderRadius: 3
-    padTop: 4;
-    padBottom: 4;
+    border-radius: 3
+    padding-top: 4;
+    padding-bottom: 4;
 }
 .drawing-tool {
     width: 43;
     height: 40;
-    pad: 5;
+    padding: 5;
     border: 0;
-    borderLeft: 3;
-    borderRadius: 0;
-    borderRadiusTopRight: 5;
-    borderRadiusBottomRight: 5;
-    borderColour: #2f2f2f;
+    border-left: 3;
+    border-radius: 0;
+    border-radius-top-right: 5;
+    border-radius-bottom-right: 5;
+    border-colour: #2f2f2f;
     background: #2f2f2f;
 }
 .drawing-tool:hover {
     background: #4b4b4b;
-    borderColour: #4b4b4b;
+    border-colour: #4b4b4b;
 }
 .drawing-tool:press {
-    borderColour: #151515;
+    border-colour: #151515;
     background: #151515;
 }
 .drawing-tool-selected {
     width: 43;
     height: 40;
-    pad: 5;
+    padding: 5;
     border: 0;
-    borderLeft: 3;
-    borderRadius: 0;
-    borderRadiusTopRight: 5;
-    borderRadiusBottomRight: 5;
-    borderColour: #151515;
+    border-left: 3;
+    border-radius: 0;
+    border-radius-top-right: 5;
+    border-radius-bottom-right: 5;
+    border-colour: #151515;
     background: #151515;
 }
 .drawing-tool-selected:hover {
-    borderColour: #151515;
+    border-colour: #151515;
     background: #151515;
 }
 
@@ -293,26 +300,26 @@ row {
 #trade-history-container {
     grow: b;
     background: #2f2f2f;
-    borderRadius: 5;
+    border-radius: 5;
     gap: 3;
-    maxHeight: 300;
+    max-height: 300;
 }
 #trade-history-toolbar {
     background: #151515;
     grow: h;
-    alignV: center;
-    pad: 3;
-    borderRadius: 5;
+    align-v: center;
+    padding: 3;
+    border-radius: 5;
 }
 .page-icon {
     width: 30;
     height: 30;
-    pad: 4;
+    padding: 4;
 }
 .page-btn {
     height: 30;
     width: 50;
-    pad: 4;
+    padding: 4;
 }
 .table-order-delete {
     width: 32;
@@ -342,7 +349,7 @@ row {
 }
 #function-btns {
     background: #151515;
-    pad: 5;
+    padding: 5;
     dir: v;
     grow: v;
 }
@@ -356,22 +363,22 @@ row {
     grow: v;
     dir: v;
     background: #151515;
-    pad: 5;
-    maxHeight: 500;
-    overflowV: s;
+    padding: 5;
+    max-height: 500;
+    overflow-v: s;
 }
 .res-text {
     background: none;
-    pad: 3;
+    padding: 3;
 }
 
 
 
 .temp {
-    pad: 40;
+    padding: 40;
     background: #02a95b;
 }
 .temp-child {
-    pad: 20;
+    padding: 20;
     background: #a96c02;
 }

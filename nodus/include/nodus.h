@@ -31,7 +31,7 @@ typedef struct {
     uint32_t chunk_size;       // chars in each chunk
     uint16_t chunks_used;      // number of chunks
     uint16_t chunks_available; // number of chunks
-    uint32_t string_map_capacity;
+    uint32_t NU_String_Map_capacity;
     uint32_t total_buffer_capacity;
     uint32_t string_count;
     uint32_t max_probes;
@@ -40,24 +40,24 @@ typedef struct {
     uint32_t chunk;
     uint32_t index;
     uint32_t size;
-} String_Map_Free_Element;
+} NU_String_Map_Free_Element;
 typedef struct {
     char** strings_map;        // sparse hash vector of char*
     char** buffer_chunks;      // array of char arrays (stores keys)
     void* item_data;           // sparse array of items
-    String_Map_Free_Element* freelist;
+    NU_String_Map_Free_Element* freelist;
     uint32_t first_chunk_size; // chars in first chunk
     uint16_t chunks_used;      // number of chunks
     uint16_t chunks_available; // number of chunks
-    uint32_t string_map_capacity;
+    uint32_t NU_String_Map_capacity;
     uint32_t total_buffer_capacity;
     uint32_t string_count;
     uint32_t item_size;
     uint32_t freelist_capacity;
     uint32_t freelist_size;
     uint32_t max_probes;
-} String_Map;
-struct Hashmap
+} NU_String_Map;
+struct NU_Hashmap
 {
     uint8_t* occupancy;
     void* data;

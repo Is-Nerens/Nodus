@@ -8,6 +8,7 @@
 #include "nu_style_tokens.h"
 #include "nu_stylesheet_structs.h"
 #include "nu_style_grammar_assertions.h"
+#include "image/nu_image.h"
 
 
 
@@ -20,13 +21,14 @@ void NU_Stylesheet_Init(NU_Stylesheet* ss)
     Vector_Reserve(&ss->items, sizeof(NU_Stylesheet_Item), 500);
     String_Set_Init(&ss->class_string_set, 1024, 100);
     String_Set_Init(&ss->id_string_set, 1024, 100);
-    Hashmap_Init(&ss->class_item_hashmap, sizeof(char*), sizeof(uint32_t), 100);
-    Hashmap_Init(&ss->id_item_hashmap, sizeof(char*), sizeof(uint32_t), 100);
-    Hashmap_Init(&ss->tag_item_hashmap, sizeof(int), sizeof(uint32_t), 20);
-    Hashmap_Init(&ss->tag_pseudo_item_hashmap, sizeof(struct NU_Stylesheet_Tag_Pseudo_Pair), sizeof(uint32_t), 20);
-    Hashmap_Init(&ss->class_pseudo_item_hashmap, sizeof(struct NU_Stylesheet_String_Pseudo_Pair), sizeof(uint32_t), 20);
-    Hashmap_Init(&ss->id_pseudo_item_hashmap, sizeof(struct NU_Stylesheet_String_Pseudo_Pair), sizeof(uint32_t), 20);
-    String_Map_Init(&ss->font_name_index_map, sizeof(uint8_t), 128, 12);
+    HashmapInit(&ss->class_item_hashmap, sizeof(char*), sizeof(uint32_t), 100);
+    HashmapInit(&ss->id_item_hashmap, sizeof(char*), sizeof(uint32_t), 100);
+    HashmapInit(&ss->tag_item_hashmap, sizeof(int), sizeof(uint32_t), 20);
+    HashmapInit(&ss->tag_pseudo_item_hashmap, sizeof(struct NU_Stylesheet_Tag_Pseudo_Pair), sizeof(uint32_t), 20);
+    HashmapInit(&ss->class_pseudo_item_hashmap, sizeof(struct NU_Stylesheet_String_Pseudo_Pair), sizeof(uint32_t), 20);
+    HashmapInit(&ss->id_pseudo_item_hashmap, sizeof(struct NU_Stylesheet_String_Pseudo_Pair), sizeof(uint32_t), 20);
+    NU_Stringmap_Init(&ss->image_filepath_to_handle_hmap, sizeof(GLuint), 512, 20);
+    NU_Stringmap_Init(&ss->font_name_index_map, sizeof(uint8_t), 128, 12);
     Vector_Reserve(&ss->fonts, sizeof(NU_Font), 4);
 }
 
@@ -35,13 +37,13 @@ void NU_Stylesheet_Free(NU_Stylesheet* ss)
     Vector_Free(&ss->items);
     String_Set_Free(&ss->class_string_set);
     String_Set_Free(&ss->id_string_set);
-    Hashmap_Free(&ss->class_item_hashmap);
-    Hashmap_Free(&ss->id_item_hashmap);
-    Hashmap_Free(&ss->tag_item_hashmap);
-    Hashmap_Free(&ss->tag_pseudo_item_hashmap);
-    Hashmap_Free(&ss->class_pseudo_item_hashmap);
-    Hashmap_Free(&ss->id_pseudo_item_hashmap);
-    String_Map_Free(&ss->font_name_index_map);
+    HashmapFree(&ss->class_item_hashmap);
+    HashmapFree(&ss->id_item_hashmap);
+    HashmapFree(&ss->tag_item_hashmap);
+    HashmapFree(&ss->tag_pseudo_item_hashmap);
+    HashmapFree(&ss->class_pseudo_item_hashmap);
+    HashmapFree(&ss->id_pseudo_item_hashmap);
+    NU_Stringmap_Free(&ss->font_name_index_map);
     Vector_Free(&ss->fonts);
 }
 
@@ -64,8 +66,9 @@ static void NU_Style_Tokenise(char* src_buffer, uint32_t src_length, struct Vect
 
     // Context
     uint8_t ctx = 0; 
-    // 0 == globalspace, 1 == commentspace, 2 == selectorspace, 
-    // 3 == propertyspace, 4 == class selector namespace, 5 == id selector name space 
+    // 0 == globalspace, 1 == global commentspace, 2 == selectorspace, 10 == selector commentspace
+    // 3 == property value space, 8 == property value string space, 9 == property value string space escape char (\)
+    // 4 == class selector namespace, 5 == id selector name space 
     // 6 == pseudo namespace, 
     // 7 == font creation namespace
 
@@ -75,7 +78,7 @@ static void NU_Style_Tokenise(char* src_buffer, uint32_t src_length, struct Vect
     {
         char c = src_buffer[i];
 
-        // Comment begins
+        // Globalspace comment begins
         if (ctx == 0 && i < src_length - 1 && c == '/' && src_buffer[i+1] == '*') 
         {
             ctx = 1;
@@ -83,7 +86,7 @@ static void NU_Style_Tokenise(char* src_buffer, uint32_t src_length, struct Vect
             continue;
         }
 
-        // Comment ends 
+        // Globalspace comment ends 
         if (ctx == 1 && i < src_length - 1 && c == '*' && src_buffer[i+1] == '/')
         {
             ctx = 0;
@@ -91,8 +94,24 @@ static void NU_Style_Tokenise(char* src_buffer, uint32_t src_length, struct Vect
             continue;
         }
 
+        // Selectorspace comment begins
+        if (ctx == 2 && i < src_length - 1 && c == '/' && src_buffer[i+1] == '*') 
+        {
+            ctx = 10;
+            i += 2;
+            continue;
+        }
+
+        // Selectorspace comment ends 
+        if (ctx == 10 && i < src_length - 1 && c == '*' && src_buffer[i+1] == '/')
+        {
+            ctx = 2;
+            i += 2;
+            continue;
+        }
+
         // In comment -> skip rest
-        if (ctx == 1)
+        if (ctx == 1 || ctx == 10)
         {
             i += 1;
             continue;
@@ -117,9 +136,7 @@ static void NU_Style_Tokenise(char* src_buffer, uint32_t src_length, struct Vect
         }
 
         // Property value word completed
-        if (ctx == 3  && c == ';')
-        {   
-           // Property value word completed
+        if (ctx == 3 && c == ';'){   
             if (word_char_index > 0) {
 
                 // Add text reference
@@ -133,6 +150,26 @@ static void NU_Style_Tokenise(char* src_buffer, uint32_t src_length, struct Vect
                 word_char_index = 0;
             }
             ctx = 2;
+            i += 1;
+            continue;
+        }
+
+        // Property value quotes string completed
+        if (ctx == 8 && c == '"') {
+            if (word_char_index > 0) {
+
+                // Add text reference
+                struct Style_Text_Ref ref;
+                ref.NU_Token_index = NU_Token_vector->size;
+                ref.src_index = i - (uint32_t)word_char_index;
+                ref.char_count = word_char_index;
+                Vector_Push(text_ref_vector, &ref);
+                enum NU_Style_Token token = STYLE_PROPERTY_VALUE;
+                Vector_Push(NU_Token_vector, &token);
+                word_char_index = 0;
+            }
+
+            ctx = 3;
             i += 1;
             continue;
         }
@@ -257,7 +294,7 @@ static void NU_Style_Tokenise(char* src_buffer, uint32_t src_length, struct Vect
 
             // Property identifier word completed
             else if (ctx == 2 && word_char_index > 0) {
-                enum NU_Style_Token token = NU_Word_To_Property_Token(word, word_char_index);
+                enum NU_Style_Token token = NU_Word_To_Style_Property_Token(word, word_char_index);
                 Vector_Push(NU_Token_vector, &token);
                 word_char_index = 0;
             }
@@ -321,6 +358,23 @@ static void NU_Style_Tokenise(char* src_buffer, uint32_t src_length, struct Vect
             continue;
         }
 
+        // Support for "" property values
+        if (ctx == 3 && c == '"') {
+            ctx = 8;
+            i += 1;
+            continue;
+        }
+        if (ctx == 8 && c =='\\') {
+            ctx = 9;
+            i += 1;
+            continue;
+        }
+        if (ctx == 9) {
+            ctx = 8;
+            i += 1;
+            continue;
+        }
+
         // Add char to word (if ctx == 0 || 2 || 3 || 4 || 5 || 6)
         if (ctx != 1)
         {
@@ -338,8 +392,8 @@ static int NU_Stylesheet_Parse(char* src_buffer, uint32_t src_length, struct Vec
     struct Style_Text_Ref* text_ref;
 
     NU_Stylesheet_Item item;
-    item.property_flags = 0;
-    item.font_id = 0;
+    item.propertyFlags = 0;
+    item.fontId = 0;
 
     uint32_t selector_indexes[64];
     int selector_count = 0;
@@ -370,13 +424,13 @@ static int NU_Stylesheet_Parse(char* src_buffer, uint32_t src_length, struct Vec
                 text_index += 1;
 
                 // Create a new font
-                void* found_font = String_Map_Get(&ss->font_name_index_map, create_font_name);
+                void* found_font = NU_Stringmap_Get(&ss->font_name_index_map, create_font_name);
                 if (found_font == NULL) {
                     NU_Font font;
                     Vector_Push(&ss->fonts, &font);
                     create_font_index = (uint8_t)(ss->fonts.size - 1);
                     create_font = Vector_Get(&ss->fonts, create_font_index);
-                    String_Map_Set(&ss->font_name_index_map, create_font_name, &create_font_index);
+                    NU_Stringmap_Set(&ss->font_name_index_map, create_font_name, &create_font_index);
                 } 
 
                 ctx = 1;
@@ -391,9 +445,9 @@ static int NU_Stylesheet_Parse(char* src_buffer, uint32_t src_length, struct Vec
         if (token == STYLE_SELECTOR_OPEN_BRACE)
         {
             if (AssertSelectionOpeningBraceGrammar(tokens, i)) {
-                item.property_flags = 0;
-                item.layout_flags = 0;
-                item.font_id = 0;
+                item.propertyFlags = 0;
+                item.layoutFlags = 0;
+                item.fontId = 0;
                 i += 1;
                 continue;
             } 
@@ -413,45 +467,46 @@ static int NU_Stylesheet_Parse(char* src_buffer, uint32_t src_length, struct Vec
                 for (int i=0; i<selector_count; i++) {
                     uint32_t item_index = selector_indexes[i];
                     NU_Stylesheet_Item* curr_item = Vector_Get(&ss->items, item_index);
-                    curr_item->property_flags |= item.property_flags;
-                    if (item.property_flags & (1 << 0) ) curr_item->layout_flags = (curr_item->layout_flags & ~(1 << 0)) | (item.layout_flags & (1 << 0)); // Layout direction
-                    if (item.property_flags & (1 << 1) ) curr_item->layout_flags = (curr_item->layout_flags & ~((1 << 1) | (1 << 2))) | (item.layout_flags & ((1 << 1) | (1 << 2))); // Grow
-                    if (item.property_flags & (1 << 2 )) curr_item->layout_flags = (curr_item->layout_flags & ~(1 << 3)) | (item.layout_flags & (1 << 3)); // Overflow vertical scroll (or not)
-                    if (item.property_flags & (1 << 3 )) curr_item->layout_flags = (curr_item->layout_flags & ~(1 << 4)) | (item.layout_flags & (1 << 4)); // Overflow horizontal scroll (or not)
-                    if (item.property_flags & (1 << 4 )) curr_item->layout_flags = (curr_item->layout_flags & ~(1 << 5)) | (item.layout_flags & (1 << 5)); // Position absolute or not
-                    if (item.property_flags & (1 << 5 )) curr_item->layout_flags = (curr_item->layout_flags & ~(1 << 6)) | (item.layout_flags & (1 << 6)); // Hide or not
-                    if (item.property_flags & (1 << 6 )) curr_item->gap = item.gap;
-                    if (item.property_flags & (1 << 7 )) curr_item->preferred_width = item.preferred_width;
-                    if (item.property_flags & (1 << 8 )) curr_item->min_width = item.min_width;
-                    if (item.property_flags & (1 << 9 )) curr_item->max_width = item.max_width;
-                    if (item.property_flags & (1 << 10)) curr_item->preferred_height = item.preferred_height;
-                    if (item.property_flags & (1 << 11)) curr_item->min_height = item.min_height;
-                    if (item.property_flags & (1 << 12)) curr_item->max_height = item.max_height;
-                    if (item.property_flags & (1 << 13)) curr_item->horizontal_alignment = item.horizontal_alignment;
-                    if (item.property_flags & (1 << 14)) curr_item->vertical_alignment = item.vertical_alignment;
-                    if (item.property_flags & (1 << 15)) curr_item->horizontal_text_alignment = item.horizontal_text_alignment;
-                    if (item.property_flags & (1 << 16)) curr_item->vertical_text_alignment = item.vertical_text_alignment;
-                    if (item.property_flags & (1 << 17)) curr_item->left = item.left;
-                    if (item.property_flags & (1 << 18)) curr_item->right = item.right;
-                    if (item.property_flags & (1 << 19)) curr_item->top = item.top;
-                    if (item.property_flags & (1 << 20)) curr_item->bottom = item.bottom;
-                    if (item.property_flags & (1 << 21)) memcpy(&curr_item->background_r, &item.background_r, 3); // Copy rgb
-                    if (item.property_flags & (1 << 22)) curr_item->hide_background = item.hide_background; // Copy rgb
-                    if (item.property_flags & (1 << 23)) memcpy(&curr_item->border_r, &item.border_r, 3); // Copy rgb
-                    if (item.property_flags & (1 << 24)) memcpy(&curr_item->text_r, &item.text_r, 3); // Copy rgb
-                    if (item.property_flags & (1 << 25)) curr_item->border_top = item.border_top; 
-                    if (item.property_flags & (1 << 26)) curr_item->border_bottom = item.border_bottom; 
-                    if (item.property_flags & (1 << 27)) curr_item->border_left = item.border_left; 
-                    if (item.property_flags & (1 << 28)) curr_item->border_right = item.border_right; 
-                    if (item.property_flags & (1 << 29)) curr_item->border_radius_tl = item.border_radius_tl; 
-                    if (item.property_flags & (1 << 30)) curr_item->border_radius_tr = item.border_radius_tr; 
-                    if (item.property_flags & (1 << 31)) curr_item->border_radius_bl = item.border_radius_bl; 
-                    if (item.property_flags & ((uint64_t)1 << 32)) curr_item->border_radius_br = item.border_radius_br; 
-                    if (item.property_flags & ((uint64_t)1 << 33)) curr_item->pad_top = item.pad_top; 
-                    if (item.property_flags & ((uint64_t)1 << 34)) curr_item->pad_bottom = item.pad_bottom; 
-                    if (item.property_flags & ((uint64_t)1 << 35)) curr_item->pad_left = item.pad_left; 
-                    if (item.property_flags & ((uint64_t)1 << 36)) curr_item->pad_right = item.pad_right; 
-                    curr_item->font_id = item.font_id;
+                    curr_item->propertyFlags |= item.propertyFlags;
+                    if (item.propertyFlags & (1ULL << 0) ) curr_item->layoutFlags = (curr_item->layoutFlags & ~(1ULL << 0)) | (item.layoutFlags & (1ULL << 0)); // Layout direction
+                    if (item.propertyFlags & (1ULL << 1) ) curr_item->layoutFlags = (curr_item->layoutFlags & ~((1ULL << 1) | (1ULL << 2))) | (item.layoutFlags & ((1ULL << 1) | (1ULL << 2))); // Grow
+                    if (item.propertyFlags & (1ULL << 2 )) curr_item->layoutFlags = (curr_item->layoutFlags & ~(1ULL << 3)) | (item.layoutFlags & (1ULL << 3)); // Overflow vertical scroll (or not)
+                    if (item.propertyFlags & (1ULL << 3 )) curr_item->layoutFlags = (curr_item->layoutFlags & ~(1ULL << 4)) | (item.layoutFlags & (1ULL << 4)); // Overflow horizontal scroll (or not)
+                    if (item.propertyFlags & (1ULL << 4 )) curr_item->layoutFlags = (curr_item->layoutFlags & ~(1ULL << 5)) | (item.layoutFlags & (1ULL << 5)); // Position absolute or not
+                    if (item.propertyFlags & (1ULL << 5 )) curr_item->layoutFlags = (curr_item->layoutFlags & ~(1ULL << 6)) | (item.layoutFlags & (1ULL << 6)); // Hide or not
+                    if (item.propertyFlags & (1ULL << 6 )) curr_item->gap = item.gap;
+                    if (item.propertyFlags & (1ULL << 7 )) curr_item->preferred_width = item.preferred_width;
+                    if (item.propertyFlags & (1ULL << 8 )) curr_item->minWidth = item.minWidth;
+                    if (item.propertyFlags & (1ULL << 9 )) curr_item->maxWidth = item.maxWidth;
+                    if (item.propertyFlags & (1ULL << 10)) curr_item->preferred_height = item.preferred_height;
+                    if (item.propertyFlags & (1ULL << 11)) curr_item->minHeight = item.minHeight;
+                    if (item.propertyFlags & (1ULL << 12)) curr_item->maxHeight = item.maxHeight;
+                    if (item.propertyFlags & (1ULL << 13)) curr_item->horizontalAlignment = item.horizontalAlignment;
+                    if (item.propertyFlags & (1ULL << 14)) curr_item->verticalAlignment = item.verticalAlignment;
+                    if (item.propertyFlags & (1ULL << 15)) curr_item->horizontalTextAlignment = item.horizontalTextAlignment;
+                    if (item.propertyFlags & (1ULL << 16)) curr_item->verticalTextAlignment = item.verticalTextAlignment;
+                    if (item.propertyFlags & (1ULL << 17)) curr_item->left = item.left;
+                    if (item.propertyFlags & (1ULL << 18)) curr_item->right = item.right;
+                    if (item.propertyFlags & (1ULL << 19)) curr_item->top = item.top;
+                    if (item.propertyFlags & (1ULL << 20)) curr_item->bottom = item.bottom;
+                    if (item.propertyFlags & (1ULL << 21)) memcpy(&curr_item->backgroundR, &item.backgroundR, 3); // Copy rgb
+                    if (item.propertyFlags & (1ULL << 22)) curr_item->hideBackground = item.hideBackground; // Copy rgb
+                    if (item.propertyFlags & (1ULL << 23)) memcpy(&curr_item->borderR, &item.borderR, 3); // Copy rgb
+                    if (item.propertyFlags & (1ULL << 24)) memcpy(&curr_item->textR, &item.textR, 3); // Copy rgb
+                    if (item.propertyFlags & (1ULL << 25)) curr_item->borderTop = item.borderTop; 
+                    if (item.propertyFlags & (1ULL << 26)) curr_item->borderBottom = item.borderBottom; 
+                    if (item.propertyFlags & (1ULL << 27)) curr_item->borderLeft = item.borderLeft; 
+                    if (item.propertyFlags & (1ULL << 28)) curr_item->borderRight = item.borderRight; 
+                    if (item.propertyFlags & (1ULL << 29)) curr_item->borderRadiusTl = item.borderRadiusTl; 
+                    if (item.propertyFlags & (1ULL << 30)) curr_item->borderRadiusTr = item.borderRadiusTr; 
+                    if (item.propertyFlags & (1ULL << 31)) curr_item->borderRadiusBl = item.borderRadiusBl; 
+                    if (item.propertyFlags & (1ULL << 32)) curr_item->borderRadiusBr = item.borderRadiusBr; 
+                    if (item.propertyFlags & (1ULL << 33)) curr_item->padTop = item.padTop; 
+                    if (item.propertyFlags & (1ULL << 34)) curr_item->padBottom = item.padBottom; 
+                    if (item.propertyFlags & (1ULL << 35)) curr_item->padLeft = item.padLeft; 
+                    if (item.propertyFlags & (1ULL << 36)) curr_item->padRight = item.padRight; 
+                    if (item.propertyFlags & (1ULL << 37)) curr_item->glImageHandle = item.glImageHandle;
+                    curr_item->fontId = item.fontId;
                 }
                 selector_count = 0;
             }
@@ -487,7 +542,7 @@ static int NU_Stylesheet_Parse(char* src_buffer, uint32_t src_length, struct Vec
                 if (next_token == STYLE_SELECTOR_COMMA || next_token == STYLE_SELECTOR_OPEN_BRACE)    
                 {
                     int tag = token - STYLE_PROPERTY_COUNT;
-                    void* found = Hashmap_Get(&ss->tag_item_hashmap, &tag);
+                    void* found = HashmapGet(&ss->tag_item_hashmap, &tag);
                     if (found != NULL) // Style item exists
                     {
                         NU_Stylesheet_Item* found_item = Vector_Get(&ss->items, *(uint32_t*)found);
@@ -499,10 +554,10 @@ static int NU_Stylesheet_Parse(char* src_buffer, uint32_t src_length, struct Vec
                         new_item.class = NULL;
                         new_item.id = NULL;
                         new_item.tag = tag;
-                        new_item.property_flags = 0;
+                        new_item.propertyFlags = 0;
                         Vector_Push(&ss->items, &new_item);
                         selector_indexes[selector_count] = (uint32_t)(ss->items.size - 1);
-                        Hashmap_Set(&ss->tag_item_hashmap, &tag, &selector_indexes[selector_count]); // Store item index
+                        HashmapSet(&ss->tag_item_hashmap, &tag, &selector_indexes[selector_count]); // Store item index
                     }
 
                     i += 1;
@@ -518,7 +573,7 @@ static int NU_Stylesheet_Parse(char* src_buffer, uint32_t src_length, struct Vec
                         int tag = token - STYLE_PROPERTY_COUNT;
                         enum NU_Pseudo_Class pseudo_class = Token_To_Pseudo_Class(following_token);
                         struct NU_Stylesheet_Tag_Pseudo_Pair key = { tag, pseudo_class };
-                        void* found = Hashmap_Get(&ss->tag_pseudo_item_hashmap, &key);
+                        void* found = HashmapGet(&ss->tag_pseudo_item_hashmap, &key);
 
                         if (found != NULL) // Style item exists
                         {
@@ -531,10 +586,10 @@ static int NU_Stylesheet_Parse(char* src_buffer, uint32_t src_length, struct Vec
                             new_item.class = NULL;
                             new_item.id = NULL;
                             new_item.tag = tag;
-                            new_item.property_flags = 0;
+                            new_item.propertyFlags = 0;
                             Vector_Push(&ss->items, &new_item);
                             selector_indexes[selector_count] = (uint32_t)(ss->items.size - 1);
-                            Hashmap_Set(&ss->tag_pseudo_item_hashmap, &key, &selector_indexes[selector_count]); // Store item index
+                            HashmapSet(&ss->tag_pseudo_item_hashmap, &key, &selector_indexes[selector_count]); // Store item index
 
                         }
                     }
@@ -574,7 +629,7 @@ static int NU_Stylesheet_Parse(char* src_buffer, uint32_t src_length, struct Vec
                     char* stored_class = String_Set_Add(&ss->class_string_set, src_class);
 
                     // If style item exists
-                    void* found = Hashmap_Get(&ss->class_item_hashmap, &stored_class);
+                    void* found = HashmapGet(&ss->class_item_hashmap, &stored_class);
                     if (found != NULL) 
                     {
                         NU_Stylesheet_Item* found_item = Vector_Get(&ss->items, *(uint32_t*)found);
@@ -586,10 +641,10 @@ static int NU_Stylesheet_Parse(char* src_buffer, uint32_t src_length, struct Vec
                         new_item.class = stored_class;
                         new_item.id = NULL;
                         new_item.tag = -1;
-                        new_item.property_flags = 0;
+                        new_item.propertyFlags = 0;
                         Vector_Push(&ss->items, &new_item);
                         selector_indexes[selector_count] = (uint32_t)(ss->items.size - 1);
-                        Hashmap_Set(&ss->class_item_hashmap, &stored_class, &selector_indexes[selector_count]); // Store item index
+                        HashmapSet(&ss->class_item_hashmap, &stored_class, &selector_indexes[selector_count]); // Store item index
                     }
 
                     i += 1;
@@ -613,7 +668,7 @@ static int NU_Stylesheet_Parse(char* src_buffer, uint32_t src_length, struct Vec
                         // Add class to set
                         char* stored_class = String_Set_Add(&ss->class_string_set, src_class);
                         struct NU_Stylesheet_String_Pseudo_Pair key = { stored_class, pseudo_class };
-                        void* found = Hashmap_Get(&ss->class_pseudo_item_hashmap, &key);
+                        void* found = HashmapGet(&ss->class_pseudo_item_hashmap, &key);
                         if (found != NULL) 
                         {
                             NU_Stylesheet_Item* found_item = Vector_Get(&ss->items, *(uint32_t*)found);
@@ -625,10 +680,10 @@ static int NU_Stylesheet_Parse(char* src_buffer, uint32_t src_length, struct Vec
                             new_item.class = stored_class;
                             new_item.id = NULL;
                             new_item.tag = -1;
-                            new_item.property_flags = 0;
+                            new_item.propertyFlags = 0;
                             Vector_Push(&ss->items, &new_item);
                             selector_indexes[selector_count] = (uint32_t)(ss->items.size - 1);
-                            Hashmap_Set(&ss->class_pseudo_item_hashmap, &key, &selector_indexes[selector_count]); // Store item index
+                            HashmapSet(&ss->class_pseudo_item_hashmap, &key, &selector_indexes[selector_count]); // Store item index
                         }
                     }
                     else 
@@ -668,7 +723,7 @@ static int NU_Stylesheet_Parse(char* src_buffer, uint32_t src_length, struct Vec
                     char* stored_id = String_Set_Add(&ss->id_string_set, src_id);
 
                     // If style item exists
-                    void* found = Hashmap_Get(&ss->id_item_hashmap, &stored_id);
+                    void* found = HashmapGet(&ss->id_item_hashmap, &stored_id);
                     if (found != NULL)
                     {
                         NU_Stylesheet_Item* found_item = Vector_Get(&ss->items, *(uint32_t*)found);
@@ -680,10 +735,10 @@ static int NU_Stylesheet_Parse(char* src_buffer, uint32_t src_length, struct Vec
                         new_item.class = NULL;
                         new_item.id = stored_id;
                         new_item.tag = -1;
-                        new_item.property_flags = 0;
+                        new_item.propertyFlags = 0;
                         Vector_Push(&ss->items, &new_item);
                         selector_indexes[selector_count] = (uint32_t)(ss->items.size - 1);
-                        Hashmap_Set(&ss->id_item_hashmap, &stored_id, &selector_indexes[selector_count]); // Store item index
+                        HashmapSet(&ss->id_item_hashmap, &stored_id, &selector_indexes[selector_count]); // Store item index
                     }
 
                     i += 1;
@@ -707,7 +762,7 @@ static int NU_Stylesheet_Parse(char* src_buffer, uint32_t src_length, struct Vec
                         // Add id to set
                         char* stored_id = String_Set_Add(&ss->id_string_set, src_id);
                         struct NU_Stylesheet_String_Pseudo_Pair key = { stored_id, pseudo_class };
-                        void* found = Hashmap_Get(&ss->id_pseudo_item_hashmap, &key);
+                        void* found = HashmapGet(&ss->id_pseudo_item_hashmap, &key);
                         if (found != NULL) 
                         {
                             NU_Stylesheet_Item* found_item = Vector_Get(&ss->items, *(uint32_t*)found);
@@ -719,10 +774,10 @@ static int NU_Stylesheet_Parse(char* src_buffer, uint32_t src_length, struct Vec
                             new_item.class = NULL;
                             new_item.id = stored_id;
                             new_item.tag = -1;
-                            new_item.property_flags = 0;
+                            new_item.propertyFlags = 0;
                             Vector_Push(&ss->items, &new_item);
                             selector_indexes[selector_count] = (uint32_t)(ss->items.size - 1);
-                            Hashmap_Set(&ss->id_pseudo_item_hashmap, &key, &selector_indexes[selector_count]); // Store item index
+                            HashmapSet(&ss->id_pseudo_item_hashmap, &key, &selector_indexes[selector_count]); // Store item index
                         }
                     }
                     else 
@@ -780,8 +835,8 @@ static int NU_Stylesheet_Parse(char* src_buffer, uint32_t src_length, struct Vec
                 {
                     // Set layout direction
                     case STYLE_LAYOUT_DIRECTION_PROPERTY:
-                        if (c == 'v') item.layout_flags |= LAYOUT_VERTICAL;
-                        item.property_flags |= 1 << 0;
+                        if (c == 'v') item.layoutFlags |= LAYOUT_VERTICAL;
+                        item.propertyFlags |= 1ULL << 0;
                         break;
 
                     // Set growth 
@@ -789,152 +844,152 @@ static int NU_Stylesheet_Parse(char* src_buffer, uint32_t src_length, struct Vec
                         switch(c)
                         {
                             case 'v':
-                                item.layout_flags |= GROW_VERTICAL;
+                                item.layoutFlags |= GROW_VERTICAL;
                                 break;
                             case 'h':
-                                item.layout_flags |= GROW_HORIZONTAL;
+                                item.layoutFlags |= GROW_HORIZONTAL;
                                 break;
                             case 'b':
-                                item.layout_flags |= (GROW_HORIZONTAL | GROW_VERTICAL);
+                                item.layoutFlags |= (GROW_HORIZONTAL | GROW_VERTICAL);
                                 break;
                         }
-                        item.property_flags |= 1 << 1;
+                        item.propertyFlags |= 1ULL << 1;
                         break;
                     
                     // Set overflow behaviour
                     case STYLE_OVERFLOW_V_PROPERTY:
                         if (c == 's') {
-                            item.layout_flags |= OVERFLOW_VERTICAL_SCROLL;
-                            item.property_flags |= 1 << 2;
+                            item.layoutFlags |= OVERFLOW_VERTICAL_SCROLL;
+                            item.propertyFlags |= 1ULL << 2;
                         }
                         break;
                     
                     case STYLE_OVERFLOW_H_PROPERTY:
                         if (c == 's') {
-                            item.layout_flags |= OVERFLOW_HORIZONTAL_SCROLL;
-                            item.property_flags |= 1 << 3;
+                            item.layoutFlags |= OVERFLOW_HORIZONTAL_SCROLL;
+                            item.propertyFlags |= 1ULL << 3;
                         }
                         break;
 
                     // Relative/Absolute positioning
                     case STYLE_POSITION_PROPERTY:
                         if (text_ref->char_count == 8 && memcmp(text, "absolute", 8) == 0) {
-                            item.layout_flags |= POSITION_ABSOLUTE;
-                            item.property_flags |= 1 << 4;
+                            item.layoutFlags |= POSITION_ABSOLUTE;
+                            item.propertyFlags |= 1ULL << 4;
                         }
                         break;
 
                     // Hide/show
                     case STYLE_HIDE_PROPERTY:
                         if (text_ref->char_count == 4 && memcmp(text, "hide", 4) == 0) {
-                            item.layout_flags |= HIDDEN;
-                            item.property_flags |= 1 << 5;
+                            item.layoutFlags |= HIDDEN;
+                            item.propertyFlags |= 1ULL << 5;
                         }
                         break;
                     
                     // Set gap
                     case STYLE_GAP_PROPERTY:
                         if (String_To_Float(&item.gap, text)) 
-                            item.property_flags |= 1 << 6;
+                            item.propertyFlags |= 1ULL << 6;
                         break;
 
                     // Set preferred width
                     case STYLE_WIDTH_PROPERTY:
                         if (String_To_Float(&item.preferred_width, text))
-                            item.property_flags |= 1 << 7;
+                            item.propertyFlags |= 1ULL << 7;
                         break;
 
                     // Set min width
                     case STYLE_MIN_WIDTH_PROPERTY:
-                        if (String_To_Float(&item.min_width, text))
-                            item.property_flags |= 1 << 8;
+                        if (String_To_Float(&item.minWidth, text))
+                            item.propertyFlags |= 1ULL << 8;
                         break;
                     
                     // Set max width
                     case STYLE_MAX_WIDTH_PROPERTY:
-                        if (String_To_Float(&item.max_width, text))
-                            item.property_flags |= 1 << 9;
+                        if (String_To_Float(&item.maxWidth, text))
+                            item.propertyFlags |= 1ULL << 9;
                         break;
 
                     // Set preferred height
                     case STYLE_HEIGHT_PROPERTY:
                         if (String_To_Float(&item.preferred_height, text)) 
-                            item.property_flags |= 1 << 10;
+                            item.propertyFlags |= 1ULL << 10;
                         break;
 
                     // Set min height
                     case STYLE_MIN_HEIGHT_PROPERTY:
-                        if (String_To_Float(&item.min_height, text)) 
-                            item.property_flags |= 1 << 11;
+                        if (String_To_Float(&item.minHeight, text)) 
+                            item.propertyFlags |= 1ULL << 11;
                         break;
 
                     // Set max height
                     case STYLE_MAX_HEIGHT_PROPERTY:
-                        if (String_To_Float(&item.max_height, text)) 
-                            item.property_flags |= 1 << 12;
+                        if (String_To_Float(&item.maxHeight, text)) 
+                            item.propertyFlags |= 1ULL << 12;
                         break;
 
                     // Set horizontal alignment
                     case STYLE_ALIGN_H_PROPERTY:
                         if (text_ref->char_count == 4 && memcmp(text, "left", 4) == 0) {
-                            item.horizontal_alignment = 0;
-                            item.property_flags |= 1 << 13;
+                            item.horizontalAlignment = 0;
+                            item.propertyFlags |= 1ULL << 13;
                         }
                         if (text_ref->char_count == 6 && memcmp(text, "center", 6) == 0) {
-                            item.horizontal_alignment = 1;
-                            item.property_flags |= 1 << 13;
+                            item.horizontalAlignment = 1;
+                            item.propertyFlags |= 1ULL << 13;
                         }
                         if (text_ref->char_count == 5 && memcmp(text, "right", 5) == 0) {
-                            item.horizontal_alignment = 2;
-                            item.property_flags |= 1 << 13;
+                            item.horizontalAlignment = 2;
+                            item.propertyFlags |= 1ULL << 13;
                         }
                         break;
 
                     // Set vertical alignment
                     case STYLE_ALIGN_V_PROPERTY:
                         if (text_ref->char_count == 3 && memcmp(text, "top", 3) == 0) {
-                            item.vertical_alignment = 0;
-                            item.property_flags |= 1 << 14;
+                            item.verticalAlignment = 0;
+                            item.propertyFlags |= 1ULL << 14;
                         }
                         if (text_ref->char_count == 6 && memcmp(text, "center", 6) == 0) {
-                            item.vertical_alignment = 1;
-                            item.property_flags |= 1 << 14;
+                            item.verticalAlignment = 1;
+                            item.propertyFlags |= 1ULL << 14;
                         }
                         if (text_ref->char_count == 6 && memcmp(text, "bottom", 6) == 0) {
-                            item.vertical_alignment = 2;
-                            item.property_flags |= 1 << 14;
+                            item.verticalAlignment = 2;
+                            item.propertyFlags |= 1ULL << 14;
                         }
                         break;
 
                     // Set horizontal text alignment
                     case STYLE_TEXT_ALIGN_H_PROPERTY:
                         if (text_ref->char_count == 4 && memcmp(text, "left", 4) == 0) {
-                            item.horizontal_text_alignment = 0;
-                            item.property_flags |= 1 << 15;
+                            item.horizontalTextAlignment = 0;
+                            item.propertyFlags |= 1ULL << 15;
                         }
                         if (text_ref->char_count == 6 && memcmp(text, "center", 6) == 0) {
-                            item.horizontal_text_alignment = 1;
-                            item.property_flags |= 1 << 15;
+                            item.horizontalTextAlignment = 1;
+                            item.propertyFlags |= 1ULL << 15;
                         }
                         if (text_ref->char_count == 5 && memcmp(text, "right", 5) == 0) {
-                            item.horizontal_text_alignment = 2;
-                            item.property_flags |= 1 << 15;
+                            item.horizontalTextAlignment = 2;
+                            item.propertyFlags |= 1ULL << 15;
                         }
                         break;
 
                     // Set vertical text alignment
                     case STYLE_TEXT_ALIGN_V_PROPERTY:
                         if (text_ref->char_count == 3 && memcmp(text, "top", 3) == 0) {
-                            item.vertical_text_alignment = 0;
-                            item.property_flags |= 1 << 16;
+                            item.verticalTextAlignment = 0;
+                            item.propertyFlags |= 1ULL << 16;
                         }
                         if (text_ref->char_count == 6 && memcmp(text, "center", 6) == 0) {
-                            item.vertical_text_alignment = 1;
-                            item.property_flags |= 1 << 16;
+                            item.verticalTextAlignment = 1;
+                            item.propertyFlags |= 1ULL << 16;
                         }
                         if (text_ref->char_count == 6 && memcmp(text, "bottom", 6) == 0) {
-                            item.vertical_text_alignment = 2;
-                            item.property_flags |= 1 << 16;
+                            item.verticalTextAlignment = 2;
+                            item.propertyFlags |= 1ULL << 16;
                         }
                         break;
 
@@ -943,28 +998,28 @@ static int NU_Stylesheet_Parse(char* src_buffer, uint32_t src_length, struct Vec
                         float abs_position; 
                         if (String_To_Float(&abs_position, text)) {
                             item.left = abs_position;
-                            item.property_flags |= 1 << 17;
+                            item.propertyFlags |= 1ULL << 17;
                         }
                         break;
 
                     case STYLE_RIGHT_PROPERTY:
                         if (String_To_Float(&abs_position, text)) {
                             item.right = abs_position;
-                            item.property_flags |= 1 << 18;
+                            item.propertyFlags |= 1ULL << 18;
                         }
                         break;
 
                     case STYLE_TOP_PROPERTY:
                         if (String_To_Float(&abs_position, text)) {
                             item.top = abs_position;
-                            item.property_flags |= 1 << 19;
+                            item.propertyFlags |= 1ULL << 19;
                         }
                         break;
 
                     case STYLE_BOTTOM_PROPERTY:
                         if (String_To_Float(&abs_position, text)) {
                             item.bottom = abs_position;
-                            item.property_flags |= 1 << 20;
+                            item.propertyFlags |= 1ULL << 20;
                         }
                         break;
 
@@ -972,33 +1027,33 @@ static int NU_Stylesheet_Parse(char* src_buffer, uint32_t src_length, struct Vec
                     case STYLE_BACKGROUND_COLOUR_PROPERTY:
                         struct RGB rgb;
                         if (Parse_Hexcode(text, text_ref->char_count, &rgb)) {
-                            item.background_r = rgb.r;
-                            item.background_g = rgb.g;
-                            item.background_b = rgb.b;
-                            item.property_flags |= 1 << 21;
+                            item.backgroundR = rgb.r;
+                            item.backgroundG = rgb.g;
+                            item.backgroundB = rgb.b;
+                            item.propertyFlags |= 1ULL << 21;
                         } else if (text_ref->char_count == 4 && memcmp(text, "none", 4) == 0) {
-                            item.hide_background = true;
-                            item.property_flags |= 1 << 22;
+                            item.hideBackground = true;
+                            item.propertyFlags |= 1ULL << 22;
                         }
                         break;
 
                     // Set border colour
                     case STYLE_BORDER_COLOUR_PROPERTY:
                         if (Parse_Hexcode(text, text_ref->char_count, &rgb)) {
-                            item.border_r = rgb.r;
-                            item.border_g = rgb.g;
-                            item.border_b = rgb.b;
-                            item.property_flags |= 1 << 23;
+                            item.borderR = rgb.r;
+                            item.borderG = rgb.g;
+                            item.borderB = rgb.b;
+                            item.propertyFlags |= 1ULL << 23;
                         }
                         break;
 
                     // Set text colour
                     case STYLE_TEXT_COLOUR_PROPERTY:
                         if (Parse_Hexcode(text, text_ref->char_count, &rgb)) {
-                            item.text_r = rgb.r;
-                            item.text_g = rgb.g;
-                            item.text_b = rgb.b;
-                            item.property_flags |= 1 << 24;
+                            item.textR = rgb.r;
+                            item.textG = rgb.g;
+                            item.textB = rgb.b;
+                            item.propertyFlags |= 1ULL << 24;
                         }
                         break;
                     
@@ -1006,34 +1061,34 @@ static int NU_Stylesheet_Parse(char* src_buffer, uint32_t src_length, struct Vec
                     case STYLE_BORDER_WIDTH_PROPERTY:
                         uint8_t border_width;
                         if (String_To_uint8_t(&border_width, text)) {
-                            item.border_top = border_width;
-                            item.border_bottom = border_width;
-                            item.border_left = border_width;
-                            item.border_right = border_width;
-                            item.property_flags |= 1 << 25;
-                            item.property_flags |= 1 << 26;
-                            item.property_flags |= 1 << 27;
-                            item.property_flags |= 1 << 28;
+                            item.borderTop = border_width;
+                            item.borderBottom = border_width;
+                            item.borderLeft = border_width;
+                            item.borderRight = border_width;
+                            item.propertyFlags |= 1ULL << 25;
+                            item.propertyFlags |= 1ULL << 26;
+                            item.propertyFlags |= 1ULL << 27;
+                            item.propertyFlags |= 1ULL << 28;
                         }
                         break;
                     case STYLE_BORDER_TOP_WIDTH_PROPERTY:
-                        if (String_To_uint8_t(&item.border_top, text)) {
-                            item.property_flags |= 1 << 25;
+                        if (String_To_uint8_t(&item.borderTop, text)) {
+                            item.propertyFlags |= 1ULL << 25;
                         }
                         break;
                     case STYLE_BORDER_BOTTOM_WIDTH_PROPERTY:
-                        if (String_To_uint8_t(&item.border_bottom, text)) {
-                            item.property_flags |= 1 << 26;
+                        if (String_To_uint8_t(&item.borderBottom, text)) {
+                            item.propertyFlags |= 1ULL << 26;
                         }
                         break;
                     case STYLE_BORDER_LEFT_WIDTH_PROPERTY:
-                        if (String_To_uint8_t(&item.border_left, text)) {
-                            item.property_flags |= 1 << 27;
+                        if (String_To_uint8_t(&item.borderLeft, text)) {
+                            item.propertyFlags |= 1ULL << 27;
                         }
                         break;
                     case STYLE_BORDER_RIGHT_WIDTH_PROPERTY:
-                        if (String_To_uint8_t(&item.border_right, text)) {
-                            item.property_flags |= 1 << 28;
+                        if (String_To_uint8_t(&item.borderRight, text)) {
+                            item.propertyFlags |= 1ULL << 28;
                         }
                         break;
 
@@ -1041,34 +1096,34 @@ static int NU_Stylesheet_Parse(char* src_buffer, uint32_t src_length, struct Vec
                     case STYLE_BORDER_RADIUS_PROPERTY:
                         uint8_t border_radius;
                         if (String_To_uint8_t(&border_radius, text)) {
-                            item.border_radius_tl = border_radius;
-                            item.border_radius_tr = border_radius;
-                            item.border_radius_bl = border_radius;
-                            item.border_radius_br = border_radius;
-                            item.property_flags |= 1 << 29;
-                            item.property_flags |= 1 << 30;
-                            item.property_flags |= 1 << 31;
-                            item.property_flags |= (uint64_t)1 << 32;
+                            item.borderRadiusTl = border_radius;
+                            item.borderRadiusTr = border_radius;
+                            item.borderRadiusBl = border_radius;
+                            item.borderRadiusBr = border_radius;
+                            item.propertyFlags |= 1ULL << 29;
+                            item.propertyFlags |= 1ULL << 30;
+                            item.propertyFlags |= 1ULL << 31;
+                            item.propertyFlags |= 1ULL << 32;
                         }
                         break;
                     case STYLE_BORDER_TOP_LEFT_RADIUS_PROPERTY:
-                        if (String_To_uint8_t(&item.border_radius_tl, text)) {
-                            item.property_flags |= 1 << 29;
+                        if (String_To_uint8_t(&item.borderRadiusTl, text)) {
+                            item.propertyFlags |= 1ULL << 29;
                         }
                         break;
                     case STYLE_BORDER_TOP_RIGHT_RADIUS_PROPERTY:
-                        if (String_To_uint8_t(&item.border_radius_tr, text)) {
-                            item.property_flags |= 1 << 30;
+                        if (String_To_uint8_t(&item.borderRadiusTr, text)) {
+                            item.propertyFlags |= 1ULL << 30;
                         }
                         break;
                     case STYLE_BORDER_BOTTOM_LEFT_RADIUS_PROPERTY:
-                        if (String_To_uint8_t(&item.border_radius_bl, text)) {
-                            item.property_flags |= 1 << 31;
+                        if (String_To_uint8_t(&item.borderRadiusBl, text)) {
+                            item.propertyFlags |= 1ULL << 31;
                         }
                         break;
                     case STYLE_BORDER_BOTTOM_RIGHT_RADIUS_PROPERTY:
-                        if (String_To_uint8_t(&item.border_radius_br, text)) {
-                            item.property_flags |= (uint64_t)1 << 32;
+                        if (String_To_uint8_t(&item.borderRadiusBr, text)) {
+                            item.propertyFlags |= 1ULL << 32;
                         }
                         break;
 
@@ -1076,41 +1131,57 @@ static int NU_Stylesheet_Parse(char* src_buffer, uint32_t src_length, struct Vec
                     case STYLE_PADDING_PROPERTY:
                         uint8_t pad;
                         if (String_To_uint8_t(&pad, text)) {
-                            item.pad_top = pad;
-                            item.pad_bottom = pad;
-                            item.pad_left = pad;
-                            item.pad_right = pad;
-                            item.property_flags |= (uint64_t)1 << 33;
-                            item.property_flags |= (uint64_t)1 << 34;
-                            item.property_flags |= (uint64_t)1 << 35;
-                            item.property_flags |= (uint64_t)1 << 36;
+                            item.padTop = pad;
+                            item.padBottom = pad;
+                            item.padLeft = pad;
+                            item.padRight = pad;
+                            item.propertyFlags |= 1ULL << 33;
+                            item.propertyFlags |= 1ULL << 34;
+                            item.propertyFlags |= 1ULL << 35;
+                            item.propertyFlags |= 1ULL << 36;
                         }
                         break;
                     case STYLE_PADDING_TOP_PROPERTY:
-                        if (String_To_uint8_t(&item.pad_top, text)) {
-                            item.property_flags |= (uint64_t)1 << 33;
+                        if (String_To_uint8_t(&item.padTop, text)) {
+                            item.propertyFlags |= 1ULL << 33;
                         }
                         break;
                     case STYLE_PADDING_BOTTOM_PROPERTY:
-                        if (String_To_uint8_t(&item.pad_bottom, text)) {
-                            item.property_flags |= (uint64_t)1 << 34;
+                        if (String_To_uint8_t(&item.padBottom, text)) {
+                            item.propertyFlags |= 1ULL << 34;
                         }
                         break;
                     case STYLE_PADDING_LEFT_PROPERTY:
-                        if (String_To_uint8_t(&item.pad_left, text)) {
-                            item.property_flags |= (uint64_t)1 << 35;
+                        if (String_To_uint8_t(&item.padLeft, text)) {
+                            item.propertyFlags |= 1ULL << 35;
                         }
                         break;
                     case STYLE_PADDING_RIGHT_PROPERTY:
-                        if (String_To_uint8_t(&item.pad_right, text)) {
-                            item.property_flags |= (uint64_t)1 << 36;
+                        if (String_To_uint8_t(&item.padRight, text)) {
+                            item.propertyFlags |= 1ULL << 36;
+                        }
+                        break;
+                    
+                    case STYLE_IMAGE_SOURCE_PROPERTY:
+                        void* found = NU_Stringmap_Get(&ss->image_filepath_to_handle_hmap, text);
+                        if (found == NULL) {
+                            GLuint image_handle = Image_Load(text);
+                            if (image_handle) {
+                                item.glImageHandle = image_handle;
+                                NU_Stringmap_Set(&ss->image_filepath_to_handle_hmap, text, &image_handle);
+                                item.propertyFlags |= 1ULL << 37;
+                            }
+                        } 
+                        else {
+                            item.propertyFlags |= 1ULL << 37;
+                            item.glImageHandle = *(GLuint*)found;
                         }
                         break;
 
                     case STYLE_FONT_PROPERTY:
-                        void* found_font = String_Map_Get(&ss->font_name_index_map, text);
+                        void* found_font = NU_Stringmap_Get(&ss->font_name_index_map, text);
                         if (found_font != NULL) {
-                            item.font_id = *(uint8_t*)found_font;
+                            item.fontId = *(uint8_t*)found_font;
                         }
                         break;
 
@@ -1209,7 +1280,7 @@ static void NU_Stylesheet_Find_Match(struct Node* node, NU_Stylesheet* ss, int* 
     int count = 0;
 
     // Tag match first (lowest priority)
-    void* tag_found = Hashmap_Get(&ss->tag_item_hashmap, &node->tag); 
+    void* tag_found = HashmapGet(&ss->tag_item_hashmap, &node->tag); 
     if (tag_found != NULL) { 
         match_index_list[count++] = (int)*(uint32_t*)tag_found;
     }
@@ -1218,7 +1289,7 @@ static void NU_Stylesheet_Find_Match(struct Node* node, NU_Stylesheet* ss, int* 
     if (node->class != NULL) { 
         char* stored_class = String_Set_Get(&ss->class_string_set, node->class);
         if (stored_class != NULL) {
-            void* class_found = Hashmap_Get(&ss->class_item_hashmap, &stored_class);
+            void* class_found = HashmapGet(&ss->class_item_hashmap, &stored_class);
             if (class_found != NULL) {
                 match_index_list[count++] = (int)*(uint32_t*)class_found;
             }
@@ -1229,7 +1300,7 @@ static void NU_Stylesheet_Find_Match(struct Node* node, NU_Stylesheet* ss, int* 
     if (node->id != NULL) { 
         char* stored_id = String_Set_Get(&ss->id_string_set, node->id);
         if (stored_id != NULL) {
-            void* id_found = Hashmap_Get(&ss->id_item_hashmap, &stored_id);
+            void* id_found = HashmapGet(&ss->id_item_hashmap, &stored_id);
             if (id_found != NULL) {
                 match_index_list[count++] = (int)*(uint32_t*)id_found;
             }
@@ -1239,59 +1310,60 @@ static void NU_Stylesheet_Find_Match(struct Node* node, NU_Stylesheet* ss, int* 
 
 static void NU_Apply_Style_Item_To_Node(struct Node* node, NU_Stylesheet_Item* item)
 {
-    if (item->property_flags & (1 << 0) && !(node->inline_style_flags & (1 << 0))) node->layout_flags = (node->layout_flags & ~(1 << 0)) | (item->layout_flags & (1 << 0)); // Layout direction
-    if (item->property_flags & (1 << 1) && !(node->inline_style_flags & (1 << 1))) {
-        node->layout_flags = (node->layout_flags & ~(1 << 1)) | (item->layout_flags & (1 << 1)); // Grow horizontal
-        node->layout_flags = (node->layout_flags & ~(1 << 2)) | (item->layout_flags & (1 << 2)); // Grow vertical
+    if (item->propertyFlags & (1ULL << 0) && !(node->inlineStyleFlags & (1ULL << 0))) node->layoutFlags = (node->layoutFlags & ~(1ULL << 0)) | (item->layoutFlags & (1ULL << 0)); // Layout direction
+    if (item->propertyFlags & (1ULL << 1) && !(node->inlineStyleFlags & (1ULL << 1))) {
+        node->layoutFlags = (node->layoutFlags & ~(1ULL << 1)) | (item->layoutFlags & (1ULL << 1)); // Grow horizontal
+        node->layoutFlags = (node->layoutFlags & ~(1ULL << 2)) | (item->layoutFlags & (1ULL << 2)); // Grow vertical
     }
-    if (item->property_flags & (1 << 2) && !(node->inline_style_flags & (1 << 2))) node->layout_flags = (node->layout_flags & ~(1 << 3)) | (item->layout_flags & (1 << 3)); // Overflow vertical scroll (or not)
-    if (item->property_flags & (1 << 3) && !(node->inline_style_flags & (1 << 3))) node->layout_flags = (node->layout_flags & ~(1 << 4)) | (item->layout_flags & (1 << 4)); // Overflow horizontal scroll (or not)
-    if (item->property_flags & (1 << 4) && !(node->inline_style_flags & (1 << 4))) node->layout_flags = (node->layout_flags & ~(1 << 5)) | (item->layout_flags & (1 << 5)); // Absolute positioning (or not)
-    if (item->property_flags & (1 << 5) && !(node->inline_style_flags & (1 << 5))) node->layout_flags = (node->layout_flags & ~(1 << 6)) | (item->layout_flags & (1 << 6)); // Hidden or not
-    if (item->property_flags & (1 << 6) && !(node->inline_style_flags & (1 << 6))) node->gap = item->gap;
-    if (item->property_flags & (1 << 7) && !(node->inline_style_flags & (1 << 7))) node->preferred_width = item->preferred_width;
-    if (item->property_flags & (1 << 8) && !(node->inline_style_flags & (1 << 8))) node->min_width = item->min_width;
-    if (item->property_flags & (1 << 9) && !(node->inline_style_flags & (1 << 9))) node->max_width = item->max_width;
-    if (item->property_flags & (1 << 10) && !(node->inline_style_flags & (1 << 10))) node->preferred_height = item->preferred_height;
-    if (item->property_flags & (1 << 11) && !(node->inline_style_flags & (1 << 11))) node->min_height = item->min_height;
-    if (item->property_flags & (1 << 12) && !(node->inline_style_flags & (1 << 12))) node->max_height = item->max_height;
-    if (item->property_flags & (1 << 13) && !(node->inline_style_flags & (1 << 13))) node->horizontal_alignment = item->horizontal_alignment;
-    if (item->property_flags & (1 << 14) && !(node->inline_style_flags & (1 << 14))) node->vertical_alignment = item->vertical_alignment;
-    if (item->property_flags & (1 << 15) && !(node->inline_style_flags & (1 << 15))) node->horizontal_text_alignment = item->horizontal_text_alignment;
-    if (item->property_flags & (1 << 16) && !(node->inline_style_flags & (1 << 16))) node->vertical_text_alignment = item->vertical_text_alignment;
-    if (item->property_flags & (1 << 17) && !(node->inline_style_flags & (1 << 17))) node->left = item->left;
-    if (item->property_flags & (1 << 18) && !(node->inline_style_flags & (1 << 18))) node->right = item->right;
-    if (item->property_flags & (1 << 19) && !(node->inline_style_flags & (1 << 19))) node->top = item->top;
-    if (item->property_flags & (1 << 20) && !(node->inline_style_flags & (1 << 20))) node->bottom = item->bottom;
-    if (item->property_flags & (1 << 21) && !(node->inline_style_flags & (1 << 21))) {
-        node->background_r = item->background_r;
-        node->background_g = item->background_g;
-        node->background_b = item->background_b;
+    if (item->propertyFlags & (1ULL << 2) && !(node->inlineStyleFlags & (1ULL << 2))) node->layoutFlags = (node->layoutFlags & ~(1ULL << 3)) | (item->layoutFlags & (1ULL << 3)); // Overflow vertical scroll (or not)
+    if (item->propertyFlags & (1ULL << 3) && !(node->inlineStyleFlags & (1ULL << 3))) node->layoutFlags = (node->layoutFlags & ~(1ULL << 4)) | (item->layoutFlags & (1ULL << 4)); // Overflow horizontal scroll (or not)
+    if (item->propertyFlags & (1ULL << 4) && !(node->inlineStyleFlags & (1ULL << 4))) node->layoutFlags = (node->layoutFlags & ~(1ULL << 5)) | (item->layoutFlags & (1ULL << 5)); // Absolute positioning (or not)
+    if (item->propertyFlags & (1ULL << 5) && !(node->inlineStyleFlags & (1ULL << 5))) node->layoutFlags = (node->layoutFlags & ~(1ULL << 6)) | (item->layoutFlags & (1ULL << 6)); // Hidden or not
+    if (item->propertyFlags & (1ULL << 6) && !(node->inlineStyleFlags & (1ULL << 6))) node->gap = item->gap;
+    if (item->propertyFlags & (1ULL << 7) && !(node->inlineStyleFlags & (1ULL << 7))) node->preferred_width = item->preferred_width;
+    if (item->propertyFlags & (1ULL << 8) && !(node->inlineStyleFlags & (1ULL << 8))) node->minWidth = item->minWidth;
+    if (item->propertyFlags & (1ULL << 9) && !(node->inlineStyleFlags & (1ULL << 9))) node->maxWidth = item->maxWidth;
+    if (item->propertyFlags & (1ULL << 10) && !(node->inlineStyleFlags & (1ULL << 10))) node->preferred_height = item->preferred_height;
+    if (item->propertyFlags & (1ULL << 11) && !(node->inlineStyleFlags & (1ULL << 11))) node->minHeight = item->minHeight;
+    if (item->propertyFlags & (1ULL << 12) && !(node->inlineStyleFlags & (1ULL << 12))) node->maxHeight = item->maxHeight;
+    if (item->propertyFlags & (1ULL << 13) && !(node->inlineStyleFlags & (1ULL << 13))) node->horizontalAlignment = item->horizontalAlignment;
+    if (item->propertyFlags & (1ULL << 14) && !(node->inlineStyleFlags & (1ULL << 14))) node->verticalAlignment = item->verticalAlignment;
+    if (item->propertyFlags & (1ULL << 15) && !(node->inlineStyleFlags & (1ULL << 15))) node->horizontalTextAlignment = item->horizontalTextAlignment;
+    if (item->propertyFlags & (1ULL << 16) && !(node->inlineStyleFlags & (1ULL << 16))) node->verticalTextAlignment = item->verticalTextAlignment;
+    if (item->propertyFlags & (1ULL << 17) && !(node->inlineStyleFlags & (1ULL << 17))) node->left = item->left;
+    if (item->propertyFlags & (1ULL << 18) && !(node->inlineStyleFlags & (1ULL << 18))) node->right = item->right;
+    if (item->propertyFlags & (1ULL << 19) && !(node->inlineStyleFlags & (1ULL << 19))) node->top = item->top;
+    if (item->propertyFlags & (1ULL << 20) && !(node->inlineStyleFlags & (1ULL << 20))) node->bottom = item->bottom;
+    if (item->propertyFlags & (1ULL << 21) && !(node->inlineStyleFlags & (1ULL << 21))) {
+        node->backgroundR = item->backgroundR;
+        node->backgroundG = item->backgroundG;
+        node->backgroundB = item->backgroundB;
     }
-    if (item->property_flags & (1 << 22) && !(node->inline_style_flags & (1 << 22))) node->hide_background = item->hide_background;
-    if (item->property_flags & (1 << 23) && !(node->inline_style_flags & (1 << 23))) {
-        node->border_r = item->border_r;
-        node->border_g = item->border_g;
-        node->border_b = item->border_b;
+    if (item->propertyFlags & (1ULL << 22) && !(node->inlineStyleFlags & (1ULL << 22))) node->hideBackground = item->hideBackground;
+    if (item->propertyFlags & (1ULL << 23) && !(node->inlineStyleFlags & (1ULL << 23))) {
+        node->borderR = item->borderR;
+        node->borderG = item->borderG;
+        node->borderB = item->borderB;
     }
-    if (item->property_flags & (1 << 24) && !(node->inline_style_flags & (1 << 24))) {
-        node->text_r = item->text_r;
-        node->text_g = item->text_g;
-        node->text_b = item->text_b;
+    if (item->propertyFlags & (1ULL << 24) && !(node->inlineStyleFlags & (1ULL << 24))) {
+        node->textR = item->textR;
+        node->textG = item->textG;
+        node->textB = item->textB;
     }
-    if (item->property_flags & (1 << 25) && !(node->inline_style_flags & (1 << 25))) node->border_top = item->border_top;
-    if (item->property_flags & (1 << 26) && !(node->inline_style_flags & (1 << 26))) node->border_bottom = item->border_bottom;
-    if (item->property_flags & (1 << 27) && !(node->inline_style_flags & (1 << 27))) node->border_left = item->border_left;
-    if (item->property_flags & (1 << 28) && !(node->inline_style_flags & (1 << 28))) node->border_right = item->border_right;
-    if (item->property_flags & (1 << 29) && !(node->inline_style_flags & (1 << 29))) node->border_radius_tl = item->border_radius_tl;
-    if (item->property_flags & (1 << 30) && !(node->inline_style_flags & (1 << 30))) node->border_radius_tr = item->border_radius_tr;
-    if (item->property_flags & (1 << 31) && !(node->inline_style_flags & (1 << 31))) node->border_radius_bl = item->border_radius_bl;
-    if (item->property_flags & ((uint64_t)1 << 32) && !(node->inline_style_flags & ((uint64_t)1 << 32))) node->border_radius_br = item->border_radius_br;
-    if (item->property_flags & ((uint64_t)1 << 33) && !(node->inline_style_flags & ((uint64_t)1 << 33))) node->pad_top = item->pad_top;
-    if (item->property_flags & ((uint64_t)1 << 34) && !(node->inline_style_flags & ((uint64_t)1 << 34))) node->pad_bottom = item->pad_bottom;
-    if (item->property_flags & ((uint64_t)1 << 35) && !(node->inline_style_flags & ((uint64_t)1 << 35))) node->pad_left = item->pad_left;
-    if (item->property_flags & ((uint64_t)1 << 36) && !(node->inline_style_flags & ((uint64_t)1 << 36))) node->pad_right = item->pad_right;
-    node->font_id = item->font_id; // set font 
+    if (item->propertyFlags & (1ULL << 25) && !(node->inlineStyleFlags & (1ULL << 25))) node->borderTop = item->borderTop;
+    if (item->propertyFlags & (1ULL << 26) && !(node->inlineStyleFlags & (1ULL << 26))) node->borderBottom = item->borderBottom;
+    if (item->propertyFlags & (1ULL << 27) && !(node->inlineStyleFlags & (1ULL << 27))) node->borderLeft = item->borderLeft;
+    if (item->propertyFlags & (1ULL << 28) && !(node->inlineStyleFlags & (1ULL << 28))) node->borderRight = item->borderRight;
+    if (item->propertyFlags & (1ULL << 29) && !(node->inlineStyleFlags & (1ULL << 29))) node->borderRadiusTl = item->borderRadiusTl;
+    if (item->propertyFlags & (1ULL << 30) && !(node->inlineStyleFlags & (1ULL << 30))) node->borderRadiusTr = item->borderRadiusTr;
+    if (item->propertyFlags & (1ULL << 31) && !(node->inlineStyleFlags & (1ULL << 31))) node->borderRadiusBl = item->borderRadiusBl;
+    if (item->propertyFlags & (1ULL << 32) && !(node->inlineStyleFlags & (1ULL << 32))) node->borderRadiusBr = item->borderRadiusBr;
+    if (item->propertyFlags & (1ULL << 33) && !(node->inlineStyleFlags & (1ULL << 33))) node->padTop = item->padTop;
+    if (item->propertyFlags & (1ULL << 34) && !(node->inlineStyleFlags & (1ULL << 34))) node->padBottom = item->padBottom;
+    if (item->propertyFlags & (1ULL << 35) && !(node->inlineStyleFlags & (1ULL << 35))) node->padLeft = item->padLeft;
+    if (item->propertyFlags & (1ULL << 36) && !(node->inlineStyleFlags & (1ULL << 36))) node->padRight = item->padRight;
+    if (item->propertyFlags & (1ULL << 37) && !(node->inlineStyleFlags & (1ULL << 37))) node->glImageHandle = item->glImageHandle;
+    node->fontId = item->fontId; // set font 
 }
 
 void NU_Apply_Stylesheet_To_Node(struct Node* node, NU_Stylesheet* ss)
@@ -1309,11 +1381,22 @@ void NU_Apply_Stylesheet_To_Node(struct Node* node, NU_Stylesheet* ss)
     }
 }
 
+void NU_Apply_Tag_Style_To_Node(struct Node* node, NU_Stylesheet* ss)
+{
+    // Tag match first (lowest priority)
+    void* tag_found = HashmapGet(&ss->tag_item_hashmap, &node->tag); 
+    if (tag_found != NULL) { 
+        uint32_t index = *(uint32_t*)tag_found;
+        NU_Stylesheet_Item* item = (NU_Stylesheet_Item*)Vector_Get(&ss->items, index);
+        NU_Apply_Style_Item_To_Node(node, item);
+    }
+}
+
 void NU_Apply_Pseudo_Style_To_Node(struct Node* node, NU_Stylesheet* ss, enum NU_Pseudo_Class pseudo)
 {
     // Tag pseudo style match and apply
     struct NU_Stylesheet_Tag_Pseudo_Pair key = { node->tag, pseudo };
-    void* tag_pseudo_found = Hashmap_Get(&ss->tag_pseudo_item_hashmap, &key);
+    void* tag_pseudo_found = HashmapGet(&ss->tag_pseudo_item_hashmap, &key);
     if (tag_pseudo_found != NULL) {
         uint32_t index = *(uint32_t*)tag_pseudo_found;
         NU_Stylesheet_Item* item = (NU_Stylesheet_Item*)Vector_Get(&ss->items, index);
@@ -1325,7 +1408,7 @@ void NU_Apply_Pseudo_Style_To_Node(struct Node* node, NU_Stylesheet* ss, enum NU
         char* stored_class = String_Set_Get(&ss->class_string_set, node->class);
         if (stored_class != NULL) {
             struct NU_Stylesheet_String_Pseudo_Pair key = { stored_class, pseudo };
-            void* class_pseudo_found = Hashmap_Get(&ss->class_pseudo_item_hashmap, &key);
+            void* class_pseudo_found = HashmapGet(&ss->class_pseudo_item_hashmap, &key);
             if (class_pseudo_found != NULL) {
                 uint32_t index = *(uint32_t*)class_pseudo_found;
                 NU_Stylesheet_Item* item = (NU_Stylesheet_Item*)Vector_Get(&ss->items, index);
@@ -1339,7 +1422,7 @@ void NU_Apply_Pseudo_Style_To_Node(struct Node* node, NU_Stylesheet* ss, enum NU
         char* stored_id = String_Set_Get(&ss->id_string_set, node->id);
         if (stored_id != NULL) {
             struct NU_Stylesheet_String_Pseudo_Pair key = { stored_id, pseudo };
-            void* id_pseudo_found = Hashmap_Get(&ss->id_pseudo_item_hashmap, &key);
+            void* id_pseudo_found = HashmapGet(&ss->id_pseudo_item_hashmap, &key);
             if (id_pseudo_found != NULL) {
                 uint32_t index = *(uint32_t*)id_pseudo_found;
                 NU_Stylesheet_Item* item = (NU_Stylesheet_Item*)Vector_Get(&ss->items, index);
@@ -1354,22 +1437,22 @@ int NU_Internal_Apply_Stylesheet(uint32_t stylesheet_handle)
     // Passing in a corrupted stylesheet
     if (stylesheet_handle == -1) return 0;
 
-    NU_Stylesheet* stylesheet = Vector_Get(&__nu_global_gui.stylesheets, stylesheet_handle - 1);   
+    NU_Stylesheet* stylesheet = Vector_Get(&__NGUI.stylesheets, stylesheet_handle - 1);   
 
-    struct Node* root_window = NU_Tree_Get(&__nu_global_gui.tree, 0, 0);
+    struct Node* root_window = NU_Tree_Get(&__NGUI.tree, 0, 0);
     NU_Apply_Stylesheet_To_Node(root_window, stylesheet);
 
     // For each layer
-    for (uint16_t l=0; l<=__nu_global_gui.deepest_layer; l++)
+    for (uint16_t l=0; l<=__NGUI.deepest_layer; l++)
     {
-        NU_Layer* layer = &__nu_global_gui.tree.layers[l];
+        NU_Layer* layer = &__NGUI.tree.layers[l];
         for (uint32_t i=0; i<layer->size; i++)
         {
-            struct Node* node = NU_Layer_Get(layer, i); if (!node->node_present) continue;
+            struct Node* node = NU_Layer_Get(layer, i); if (!node->nodeState) continue;
             NU_Apply_Stylesheet_To_Node(node, stylesheet);
         }
     }
 
-    __nu_global_gui.stylesheet = stylesheet;
+    __NGUI.stylesheet = stylesheet;
     return 1; // success
 }

@@ -295,7 +295,7 @@ void NU_Add_Glyph_Mesh(Vertex_RGB_UV_List* vertices, Index_List* indices, NU_Gly
     indices->size += 6;
 }
 
-void NU_Generate_Text_Mesh(Vertex_RGB_UV_List* vertices, Index_List* indices, NU_Font* font, const char* string, float x, float y, float r, float g, float b, float max_width)
+void NU_Generate_Text_Mesh(Vertex_RGB_UV_List* vertices, Index_List* indices, NU_Font* font, const char* string, float x, float y, float r, float g, float b, float maxWidth)
 {
     int string_len = strlen(string);
     if (string_len == 0) return;
@@ -337,7 +337,7 @@ void NU_Generate_Text_Mesh(Vertex_RGB_UV_List* vertices, Index_List* indices, NU
             }
 
             // If next word overflows width -> wrap onto new line
-            if (pen_x - x + space_advance + next_word_width > max_width + 1.0f)
+            if (pen_x - x + space_advance + next_word_width > maxWidth + 1.0f)
             {
                 first_glyph = (NU_Glyph*)Vector_Get(&font->glyphs, string[i + 1] - 32);
                 pen_x = x - first_glyph->bearingX;

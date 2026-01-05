@@ -1,44 +1,35 @@
 #pragma once
 
-#define STYLE_PROPERTY_COUNT 43
-#define STYLE_KEYWORD_COUNT 56
+#define STYLE_PROPERTY_COUNT 44
+#define STYLE_KEYWORD_COUNT 57
 #define STYLE_TAG_SELECTOR_COUNT 9
 #define STYLE_SPECIAL_SELECTOR_COUNT 1
 #define STYLE_PSEUDO_COUNT 3
 
 static const char* style_keywords[] = {
-    "dir",
-    "grow",
-    "overflowV",
-    "overflowH",
-    "position",
-    "hide",
-    "gap",
-    "width",
-    "minWidth",
-    "maxWidth",
-    "height", 
-    "minHeight",
-    "maxHeight",
-    "alignH", "alignV", "textAlignH", "textAlignV",
+    "dir", "grow", "overflow-v", "overflow-h", "position", "hide", "gap",
+    "width", "min-width", "max-width", "height",  "min-height", "max-height",
+    "align-h", "align-v", "text-align-h", "text-align-v",
     "left", "right", "top", "bottom",
-    "background", "borderColour", "textColour",
-    "border", "borderTop", "borderBottom", "borderLeft", "borderRight",
-    "borderRadius", "borderRadiusTopLeft", "borderRadiusTopRight", "borderRadiusBottomLeft", "borderRadiusBottomRight",
-    "pad", "padTop", "padBottom", "padLeft", "padRight", "font", "src", "size", "weight",
+    "background", "border-colour", "text-colour",
+    "border", "border-top", "border-bottom", "border-left", "border-right",
+    "border-radius", "border-radius-top-left", "border-radius-top-right", "border-radius-bottom-left", "border-radius-bottom-right",
+    "padding", "padding-top", "padding-bottom", "padding-left", "padding-right", 
+    "imags-src", "font", "src", "size", "weight",
     "window", "rect", "button", "grid", "canvas", "image", "table", "thead", "row", "@font",
     "hover", "press", "focus",
 };
 
 static const uint8_t style_keyword_lengths[] = { 
-    3, 4, 9, 9, 8, 4, 3, 
-    5, 8, 8, 6, 9, 9,             // width height
-    6, 6, 10, 10,                 // alignment
+    3, 4, 10, 10, 8, 4, 3, 
+    5, 9, 9, 6, 10, 10,           // width height
+    7, 7, 12, 12,                 // alignment
     4, 5, 3, 6,                   // absolute positioning
-    10, 12, 10,                   // background, border, text colour
-    6, 9, 12, 10, 11,             // border width
-    12, 19, 20, 22, 23,           // border radius
-    3, 6, 9, 7, 8,                // padding
+    10, 13, 11,                   // background, border, text colour
+    6, 10, 13, 11, 12,            // border width
+    13, 22, 23, 25, 26,           // border radius
+    7, 11, 14, 12, 13,            // padding
+    9,                            // image src
     4,                            // font property (css only, no xml inline equivalent)
     3, 4, 6,                      // font creation
     6, 4, 6, 4, 6, 5, 5, 5, 3,    // tag selectors
@@ -87,6 +78,7 @@ enum NU_Style_Token
     STYLE_PADDING_BOTTOM_PROPERTY,
     STYLE_PADDING_LEFT_PROPERTY,
     STYLE_PADDING_RIGHT_PROPERTY,
+    STYLE_IMAGE_SOURCE_PROPERTY,
     
 
     // --- CSS only node properties ---
@@ -158,7 +150,7 @@ static enum NU_Style_Token NU_Word_To_Style_Token(char* word, uint8_t word_char_
     return STYLE_UNDEFINED;
 }
 
-static enum NU_Style_Token NU_Word_To_Property_Token(char* word, uint8_t word_char_count)
+static enum NU_Style_Token NU_Word_To_Style_Property_Token(char* word, uint8_t word_char_count)
 {
     for (int i=0; i<STYLE_PROPERTY_COUNT; i++)
     {

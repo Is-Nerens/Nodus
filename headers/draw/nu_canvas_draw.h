@@ -4,7 +4,7 @@
 
 void NU_Internal_Clear_Canvas(uint32_t canvas_handle)
 {
-    NU_Canvas_Context* canvas_context = Hashmap_Get(&__nu_global_gui.canvas_contexts, &canvas_handle);
+    NU_Canvas_Context* canvas_context = HashmapGet(&__NGUI.canvas_contexts, &canvas_handle);
     canvas_context->vertices.size = 0;
     canvas_context->indices.size = 0;
 }
@@ -19,7 +19,7 @@ void NU_Internal_Border_Rect(
     struct Node* canvas_node = NODE(canvas_handle);
     if (canvas_node->tag != CANVAS) return;
 
-    NU_Canvas_Context* canvas_context = Hashmap_Get(&__nu_global_gui.canvas_contexts, &canvas_handle);
+    NU_Canvas_Context* canvas_context = HashmapGet(&__NGUI.canvas_contexts, &canvas_handle);
     Vertex_RGB_List* vertices = &canvas_context->vertices;
     Index_List* indices = &canvas_context->indices;
 
@@ -176,7 +176,7 @@ void NU_Internal_Line(
     struct Node* canvas_node = NODE(canvas_handle);
     if (canvas_node->tag != CANVAS) return;
 
-    NU_Canvas_Context* canvas_context = Hashmap_Get(&__nu_global_gui.canvas_contexts, &canvas_handle);
+    NU_Canvas_Context* canvas_context = HashmapGet(&__NGUI.canvas_contexts, &canvas_handle);
     Vertex_RGB_List* vertices = &canvas_context->vertices;
     Index_List* indices = &canvas_context->indices;
 
@@ -286,7 +286,7 @@ void NU_Internal_Dashed_Line(
 
 
     // Allocate extra space in vertex and index lists (if needed)
-    NU_Canvas_Context* canvas_context = Hashmap_Get(&__nu_global_gui.canvas_contexts, &canvas_handle);
+    NU_Canvas_Context* canvas_context = HashmapGet(&__NGUI.canvas_contexts, &canvas_handle);
     Vertex_RGB_List* vertices = &canvas_context->vertices;
     Index_List* indices = &canvas_context->indices;
     if (vertices->size + min_additional_vertices > vertices->capacity) Vertex_RGB_List_Grow(vertices, min_additional_vertices);

@@ -1,18 +1,19 @@
 #pragma once 
 
 #define NU_XML_PROPERTY_COUNT 42
+#define NU_XML_TAG_COUNT 9
 #define NU_XML_KEYWORD_COUNT 51
 
 static const char* nu_xml_keywords[] = {
-    "id", "class", "dir", "grow", "overflowV", "overflowH", "position", "hide", "gap",
-    "width", "minWidth", "maxWidth", "height", "minHeight", "maxHeight", 
-    "alignH", "alignV", "textAlignH", "textAlignV",
+    "id", "class", "dir", "grow", "overflow-v", "overflow-h", "position", "hide", "gap",
+    "width", "min-width", "max-width", "height", "min-height", "max-height", 
+    "align-h", "align-v", "text-align-h", "text-align-v",
     "left", "right", "top", "bottom",
-    "background", "borderColour", "textColour",
-    "border", "borderTop", "borderBottom", "borderLeft", "borderRight",
-    "borderRadius", "borderRadiusTopLeft", "borderRadiusTopRight", "borderRadiusBottomLeft", "borderRadiusBottomRight",
-    "pad", "padTop", "padBottom", "padLeft", "padRight",
-    "imageSrc",
+    "background", "border-colour", "text-colour",
+    "border", "border-top", "border-bottom", "border-left", "border-right",
+    "border-radius", "border-radius-top-left", "border-radius-top-right", "border-radius-bottom-left", "border-radius-bottom-right",
+    "padding", "padding-top", "padding-bottom", "padding-left", "padding-right", 
+    "image-src",
     "window",
     "rect",
     "button",
@@ -24,15 +25,15 @@ static const char* nu_xml_keywords[] = {
     "row",
 };
 static const uint8_t keyword_lengths[] = { 
-    2, 5, 3, 4, 9, 9, 8, 4, 3,
-    5, 8, 8, 6, 9, 9,          // width height
-    6, 6, 10, 10,              // alignment
+    2, 5, 3, 4, 10, 10, 8, 4, 3,
+    5, 9, 9, 6, 10, 10,        // width height
+    7, 7, 12, 12,              // alignment
     4, 5, 3, 6,                // absolute positioning
-    10, 12, 10,                // background, border, text colour
-    6, 9, 12, 10, 11,          // border width
-    12, 19, 20, 22, 23,        // border radius
-    3, 6, 9, 7, 8,             // padding
-    8,                         // image src
+    10, 13, 11,                // background, border, text colour
+    6, 10, 13, 11, 12,         // border width
+    13, 22, 23, 25, 26,        // border radius
+    7, 11, 14, 12, 13,         // padding
+    9,                         // image src
     6, 4, 6, 4, 6, 5, 5, 5, 3  // tags
 };
 enum NU_XML_Token
@@ -71,6 +72,8 @@ enum NU_XML_Token
     PROPERTY_ASSIGNMENT,
     PROPERTY_VALUE,
     TEXT_CONTENT,
+    UNDEFINED_TAG,
+    UNDEFINED_PROPERTY,
     UNDEFINED
 };
 
@@ -90,6 +93,28 @@ static enum NU_XML_Token NU_Word_To_Token(char word[], uint8_t word_char_count)
         }
     }
     return UNDEFINED;
+}
+
+static enum NU_XML_Token NU_Word_To_Tag_Token(char word[], uint8_t word_char_count)
+{
+    for (uint8_t i=NU_XML_PROPERTY_COUNT; i<NU_XML_PROPERTY_COUNT + NU_XML_TAG_COUNT; i++) {
+        size_t len = keyword_lengths[i];
+        if (len == word_char_count && memcmp(word, nu_xml_keywords[i], len) == 0) {
+            return i;
+        }
+    }
+    return UNDEFINED_TAG;
+}
+
+static enum NU_XML_Token NU_Word_To_Property_Token(char word[], uint8_t word_char_count)
+{
+    for (uint8_t i=0; i<NU_XML_PROPERTY_COUNT; i++) {
+        size_t len = keyword_lengths[i];
+        if (len == word_char_count && memcmp(word, nu_xml_keywords[i], len) == 0) {
+            return i;
+        }
+    }
+    return UNDEFINED_PROPERTY;
 }
 
 static enum Tag NU_Token_To_Tag(enum NU_XML_Token NU_XML_Token)

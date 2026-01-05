@@ -1,6 +1,5 @@
 #pragma once 
 
-#define NANOVG_GL3_IMPLEMENTATION
 #include <SDL3/SDL.h>
 #include <GL/glew.h>
 
@@ -24,8 +23,8 @@ void NU_Create_Main_Window()
     SDL_GL_SetSwapInterval(0); // VSYNC ON
     glewInit();
 
-    __nu_global_gui.gl_ctx = context;
-    Vector_Push(&__nu_global_gui.windows, &main_window);
+    __NGUI.gl_ctx = context;
+    Vector_Push(&__NGUI.windows, &main_window);
     NU_Draw_Init();
 }
 
@@ -44,5 +43,5 @@ void NU_Create_Subwindow(struct Node* window_node)
     window_node->window = new_window;
 
     // Push into vectors
-    Vector_Push(&__nu_global_gui.windows, &new_window);
+    Vector_Push(&__NGUI.windows, &new_window);
 }

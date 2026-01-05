@@ -13,7 +13,7 @@ typedef struct
 typedef struct
 {
     NU_Layer* layers;
-    NU_Node_Table node_table; // maps
+    NU_NodeTable node_table; // maps
     uint16_t layer_capacity;
     uint32_t node_count;
     uint32_t handle_auto_increment;
@@ -86,7 +86,7 @@ void NU_Tree_Layer_Grow(NU_Tree* tree, NU_Layer* layer)
     for (uint32_t i=0; i<layer->size; i++)
     {
         struct Node* node = &layer->node_array[i];
-        if (node->node_present) NU_Node_Table_Update(&tree->node_table, node->handle, node);
+        if (node->nodeState) NU_Node_Table_Update(&tree->node_table, node->handle, node);
     }
 }
 

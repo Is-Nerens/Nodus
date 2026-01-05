@@ -22,9 +22,9 @@ Desktop apps, especially for the C language. Who wants to use QT and c++, gross!
 XML Template Example
 ```xml
 <window width="800" height="600">
-    <div class="container">
-        <canvas id="interactive_chart" />
-        <button id="btn_ok">OK</button>
+    <div class="container" grow="b">
+        <canvas id="interactive_chart" grow="b"/>
+        <button id="btn_ok" grow="h">OK</button>
     </div>
 </window>
 ```

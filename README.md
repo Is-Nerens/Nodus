@@ -18,8 +18,10 @@ Desktop apps, especially for the C language. Who wants to use QT and c++, gross!
 - Event-driven architecture
 - Pure C API
 - Canvas API
+  
+<br></br>
 
-XML Template Example
+## XML Template Example
 ```xml
 <window width="800" height="600">
     <div class="container" grow="b">
@@ -30,7 +32,7 @@ XML Template Example
 ```
 
 
-CSS Stylesheet Example
+## CSS Stylesheet Example
 ```css
 @font font-normal {
     src: ./fonts/Inter/Inter_Variable_Weight.ttf;
@@ -48,7 +50,7 @@ button {
 ```
 
 <br></br>
-Features In Development
+## Features In Development
 - Text inputs
 - Auto scroll behaviour
 - Expanded canvas API

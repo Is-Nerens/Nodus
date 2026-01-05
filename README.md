@@ -7,7 +7,7 @@ Nodus is designed for developers who want stylable super performant UI, multiple
 The layout engine is flexbox based - it is easy to create reactive UIs.
 Everything is driven by node tags - Foe example: subwindows can be created defining a <window> tag.
 
-This library is in the very early stages of development. The vision is to create a comprehensive but super simple UI library that runs on
+This library is in the very early stages of development. The vision is to create a comprehensive but simple UI library that runs on
 Windows MacOS and Linux. The project targets desktop development as there are shockingly few options out there to create native 
 Desktop apps, especially for the C language. Who wants to use QT and c++, gross!
 This library is being developed alongside (and being driven forward by) a secret commercial program of mine

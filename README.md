@@ -1,10 +1,12 @@
 Nodus
 
 Nodus is a lightweight, high-performance GUI library written in C.
-It uses XML templates for layout, CSS for styling, and a DOM-style tree model similar to the web.
+It uses XML templates for layout, CSS for styling, and an HTML DOM-style tree model that can be transformed through code.
 
 Nodus is designed for developers who want stylable super performant UI, multiple native windows, and full control over performance and memory.
 The layout engine is flexbox based - it is easy to create reactive UIs.
+Everything is driven by node tags - Foe example: subwindows can be created defining a <window> tag.
+
 
 Features
 

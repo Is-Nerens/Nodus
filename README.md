@@ -31,14 +31,21 @@ XML Template Example
 
 
 CSS Stylesheet Example
+```css
+@font font-normal {
+    src: ./fonts/Inter/Inter_Variable_Weight.ttf;
+    size: 14;
+    weight: 400;
+}
 .container {
-    pad: 16px;
+    pad: 16;
 }
 button {
     backgroundColour: #3a7afe;
     textColour: #ffffff;
-    borderRadius: 4px;
+    borderRadius: 4;
 }
+```
 
 Features In Development
 - Text inputs

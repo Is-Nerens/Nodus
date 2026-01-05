@@ -14,6 +14,8 @@ This library is being developed alongside (and being driven forward by) a secret
 that is very UI heavy and demands high performance - the CPU needs to be free to do the real work!
 
 <br></br>
+Special thankts to Nick Barker for the work he did on the Clay library [Retained-mode rendering](https://github.com/nicbarker/clay?tab=readme-ov-file#retained-mode-rendering)
+<br></br>
 
 ## Features:
 - XML-based UI layout

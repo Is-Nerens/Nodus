@@ -20,13 +20,14 @@ Desktop apps, especially for the C language. Who wants to use QT and c++, gross!
 - Canvas API
 
 XML Template Example
-XML Layout
+```xml
 <window width="800" height="600">
     <div class="container">
-        <canvas id="interactive chart"/>
+        <canvas id="interactive_chart" />
         <button id="btn_ok">OK</button>
     </div>
 </window>
+```
 
 
 CSS Stylesheet Example

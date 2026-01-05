@@ -21,7 +21,7 @@ Desktop apps, especially for the C language. Who wants to use QT and c++, gross!
   
 <br></br>
 
-### XML Template Example
+#### XML Template Example
 ```xml
 <window width="800" height="600">
     <div class="container" grow="b">
@@ -32,7 +32,7 @@ Desktop apps, especially for the C language. Who wants to use QT and c++, gross!
 ```
 
 
-### CSS Stylesheet Example
+#### CSS Stylesheet Example
 ```css
 @font font-normal {
     src: ./fonts/Inter/Inter_Variable_Weight.ttf;

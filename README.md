@@ -47,6 +47,7 @@ button {
 }
 ```
 
+<br></br>
 Features In Development
 - Text inputs
 - Auto scroll behaviour

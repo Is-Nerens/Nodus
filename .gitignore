@@ -4,3 +4,12 @@
 *.ttf
 *.txt
 *.png
+*.ps1
+test.c
+releases
+build
+documentation
+fonts
+src/thirtdParty/freetype
+src/thirtdParty/glew
+src/thirtdParty/SDL3

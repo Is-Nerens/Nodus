@@ -130,7 +130,7 @@ canvas {
 void Press(NU_Event event, void* args)
 {   
     char* message = (char*)args;
-    printf("%s/n", message);
+    printf("%s\n", message);
 }
 
 int main()
@@ -141,12 +141,24 @@ int main()
     if (!NU_Load_Stylesheet("app.css")) return -1;
 
     // get node handles
-    uint32_t container = NU_Get_Node_By_Id("container");
     uint32_t button = NU_Get_Node_By_Id("btn");
+    uint32_t chart = NU_Get_Node_By_Id("interactive-chart");
 
     // register click event
     char* message = "pressed me!";
     NU_Register_Event(button, message, Press, NU_EVENT_ON_CLICK); 
+
+    // draw a border rect on the chart
+    NU_RGB border_col;
+    border_col.r = 0.8588f;
+    border_col.g = 0.1490f;
+    border_col.b = 0.1490f;
+    NU_RGB fill_col;
+    border_col.r = 0.8588f;
+    border_col.g = 0.9490f;
+    border_col.b = 0.9490f;
+    NU_Clear_Canvas(chart);
+    NU_Border_Rect(chart, 100, 100, 200, 200, 3, &border_col, &fill_col);
 
     // app loop
     while(NU_Running())

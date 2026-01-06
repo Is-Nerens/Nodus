@@ -5,7 +5,6 @@
 *.ttf
 *.txt
 *.png
-*.ps1
 test.c
 releases
 build
@@ -15,3 +14,4 @@ app
 src/thirdParty/freetype
 src/thirdParty/glew
 src/thirdParty/SDL3
+app-compile.ps1

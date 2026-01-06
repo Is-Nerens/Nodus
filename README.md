@@ -1,31 +1,29 @@
 # Nodus
 
-Nodus is a lightweight, high-performance GUI library written in C.
-It uses XML templates for layout, CSS for styling, and an HTML DOM-style tree model that can be transformed through code.
+Nodus is a lightweight, high-performance retained GUI library for C.
+It uses XML templates for layout, CSS for styling, and a DOM-style tree model that can be manipulated with code.
 
-Nodus is designed for developers who want stylable super performant UI, multiple native windows, and full control over performance and memory.
-The layout engine is flexbox based - it is easy to create reactive UIs.
-Everything is driven by node tags - Foe example: subwindows can be created defining a <window> tag.
+## Features:
+- XML templates and CSS styling
+- Flexbox layout model for responsive layouts
+- Text rendering using FreeType with support for subpixel rendering, producing sharp text on lower resolution displays
+- Canvas API that supports drawing
+- JavasScript like UI events to detect things liek resizing, mouse hovering, clicks etc
+- Multi-window support is as easy as creating a <window> tag (All child elements of a window will be drawn in that window)
 
-This library is in the very early stages of development. The vision is to create a comprehensive but simple UI library that runs on
-Windows MacOS and Linux. Nodus will target desktop development as there are shockingly few options out there to create native 
-Desktop apps (especially for the C language). Who wants to use QT and c++, gross!
-This library is being developed alongside (and being driven forward by) a secret commercial program of mine
-that is very UI heavy and demands high performance - the CPU needs to be free to do the real work!
+## Features Still In Development
+- Text inputs
+- Auto scroll behaviour
+- Scrollbar customisation
+- DPI Scalling
+- Expanded canvas API functionality (text, and more tools)
+- XML components: reusable UI components constructed from xml template files
+- Linux and MacOS support
+- Debugging tools
+- Library Documentation
 
 <br></br>
 Special thanks to Nick Barker for the work he did on the Clay library [Retained-mode rendering](https://github.com/nicbarker/clay?tab=readme-ov-file#retained-mode-rendering)<br>
-He has really woken up the GUI development space.
-<br></br>
-
-## Features:
-- XML-based UI layout
-- CSS-style styling system
-- DOM-like node tree
-- Event-driven architecture
-- Pure C API
-- Canvas API
-  
 <br></br>
 
 #### XML Template Example
@@ -55,10 +53,3 @@ button {
     borderRadius: 4;
 }
 ```
-
-<br></br>
-## Features In Development
-- Text inputs
-- Auto scroll behaviour
-- Expanded canvas API
-- XML components: reusable UI components constructed from xml template files

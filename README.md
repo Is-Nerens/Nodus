@@ -1,4 +1,4 @@
-# Nodus
+# Nodus - Retained Mode UI Library
 
 Nodus is a lightweight, high-performance retained GUI library for C.
 It uses XML templates for layout, CSS for styling, and a DOM-style tree model that can be manipulated with code.

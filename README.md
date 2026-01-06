@@ -149,15 +149,8 @@ int main()
     NU_Register_Event(button, message, Press, NU_EVENT_ON_CLICK); 
 
     // draw a border rect on the chart
-    NU_RGB border_col;
-    border_col.r = 0.8588f;
-    border_col.g = 0.1490f;
-    border_col.b = 0.1490f;
-    NU_RGB fill_col;
-    border_col.r = 0.8588f;
-    border_col.g = 0.9490f;
-    border_col.b = 0.9490f;
-    NU_Clear_Canvas(chart);
+    NU_RGB border_col; border_col.r = 0.8588f; border_col.g = 0.1490f; border_col.b = 0.1490f;
+    NU_RGB fill_col; border_col.r = 0.8588f; border_col.g = 0.9490f; border_col.b = 0.9490f;
     NU_Border_Rect(chart, 100, 100, 200, 200, 3, &border_col, &fill_col);
 
     // app loop

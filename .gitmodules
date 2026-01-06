@@ -1,3 +1,0 @@
-[submodule "src/thirdParty/glew"]
-	path = src/thirdParty/glew
-	url = https://github.com/nigels-com/glew.git

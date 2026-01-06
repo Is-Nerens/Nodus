@@ -2,12 +2,9 @@
 
 Nodus is a lightweight, high-performance retained GUI library for C.
 It uses XML templates for layout, CSS for styling, and a DOM-style tree model that can be manipulated with code.
+Special thanks to **Nick Barker** for the work he did on the [Clay](https://github.com/nicbarker/clay) library.<br>
 
 <br>
-
-Special thanks to **Nick Barker** for the work he did on the [Clay](https://github.com/nicbarker/clay) library<br>
-<br>
-
 
 ### Dependencies
 I dislike dependencies as much as the next person but, <br>
@@ -40,15 +37,32 @@ Nodus requires: [stb_image](https://github.com/nothings/stb/blob/master/stb_imag
 <br>
 
 ### Usage Example
-Setting up Nodus, and creating a few UI elements <br>
-
 #### XML Template
 ```xml
-<window width="800" height="600">
-    <rect class="container" grow="b">
-        <canvas id="interactive_chart" grow="b"/>
-        <button id="btn" grow="h">PRESS ME!</button>
+<window dir="v">
+
+    <!-- toolbar -->
+    <rect id="toolbar"> 
+        <button>file</button>
+        <button>edit</button>
+        <button>export</button>
     </rect>
+
+    <!-- content -->
+    <rect grow="b" dir="h">
+
+        <!-- sidebar -->
+        <rect id="sidebar">
+            <rect id="sidebar-label">Sidebar</rect>
+        </rect>
+
+        <!-- right content -->
+        <rect id="content">
+            <canvas id="interactive-chart" grow="b"/>
+            <button id="btn" grow="h">PRESS ME!</button>
+        </rect>
+
+    <rect>
 </window>
 ```
 
@@ -56,17 +70,54 @@ Setting up Nodus, and creating a few UI elements <br>
 #### CSS Stylesheet
 ```css
 @font font-normal {
-    src: ./fonts/Inter/Inter_Variable_Weight.ttf;
-    size: 14;
+    src: fonts/font.ttf; /* Provide a font file! */
+    size: 18;
     weight: 400;
 }
-.container {
-    padding: 16;
-}
 button {
-    background: #3a7afe;
+    background: #1b445f;
     text-colour: #ffffff;
     border-radius: 4;
+    padding: 3;
+    width: 100;
+    text-align-h: center;
+}
+button:hover {
+    background: #234e6b;
+}
+button:press {
+    background: #133144;
+}
+#toolbar {
+    background: #235c81;
+    grow: h;
+    gap: 5
+    padding: 4;
+}
+#sidebar {
+    align-h: center;
+    dir: v;
+    background: #123044;
+    width: 280; 
+    grow: v; 
+    padding: 4;
+}
+#sidebar-label {
+    background: none;
+    text-align-h: center;
+    padding: 5;
+    grow: h;
+}
+#content {
+    background: #000000;
+    dir: v;
+    grow: b;
+    padding: 5;
+    gap: 5;
+}
+canvas {
+    border-radius: 5;
+    background: #141414;
 }
 ```
 

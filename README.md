@@ -7,7 +7,7 @@ It uses XML templates for layout, CSS for styling, and a DOM-style tree model th
 Special thanks to Nick Barker for the work he did on the [Clay](https://github.com/nicbarker/clay) library<br>
 <br></br>
 
-## Features:
+#### Features:
 - XML templates and CSS styling
 - Flexbox layout model for responsive layouts
 - Text rendering using FreeType with support for subpixel rendering, producing sharp text on lower resolution displays
@@ -15,7 +15,7 @@ Special thanks to Nick Barker for the work he did on the [Clay](https://github.c
 - JavasScript like UI events to detect things liek resizing, mouse hovering, clicks etc
 - Multi-window support is as easy as creating a <window> tag (All child elements of a window will be drawn in that window)
 
-## Features Still In Development
+#### Features Still In Development
 - Text inputs
 - Auto scroll behaviour
 - Scrollbar customisation

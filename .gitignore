@@ -10,6 +10,6 @@ releases
 build
 documentation
 fonts
-src/thirtdParty/freetype
-src/thirtdParty/glew
-src/thirtdParty/SDL3
+src/thirdParty/freetype
+src/thirdParty/glew
+src/thirdParty/SDL3

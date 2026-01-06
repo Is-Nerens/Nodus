@@ -1,6 +1,7 @@
 .vscode
 *.exe
 *.xml
+*.css
 *.ttf
 *.txt
 *.png
@@ -10,6 +11,7 @@ releases
 build
 documentation
 fonts
+app
 src/thirdParty/freetype
 src/thirdParty/glew
 src/thirdParty/SDL3

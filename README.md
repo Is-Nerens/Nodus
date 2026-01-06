@@ -3,6 +3,10 @@
 Nodus is a lightweight, high-performance retained GUI library for C.
 It uses XML templates for layout, CSS for styling, and a DOM-style tree model that can be manipulated with code.
 
+<br></br>
+Special thanks to Nick Barker for the work he did on the Clay library [Retained-mode rendering](https://github.com/nicbarker/clay)<br>
+<br></br>
+
 ## Features:
 - XML templates and CSS styling
 - Flexbox layout model for responsive layouts
@@ -21,10 +25,6 @@ It uses XML templates for layout, CSS for styling, and a DOM-style tree model th
 - Linux and MacOS support
 - Debugging tools
 - Library Documentation
-
-<br></br>
-Special thanks to Nick Barker for the work he did on the Clay library [Retained-mode rendering](https://github.com/nicbarker/clay?tab=readme-ov-file#retained-mode-rendering)<br>
-<br></br>
 
 #### XML Template Example
 ```xml

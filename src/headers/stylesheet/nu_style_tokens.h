@@ -15,7 +15,7 @@ static const char* style_keywords[] = {
     "border", "border-top", "border-bottom", "border-left", "border-right",
     "border-radius", "border-radius-top-left", "border-radius-top-right", "border-radius-bottom-left", "border-radius-bottom-right",
     "padding", "padding-top", "padding-bottom", "padding-left", "padding-right", 
-    "imags-src", "font", "src", "size", "weight",
+    "image-src", "font", "src", "size", "weight",
     "window", "rect", "button", "grid", "canvas", "image", "table", "thead", "row", "@font",
     "hover", "press", "focus",
 };

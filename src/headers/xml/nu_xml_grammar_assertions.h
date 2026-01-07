@@ -1,22 +1,22 @@
 #pragma once
 
-static int AssertRootGrammar(struct Vector* token_vector)
+static int AssertRootGrammar(struct Vector* tokens)
 {
     // ENFORCE RULE: FIRST TOKEN MUST BE OPEN TAG
     // ENFORCE RULE: SECOND TOKEN MUST BE TAG NAME
     // ENFORCE RULE: THIRD TOKEN MUST BE CLOSE_TAG | PROPERTY
-    int root_open = token_vector->size > 2 && 
-        *((enum NU_XML_Token*) Vector_Get(token_vector, 0)) == OPEN_TAG &&
-        *((enum NU_XML_Token*) Vector_Get(token_vector, 1)) == WINDOW_TAG;
+    int root_open = tokens->size > 2 && 
+        *((enum NU_XML_TOKEN*) Vector_Get(tokens, 0)) == OPEN_TAG &&
+        *((enum NU_XML_TOKEN*) Vector_Get(tokens, 1)) == WINDOW_TAG;
 
-    if (token_vector->size > 2 &&
-        *((enum NU_XML_Token*) Vector_Get(token_vector, 0)) == OPEN_TAG &&
-        *((enum NU_XML_Token*) Vector_Get(token_vector, 1)) == WINDOW_TAG) 
+    if (tokens->size > 2 &&
+        *((enum NU_XML_TOKEN*) Vector_Get(tokens, 0)) == OPEN_TAG &&
+        *((enum NU_XML_TOKEN*) Vector_Get(tokens, 1)) == WINDOW_TAG) 
     {
-        if (token_vector->size > 5 && 
-            *((enum NU_XML_Token*) Vector_Get(token_vector, token_vector->size-3)) == OPEN_END_TAG &&
-            *((enum NU_XML_Token*) Vector_Get(token_vector, token_vector->size-2)) == WINDOW_TAG && 
-            *((enum NU_XML_Token*) Vector_Get(token_vector, token_vector->size-1)) == CLOSE_TAG)
+        if (tokens->size > 5 && 
+            *((enum NU_XML_TOKEN*) Vector_Get(tokens, tokens->size-3)) == OPEN_END_TAG &&
+            *((enum NU_XML_TOKEN*) Vector_Get(tokens, tokens->size-2)) == WINDOW_TAG && 
+            *((enum NU_XML_TOKEN*) Vector_Get(tokens, tokens->size-1)) == CLOSE_TAG)
         {
             return 0; // Success
         }
@@ -33,25 +33,29 @@ static int AssertRootGrammar(struct Vector* token_vector)
     }
 }
 
-static int AssertNewTagGrammar(struct Vector* token_vector, int i)
+static int AssertNewTagGrammar(struct Vector* tokens, int i)
 {
     // ENFORCE RULE: NEXT TOKEN SHOULD BE TAG NAME 
     // ENFORCE RULE: THIRD TOKEN MUST BE CLOSE CLOSE_END OR PROPERTY
-    if (i < token_vector->size - 2 && NU_Token_To_Tag(*((enum NU_XML_Token*) Vector_Get(token_vector, i+1))) != NAT)
+    if (i < tokens->size - 2 && NU_Token_To_Tag(*((enum NU_XML_TOKEN*) Vector_Get(tokens, i+1))) != NAT)
     {
-        enum NU_XML_Token third_token = *((enum NU_XML_Token*) Vector_Get(token_vector, i+2));
-        if (third_token == CLOSE_TAG || third_token == CLOSE_END_TAG || NU_Is_Token_Property(third_token)) return 0; // Success
+        enum NU_XML_TOKEN third_token = *((enum NU_XML_TOKEN*) Vector_Get(tokens, i+2));
+        if (third_token == CLOSE_TAG || third_token == CLOSE_END_TAG || NU_Is_Token_Property(third_token)) return 1; // Success
     }
-    return -1; // Failure
+    enum NU_XML_TOKEN token = *((enum NU_XML_TOKEN*) Vector_Get(tokens, i));
+    enum NU_XML_TOKEN second_token = *((enum NU_XML_TOKEN*) Vector_Get(tokens, i+1));
+    enum NU_XML_TOKEN third_token = *((enum NU_XML_TOKEN*) Vector_Get(tokens, i+2));
+    printf("here %d %d %d\n", token, second_token, third_token);
+    return 0; // Failure
 }
 
-static int AssertPropertyGrammar(struct Vector* token_vector, int i)
+static int AssertPropertyGrammar(struct Vector* tokens, int i)
 {
     // ENFORCE RULE: NEXT TOKEN SHOULD BE PROPERTY ASSIGN
     // ENFORCE RULE: THIRD TOKEN SHOULD BE PROPERTY TEXT
-    if (i < token_vector->size - 2 && *((enum NU_XML_Token*) Vector_Get(token_vector, i+1)) == PROPERTY_ASSIGNMENT)
+    if (i < tokens->size - 2 && *((enum NU_XML_TOKEN*) Vector_Get(tokens, i+1)) == PROPERTY_ASSIGNMENT)
     {
-        if (*((enum NU_XML_Token*) Vector_Get(token_vector, i+2)) == PROPERTY_VALUE) return 0; // Success
+        if (*((enum NU_XML_TOKEN*) Vector_Get(tokens, i+2)) == PROPERTY_VALUE) return 0; // Success
         printf("%s\n", "[Generate_Tree] Error! Expected property value after assignment.");
         return -1; // Failure
     }
@@ -59,16 +63,16 @@ static int AssertPropertyGrammar(struct Vector* token_vector, int i)
     return -1; // Failure
 }
 
-static int AssertTagCloseStartGrammar(struct Vector* token_vector, int i, enum Tag openTag)
+static int AssertTagCloseStartGrammar(struct Vector* tokens, int i, enum Tag openTag)
 {
     // ENFORCE RULE: NEXT TOKEN SHOULD BE TAG AND MUST MATCH OPENING TAG
     // ENDORCE RULE: THIRD TOKEN MUST BE A TAG END
-    if (i < token_vector->size - 2 && 
-        NU_Token_To_Tag(*((enum NU_XML_Token*) Vector_Get(token_vector, i+1))) == openTag && 
-        *((enum NU_XML_Token*) Vector_Get(token_vector, i+2)) == CLOSE_TAG) return 0; // Success
+    if (i < tokens->size - 2 && 
+        NU_Token_To_Tag(*((enum NU_XML_TOKEN*) Vector_Get(tokens, i+1))) == openTag && 
+        *((enum NU_XML_TOKEN*) Vector_Get(tokens, i+2)) == CLOSE_TAG) return 0; // Success
     else {
-        printf("%s", "[Generate Tree] Error! Closing tag does not match.");
-        printf("%s %d %s %d", "close tag:", NU_Token_To_Tag(*((enum NU_XML_Token*) Vector_Get(token_vector, i+1))), "open tag:", openTag);
+        printf("%s", "[Generate Tree] Error! close tag does not match opening tag. ");
+        printf("%s %d %s %d", "close tag:", NU_Token_To_Tag(*((enum NU_XML_TOKEN*) Vector_Get(tokens, i+1))), "open tag:", openTag);
     }
     return -1; // Failure
 }

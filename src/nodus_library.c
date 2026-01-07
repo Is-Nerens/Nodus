@@ -1,5 +1,6 @@
 #define NODUS_BUILD_DLL
 #include "headers/nodus.h"
+#include <stdio.h>
 
 // --------------------------
 // --- Nodus UI functions ---

@@ -75,12 +75,12 @@ void Vector_Delete_Backshift(Vector* vector, uint32_t index)
     vector->size--;
 }
 
-void* Vector_Get(Vector* vector, uint32_t index)
+inline void* Vector_Get(Vector* vector, uint32_t index)
 {
     return (char*) vector->data + index * vector->element_size;
 }
 
-void Vector_Set(Vector* vector, uint32_t index, void* value) // Unsafe but very fast
+inline void Vector_Set(Vector* vector, uint32_t index, void* value) // Unsafe but very fast
 {
     void* dst = (char*)vector->data + index * vector->element_size;
     memcpy(dst, value, vector->element_size);

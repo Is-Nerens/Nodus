@@ -6,12 +6,13 @@
 void NU_Tokenise(char* src, uint32_t srcLen, Vector* tokenVectorOut, Vector* textRefsOut)
 {
     char word[256];
-    uint8_t wordLen = 0;
-    uint32_t textLen = 0;
-    uint32_t trailingWS = 0;
-    uint8_t ctx = 0;// 0: globalspace, 1: commentspace, 2: tagspace, 3: property valuespace
-    uint8_t seenTagName = 0;
-
+    uint8_t  wordLen     = 0;
+    uint32_t textLen     = 0;
+    uint32_t trailingWS  = 0;
+    uint8_t  ctx         = 0; // 0: globalspace, 1: commentspace, 2: tagspace, 3: property valuespace
+    uint8_t  seenTagName = 0;
+    
+    
     uint32_t i = 0;
     while (i < srcLen)
     {

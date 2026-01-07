@@ -17,7 +17,7 @@ Nodus requires: [stb_image](https://github.com/nothings/stb/blob/master/stb_imag
 - Flexbox layout model for responsive layouts
 - Text rendering using FreeType with support for subpixel rendering, producing sharp text on lower resolution displays
 - Canvas API that supports drawing
-- JavasScript like UI events to detect things liek resizing, mouse hovering, clicks etc
+- UI events to detect resizing, mouse hovering, clicks and more
 - Multi-window support is as easy as creating a <window> tag (All child elements of a window will be drawn in that window)
 
 <br>

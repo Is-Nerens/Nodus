@@ -167,7 +167,7 @@ void Generate_Corner_Segment(
 }
 
 void Construct_Border_Rect(
-    struct Node* node,
+    Node* node,
     float screen_width, 
     float screen_height,
     Vertex_RGB_List* vertices, Index_List* indices

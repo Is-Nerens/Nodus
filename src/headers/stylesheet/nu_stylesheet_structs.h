@@ -1,16 +1,16 @@
 #pragma once
 
-struct NU_Stylesheet_Tag_Pseudo_Pair
+typedef struct NU_Stylesheet_Tag_Pseudo_Pair
 {
     int tag;
     int pseudo_class;
-};
+} NU_Stylesheet_Tag_Pseudo_Pair;
 
-struct NU_Stylesheet_String_Pseudo_Pair
+typedef struct NU_Stylesheet_String_Pseudo_Pair
 {
     char* string;
     int pseudo_class;
-};
+} NU_Stylesheet_String_Pseudo_Pair;
 
 typedef struct NU_Stylesheet
 {
@@ -58,3 +58,10 @@ typedef struct NU_Stylesheet_Item
     char verticalTextAlignment;
     bool hideBackground;
 } NU_Stylesheet_Item;
+
+struct Style_Text_Ref
+{
+    uint32_t NU_Token_index;
+    uint32_t src_index;
+    uint8_t char_count; 
+};

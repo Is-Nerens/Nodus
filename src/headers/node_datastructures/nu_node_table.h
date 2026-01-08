@@ -13,7 +13,7 @@
 
 typedef struct NU_NodeTable
 {
-    struct Node** data;
+    Node** data;
     uint8_t* occupancy;
     uint32_t capacity;
     uint32_t used;
@@ -24,14 +24,14 @@ void NU_Node_Table_Reserve(NU_NodeTable* table, uint32_t capacity)
     capacity = MAX(capacity, 32);
     table->capacity = capacity;
     table->used = 0;
-    table->data = malloc(sizeof(struct Node*) * capacity);
+    table->data = malloc(sizeof(Node*) * capacity);
     
     // Calculate number of bytes needed for occupancy bit array
     uint32_t occupancyBytes = (capacity + 7) / 8;
     table->occupancy = calloc(occupancyBytes, 1); 
 }
 
-struct Node* NU_Node_Table_Get(NU_NodeTable* table, uint32_t handle)
+Node* NU_Node_Table_Get(NU_NodeTable* table, uint32_t handle)
 {
     if (handle >= table->capacity) return NULL;
     uint32_t rem = handle & 7;                                // i % 8
@@ -49,7 +49,7 @@ void NU_Node_Table_Grow(NU_NodeTable* table)
 
     // Resize data array (in bytes!)
     table->capacity *= 2;
-    table->data = realloc(table->data, table->capacity * sizeof(struct Node*));
+    table->data = realloc(table->data, table->capacity * sizeof(Node*));
 
     // New occupancy size in bytes
     uint32_t newOccupancyBytes = (table->capacity + 7) / 8;
@@ -61,7 +61,7 @@ void NU_Node_Table_Grow(NU_NodeTable* table)
     free(oldOccupancy);
 }
 
-void NU_Node_Table_Add(NU_NodeTable* table, struct Node* nodePtr)
+void NU_Node_Table_Add(NU_NodeTable* table, Node* nodePtr)
 {
     if (table->used == table->capacity)
         NU_Node_Table_Grow(table);
@@ -93,7 +93,7 @@ void NU_Node_Table_Add(NU_NodeTable* table, struct Node* nodePtr)
     }
 }
 
-void NU_Node_Table_Set(NU_NodeTable* table, uint32_t handle, struct Node* nodePtr)
+void NU_Node_Table_Set(NU_NodeTable* table, uint32_t handle, Node* nodePtr)
 {
     uint32_t rem = handle & 7;            // handle % 8
     uint32_t occupancyIndex = handle >> 3; // handle / 8
@@ -101,7 +101,7 @@ void NU_Node_Table_Set(NU_NodeTable* table, uint32_t handle, struct Node* nodePt
     table->occupancy[occupancyIndex] |= (uint8_t)(1 << rem); // Mark occupied
 }
 
-void NU_Node_Table_Update(NU_NodeTable* table, uint32_t handle, struct Node* nodePtr)
+void NU_Node_Table_Update(NU_NodeTable* table, uint32_t handle, Node* nodePtr)
 {
     table->data[handle] = nodePtr;
 }

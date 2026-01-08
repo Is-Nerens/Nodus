@@ -19,7 +19,7 @@ static void NU_Verify_Tree() {
 
         for (uint32_t n=0; n<layer->size; n++)
         {   
-            struct Node* node = NU_Layer_Get(layer, n);
+            Node* node = NU_Layer_Get(layer, n);
             layer_size++;
 
             if (!node->nodeState) continue;
@@ -45,13 +45,13 @@ static void NU_Verify_Tree() {
         NU_Layer* child_layer = &__NGUI.tree.layers[l+1];
         for (int p=0; p<parent_layer->size; p++)
         {       
-            struct Node* parent = NU_Layer_Get(parent_layer, p);
+            Node* parent = NU_Layer_Get(parent_layer, p);
             if (!parent->nodeState) continue;
             printf("[%u]", parent->handle);
 
             for (uint16_t i=parent->firstChildIndex; i<parent->firstChildIndex + parent->childCount; i++)
             {
-                struct Node* child = NU_Layer_Get(child_layer, i);
+                Node* child = NU_Layer_Get(child_layer, i);
 
                 // Check parent index
                 if (child->parentIndex != p) {
@@ -88,7 +88,7 @@ NU_Nodelist NU_Internal_Get_Nodes_By_Class(char* class)
         // Iterate over layer
         for (uint32_t n=0; n<layer->size; n++)
         {   
-            struct Node* node = NU_Layer_Get(layer, n);
+            Node* node = NU_Layer_Get(layer, n);
             if (!node->nodeState) continue;
 
             if (node->class != NULL && strcmp(class, node->class) == 0) {
@@ -113,7 +113,7 @@ NU_Nodelist NU_Internal_Get_Nodes_By_Tag(enum Tag tag)
         // Iterate over layer
         for (uint32_t n=0; n<layer->size; n++)
         {   
-            struct Node* node = NU_Layer_Get(layer, n);
+            Node* node = NU_Layer_Get(layer, n);
             if (!node->nodeState) continue;
 
             if (node->tag == tag) {
@@ -132,7 +132,7 @@ NU_Nodelist NU_Internal_Get_Nodes_By_Tag(enum Tag tag)
 // -------------------------------
 uint32_t NU_Internal_Create_Node(uint32_t parent_handle, enum Tag tag)
 {
-    struct Node* parent = NODE(parent_handle);
+    Node* parent = NODE(parent_handle);
 
     // Moving deeper -> Grow tree layer capacity
     if (parent->layer == __NGUI.deepest_layer) {
@@ -150,7 +150,7 @@ uint32_t NU_Internal_Create_Node(uint32_t parent_handle, enum Tag tag)
 
         // If need to expand layer
         if (create_node_layer->size + 5 > create_node_layer->capacity) {
-            struct Node* old_node_array = create_node_layer->node_array;
+            Node* old_node_array = create_node_layer->node_array;
             size_t old_size = create_node_layer->size;
             NU_Tree_Layer_Grow(&__NGUI.tree, create_node_layer);
         }
@@ -162,7 +162,7 @@ uint32_t NU_Internal_Create_Node(uint32_t parent_handle, enum Tag tag)
             // Find nearest preceeding parent with children
             if (parent->index > 0) {
                 for (int i=parent->index-1; i>=0; i--) {
-                    struct Node* prev_parent = NU_Layer_Get(parent_layer, i);
+                    Node* prev_parent = NU_Layer_Get(parent_layer, i);
                     if (prev_parent->nodeState && prev_parent->childCapacity > 0) {
                         insert_index = prev_parent->firstChildIndex + prev_parent->childCapacity;
                         break;
@@ -175,16 +175,16 @@ uint32_t NU_Internal_Create_Node(uint32_t parent_handle, enum Tag tag)
 
         // Update first child indices for proceeding parent nodes
         for (uint16_t i=parent->index+1; i<parent_layer->size; i++) {
-            struct Node* next_parent = NU_Layer_Get(parent_layer, i);
+            Node* next_parent = NU_Layer_Get(parent_layer, i);
             if (next_parent->nodeState && next_parent->childCapacity > 0) next_parent->firstChildIndex += 5;
         }
 
         // Update node self indices and node child parent indices for proceeding layer nodes
         uint32_t shift_count = create_node_layer->size - create_node_index;
-        memmove(&create_node_layer->node_array[create_node_index+5], &create_node_layer->node_array[create_node_index], shift_count * sizeof(struct Node));
+        memmove(&create_node_layer->node_array[create_node_index+5], &create_node_layer->node_array[create_node_index], shift_count * sizeof(Node));
         create_node_layer->size += 5;
         for (uint16_t i=create_node_index+5; i<create_node_layer->size; i++) {
-            struct Node* node = NU_Layer_Get(create_node_layer, i);
+            Node* node = NU_Layer_Get(create_node_layer, i);
             if (!node->nodeState) continue;
 
             // Update node index and table mapping (node->handle -> node*)
@@ -209,7 +209,7 @@ uint32_t NU_Internal_Create_Node(uint32_t parent_handle, enum Tag tag)
         }
 
         // Create new node at location
-        struct Node* created_node = &create_node_layer->node_array[create_node_index];
+        Node* created_node = &create_node_layer->node_array[create_node_index];
         NU_Apply_Node_Defaults(created_node);
         created_node->index = create_node_index;
         created_node->parentIndex = parent->index;
@@ -220,7 +220,7 @@ uint32_t NU_Internal_Create_Node(uint32_t parent_handle, enum Tag tag)
         return created_node->handle;
 
     } else { // Instant creation
-        struct Node* created_node = &create_node_layer->node_array[parent->firstChildIndex + parent->childCount - 1];
+        Node* created_node = &create_node_layer->node_array[parent->firstChildIndex + parent->childCount - 1];
         NU_Apply_Node_Defaults(created_node);
         created_node->index = parent->firstChildIndex + parent->childCount - 1;
         created_node->parentIndex = parent->index;
@@ -233,7 +233,7 @@ uint32_t NU_Internal_Create_Node(uint32_t parent_handle, enum Tag tag)
 }
 
 
-void NU_Create_Nodes(struct Node* node)
+void NU_Create_Nodes(Node* node)
 {
 
 }
@@ -257,7 +257,7 @@ typedef struct {
     uint16_t layer;
 } Node_Delete_Range;
 
-static void NU_Dissociate_Node(struct Node* node)
+static void NU_Dissociate_Node(Node* node)
 {
     if (node->tag == WINDOW) {
         SDL_DestroyWindow(node->window);
@@ -315,7 +315,7 @@ static void NU_Dissociate_Node(struct Node* node)
     }
 }
 
-static void NU_Delete_Childless(struct Node* node)
+static void NU_Delete_Childless(Node* node)
 {
     // --------------------------
     // --- Dissociate -----------
@@ -327,7 +327,7 @@ static void NU_Delete_Childless(struct Node* node)
     uint32_t node_layer = node->layer;
     NU_Layer* layer = &__NGUI.tree.layers[node_layer]; 
     NU_Layer* parent_layer = &__NGUI.tree.layers[node_layer-1];
-    struct Node* parent = NU_Layer_Get(parent_layer, node->parentIndex);
+    Node* parent = NU_Layer_Get(parent_layer, node->parentIndex);
     node->nodeState = false;
     uint32_t layer_node_count = layer->node_count;
     layer->node_count--;
@@ -350,8 +350,8 @@ static void NU_Delete_Childless(struct Node* node)
 
         // Shift siblings one slot left
         for (uint32_t i=0; i<siblings_to_shift; i++) {
-            struct Node* sib = &layer->node_array[node_index + i + 1];    // node being moved
-            struct Node* dest = &layer->node_array[node_index + i];       // destination
+            Node* sib = &layer->node_array[node_index + i + 1];    // node being moved
+            Node* dest = &layer->node_array[node_index + i];       // destination
             *dest = *sib;                                                 // Copy contents
             dest->index = node_index + i;                                 // Update index
             sib->nodeState = false;                                    // Update old position presence
@@ -373,8 +373,8 @@ static void NU_Delete_Childless(struct Node* node)
     // Case 3: No siblings -> shift next node group back to claim space
     // Probe until find next sibling group
     uint32_t next_group_first_child_index = parent->firstChildIndex + parent->childCapacity;
-    struct Node* next_group_first_node = NU_Layer_Get(layer, next_group_first_child_index);
-    struct Node* next_group_parent = NU_Layer_Get(parent_layer, next_group_first_node->parentIndex);
+    Node* next_group_first_node = NU_Layer_Get(layer, next_group_first_child_index);
+    Node* next_group_parent = NU_Layer_Get(parent_layer, next_group_first_node->parentIndex);
 
     // If next group is NOT last group in layer -> allocate extra capacity to next group
     if (!(next_group_parent->firstChildIndex + next_group_parent->childCount == layer_node_count)) {
@@ -385,8 +385,8 @@ static void NU_Delete_Childless(struct Node* node)
 
     // Shift next sibling group backwards to fill gap
     for (uint16_t s=0; s<next_group_parent->childCount; s++) {
-        struct Node* sib = NU_Layer_Get(layer, next_group_first_child_index + s); // node being moved
-        struct Node* dest = NU_Layer_Get(layer, node_index + s);                  // destination
+        Node* sib = NU_Layer_Get(layer, next_group_first_child_index + s); // node being moved
+        Node* dest = NU_Layer_Get(layer, node_index + s);                  // destination
         *dest = *sib;                                                             // Copy contents
         dest->index = node_index + s;                                             // Update index
         dest->nodeState = true;                                                // Update new position presence
@@ -404,7 +404,7 @@ static void NU_Delete_Childless(struct Node* node)
     parent->childCount = 0;
 }
 
-static void NU_Delete_Node_Branch(struct Node* node)
+static void NU_Delete_Node_Branch(Node* node)
 {
     // -------------------------------------------------------------------------------
     // --- Traverse node branch and construct list of ranges (bottom-up) -------------
@@ -414,7 +414,7 @@ static void NU_Delete_Node_Branch(struct Node* node)
     Vector_Reserve(&delete_ranges, sizeof(Node_Delete_Range), 64);
     Vector_Reserve(&visit_stack, sizeof(Node_Delete_Range), 32);
     NU_Layer* parent_layer = &__NGUI.tree.layers[node->layer-1];
-    struct Node* parent = NU_Layer_Get(parent_layer, node->parentIndex);
+    Node* parent = NU_Layer_Get(parent_layer, node->parentIndex);
     Node_Delete_Range root_range = { node->index, 1, parent->childCapacity, node->layer };
     Vector_Push(&visit_stack, &root_range);
     while (visit_stack.size > 0) 
@@ -424,7 +424,7 @@ static void NU_Delete_Node_Branch(struct Node* node)
         bool has_children = false;
         for (uint16_t i=0; i<range.count; i++) 
         {
-            struct Node* current_node = NU_Tree_Get(&__NGUI.tree, range.layer, range.start + i);
+            Node* current_node = NU_Tree_Get(&__NGUI.tree, range.layer, range.start + i);
             if (current_node->childCount > 0) 
             {
                 Node_Delete_Range child_range = {
@@ -448,7 +448,7 @@ static void NU_Delete_Node_Branch(struct Node* node)
         Node_Delete_Range range = *(Node_Delete_Range*)Vector_Get(&delete_ranges, i);
         for (uint32_t n=range.start; n<range.start + range.count; n++)
         {
-            struct Node* delete_node = NU_Tree_Get(&__NGUI.tree, range.layer, n);
+            Node* delete_node = NU_Tree_Get(&__NGUI.tree, range.layer, n);
             delete_node->nodeState = false;
             NU_Dissociate_Node(delete_node);
             NU_Node_Table_Delete(&__NGUI.tree.node_table, delete_node->handle);
@@ -480,9 +480,9 @@ static void NU_Delete_Node_Branch(struct Node* node)
 
         // Case 3: There is a sibling group to the right
         uint32_t next_group_first_idx = range.start + range.capacity;
-        struct Node* next_group_first_node = NU_Layer_Get(layer, next_group_first_idx);
+        Node* next_group_first_node = NU_Layer_Get(layer, next_group_first_idx);
         NU_Layer* next_group_parent_layer = &__NGUI.tree.layers[range.layer - 1];
-        struct Node* next_group_parent = NU_Layer_Get(next_group_parent_layer, next_group_first_node->parentIndex);
+        Node* next_group_parent = NU_Layer_Get(next_group_parent_layer, next_group_first_node->parentIndex);
 
         // Reduce the layer size if next group is the final group
         if (next_group_parent->firstChildIndex + next_group_parent->childCapacity == layer->size) {
@@ -495,8 +495,8 @@ static void NU_Delete_Node_Branch(struct Node* node)
         for (uint32_t s = 0; s < next_group_parent->childCount; s++) {
             uint32_t src_idx = next_group_first_idx + s;
             uint32_t dst_idx = range.start + s;
-            struct Node* sib = NU_Layer_Get(layer, src_idx);
-            struct Node* dest = NU_Layer_Get(layer, dst_idx);
+            Node* sib = NU_Layer_Get(layer, src_idx);
+            Node* dest = NU_Layer_Get(layer, dst_idx);
             *dest = *sib;                   // Copy the struct
             dest->index = dst_idx;          // Fix index (FIX: use dst_idx, not range.start + s)
             dest->nodeState = true;
@@ -507,7 +507,7 @@ static void NU_Delete_Node_Branch(struct Node* node)
             NU_Layer* sibling_child_layer = &__NGUI.tree.layers[range.layer + 1];
             if (dest->childCount > 0 && sibling_child_layer->size > 0) {
                 for (uint16_t c = dest->firstChildIndex; c < dest->firstChildIndex + dest->childCount; c++) {
-                    struct Node* child = NU_Layer_Get(sibling_child_layer, c);
+                    Node* child = NU_Layer_Get(sibling_child_layer, c);
                     if (child) {
                         child->parentIndex = dst_idx;  // FIX: use dst_idx
                     }
@@ -540,7 +540,7 @@ static void NU_Delete_Node_Branch(struct Node* node)
 
 void NU_Internal_Delete_Node(uint32_t handle)
 {
-    struct Node* node = NODE(handle);
+    Node* node = NODE(handle);
 
     // Case 1: Deleting root node (Cannot do this!)
     if (node->layer == 0) return;
@@ -575,12 +575,12 @@ void NU_Internal_Delete_Node(uint32_t handle)
 // ---------------------------
 // --- Node Move Functions ---
 // ---------------------------
-void NU_Reparent_Node(struct Node* node, struct Node* new_parent)
+void NU_Reparent_Node(Node* node, Node* new_parent)
 {
 
 }
 
-void NU_Reorder_In_Parent(struct Node* node, uint32_t index) 
+void NU_Reorder_In_Parent(Node* node, uint32_t index) 
 {
 
 }
@@ -595,7 +595,7 @@ void NU_Reorder_In_Parent(struct Node* node, uint32_t index)
 // -------------------------------------
 void NU_Internal_Set_Class(uint32_t handle, char* class)
 {
-    struct Node* node = NODE(handle);
+    Node* node = NODE(handle);
      node->class = NULL;
 
     // Look for class in gui class string set

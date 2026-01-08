@@ -1,55 +1,69 @@
 #pragma once
 #include <stdint.h>
+#include <datastructures/string.h>
+#include <datastructures/utf8_parser_word.h>
 #include "nu_xml_tokens.h"
 #include "nu_xml_grammar_assertions.h"
 
-void NU_Tokenise(char* src, uint32_t srcLen, Vector* tokenVectorOut, Vector* textRefsOut)
+void NU_Tokenise(String src, Vector* tokenVectorOut, Vector* textRefsOut)
 {
-    char word[256];
-    uint8_t  wordLen     = 0;
+    ParserWord word;
+    ParserWordInit(&word);
     uint32_t textLen     = 0;
     uint32_t trailingWS  = 0;
     uint8_t  ctx         = 0; // 0: globalspace, 1: commentspace, 2: tagspace, 3: property valuespace
     uint8_t  seenTagName = 0;
     
-    
-    uint32_t i = 0;
+    // iterate over src file
+    uint32_t srcLen = StringLen(src);
+    int i = 0;
     while (i < srcLen)
-    {
-        char c = src[i];
+    {   
+        uint32_t c = NextUTF8Codepoint(src, &i);
 
         // comment begins
-        if (ctx == 0 && i < srcLen-3 && c == '<' && src[i+1] == '!' && src[i+2] == '-' && src[i+3] == '-') {
-            ctx=1; i+=4; continue; // ^
+        int peekI = i;
+        if (ctx == 0 && i < srcLen-3 
+            && c == '<' 
+            && NextUTF8Codepoint(src, &peekI) == '!' 
+            && NextUTF8Codepoint(src, &peekI) == '-' 
+            && NextUTF8Codepoint(src, &peekI) == '-') {
+            i=peekI; ctx=1; continue; // ^
         }
 
         // comment ends
-        if (ctx == 1 && i < srcLen-2 && c == '-' && src[i+1] == '-' && src[i+2] == '>') {
-            ctx=0; i+=3; continue; // ^
+        peekI = i;
+        if (ctx == 1 && i < srcLen-2 
+            && c == '-' 
+            && NextUTF8Codepoint(src, &peekI) == '-' 
+            && NextUTF8Codepoint(src, &peekI) == '>') {
+            i=peekI; ctx=0; continue; // ^
         }
 
         // in comment
         if (ctx == 1) {
-            i+=1; continue; // ^
+            continue; // ^
         }
 
         // in globalspace
         if (ctx == 0) 
         {
             // open end tag </
-            if (i < srcLen-1 && c == '<' && src[i+1] == '/') {
+            peekI = i;
+            if (i < srcLen-1 && c == '<' && NextUTF8Codepoint(src, &peekI) == '/') {
+    
                 // add text content token and text reference
                 if (textLen > 0) {
                     enum NU_XML_TOKEN t = TEXT_CONTENT;
                     Vector_Push(tokenVectorOut, &t);
-                    Text_Ref ref = { tokenVectorOut->size, i - textLen, textLen };
+                    Text_Ref ref = { tokenVectorOut->size, i - textLen - 1, textLen };
                     Vector_Push(textRefsOut, &ref);
                     textLen=0;
                 }
 
                 enum NU_XML_TOKEN t = OPEN_END_TAG;
                 Vector_Push(tokenVectorOut, &t);
-                wordLen=0; ctx=2; i+=2; seenTagName=0; continue; // ^
+                ParserWordClear(&word); i=peekI; ctx=2; seenTagName=0; continue; // ^
             }
 
             // tag opens
@@ -58,26 +72,26 @@ void NU_Tokenise(char* src, uint32_t srcLen, Vector* tokenVectorOut, Vector* tex
                 if (textLen > 0) {
                     enum NU_XML_TOKEN t = TEXT_CONTENT;
                     Vector_Push(tokenVectorOut, &t);
-                    Text_Ref ref = { tokenVectorOut->size, i - textLen, textLen };
+                    Text_Ref ref = { tokenVectorOut->size, i - textLen - 1, textLen };
                     Vector_Push(textRefsOut, &ref);
                     textLen=0;
                 }
 
                 enum NU_XML_TOKEN t = OPEN_TAG;
                 Vector_Push(tokenVectorOut, &t);
-                wordLen=0; ctx=2; i+=1; seenTagName=0; continue; // ^
+                ParserWordClear(&word); ctx=2; seenTagName=0; continue; // ^
             }
 
             // text starts
             if (textLen == 0) {
-                if (c != ' ' && c != '\t' && c != '\n') {
+                if (c != ' ' && c != '\t' && c != '\n' && c != '\r') {
                     textLen = 1;
                     trailingWS = 0;
                 }
             }
             // text continues
             else {
-                if (c == ' ' || c == '\t' || c == '\n') {
+                if (c == ' ' || c == '\t' || c == '\n' || c == '\r') {
                     trailingWS += 1;  // temporarily count as trailing
                 } else {
                     // a meaningful char after some trailing spaces
@@ -85,86 +99,87 @@ void NU_Tokenise(char* src, uint32_t srcLen, Vector* tokenVectorOut, Vector* tex
                     trailingWS = 0;
                 }
             }
-            i+=1; continue; // ^
+            continue; // ^
         }
 
         // in tagspace
         if (ctx == 2)
         {
             // self closing tag end
-            if (i < srcLen-1 && c == '/' && src[i+1] == '>') 
+            peekI = i;
+            if (i < srcLen-1 && c == '/' && NextUTF8Codepoint(src, &peekI) == '>') 
             {
                 // word ends -> convert to property token
-                if (wordLen > 0) {
-                    enum NU_XML_TOKEN t = NU_Word_To_Token(word, wordLen);
+                if (word.length > 0) {
+                    enum NU_XML_TOKEN t = NU_Word_To_Token(word.buffer, word.length);
                     Vector_Push(tokenVectorOut, &t);
-                    wordLen=0;
+                    ParserWordClear(&word);
                 }
 
                 enum NU_XML_TOKEN t = CLOSE_END_TAG;
                 Vector_Push(tokenVectorOut, &t);
-                ctx=0; i+=2; continue; // ^
+                i=peekI; ctx=0; continue; // ^
             }
 
             // tag ends
             if (c == '>') 
             {
                 // word ends -> convert to property token
-                if (wordLen > 0) {
-                    enum NU_XML_TOKEN t = NU_Word_To_Token(word, wordLen);
+                if (word.length > 0) {
+                    enum NU_XML_TOKEN t = NU_Word_To_Token(word.buffer, word.length);
                     Vector_Push(tokenVectorOut, &t);
-                    wordLen=0;
+                    ParserWordClear(&word);
                 }
 
                 enum NU_XML_TOKEN t = CLOSE_TAG;
                 Vector_Push(tokenVectorOut, &t);
-                ctx=0; i+=1; continue; // ^
+                ctx=0; continue; // ^
             }
             
             // property assignment
             if (c == '=') {
                 // word ends -> convert to tag token
-                if (wordLen > 0) {
-                    enum NU_XML_TOKEN t = NU_Word_To_Property_Token(word, wordLen);
+                if (word.length > 0) {
+                    enum NU_XML_TOKEN t = NU_Word_To_Property_Token(word.buffer, word.length);
                     Vector_Push(tokenVectorOut, &t);
-                    wordLen=0;
+                    ParserWordClear(&word);
                 }
 
                 enum NU_XML_TOKEN t = PROPERTY_ASSIGNMENT;
                 Vector_Push(tokenVectorOut, &t);
-                i+=1; continue; // ^
+                continue; // ^
             }
 
             // property value begins
             if (c == '"') {
-                if (wordLen > 0) { // word ends (there shouldn't be a word here, so this will trigger an error in the parser)
-                    enum NU_XML_TOKEN t = NU_Word_To_Token(word, wordLen);
+                if (word.length > 0) { // word ends (there shouldn't be a word here, so this will trigger an error in the parser)
+                    enum NU_XML_TOKEN t = NU_Word_To_Token(word.buffer, word.length);
                     Vector_Push(tokenVectorOut, &t);
-                    wordLen=0;
+                    ParserWordClear(&word);
                 }
-                textLen=0; ctx=3; i+=1; continue; // ^
+                ctx=3; continue; // ^
             }
 
-            if (c == '\t' || c == '\n' || c == ' ') {
+            if (c == '\t' || c == '\n' || c == '\r' || c == ' ') {
                 // word ends
-                if (wordLen > 0) {
+                if (word.length > 0) {
                     enum NU_XML_TOKEN t;
                     if (seenTagName == 0) {
                         seenTagName=1;
-                        t = NU_Word_To_Tag_Token(word, wordLen);
+                        t = NU_Word_To_Tag_Token(word.buffer, word.length);
                     } 
                     else {
-                        t = NU_Word_To_Property_Token(word, wordLen);
+                        t = NU_Word_To_Property_Token(word.buffer, word.length);
                     }
                     Vector_Push(tokenVectorOut, &t);
-                    wordLen=0;
+                    ParserWordClear(&word);
                 }
             }
             else {
                 // word accumulates
-                word[wordLen]=c; wordLen+=1;
+                ParserWordAppend(&word, c);
             }
-            i+=1; continue; // ^
+            continue; // ^
         }
 
         // in property value space
@@ -172,17 +187,17 @@ void NU_Tokenise(char* src, uint32_t srcLen, Vector* tokenVectorOut, Vector* tex
 
             // property value ends
             if (c == '"') {
-                if (textLen > 0) {
-                    struct Text_Ref ref = { tokenVectorOut->size, i-textLen, textLen };
+                if (word.length > 0) {
+                    struct Text_Ref ref = { tokenVectorOut->size, i - word.length - 1, word.length };
                     Vector_Push(textRefsOut, &ref);
-                    textLen=0;
+                    ParserWordClear(&word);
                 }
                 enum NU_XML_TOKEN t = PROPERTY_VALUE;
                 Vector_Push(tokenVectorOut, &t);
-                ctx=2; i+=1; continue; // ^
+                ctx=2; continue; // ^
             }
 
-            textLen+=1; i+=1; continue; // ^
+            ParserWordAppend(&word, c); continue; // ^
         }
     }
 }

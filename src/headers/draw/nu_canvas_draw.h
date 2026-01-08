@@ -16,7 +16,7 @@ void NU_Internal_Border_Rect(
     NU_RGB* border_col,
     NU_RGB* fill_col)
 {
-    struct Node* canvas_node = NODE(canvas_handle);
+    Node* canvas_node = NODE(canvas_handle);
     if (canvas_node->tag != CANVAS) return;
 
     NU_Canvas_Context* canvas_context = HashmapGet(&__NGUI.canvas_contexts, &canvas_handle);
@@ -173,7 +173,7 @@ void NU_Internal_Line(
     NU_RGB* col
 )
 {
-    struct Node* canvas_node = NODE(canvas_handle);
+    Node* canvas_node = NODE(canvas_handle);
     if (canvas_node->tag != CANVAS) return;
 
     NU_Canvas_Context* canvas_context = HashmapGet(&__NGUI.canvas_contexts, &canvas_handle);
@@ -258,7 +258,7 @@ void NU_Internal_Dashed_Line(
     NU_RGB* col
 )
 {
-    struct Node* canvas_node = NODE(canvas_handle);
+    Node* canvas_node = NODE(canvas_handle);
     if (canvas_node->tag != CANVAS) return;
 
 

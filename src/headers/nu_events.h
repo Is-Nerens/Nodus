@@ -54,7 +54,7 @@ struct NU_Callback_Info
 
 void NU_Internal_Register_Event(uint32_t node_handle, void* args, NU_Callback callback, enum NU_Event_Type event_type)
 {
-    struct Node* node = NODE(node_handle);
+    Node* node = NODE(node_handle);
     struct NU_Event event = {0}; event.handle = node_handle;
     struct NU_Callback_Info cb_info = { event, args, callback };
     
@@ -128,7 +128,7 @@ void Check_For_Resizes_Events()
             if (key == NULL || val == NULL) continue; // Error (shouldn't happen ever)
             uint32_t handle = *(uint32_t*)key; 
             struct NU_Callback_Info* cb_info = (struct NU_Callback_Info*)val;
-            struct Node* node = NODE(handle);
+            Node* node = NODE(handle);
             void* dims_get =  HashmapGet(&__NGUI.node_resize_tracking, &handle);
             if (dims_get == NULL) continue; // Error (shouldn't happen ever)
             NU_Node_Dimensions* dims = (NU_Node_Dimensions*)dims_get;
@@ -264,7 +264,7 @@ bool EventWatcher(void* data, SDL_Event* event)
         // If dragging scrollbar -> update node->scrollV 
         if (__NGUI.scroll_mouse_down_node != UINT32_MAX) 
         {
-            struct Node* node = NODE(__NGUI.scroll_mouse_down_node);
+            Node* node = NODE(__NGUI.scroll_mouse_down_node);
             NU_Layer* child_layer = &__NGUI.tree.layers[node->layer + 1];
 
             // Calculate drag_dist track_height thumb_height
@@ -328,7 +328,7 @@ bool EventWatcher(void* data, SDL_Event* event)
                 __NGUI.scroll_mouse_down_node = __NGUI.scroll_hovered_node;
 
                 // Record scroll thumb grab offset
-                struct Node* node = NODE(__NGUI.scroll_mouse_down_node);
+                Node* node = NODE(__NGUI.scroll_mouse_down_node);
                 float track_height = node->height - node->borderTop - node->borderBottom;
                 float inner_height_w_pad = track_height - node->padTop - node->padBottom;
                 float inner_proportion_of_content_height = inner_height_w_pad / node->contentHeight;
@@ -435,7 +435,7 @@ bool EventWatcher(void* data, SDL_Event* event)
     // -----------------------------------------------------------------------------------
     else if (event->type == SDL_EVENT_MOUSE_WHEEL)
     {
-        struct Node* node = NODE(__NGUI.scroll_hovered_node);
+        Node* node = NODE(__NGUI.scroll_hovered_node);
         if (node != NULL) 
         {
             float track_height = node->height - node->borderTop - node->borderBottom;

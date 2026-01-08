@@ -12,8 +12,6 @@ extern "C" {
 #endif
 
 
-
-
 // Opaque structs
 typedef struct NU_Nodelist NU_Nodelist;
 typedef struct NU_Stylesheet NU_Stylesheet;
@@ -83,7 +81,7 @@ enum Tag
     NAT,
 };
 
-struct Node
+typedef struct Node
 {
     SDL_Window* window;
     char* class;
@@ -120,7 +118,7 @@ struct Node
     char horizontal_text_alignment;
     char vertical_text_alignment;
     bool hide_background;
-};
+} Node;
 typedef struct {
     float r, g, b;
 } NU_RGB;
@@ -170,7 +168,7 @@ __declspec(dllimport) uint32_t NU_Load_Stylesheet(char* css_filepath);
 __declspec(dllimport) int NU_Apply_Stylesheet(uint32_t stylesheet_handle);
 
 // DOM functions
-__declspec(dllimport) inline struct Node* NU_NODE(uint32_t handle);
+__declspec(dllimport) inline Node* NU_NODE(uint32_t handle);
 __declspec(dllimport) uint32_t NU_Get_Node_By_Id(char* id);
 __declspec(dllimport) NU_Nodelist NU_Get_Nodes_By_Class(char* class_name);
 __declspec(dllimport) NU_Nodelist NU_Get_Nodes_By_Tag(enum Tag tag);

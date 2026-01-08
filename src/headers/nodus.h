@@ -83,7 +83,7 @@ struct NU_GUI
 struct NU_GUI __NGUI;
 
 
-inline struct Node* NODE(uint32_t handle)
+inline Node* NODE(uint32_t handle)
 {
     if (handle >= __NGUI.tree.node_table.capacity) return NULL;
     uint32_t rem = handle & 7;                                // i % 8
@@ -132,7 +132,7 @@ int NU_Internal_Init()
 
     // Draw lists and clipping 
     Vector_Reserve(&__NGUI.windowsDrawLists, sizeof(NU_Window_Draw_Lists), 8);
-    Vector_Reserve(&__NGUI.absoluteRootNodes, sizeof(struct Node*), 8);
+    Vector_Reserve(&__NGUI.absoluteRootNodes, sizeof(Node*), 8);
     HashmapInit(&__NGUI.node_clip_map, sizeof(uint32_t), sizeof(NU_Clip_Bounds), 16);
 
     // Events
@@ -174,10 +174,10 @@ int NU_Internal_Init()
     return 1; // Success
 }
 
-uint32_t NU_Internal_Load_Stylesheet(char* css_filepath)
+uint32_t NU_Internal_Load_Stylesheet(char* filepath)
 {
     NU_Stylesheet* stylesheet = Vector_Create_Uninitialised(&__NGUI.stylesheets);
-    if (!NU_Stylesheet_Create(stylesheet, css_filepath)) return 0; // Failure
+    if (!NU_Stylesheet_Create(stylesheet, filepath)) return 0; // Failure
     uint32_t stylesheet_handle = __NGUI.stylesheets.size;
     if (__NGUI.stylesheets.size == 1) { // If this is the first stylesheet -> auto apply
         NU_Internal_Apply_Stylesheet(stylesheet_handle);

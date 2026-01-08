@@ -12,19 +12,19 @@
 // --- UI layout -------------
 // ---------------------------
 
-static void NU_Apply_Min_Max_Size_Constraint(struct Node* node)
+static void NU_Apply_Min_Max_Size_Constraint(Node* node)
 {   
     node->width = min(max(node->width, node->minWidth), node->maxWidth);
     node->height = min(max(node->height, node->minHeight), node->maxHeight);
 }
 
-static void NU_Apply_Min_Max_Width_Constraint(struct Node* node)
+static void NU_Apply_Min_Max_Width_Constraint(Node* node)
 {
     node->width = min(max(node->width, node->minWidth), node->maxWidth);
     node->width = max(node->width, node->preferred_width);
 }
 
-static void NU_Apply_Min_Max_Height_Constraint(struct Node* node)
+static void NU_Apply_Min_Max_Height_Constraint(Node* node)
 {
     node->height = min(max(node->height, node->minHeight), node->maxHeight);
     node->height = max(node->height, node->preferred_height);
@@ -40,13 +40,13 @@ static void NU_Clear_Node_Sizes()
         // Iterate over parent layer
         for (int p=0; p<parent_layer->size; p++)
         {       
-            struct Node* parent = NU_Layer_Get(parent_layer, p); if (parent->nodeState == 0) continue;
+            Node* parent = NU_Layer_Get(parent_layer, p); if (parent->nodeState == 0) continue;
             parent->clippingRootHandle = UINT32_MAX;
 
             // Iterate over children
             for (uint16_t i=parent->firstChildIndex; i<parent->firstChildIndex + parent->childCount; i++)
             {
-                struct Node* child = NU_Layer_Get(child_layer, i);
+                Node* child = NU_Layer_Get(child_layer, i);
 
                 // Hide child if parent is hidden or child is hidden
                 child->nodeState = 1;
@@ -101,7 +101,7 @@ static void NU_Calculate_Text_Fit_Widths()
         #pragma omp parallel for
         for (uint32_t n=0; n<layer->size; n++)
         {   
-            struct Node* node = &layer->node_array[n];
+            Node* node = &layer->node_array[n];
             if (node->nodeState == 0 || node->nodeState == 2) continue;
 
             if (node->textContent != NULL) 
@@ -136,7 +136,7 @@ static void NU_Calculate_Fit_Size_Widths()
         // Iterate over parent layer
         for (uint32_t p=0; p<parent_layer->size; p++)
         {       
-            struct Node* parent = NU_Layer_Get(parent_layer, p);
+            Node* parent = NU_Layer_Get(parent_layer, p);
             if (parent->nodeState == 0 || parent->nodeState == 2) continue;
             int is_layout_horizontal = !(parent->layoutFlags & LAYOUT_VERTICAL);
 
@@ -155,7 +155,7 @@ static void NU_Calculate_Fit_Size_Widths()
             int visible_children = 0;
             for (uint16_t i=parent->firstChildIndex; i<parent->firstChildIndex + parent->childCount; i++)
             {
-                struct Node* child = NU_Layer_Get(child_layer, i); 
+                Node* child = NU_Layer_Get(child_layer, i); 
 
                 // Ignore if child is hidden or window or absolutely positioned
                 if (child->nodeState == 2 || child->tag == WINDOW || child->layoutFlags & POSITION_ABSOLUTE) continue; 
@@ -190,7 +190,7 @@ static void NU_Calculate_Fit_Size_Heights()
         // Iterate over parent layer
         for (uint32_t p=0; p<parent_layer->size; p++)
         {       
-            struct Node* parent = NU_Layer_Get(parent_layer, p);
+            Node* parent = NU_Layer_Get(parent_layer, p);
             if (parent->nodeState == 0 || parent->nodeState == 2) continue;
             int is_layout_horizontal = !(parent->layoutFlags & LAYOUT_VERTICAL);
 
@@ -201,7 +201,7 @@ static void NU_Calculate_Fit_Size_Heights()
             int visible_children = 0;
             for (uint16_t i=parent->firstChildIndex; i<parent->firstChildIndex + parent->childCount; i++)
             {
-                struct Node* child = NU_Layer_Get(child_layer, i);
+                Node* child = NU_Layer_Get(child_layer, i);
 
                 // Ignore if child is hidden or window or absolutely positioned
                 if (child->nodeState == 2 || child->tag == WINDOW || child->layoutFlags & POSITION_ABSOLUTE) continue;
@@ -225,7 +225,7 @@ static void NU_Calculate_Fit_Size_Heights()
     }
 }
 
-static void NU_Grow_Shrink_Child_Node_Widths(struct Node* parent, NU_Layer* child_layer)
+static void NU_Grow_Shrink_Child_Node_Widths(Node* parent, NU_Layer* child_layer)
 {
     float remaining_width = parent->width - parent->padLeft - parent->padRight - parent->borderLeft - parent->borderRight;
 
@@ -234,7 +234,7 @@ static void NU_Grow_Shrink_Child_Node_Widths(struct Node* parent, NU_Layer* chil
     // ---------------------------------------------------------------------------------------
     for (uint16_t i=parent->firstChildIndex; i<parent->firstChildIndex + parent->childCount; i++)
     {
-        struct Node* child = NU_Layer_Get(child_layer, i); if (child->nodeState == 2 || child->tag == WINDOW || !(child->layoutFlags & POSITION_ABSOLUTE)) continue;
+        Node* child = NU_Layer_Get(child_layer, i); if (child->nodeState == 2 || child->tag == WINDOW || !(child->layoutFlags & POSITION_ABSOLUTE)) continue;
         if (child->left > 0.0f && child->right > 0.0f) {
             float expanded_width = remaining_width - child->left - child->right;
             if (expanded_width > child->width) child->width = expanded_width;
@@ -251,7 +251,7 @@ static void NU_Grow_Shrink_Child_Node_Widths(struct Node* parent, NU_Layer* chil
     {   
         for (uint16_t i=parent->firstChildIndex; i<parent->firstChildIndex + parent->childCount; i++)
         {
-            struct Node* child = NU_Layer_Get(child_layer, i); if (child->nodeState == 2 || child->tag == WINDOW || child->layoutFlags & POSITION_ABSOLUTE) continue;
+            Node* child = NU_Layer_Get(child_layer, i); if (child->nodeState == 2 || child->tag == WINDOW || child->layoutFlags & POSITION_ABSOLUTE) continue;
             if (child->layoutFlags & GROW_HORIZONTAL && remaining_width > child->width)
             {
                 float pad_and_border = child->padLeft + child->padRight + child->borderLeft + child->borderRight;
@@ -274,7 +274,7 @@ static void NU_Grow_Shrink_Child_Node_Widths(struct Node* parent, NU_Layer* chil
         int visible_children = 0;
         for (uint16_t i=parent->firstChildIndex; i<parent->firstChildIndex + parent->childCount; i++)
         {
-            struct Node* child = NU_Layer_Get(child_layer, i); if (child->nodeState == 2 || child->tag == WINDOW  || child->layoutFlags & POSITION_ABSOLUTE) continue;
+            Node* child = NU_Layer_Get(child_layer, i); if (child->nodeState == 2 || child->tag == WINDOW  || child->layoutFlags & POSITION_ABSOLUTE) continue;
             else remaining_width -= child->width;
             if (child->layoutFlags & GROW_HORIZONTAL && child->tag != WINDOW) growable_count++;
             visible_children++;
@@ -294,7 +294,7 @@ static void NU_Grow_Shrink_Child_Node_Widths(struct Node* parent, NU_Layer* chil
             float second_smallest = 1e30f;
             growable_count = 0;
             for (uint16_t i=parent->firstChildIndex; i<parent->firstChildIndex + parent->childCount; i++) {
-                struct Node* child = NU_Layer_Get(child_layer, i); if (child->nodeState == 2 || child->tag == WINDOW || child->layoutFlags & POSITION_ABSOLUTE) continue;
+                Node* child = NU_Layer_Get(child_layer, i); if (child->nodeState == 2 || child->tag == WINDOW || child->layoutFlags & POSITION_ABSOLUTE) continue;
                 if ((child->layoutFlags & GROW_HORIZONTAL) && child->width < child->maxWidth) {
                     growable_count++;
                     if (child->width < smallest) {
@@ -319,7 +319,7 @@ static void NU_Grow_Shrink_Child_Node_Widths(struct Node* parent, NU_Layer* chil
             // -----------------------------------------
             bool grew_any = false;
             for (uint16_t i=parent->firstChildIndex; i<parent->firstChildIndex + parent->childCount; i++) {
-                struct Node* child = NU_Layer_Get(child_layer, i); if (child->nodeState == 2 || child->tag == WINDOW || child->layoutFlags & POSITION_ABSOLUTE) continue;        
+                Node* child = NU_Layer_Get(child_layer, i); if (child->nodeState == 2 || child->tag == WINDOW || child->layoutFlags & POSITION_ABSOLUTE) continue;        
                 if (child->layoutFlags & GROW_HORIZONTAL && child->width < child->maxWidth) { // if child is growable
                     if (child->width == smallest) {
                         float available = child->maxWidth - child->width;
@@ -348,7 +348,7 @@ static void NU_Grow_Shrink_Child_Node_Widths(struct Node* parent, NU_Layer* chil
             float second_largest = -1e30f;
             int shrinkable_count = 0;
             for (uint16_t i = parent->firstChildIndex; i<parent->firstChildIndex + parent->childCount; i++) {
-                struct Node* child = NU_Layer_Get(child_layer, i); if (child->nodeState == 2 || child->tag == WINDOW || child->layoutFlags & POSITION_ABSOLUTE) continue;
+                Node* child = NU_Layer_Get(child_layer, i); if (child->nodeState == 2 || child->tag == WINDOW || child->layoutFlags & POSITION_ABSOLUTE) continue;
                 if ((child->layoutFlags & GROW_HORIZONTAL) && child->width > child->minWidth) {
                     shrinkable_count++;
                     if (child->width > largest) {
@@ -373,7 +373,7 @@ static void NU_Grow_Shrink_Child_Node_Widths(struct Node* parent, NU_Layer* chil
             // -------------------------------------------
             bool shrunk_any = false;
             for (uint16_t i=parent->firstChildIndex; i<parent->firstChildIndex + parent->childCount; i++) {
-                struct Node* child = NU_Layer_Get(child_layer, i); if (child->nodeState == 2 || child->tag == WINDOW || child->layoutFlags & POSITION_ABSOLUTE) continue;
+                Node* child = NU_Layer_Get(child_layer, i); if (child->nodeState == 2 || child->tag == WINDOW || child->layoutFlags & POSITION_ABSOLUTE) continue;
                 if ((child->layoutFlags & GROW_HORIZONTAL) && child->width > child->minWidth) {
                     if (child->width == largest) {
                         float available = child->width - child->minWidth;
@@ -392,7 +392,7 @@ static void NU_Grow_Shrink_Child_Node_Widths(struct Node* parent, NU_Layer* chil
     }
 }
 
-static void NU_Grow_Shrink_Child_Node_Heights(struct Node* parent, NU_Layer* child_layer)
+static void NU_Grow_Shrink_Child_Node_Heights(Node* parent, NU_Layer* child_layer)
 {
     float remaining_height = parent->height - parent->padTop - parent->padBottom - parent->borderTop - parent->borderBottom;
     
@@ -401,7 +401,7 @@ static void NU_Grow_Shrink_Child_Node_Heights(struct Node* parent, NU_Layer* chi
     // ----------------------------------------------------------------------------------------
     for (uint16_t i=parent->firstChildIndex; i<parent->firstChildIndex + parent->childCount; i++)
     {
-        struct Node* child = NU_Layer_Get(child_layer, i); if (child->nodeState == 2 || child->tag == WINDOW || !(child->layoutFlags & POSITION_ABSOLUTE)) continue;
+        Node* child = NU_Layer_Get(child_layer, i); if (child->nodeState == 2 || child->tag == WINDOW || !(child->layoutFlags & POSITION_ABSOLUTE)) continue;
         if (child->top > 0.0f && child->bottom > 0.0f) {
             float expanded_height = remaining_height - child->top - child->bottom;
             if (expanded_height > child->height) child->height = expanded_height;
@@ -415,7 +415,7 @@ static void NU_Grow_Shrink_Child_Node_Heights(struct Node* parent, NU_Layer* chi
     {
         for (uint16_t i=parent->firstChildIndex; i<parent->firstChildIndex + parent->childCount; i++)
         {
-            struct Node* child = NU_Layer_Get(child_layer, i); if (child->nodeState == 2 || child->tag == WINDOW || child->layoutFlags & POSITION_ABSOLUTE) continue;
+            Node* child = NU_Layer_Get(child_layer, i); if (child->nodeState == 2 || child->tag == WINDOW || child->layoutFlags & POSITION_ABSOLUTE) continue;
             if (child->layoutFlags & GROW_VERTICAL && remaining_height > child->height)
             {  
                 float pad_and_border = child->padTop + child->padBottom + child->borderTop + child->borderBottom;
@@ -434,7 +434,7 @@ static void NU_Grow_Shrink_Child_Node_Heights(struct Node* parent, NU_Layer* chi
         int visible_children = 0;
         for (uint16_t i=parent->firstChildIndex; i<parent->firstChildIndex + parent->childCount; i++)
         {
-            struct Node* child = NU_Layer_Get(child_layer, i);
+            Node* child = NU_Layer_Get(child_layer, i);
             if (child->nodeState == 2 || child->tag == WINDOW || child->layoutFlags & POSITION_ABSOLUTE) continue;
             else remaining_height -= child->height;
             if (child->layoutFlags & GROW_VERTICAL && child->tag != WINDOW) growable_count++;
@@ -455,7 +455,7 @@ static void NU_Grow_Shrink_Child_Node_Heights(struct Node* parent, NU_Layer* chi
             float second_smallest = 1e30f;
             growable_count = 0;
             for (uint16_t i=parent->firstChildIndex; i< parent->firstChildIndex + parent->childCount; i++) {
-                struct Node* child = NU_Layer_Get(child_layer, i); if (child->nodeState == 2 || child->tag == WINDOW || child->layoutFlags & POSITION_ABSOLUTE) continue;
+                Node* child = NU_Layer_Get(child_layer, i); if (child->nodeState == 2 || child->tag == WINDOW || child->layoutFlags & POSITION_ABSOLUTE) continue;
                 if ((child->layoutFlags & GROW_VERTICAL) && child->height < child->maxHeight) {
                     growable_count++;
                     if (child->height < smallest) {
@@ -480,7 +480,7 @@ static void NU_Grow_Shrink_Child_Node_Heights(struct Node* parent, NU_Layer* chi
             // ------------------------------------------
             bool grew_any = false;
             for (uint16_t i=parent->firstChildIndex; i<parent->firstChildIndex + parent->childCount; i++) {
-                struct Node* child = NU_Layer_Get(child_layer, i); if (child->nodeState == 2 || child->tag == WINDOW || child->layoutFlags & POSITION_ABSOLUTE) continue;
+                Node* child = NU_Layer_Get(child_layer, i); if (child->nodeState == 2 || child->tag == WINDOW || child->layoutFlags & POSITION_ABSOLUTE) continue;
                 if (child->layoutFlags & GROW_VERTICAL && child->height < child->maxHeight) { // if child is growable
                     if (child->height == smallest) {
                         float available = child->maxHeight - child->height;
@@ -509,7 +509,7 @@ static void NU_Grow_Shrink_Child_Node_Heights(struct Node* parent, NU_Layer* chi
             float second_largest = -1e30f;
             int shrinkable_count = 0;
             for (uint16_t i = parent->firstChildIndex; i<parent->firstChildIndex + parent->childCount; i++) {
-                struct Node* child = NU_Layer_Get(child_layer, i); if (child->nodeState == 2 || child->tag == WINDOW || child->layoutFlags & POSITION_ABSOLUTE) continue;
+                Node* child = NU_Layer_Get(child_layer, i); if (child->nodeState == 2 || child->tag == WINDOW || child->layoutFlags & POSITION_ABSOLUTE) continue;
                 if ((child->layoutFlags & GROW_VERTICAL) && child->height > child->minHeight) {
                     shrinkable_count++;
                     if (child->height > largest) {
@@ -534,7 +534,7 @@ static void NU_Grow_Shrink_Child_Node_Heights(struct Node* parent, NU_Layer* chi
             // -------------------------------------------
             bool shrunk_any = false;
             for (uint16_t i=parent->firstChildIndex; i<parent->firstChildIndex + parent->childCount; i++) {
-                struct Node* child = NU_Layer_Get(child_layer, i); if (child->nodeState == 2 || child->tag == WINDOW || child->layoutFlags & POSITION_ABSOLUTE) continue;
+                Node* child = NU_Layer_Get(child_layer, i); if (child->nodeState == 2 || child->tag == WINDOW || child->layoutFlags & POSITION_ABSOLUTE) continue;
                 if ((child->layoutFlags & GROW_VERTICAL) && child->height > child->minHeight) {
                     if (child->height == largest) {
                         float available = child->height - child->minHeight;
@@ -562,7 +562,7 @@ static void NU_Grow_Shrink_Widths()
 
         for (int p=0; p<parent_layer->size; p++)
         {       
-            struct Node* parent = NU_Layer_Get(parent_layer, p);
+            Node* parent = NU_Layer_Get(parent_layer, p);
             if (parent->nodeState == 0 || parent->nodeState == 2 || parent->tag == ROW || parent->tag == TABLE) continue;
 
             NU_Grow_Shrink_Child_Node_Widths(parent, child_layer);
@@ -579,7 +579,7 @@ static void NU_Grow_Shrink_Heights()
 
         for (int p=0; p<parent_layer->size; p++)
         {       
-            struct Node* parent = NU_Layer_Get(parent_layer, p);
+            Node* parent = NU_Layer_Get(parent_layer, p);
             if (parent->nodeState == 0 || parent->nodeState == 2 || parent->tag == TABLE) continue;
 
             NU_Grow_Shrink_Child_Node_Heights(parent, child_layer);
@@ -595,7 +595,7 @@ static void NU_Calculate_Table_Column_Widths()
 
         for (int i=0; i<table_layer->size; i++)
         {       
-            struct Node* table = NU_Layer_Get(table_layer, i);
+            Node* table = NU_Layer_Get(table_layer, i);
             if (table->nodeState == 0 || table->nodeState == 2 || table->tag != TABLE || table->childCount == 0) continue;
 
 
@@ -608,7 +608,7 @@ static void NU_Calculate_Table_Column_Widths()
             // ------------------------------------------------------------
             for (uint16_t r=table->firstChildIndex; r<table->firstChildIndex + table->childCount; r++)
             {
-                struct Node* row = NU_Layer_Get(row_layer, r);
+                Node* row = NU_Layer_Get(row_layer, r);
                 if (row->nodeState == 2 || row->childCount == 0) break;
 
                 // Iterate over cells in row
@@ -624,7 +624,7 @@ static void NU_Calculate_Table_Column_Widths()
 
                     // Get current column width and update if cell is wider
                     float* val = Vector_Get(&widest_cell_in_each_column, cell_index);
-                    struct Node* cell = NU_Layer_Get(cell_layer, c);
+                    Node* cell = NU_Layer_Get(cell_layer, c);
                     if (cell->nodeState == 2) continue;
                     if (cell->width > *val) {
                         *val = cell->width;
@@ -646,7 +646,7 @@ static void NU_Calculate_Table_Column_Widths()
             // Interate over all the rows in the table
             for (uint16_t r=table->firstChildIndex; r<table->firstChildIndex + table->childCount; r++)
             {
-                struct Node* row = NU_Layer_Get(row_layer, r);
+                Node* row = NU_Layer_Get(row_layer, r);
                 if (row->nodeState == 2) continue;
                 NU_Layer* cell_layer = &__NGUI.tree.layers[l+2];
 
@@ -657,7 +657,7 @@ static void NU_Calculate_Table_Column_Widths()
                 if (row->gap != 0.0f) {
                     int visible_cells = 0;
                     for (uint16_t c=row->firstChildIndex; c<row->firstChildIndex + row->childCount; c++) {
-                        struct Node* cell = NU_Layer_Get(cell_layer, c);
+                        Node* cell = NU_Layer_Get(cell_layer, c);
                         if (cell->nodeState == 2) continue;
                         visible_cells++;
                     }
@@ -668,7 +668,7 @@ static void NU_Calculate_Table_Column_Widths()
                 int cell_index = 0;
                 for (uint16_t c=row->firstChildIndex; c<row->firstChildIndex + row->childCount; c++)
                 {
-                    struct Node* cell = NU_Layer_Get(cell_layer, c);
+                    Node* cell = NU_Layer_Get(cell_layer, c);
                     if (cell->nodeState == 2) continue;
                     float column_width = *(float*)Vector_Get(&widest_cell_in_each_column, cell_index);
                     float proportion = column_width / (used_table_width);
@@ -691,7 +691,7 @@ static void NU_Calculate_Text_Heights()
         // Iterate over layer
         for (int i=0; i<layer->size; i++)
         {       
-            struct Node* node = &layer->node_array[i];
+            Node* node = &layer->node_array[i];
             if (node->nodeState == 0 || node->nodeState == 2) continue;
 
             if (node->textContent != NULL) 
@@ -715,14 +715,14 @@ static void NU_Calculate_Text_Heights()
     }
 }
 
-static void NU_Horizontally_Place_Children(struct Node* parent, NU_Layer* child_layer)
+static void NU_Horizontally_Place_Children(Node* parent, NU_Layer* child_layer)
 {
     // Children placed top to bottom
     if (parent->layoutFlags & LAYOUT_VERTICAL)
     {   
         for (uint16_t i=parent->firstChildIndex; i<parent->firstChildIndex + parent->childCount; i++)
         {
-            struct Node* child = NU_Layer_Get(child_layer, i);
+            Node* child = NU_Layer_Get(child_layer, i);
             if (child->nodeState == 2) continue;
 
             // Position absolute
@@ -755,7 +755,7 @@ static void NU_Horizontally_Place_Children(struct Node* parent, NU_Layer* child_
         float remaining_width = (parent->width - parent->padLeft - parent->padRight - parent->borderLeft - parent->borderRight) - (parent->childCount - 1) * parent->gap - (!!(parent->layoutFlags & OVERFLOW_VERTICAL_SCROLL)) * 8.0f;
         for (uint16_t i=parent->firstChildIndex; i<parent->firstChildIndex + parent->childCount; i++)
         {
-            struct Node* child = NU_Layer_Get(child_layer, i);
+            Node* child = NU_Layer_Get(child_layer, i);
             if (child->nodeState == 2) continue;
             if (child->layoutFlags & POSITION_ABSOLUTE) continue; // Skip because absolute child doen't affect flow
             if (child->tag == WINDOW) remaining_width += parent->gap;
@@ -766,7 +766,7 @@ static void NU_Horizontally_Place_Children(struct Node* parent, NU_Layer* child_
 
         for (uint16_t i=parent->firstChildIndex; i<parent->firstChildIndex + parent->childCount; i++)
         {
-            struct Node* child = NU_Layer_Get(child_layer, i);
+            Node* child = NU_Layer_Get(child_layer, i);
             if (child->nodeState == 2) continue;
             
             // Position absolute
@@ -793,7 +793,7 @@ static void NU_Horizontally_Place_Children(struct Node* parent, NU_Layer* child_
     }
 }
 
-static void NU_Vertically_Place_Children(struct Node* parent, NU_Layer* child_layer)
+static void NU_Vertically_Place_Children(Node* parent, NU_Layer* child_layer)
 {
     float y_scroll_offset = 0.0f;
     if (parent->layoutFlags & OVERFLOW_VERTICAL_SCROLL && parent->childCount > 0 && 
@@ -808,7 +808,7 @@ static void NU_Vertically_Place_Children(struct Node* parent, NU_Layer* child_la
         float scroll_factor = content_scroll_range / max(thumb_scroll_range, 1.0f);
         y_scroll_offset += (-parent->scrollV * (track_h - thumb_h)) * scroll_factor;
 
-        struct Node* first_child = NU_Layer_Get(child_layer, parent->firstChildIndex);
+        Node* first_child = NU_Layer_Get(child_layer, parent->firstChildIndex);
         if (first_child->nodeState != 2 && first_child->tag == THEAD) {
             first_child->y -= y_scroll_offset;
         }
@@ -819,7 +819,7 @@ static void NU_Vertically_Place_Children(struct Node* parent, NU_Layer* child_la
     {   
         for (uint16_t i=parent->firstChildIndex; i<parent->firstChildIndex + parent->childCount; i++)
         {
-            struct Node* child = NU_Layer_Get(child_layer, i);
+            Node* child = NU_Layer_Get(child_layer, i);
             if (child->nodeState == 2) continue;
 
             // Position absolute
@@ -852,7 +852,7 @@ static void NU_Vertically_Place_Children(struct Node* parent, NU_Layer* child_la
         float remaining_height = (parent->height - parent->padTop - parent->padBottom - parent->borderTop - parent->borderBottom) - (parent->childCount - 1) * parent->gap - (!!(parent->layoutFlags & OVERFLOW_HORIZONTAL_SCROLL)) * 8.0f;
         for (uint16_t i=parent->firstChildIndex; i<parent->firstChildIndex + parent->childCount; i++)
         {
-            struct Node* child = NU_Layer_Get(child_layer, i);
+            Node* child = NU_Layer_Get(child_layer, i);
             if (child->nodeState == 2) continue;
             if (child->tag == WINDOW) remaining_height += parent->gap;
             else remaining_height -= child->height;
@@ -862,7 +862,7 @@ static void NU_Vertically_Place_Children(struct Node* parent, NU_Layer* child_la
 
         for (uint16_t i=parent->firstChildIndex; i<parent->firstChildIndex + parent->childCount; i++)
         {
-            struct Node* child = NU_Layer_Get(child_layer, i);
+            Node* child = NU_Layer_Get(child_layer, i);
             if (child->nodeState == 2) continue;
 
             // Position relative
@@ -899,7 +899,7 @@ static void NU_Calculate_Positions()
         // Iterate over parent layer
         for (uint32_t p=0; p<parent_layer->size; p++) // For node in layer
         {   
-            struct Node* parent = NU_Layer_Get(parent_layer, p);
+            Node* parent = NU_Layer_Get(parent_layer, p);
             if (parent->nodeState == 0 || parent->nodeState == 2) continue;
 
             if (parent->tag == WINDOW)
@@ -920,7 +920,7 @@ static void NU_Calculate_Positions()
 // -----------------------------
 // --- Interaction -------------
 // -----------------------------
-static bool NU_Mouse_Over_Node(struct Node* node, float mouse_x, float mouse_y)
+static bool NU_Mouse_Over_Node(Node* node, float mouse_x, float mouse_y)
 {
     // --- Get clipping info
     float left_wall = node->x;
@@ -993,7 +993,7 @@ static bool NU_Mouse_Over_Node(struct Node* node, float mouse_x, float mouse_y)
     return true;
 }
 
-static bool NU_Mouse_Over_Node_V_Scrollbar(struct Node* node, float mouse_x, float mouse_y) {
+static bool NU_Mouse_Over_Node_V_Scrollbar(Node* node, float mouse_x, float mouse_y) {
     float track_height = node->height - node->borderTop - node->borderBottom;
     float thumb_height = (track_height / node->contentHeight) * track_height;
     float scroll_thumb_left_wall = node->x + node->width - node->borderRight - 8.0f;
@@ -1033,14 +1033,14 @@ void NU_Mouse_Hover()
     // --- Create a traversal stack
     // ----------------------------
     struct Vector stack;
-    Vector_Reserve(&stack, sizeof(struct Node*), 32);
+    Vector_Reserve(&stack, sizeof(Node*), 32);
     
     // -----------------------------------------------
     // --- Push all the nodes to start traversing from
     // -----------------------------------------------
     for (uint32_t i=0; i<__NGUI.absoluteRootNodes.size; i++)
     {
-        struct Node* absolute_node = *(struct Node**)Vector_Get(&__NGUI.absoluteRootNodes, i);
+        Node* absolute_node = *(Node**)Vector_Get(&__NGUI.absoluteRootNodes, i);
         if (absolute_node->window == __NGUI.hovered_window && NU_Mouse_Over_Node(absolute_node, mouse_x, mouse_y)) {
             Vector_Push(&stack, &absolute_node);
         }
@@ -1049,7 +1049,7 @@ void NU_Mouse_Hover()
     for (uint32_t i=0; i<__NGUI.windowNodes.size; i++)
     {
         uint32_t handle = *(uint32_t*)Vector_Get(&__NGUI.windowNodes, i);
-        struct Node* node = NODE(handle);
+        Node* node = NODE(handle);
         if (node->window == __NGUI.hovered_window){
             Vector_Push(&stack, &node);
             break;
@@ -1065,7 +1065,7 @@ void NU_Mouse_Hover()
         // -----------------
         // --- Pop the stack
         // -----------------
-        struct Node* current_node = *(struct Node**)Vector_Get(&stack, stack.size - 1);
+        Node* current_node = *(Node**)Vector_Get(&stack, stack.size - 1);
         __NGUI.hovered_node = current_node->handle;
         stack.size -= 1;
 
@@ -1077,7 +1077,7 @@ void NU_Mouse_Hover()
         NU_Layer* child_layer = &__NGUI.tree.layers[current_node->layer+1];
         for (uint16_t i=current_node->firstChildIndex; i<current_node->firstChildIndex + current_node->childCount; i++)
         {
-            struct Node* child = NU_Layer_Get(child_layer, i);
+            Node* child = NU_Layer_Get(child_layer, i);
             if (child->nodeState == 2 || 
                 child->layoutFlags & POSITION_ABSOLUTE || 
                 child->tag == WINDOW ||
@@ -1114,7 +1114,7 @@ void NU_Mouse_Hover()
 // -----------------------------
 // --- Rendering ---------------
 // -----------------------------
-void NU_Add_Text_Mesh(Vertex_RGB_UV_List* vertices, Index_List* indices, struct Node* node)
+void NU_Add_Text_Mesh(Vertex_RGB_UV_List* vertices, Index_List* indices, Node* node)
 {
     // Compute inner dimensions (content area)
     float inner_width  = node->width  - node->borderLeft - node->borderRight - node->padLeft - node->padRight;
@@ -1136,7 +1136,7 @@ void NU_Add_Text_Mesh(Vertex_RGB_UV_List* vertices, Index_List* indices, struct 
     NU_Generate_Text_Mesh(vertices, indices, node_font, node->textContent, floorf(textPosX), floorf(textPosY), r, g, b, inner_width);
 }
 
-static bool Is_Node_Visible_In_Window(struct Node* node, float window_width, float window_height)
+static bool Is_Node_Visible_In_Window(Node* node, float window_width, float window_height)
 {
     // Compute the node's content rectangle
     float left   = node->x;
@@ -1149,7 +1149,7 @@ static bool Is_Node_Visible_In_Window(struct Node* node, float window_width, flo
     return visible;
 }
 
-static bool Is_Node_Visible_In_Bounds(struct Node* node, float x, float y, float w, float h)
+static bool Is_Node_Visible_In_Bounds(Node* node, float x, float y, float w, float h)
 {
     // Compute the node's content rectangle
     float left   = node->x;
@@ -1168,7 +1168,7 @@ static bool Is_Node_Visible_In_Bounds(struct Node* node, float x, float y, float
     return visible;
 }
 
-static int Node_Vertical_Overlap_State(struct Node* node, float y, float h)
+static int Node_Vertical_Overlap_State(Node* node, float y, float h)
 {
     float top    = node->y;
     float bottom = top + node->height;
@@ -1188,7 +1188,7 @@ static int Node_Vertical_Overlap_State(struct Node* node, float y, float h)
     return 1;
 }
 
-static int NU_Draw_Find_Window(struct Node* node) {
+static int NU_Draw_Find_Window(Node* node) {
     for (int i=0; i<__NGUI.windows.size; i++) {
         SDL_Window* window = *(SDL_Window**) Vector_Get(&__NGUI.windows, i);
         if (window == node->window) {
@@ -1205,12 +1205,12 @@ void NU_Populate_Draw_Lists()
     for (uint32_t i=0; i<window_count; i++) 
     {
         NU_Window_Draw_Lists* lists = Vector_Get(&__NGUI.windowsDrawLists, i);
-        Vector_Reserve(&lists->relativeNodeList, sizeof(struct Node*), 512);
-        Vector_Reserve(&lists->clippedRelativeNodeList, sizeof(struct Node*), 64);
-        Vector_Reserve(&lists->absoluteNodeList, sizeof(struct Node*), 64);
-        Vector_Reserve(&lists->clippedAbsoluteNodeList, sizeof(struct Node*), 16);
-        Vector_Reserve(&lists->canvasNodeList, sizeof(struct Node*), 4);
-        Vector_Reserve(&lists->clippedCanvasNodeList, sizeof(struct Node*), 1);
+        Vector_Reserve(&lists->relativeNodeList, sizeof(Node*), 512);
+        Vector_Reserve(&lists->clippedRelativeNodeList, sizeof(Node*), 64);
+        Vector_Reserve(&lists->absoluteNodeList, sizeof(Node*), 64);
+        Vector_Reserve(&lists->clippedAbsoluteNodeList, sizeof(Node*), 16);
+        Vector_Reserve(&lists->canvasNodeList, sizeof(Node*), 4);
+        Vector_Reserve(&lists->clippedCanvasNodeList, sizeof(Node*), 1);
     }
 
     // Clear clip map
@@ -1224,7 +1224,7 @@ void NU_Populate_Draw_Lists()
     NU_Window_Draw_Lists* root_lists = Vector_Get(&__NGUI.windowsDrawLists, 0);
 
 
-    struct Node* root = &__NGUI.tree.layers[0].node_array[0];
+    Node* root = &__NGUI.tree.layers[0].node_array[0];
     Vector_Push(&root_lists->relativeNodeList, &root);
     for (int l=0; l<=__NGUI.deepest_layer; l++)
     {
@@ -1234,11 +1234,11 @@ void NU_Populate_Draw_Lists()
         // Iterate over parent layer
         for (int p=0; p<parent_layer->size; p++)
         {       
-            struct Node* parent = NU_Layer_Get(parent_layer, p);
+            Node* parent = NU_Layer_Get(parent_layer, p);
             if (parent->nodeState == 0) continue;
             if (parent->nodeState == 2) { // Parent not visible -> children must inherit this
                 for (uint16_t i=parent->firstChildIndex; i<parent->firstChildIndex + parent->childCount; i++) {
-                    struct Node* child = NU_Layer_Get(child_layer, i);
+                    Node* child = NU_Layer_Get(child_layer, i);
                     child->nodeState = 2;
                 }
                 continue;
@@ -1252,7 +1252,7 @@ void NU_Populate_Draw_Lists()
 
                 // Handle case where parent is a table with a thead
                 if (parent->tag == TABLE) {
-                    struct Node* first_child = NU_Layer_Get(child_layer, parent->firstChildIndex);
+                    Node* first_child = NU_Layer_Get(child_layer, parent->firstChildIndex);
                     if (first_child->tag == THEAD) {
                         parent_inner_y += first_child->height;
                         parent_inner_height -= first_child->height;
@@ -1267,7 +1267,7 @@ void NU_Populate_Draw_Lists()
             // Iterate over children
             for (uint16_t i=parent->firstChildIndex; i<parent->firstChildIndex + parent->childCount; i++)
             {
-                struct Node* child = NU_Layer_Get(child_layer, i); if (child->nodeState == 2) continue;
+                Node* child = NU_Layer_Get(child_layer, i); if (child->nodeState == 2) continue;
 
                 // If child not visible in window bounds -> mark as hidden
                 int window_index, w, h;
@@ -1431,7 +1431,7 @@ void NU_Draw()
         Vertex_RGB_List border_rect_vertices;              Index_List border_rect_indices;
         Vertex_RGB_List_Init(&border_rect_vertices, 5000); Index_List_Init(&border_rect_indices, 15000);
         for (int n=0; n<lists->relativeNodeList.size; n++) { // Construct border rect vertices and indices for each node
-            struct Node* node = *(struct Node**) Vector_Get(&lists->relativeNodeList, n);
+            Node* node = *(Node**) Vector_Get(&lists->relativeNodeList, n);
             Construct_Border_Rect(node, w_fl, h_fl, &border_rect_vertices, &border_rect_indices);
             if (node->layoutFlags & OVERFLOW_VERTICAL_SCROLL 
                 && node->contentHeight > (node->height - node->padTop - node->padBottom - node->borderTop - node->borderBottom)) {
@@ -1446,7 +1446,7 @@ void NU_Draw()
         // --- Draw Canvas API Content ---
         for (uint32_t n=0; n<lists->canvasNodeList.size; n++)
         {
-            struct Node* canvas_node = *(struct Node**) Vector_Get(&lists->canvasNodeList, n);
+            Node* canvas_node = *(Node**) Vector_Get(&lists->canvasNodeList, n);
             float offset_x = canvas_node->x + canvas_node->borderLeft + canvas_node->padLeft;
             float offset_y = canvas_node->y + canvas_node->borderTop + canvas_node->padTop;
             float clip_top    = canvas_node->y + canvas_node->borderTop + canvas_node->padTop;
@@ -1469,7 +1469,7 @@ void NU_Draw()
         {
 
             // Construct text mesh for node
-            struct Node* node = *(struct Node**) Vector_Get(&lists->relativeNodeList, n);
+            Node* node = *(Node**) Vector_Get(&lists->relativeNodeList, n);
             if (node->textContent != NULL) {
                 Vertex_RGB_UV_List* text_vertices = &text_relative_vertex_buffers[node->fontId];
                 Index_List* text_indices = &text_relative_index_buffers[node->fontId];
@@ -1503,7 +1503,7 @@ void NU_Draw()
 
         // --- Draw Partially Visible Nodes ---
         for (int n=0; n<lists->clippedRelativeNodeList.size; n++) {
-            struct Node* node = *(struct Node**) Vector_Get(&lists->clippedRelativeNodeList, n);
+            Node* node = *(Node**) Vector_Get(&lists->clippedRelativeNodeList, n);
             NU_Clip_Bounds* clip = (NU_Clip_Bounds*)HashmapGet(&__NGUI.node_clip_map, &node->clippingRootHandle);
 
             // Draw border rects
@@ -1569,7 +1569,7 @@ void NU_Draw()
         // --- Draw Border Rects ---
         Vertex_RGB_List_Init(&border_rect_vertices, 5000); Index_List_Init(&border_rect_indices, 15000);
         for (int n=0; n<lists->absoluteNodeList.size; n++) { // Construct border rect vertices and indices for each node
-            struct Node* node = *(struct Node**) Vector_Get(&lists->absoluteNodeList, n);
+            Node* node = *(Node**) Vector_Get(&lists->absoluteNodeList, n);
             Construct_Border_Rect(node, w_fl, h_fl, &border_rect_vertices, &border_rect_indices);
             if (node->layoutFlags & OVERFLOW_VERTICAL_SCROLL 
                 && node->contentHeight > (node->height - node->padTop - node->padBottom - node->borderTop - node->borderBottom)) {
@@ -1586,7 +1586,7 @@ void NU_Draw()
         {
 
             // Construct text mesh for node
-            struct Node* node = *(struct Node**) Vector_Get(&lists->absoluteNodeList, n);
+            Node* node = *(Node**) Vector_Get(&lists->absoluteNodeList, n);
             if (node->textContent != NULL) {
                 Vertex_RGB_UV_List* text_vertices = &text_absolute_vertex_buffers[node->fontId];
                 Index_List* text_indices = &text_absolute_index_buffers[node->fontId];
@@ -1619,7 +1619,7 @@ void NU_Draw()
 
         // --- Draw Partially Visible Nodes ---
         for (int n=0; n<lists->clippedAbsoluteNodeList.size; n++) {
-            struct Node* node = *(struct Node**) Vector_Get(&lists->clippedAbsoluteNodeList, n);
+            Node* node = *(Node**) Vector_Get(&lists->clippedAbsoluteNodeList, n);
             NU_Clip_Bounds* clip = (NU_Clip_Bounds*)HashmapGet(&__NGUI.node_clip_map, &node->clippingRootHandle);
 
             // Draw border rects

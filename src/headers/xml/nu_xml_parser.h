@@ -7,6 +7,8 @@
 #include <errno.h>
 #include <string.h>
 #include <ctype.h>
+#include <datastructures/string.h>
+#include <filesystem/file.h>
 #include "nu_convert.h"
 #include "image/nu_image.h"
 #include "stylesheet/nu_stylesheet.h"
@@ -18,7 +20,7 @@
 #include "nu_xml_grammar_assertions.h"
 #include "nu_xml_tokeniser.h"
 
-int NU_Generate_Tree(char* src_buffer, uint32_t src_length, struct Vector* tokens, struct Vector* textRefs)
+int NU_Generate_Tree(char* src, struct Vector* tokens, struct Vector* textRefs)
 {
     // --------------------
     // Enforce root grammar
@@ -31,11 +33,11 @@ int NU_Generate_Tree(char* src_buffer, uint32_t src_length, struct Vector* token
     // -----------------------
     // Create root window node
     // -----------------------
-    struct Node root_node;
+    Node root_node;
     NU_Apply_Node_Defaults(&root_node);
     root_node.tag = WINDOW;
     root_node.window = *(SDL_Window**) Vector_Get(&__NGUI.windows, 0);
-    struct Node* root_window_node = NU_Tree_Append(&__NGUI.tree, &root_node, 0);
+    Node* root_window_node = NU_Tree_Append(&__NGUI.tree, &root_node, 0);
     Vector_Push(&__NGUI.windowNodes, &root_window_node->handle);
 
 
@@ -67,16 +69,16 @@ int NU_Generate_Tree(char* src_buffer, uint32_t src_length, struct Vector* token
     // 5 = in <row> in <table> with <thead>
     // 6 = in <row> in <table> without <thead>
     uint8_t current_layer = 0; 
-    struct Node* current_node = root_window_node;
+    Node* current_node = root_window_node;
     int i = 2; 
     while (i < tokens->size - 3)
     {
-        const enum NU_XML_TOKEN NU_XML_TOKEN = *((enum NU_XML_TOKEN*) Vector_Get(tokens, i));
+        const enum NU_XML_TOKEN token = *((enum NU_XML_TOKEN*) Vector_Get(tokens, i));
         
         // -------------------------
         // New tag -> Add a new node
         // -------------------------
-        if (NU_XML_TOKEN == OPEN_TAG)
+        if (token == OPEN_TAG)
         {
             if (AssertNewTagGrammar(tokens, i))
             {
@@ -103,7 +105,7 @@ int NU_Generate_Tree(char* src_buffer, uint32_t src_length, struct Vector* token
                 // ----------------------------------------
                 // Create a new node and add it to the tree
                 // ----------------------------------------
-                struct Node newNode;
+                Node newNode;
                 NU_Apply_Node_Defaults(&newNode);
                 newNode.tag = tag;
                 newNode.parentIndex = __NGUI.tree.layers[current_layer].size - 1;
@@ -139,7 +141,7 @@ int NU_Generate_Tree(char* src_buffer, uint32_t src_length, struct Vector* token
                 // -------------------------------
                 // Add node to parent's child list
                 // -------------------------------
-                struct Node* parent_node = NU_Tree_Get(&__NGUI.tree, current_layer, current_node->parentIndex);
+                Node* parent_node = NU_Tree_Get(&__NGUI.tree, current_layer, current_node->parentIndex);
                 if (current_node->tag != WINDOW) {
                     current_node->window = parent_node->window; // Inherit window from parent
                 } 
@@ -171,12 +173,12 @@ int NU_Generate_Tree(char* src_buffer, uint32_t src_length, struct Vector* token
         // -----------------------------------------------
         // Open end tag -> tag closes -> move up one layer
         // -----------------------------------------------
-        if (NU_XML_TOKEN == OPEN_END_TAG)
+        if (token == OPEN_END_TAG)
         {
             // ---------------------------
             // Enforce close grammar rules
             //----------------------------
-            struct Node* open_node = NU_Tree_Get(&__NGUI.tree, current_layer, __NGUI.tree.layers[current_layer].size - 1);
+            Node* open_node = NU_Tree_Get(&__NGUI.tree, current_layer, __NGUI.tree.layers[current_layer].size - 1);
             enum Tag openTag = open_node->tag;
             if (AssertTagCloseStartGrammar(tokens, i, openTag) != 0) {
                 NU_Stringmap_Free(&image_filepath_to_handle_hmap);
@@ -199,7 +201,7 @@ int NU_Generate_Tree(char* src_buffer, uint32_t src_length, struct Vector* token
         // -----------------------------------------------------
         // Close end tag -> tag self closes -> move up one layer
         // -----------------------------------------------------
-        if (NU_XML_TOKEN == CLOSE_END_TAG)
+        if (token == CLOSE_END_TAG)
         {
 
             // Multi node structure context switch
@@ -219,12 +221,12 @@ int NU_Generate_Tree(char* src_buffer, uint32_t src_length, struct Vector* token
         // ------------
         // Text content
         // ------------
-        if (NU_XML_TOKEN == TEXT_CONTENT)
+        if (token == TEXT_CONTENT)
         {
             current_text_ref = Vector_Get(textRefs, text_ref_index++);
-            char c = src_buffer[current_text_ref->src_index];
-            char* text = &src_buffer[current_text_ref->src_index];
-            src_buffer[current_text_ref->src_index + current_text_ref->char_count] = '\0';
+            char c = src[current_text_ref->src_index];
+            char* text = &src[current_text_ref->src_index];
+            src[current_text_ref->src_index + current_text_ref->char_count] = '\0';
             current_node->textContent = StringArena_Add(&__NGUI.node_text_arena, text);
 
             // Continue ^
@@ -234,7 +236,7 @@ int NU_Generate_Tree(char* src_buffer, uint32_t src_length, struct Vector* token
         // ---------------------------------------
         // Property tag -> assign property to node
         // ---------------------------------------
-        if (NU_Is_Token_Property(NU_XML_TOKEN))
+        if (NU_Is_Token_Property(token))
         {
             // ---------------------------------------------
             // Enforce property grammar [property = "value"]
@@ -245,12 +247,12 @@ int NU_Generate_Tree(char* src_buffer, uint32_t src_length, struct Vector* token
                 // Get property value text
                 // -----------------------
                 current_text_ref = Vector_Get(textRefs, text_ref_index++);
-                char c = src_buffer[current_text_ref->src_index];
-                char* ptext = &src_buffer[current_text_ref->src_index];
-                src_buffer[current_text_ref->src_index + current_text_ref->char_count] = '\0';
+                char c = src[current_text_ref->src_index];
+                char* ptext = &src[current_text_ref->src_index];
+                src[current_text_ref->src_index + current_text_ref->char_count] = '\0';
 
                 // Set the node property
-                switch (NU_XML_TOKEN)
+                switch (token)
                 {
                     // Set id
                     case ID_PROPERTY:
@@ -645,37 +647,31 @@ int NU_Generate_Tree(char* src_buffer, uint32_t src_length, struct Vector* token
 int NU_Internal_Load_XML(char* filepath)
 {
     // Open XML source file and load into buffer
-    FILE* f = fopen(filepath, "r");
-    if (!f) {
-        fprintf(stderr, "Cannot open file '%s': %s\n", filepath, strerror(errno)); return 0;
-    }
-    fseek(f, 0, SEEK_END);
-    long file_size_long = ftell(f);
-    fseek(f, 0, SEEK_SET);
-    if (file_size_long > UINT32_MAX) {
-        printf("%s", "Src file is too large! It must be < 4 294 967 295 Bytes"); return 0;
-    }
-    uint32_t src_length = (uint32_t)file_size_long;
-    char* src_buffer = malloc(src_length + 1);
-    src_length = fread(src_buffer, 1, file_size_long, f);
-    src_buffer[src_length] = '\0'; 
-    fclose(f);
-
+    String src = FileReadUTF8(filepath);
+    if (src == NULL) return 0;
+    
     // Init token and text ref vectors
     struct Vector tokens;
     struct Vector textRefs;
-    Vector_Reserve(&tokens, sizeof(enum NU_XML_TOKEN), 25000); // reserve ~100KB
-    Vector_Reserve(&textRefs, sizeof(struct Text_Ref), 25000); // reserve ~225KB
+    Vector_Reserve(&tokens, sizeof(enum NU_XML_TOKEN), 8000);
+    Vector_Reserve(&textRefs, sizeof(struct Text_Ref), 2000);
 
     // Init UI tree 
     NU_Tree_Init(&__NGUI.tree, 100, 10);
 
     // Tokenise and generate
-    NU_Tokenise(src_buffer, src_length, &tokens, &textRefs); 
-    if (!NU_Generate_Tree(src_buffer, src_length, &tokens, &textRefs)) return 0; 
+    NU_Tokenise(src, &tokens, &textRefs); 
+    if (!NU_Generate_Tree(StringCstr(src), &tokens, &textRefs)) {
+        Vector_Free(&tokens);
+        Vector_Free(&textRefs);
+        StringFree(src);
+        return 0;
+    }
 
-    // Free token and property text reference memory
+    // Free memory
     Vector_Free(&tokens);
     Vector_Free(&textRefs);
+    StringFree(src);
+
     return 1; // Success
 }

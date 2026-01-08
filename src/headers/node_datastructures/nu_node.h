@@ -31,7 +31,7 @@ enum Tag
     NAT,
 };
 
-struct Node
+typedef struct Node
 {
     SDL_Window* window;
     char* class;
@@ -76,7 +76,7 @@ struct Node
     char horizontalTextAlignment;
     char verticalTextAlignment;
     bool hideBackground;
-};
+} Node;
 
 typedef struct NU_Node_Dimensions
 {
@@ -95,7 +95,7 @@ typedef struct NU_Clip_Bounds
     float br_radius_x, br_radius_y;
 } NU_Clip_Bounds;
 
-static void NU_Apply_Node_Defaults(struct Node* node)
+static void NU_Apply_Node_Defaults(Node* node)
 {
     node->window = NULL; node->class = NULL; node->id = NULL; node->textContent = NULL;
     node->inlineStyleFlags = 0;

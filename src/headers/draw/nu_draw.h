@@ -335,7 +335,7 @@ void Generate_Corner_Segment(
 }
 
 void Construct_Border_Rect(
-    struct Node* node,
+    Node* node,
     float screen_width, 
     float screen_height,
     Vertex_RGB_List* vertices, Index_List* indices
@@ -468,7 +468,7 @@ void Construct_Border_Rect(
     indices->size = (int)(indices_write - indices->array);
 }
 
-void Construct_Scroll_Thumb(struct Node* node,
+void Construct_Scroll_Thumb(Node* node,
     float screen_width, 
     float screen_height,
     Vertex_RGB_List* vertices, Index_List* indices
@@ -482,7 +482,7 @@ void Construct_Scroll_Thumb(struct Node* node,
 
 
     NU_Layer* child_layer = &__NGUI.tree.layers[node->layer + 1];
-    struct Node* first_child = NU_Layer_Get(child_layer, node->firstChildIndex);
+    Node* first_child = NU_Layer_Get(child_layer, node->firstChildIndex);
     float scroll_view_height = node->contentHeight;
     float track_height = node->height - node->borderTop - node->borderBottom;
     float inner_height_w_pad = track_height - node->padTop - node->padBottom;

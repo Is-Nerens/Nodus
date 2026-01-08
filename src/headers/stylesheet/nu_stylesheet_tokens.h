@@ -20,22 +20,6 @@ static const char* style_keywords[] = {
     "hover", "press", "focus",
 };
 
-static const uint8_t style_keyword_lengths[] = { 
-    3, 4, 10, 10, 8, 4, 3, 
-    5, 9, 9, 6, 10, 10,           // width height
-    7, 7, 12, 12,                 // alignment
-    4, 5, 3, 6,                   // absolute positioning
-    10, 13, 11,                   // background, border, text colour
-    6, 10, 13, 11, 12,            // border width
-    13, 22, 23, 25, 26,           // border radius
-    7, 11, 14, 12, 13,            // padding
-    9,                            // image src
-    4,                            // font property (css only, no xml inline equivalent)
-    3, 4, 6,                      // font creation
-    6, 4, 6, 4, 6, 5, 5, 5, 3,    // tag selectors
-    5,                            // other selectors
-    5, 5, 5,                      // pseudo classes
-};
 enum NU_Style_Token 
 {
     // --- Inline node poperties ---
@@ -139,65 +123,61 @@ static uint32_t Property_Token_To_Flag(enum NU_Style_Token token)
     return (1u << token);
 }
 
-static enum NU_Style_Token NU_Word_To_Style_Token(char* word, uint8_t word_char_count)
+static enum NU_Style_Token NU_Word_To_Style_Token(char* word, uint8_t wordLen)
 {
+    word[wordLen] = '\0';
     for (uint8_t i=0; i<STYLE_KEYWORD_COUNT; i++) {
-        size_t len = style_keyword_lengths[i];
-        if (len == word_char_count && memcmp(word, style_keywords[i], len) == 0) {
+        if (strcmp(word, style_keywords[i]) == 0) {
             return i;
         } 
     }
     return STYLE_UNDEFINED;
 }
 
-static enum NU_Style_Token NU_Word_To_Style_Property_Token(char* word, uint8_t word_char_count)
+static enum NU_Style_Token NU_Word_To_Style_Property_Token(char* word, uint8_t wordLen)
 {
-    for (int i=0; i<STYLE_PROPERTY_COUNT; i++)
-    {
-        size_t len = style_keyword_lengths[i];
-        if (len == word_char_count && memcmp(word, style_keywords[i], len) == 0) {
+    word[wordLen] = '\0';
+    for (int i=0; i<STYLE_PROPERTY_COUNT; i++) {
+        if (strcmp(word, style_keywords[i]) == 0) {
             return i;
         }
     }
     return STYLE_UNDEFINED;
 }
 
-static enum NU_Style_Token NU_Word_To_Tag_Selector_Token(char* word, uint8_t word_char_count)
+static enum NU_Style_Token NU_Word_To_Tag_Selector_Token(char* word, uint8_t wordLen)
 {
+    word[wordLen] = '\0';
     int start = STYLE_PROPERTY_COUNT;
     int end = STYLE_PROPERTY_COUNT + STYLE_TAG_SELECTOR_COUNT;
-    for (int i=start; i<end; i++)
-    {
-        size_t len = style_keyword_lengths[i];
-        if (len == word_char_count && memcmp(word, style_keywords[i], len) == 0) {
+    for (int i=start; i<end; i++) {
+        if (strcmp(word, style_keywords[i]) == 0) {
             return i;
         }
     }
     return STYLE_UNDEFINED;
 }
 
-static enum NU_Style_Token NU_Word_To_Any_Selector_Token(char* word, uint8_t word_char_count)
+static enum NU_Style_Token NU_Word_To_Any_Selector_Token(char* word, uint8_t wordLen)
 {
+    word[wordLen] = '\0';
     int start = STYLE_PROPERTY_COUNT;
     int end = STYLE_PROPERTY_COUNT + STYLE_TAG_SELECTOR_COUNT + STYLE_SPECIAL_SELECTOR_COUNT;
-    for (int i=start; i<end; i++)
-    {
-        size_t len = style_keyword_lengths[i];
-        if (len == word_char_count && memcmp(word, style_keywords[i], len) == 0) {
+    for (int i=start; i<end; i++) {
+        if (strcmp(word, style_keywords[i]) == 0) {
             return i;
         }
     }
     return STYLE_UNDEFINED;
 }
 
-static enum NU_Style_Token NU_Word_To_Pseudo_Token(char* word, uint8_t word_char_count)
+static enum NU_Style_Token NU_Word_To_Pseudo_Token(char* word, uint8_t wordLen)
 {
+    word[wordLen] = '\0';
     int start = STYLE_PROPERTY_COUNT + STYLE_TAG_SELECTOR_COUNT + STYLE_SPECIAL_SELECTOR_COUNT;
     int end = start + STYLE_PSEUDO_COUNT;
-    for (int i=start; i<end; i++)
-    {
-        size_t len = style_keyword_lengths[i];
-        if (len == word_char_count && memcmp(word, style_keywords[i], len) == 0) {
+    for (int i=start; i<end; i++) {
+        if (strcmp(word, style_keywords[i]) == 0) {
             return i;
         }
     }

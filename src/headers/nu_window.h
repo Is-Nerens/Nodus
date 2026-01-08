@@ -28,7 +28,7 @@ void NU_Create_Main_Window()
     NU_Draw_Init();
 }
 
-void NU_Create_Subwindow(struct Node* window_node)
+void NU_Create_Subwindow(Node* window_node)
 {
     SDL_GL_SetAttribute(SDL_GL_CONTEXT_MAJOR_VERSION, 3);
     SDL_GL_SetAttribute(SDL_GL_CONTEXT_MINOR_VERSION, 2);

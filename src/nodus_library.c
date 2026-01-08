@@ -26,8 +26,8 @@ __declspec(dllexport) int NU_Load_XML(char* filepath) {
 // ----------------------------
 // --- Stylesheet functions ---
 // ----------------------------
-__declspec(dllexport) int NU_Load_Stylesheet(char* css_filepath) {
-    return NU_Internal_Load_Stylesheet(css_filepath);
+__declspec(dllexport) uint32_t NU_Load_Stylesheet(char* filepath) {
+    return NU_Internal_Load_Stylesheet(filepath);
 }
 __declspec(dllexport) int NU_Apply_Stylesheet(uint32_t stylesheet_handle) {
     return NU_Internal_Apply_Stylesheet(stylesheet_handle);

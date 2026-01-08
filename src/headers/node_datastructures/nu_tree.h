@@ -4,7 +4,7 @@
 
 typedef struct
 {
-    struct Node* node_array;
+    Node* node_array;
     uint32_t capacity;
     uint32_t node_count;
     uint32_t size;
@@ -23,13 +23,13 @@ typedef struct
 // --- Layer functions ---
 void NU_Layer_Init(NU_Layer* layer, uint32_t capacity)
 {
-    layer->node_array = malloc(sizeof(struct Node) * capacity);
+    layer->node_array = malloc(sizeof(Node) * capacity);
     layer->capacity = capacity;
     layer->node_count = 0;
     layer->size = 0;
 }
 
-struct Node* NU_Layer_Get(NU_Layer* layer, uint32_t index)
+Node* NU_Layer_Get(NU_Layer* layer, uint32_t index)
 {
     return &layer->node_array[index];
 }
@@ -80,17 +80,17 @@ void NU_Tree_Grow_Layer_Capacity(NU_Tree* tree)
 void NU_Tree_Layer_Grow(NU_Tree* tree, NU_Layer* layer)
 {
     layer->capacity *= 2;
-    layer->node_array = realloc(layer->node_array, sizeof(struct Node) * layer->capacity);
+    layer->node_array = realloc(layer->node_array, sizeof(Node) * layer->capacity);
 
     // Update the node table
     for (uint32_t i=0; i<layer->size; i++)
     {
-        struct Node* node = &layer->node_array[i];
+        Node* node = &layer->node_array[i];
         if (node->nodeState) NU_Node_Table_Update(&tree->node_table, node->handle, node);
     }
 }
 
-struct Node* NU_Tree_Append(NU_Tree* tree, struct Node* node, uint32_t layer_index)
+Node* NU_Tree_Append(NU_Tree* tree, Node* node, uint32_t layer_index)
 {
     // Grow the tree's layer capacity if exceeded
     if (layer_index + 1 >= tree->layer_capacity)
@@ -111,7 +111,7 @@ struct Node* NU_Tree_Append(NU_Tree* tree, struct Node* node, uint32_t layer_ind
     append_layer->node_count += 1;
     append_layer->size += 1;
     
-    struct Node* out = &append_layer->node_array[append_layer->size - 1];
+    Node* out = &append_layer->node_array[append_layer->size - 1];
     out->layer = layer_index;
     out->index = append_layer->size - 1;
     tree->node_count += 1;
@@ -120,7 +120,7 @@ struct Node* NU_Tree_Append(NU_Tree* tree, struct Node* node, uint32_t layer_ind
     return out;
 }
 
-struct Node* NU_Tree_Get(NU_Tree* tree, uint32_t layer_index, uint32_t node_index)
+Node* NU_Tree_Get(NU_Tree* tree, uint32_t layer_index, uint32_t node_index)
 {
     return &tree->layers[layer_index].node_array[node_index];
 }

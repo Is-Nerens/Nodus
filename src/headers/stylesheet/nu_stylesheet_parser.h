@@ -1,5 +1,6 @@
 #pragma once
 #include "nu_stylesheet_grammar_assertions.h"
+#include <datastructures/linear_stringmap.h>
 
 static int NU_Stylesheet_Parse(char* src, struct Vector* tokens, NU_Stylesheet* ss, struct Vector* text_refs)
 {
@@ -9,6 +10,14 @@ static int NU_Stylesheet_Parse(char* src, struct Vector* tokens, NU_Stylesheet* 
     NU_Stylesheet_Item item;
     item.propertyFlags = 0;
     item.fontId = 0;
+
+    // ---------------
+    // (string -> int)
+    // ---------------
+    LinearStringmap imageFilepathToHandleMap;
+    LinearStringmap fontNameIndexMap;
+    LinearStringmapInit(&imageFilepathToHandleMap, sizeof(GLuint), 20, 512);
+    LinearStringmapInit(&fontNameIndexMap, sizeof(GLuint), 12, 128);
 
     uint32_t selector_indexes[64];
     int selector_count = 0;
@@ -39,13 +48,13 @@ static int NU_Stylesheet_Parse(char* src, struct Vector* tokens, NU_Stylesheet* 
                 text_index += 1;
 
                 // Create a new font
-                void* found_font = NU_Stringmap_Get(&ss->font_name_index_map, create_font_name);
+                void* found_font = LinearStringmapGet(&fontNameIndexMap, create_font_name);
                 if (found_font == NULL) {
                     NU_Font font;
                     Vector_Push(&ss->fonts, &font);
                     create_font_index = (uint8_t)(ss->fonts.size - 1);
                     create_font = Vector_Get(&ss->fonts, create_font_index);
-                    NU_Stringmap_Set(&ss->font_name_index_map, create_font_name, &create_font_index);
+                    LinearStringmapSet(&fontNameIndexMap, create_font_name, &create_font_index);
                 } 
 
                 ctx = 1;
@@ -53,6 +62,8 @@ static int NU_Stylesheet_Parse(char* src, struct Vector* tokens, NU_Stylesheet* 
                 continue;
             }
             else {
+                LinearStringmapFree(&imageFilepathToHandleMap);
+                LinearStringmapFree(&fontNameIndexMap);
                 return 0;
             }
         }
@@ -67,6 +78,8 @@ static int NU_Stylesheet_Parse(char* src, struct Vector* tokens, NU_Stylesheet* 
                 continue;
             } 
             else {
+                LinearStringmapFree(&imageFilepathToHandleMap);
+                LinearStringmapFree(&fontNameIndexMap);
                 return 0;
             }
         }
@@ -74,6 +87,8 @@ static int NU_Stylesheet_Parse(char* src, struct Vector* tokens, NU_Stylesheet* 
         if (token == STYLE_SELECTOR_CLOSE_BRACE)
         {
             if (!AssertSelectionClosingBraceGrammar(tokens, i)) {
+                LinearStringmapFree(&imageFilepathToHandleMap);
+                LinearStringmapFree(&fontNameIndexMap);
                 return 0;
             }
                 
@@ -139,6 +154,8 @@ static int NU_Stylesheet_Parse(char* src, struct Vector* tokens, NU_Stylesheet* 
                 else 
                 {
                     printf("[NU_Generate_Stylesheet] Error! created font \"%s\" must have a src!", create_font_name);
+                    LinearStringmapFree(&imageFilepathToHandleMap);
+                    LinearStringmapFree(&fontNameIndexMap);
                     return 0;
                 }
 
@@ -210,6 +227,8 @@ static int NU_Stylesheet_Parse(char* src, struct Vector* tokens, NU_Stylesheet* 
                     }
                     else 
                     {
+                        LinearStringmapFree(&imageFilepathToHandleMap);
+                        LinearStringmapFree(&fontNameIndexMap);
                         return 0;
                     }
 
@@ -219,11 +238,15 @@ static int NU_Stylesheet_Parse(char* src, struct Vector* tokens, NU_Stylesheet* 
                 }
                 else
                 {
+                    LinearStringmapFree(&imageFilepathToHandleMap);
+                    LinearStringmapFree(&fontNameIndexMap);
                     return 0;
                 }
             }
             else
             {
+                LinearStringmapFree(&imageFilepathToHandleMap);
+                LinearStringmapFree(&fontNameIndexMap);
                 return 0;
             }
         }
@@ -303,6 +326,8 @@ static int NU_Stylesheet_Parse(char* src, struct Vector* tokens, NU_Stylesheet* 
                     }
                     else 
                     {
+                        LinearStringmapFree(&imageFilepathToHandleMap);
+                        LinearStringmapFree(&fontNameIndexMap);
                         return 0;
                     }
 
@@ -313,11 +338,15 @@ static int NU_Stylesheet_Parse(char* src, struct Vector* tokens, NU_Stylesheet* 
                 }
                 else
                 {
+                    LinearStringmapFree(&imageFilepathToHandleMap);
+                    LinearStringmapFree(&fontNameIndexMap);
                     return 0;
                 }
             }
             else 
             {
+                LinearStringmapFree(&imageFilepathToHandleMap);
+                LinearStringmapFree(&fontNameIndexMap);
                 return 0;
             }
         }
@@ -397,6 +426,8 @@ static int NU_Stylesheet_Parse(char* src, struct Vector* tokens, NU_Stylesheet* 
                     }
                     else 
                     {
+                        LinearStringmapFree(&imageFilepathToHandleMap);
+                        LinearStringmapFree(&fontNameIndexMap);
                         return 0;
                     }
 
@@ -407,11 +438,15 @@ static int NU_Stylesheet_Parse(char* src, struct Vector* tokens, NU_Stylesheet* 
                 }
                 else
                 {
+                    LinearStringmapFree(&imageFilepathToHandleMap);
+                    LinearStringmapFree(&fontNameIndexMap);
                     return 0;
                 }
             }
             else 
             {
+                LinearStringmapFree(&imageFilepathToHandleMap);
+                LinearStringmapFree(&fontNameIndexMap);
                 return 0;
             }
         }
@@ -421,12 +456,16 @@ static int NU_Stylesheet_Parse(char* src, struct Vector* tokens, NU_Stylesheet* 
             if (AssertSelectorCommaGrammar(tokens, i)) {
                 if (selector_count == 64) {
                     printf("%s", "[Generate Stylesheet] Error! Too many selectors in one list! max = 64");
+                    LinearStringmapFree(&imageFilepathToHandleMap);
+                    LinearStringmapFree(&fontNameIndexMap);
                     return 0;
                 }
                 i += 1;
                 continue;
             }
             else {
+                LinearStringmapFree(&imageFilepathToHandleMap);
+                LinearStringmapFree(&fontNameIndexMap);
                 return 0;
             }
         }
@@ -434,6 +473,8 @@ static int NU_Stylesheet_Parse(char* src, struct Vector* tokens, NU_Stylesheet* 
         if (NU_Is_Property_Identifier_Token(token))
         {
             if (!AssertPropertyIdentifierGrammar(tokens, i)) {
+                LinearStringmapFree(&imageFilepathToHandleMap);
+                LinearStringmapFree(&fontNameIndexMap);
                 return 0;
             }
 
@@ -778,12 +819,12 @@ static int NU_Stylesheet_Parse(char* src, struct Vector* tokens, NU_Stylesheet* 
                         break;
                     
                     case STYLE_IMAGE_SOURCE_PROPERTY:
-                        void* found = NU_Stringmap_Get(&ss->image_filepath_to_handle_hmap, text);
+                        void* found = LinearStringmapGet(&imageFilepathToHandleMap, text);
                         if (found == NULL) {
                             GLuint image_handle = Image_Load(text);
                             if (image_handle) {
                                 item.glImageHandle = image_handle;
-                                NU_Stringmap_Set(&ss->image_filepath_to_handle_hmap, text, &image_handle);
+                                LinearStringmapSet(&imageFilepathToHandleMap, text, &image_handle);
                                 item.propertyFlags |= 1ULL << 37;
                             }
                         } 
@@ -794,7 +835,7 @@ static int NU_Stylesheet_Parse(char* src, struct Vector* tokens, NU_Stylesheet* 
                         break;
 
                     case STYLE_FONT_PROPERTY:
-                        void* found_font = NU_Stringmap_Get(&ss->font_name_index_map, text);
+                        void* found_font = LinearStringmapGet(&fontNameIndexMap, text);
                         if (found_font != NULL) {
                             item.fontId = *(uint8_t*)found_font;
                         }
@@ -838,8 +879,12 @@ static int NU_Stylesheet_Parse(char* src, struct Vector* tokens, NU_Stylesheet* 
     // Ensure that at least one font is present
     if (ss->fonts.size == 0) {
         printf("[NU_Generate_Stylesheet] Error! at least one font must be provided!\n");
+        LinearStringmapFree(&imageFilepathToHandleMap);
+        LinearStringmapFree(&fontNameIndexMap);
         return 0;
     }
 
+    LinearStringmapFree(&imageFilepathToHandleMap);
+    LinearStringmapFree(&fontNameIndexMap);
     return 1;
 }

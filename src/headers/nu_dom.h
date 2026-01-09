@@ -70,7 +70,7 @@ static void NU_Verify_Tree() {
 // --------------------------------
 uint32_t NU_Internal_Get_Node_By_Id(char* id)
 {
-    uint32_t* handle = NU_Stringmap_Get(&__NGUI.id_node_map, id);
+    uint32_t* handle = StringmapGet(&__NGUI.id_node_map, id);
     if (handle == NULL) return UINT16_MAX;
     return *handle;
 }
@@ -266,7 +266,7 @@ static void NU_Dissociate_Node(Node* node)
         StringArena_Delete(&__NGUI.node_text_arena, node->textContent); // Delete text content
     }
     if (node->id != NULL) {
-        NU_Stringmap_Delete(&__NGUI.id_node_map, node->id);  // Delete node from id -> handle map
+        StringmapDelete(&__NGUI.id_node_map, node->id);  // Delete node from id -> handle map
     }
     if (node->eventFlags & NU_EVENT_FLAG_ON_CLICK) {
         HashmapDelete(&__NGUI.on_click_events, &node->handle);    // Delete on_click event

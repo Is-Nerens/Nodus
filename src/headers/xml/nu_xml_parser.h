@@ -8,6 +8,7 @@
 #include <string.h>
 #include <ctype.h>
 #include <datastructures/string.h>
+#include <datastructures/linear_stringmap.h>
 #include <filesystem/file.h>
 #include "nu_convert.h"
 #include "image/nu_image.h"
@@ -53,8 +54,8 @@ int NU_Generate_Tree(char* src, struct Vector* tokens, struct Vector* textRefs)
     // ---------------
     // (string -> int)
     // ---------------
-    NU_Stringmap image_filepath_to_handle_hmap;
-    NU_Stringmap_Init(&image_filepath_to_handle_hmap, sizeof(GLuint), 512, 20);
+    LinearStringmap imageFilepathToHandleMap;
+    LinearStringmapInit(&imageFilepathToHandleMap, sizeof(GLuint), 20, 512);
 
 
     // -----------------------
@@ -165,7 +166,7 @@ int NU_Generate_Tree(char* src, struct Vector* tokens, struct Vector* textRefs)
             }
             else
             {
-                NU_Stringmap_Free(&image_filepath_to_handle_hmap);
+                LinearStringmapFree(&imageFilepathToHandleMap);
                 return 0;
             }
         }
@@ -181,7 +182,7 @@ int NU_Generate_Tree(char* src, struct Vector* tokens, struct Vector* textRefs)
             Node* open_node = NU_Tree_Get(&__NGUI.tree, current_layer, __NGUI.tree.layers[current_layer].size - 1);
             enum Tag openTag = open_node->tag;
             if (AssertTagCloseStartGrammar(tokens, i, openTag) != 0) {
-                NU_Stringmap_Free(&image_filepath_to_handle_hmap);
+                LinearStringmapFree(&imageFilepathToHandleMap);
                 return 0;
             }
 
@@ -259,7 +260,7 @@ int NU_Generate_Tree(char* src, struct Vector* tokens, struct Vector* textRefs)
                         char* id_get = String_Set_Get(&__NGUI.id_string_set, ptext);
                         if (id_get == NULL) {
                             current_node->id = String_Set_Add(&__NGUI.id_string_set, ptext);
-                            NU_Stringmap_Set(&__NGUI.id_node_map, ptext, &current_node->handle);
+                            StringmapSet(&__NGUI.id_node_map, ptext, &current_node->handle);
                         }
                         break;
 
@@ -611,12 +612,12 @@ int NU_Generate_Tree(char* src, struct Vector* tokens, struct Vector* textRefs)
 
                     // Image source
                     case IMAGE_SOURCE_PROPERTY:
-                        void* found = NU_Stringmap_Get(&image_filepath_to_handle_hmap, ptext);
+                        void* found = LinearStringmapGet(&imageFilepathToHandleMap, ptext);
                         if (found == NULL) {
                             GLuint image_handle = Image_Load(ptext);
                             if (image_handle) {
                                 current_node->glImageHandle = image_handle;
-                                NU_Stringmap_Set(&image_filepath_to_handle_hmap, ptext, &image_handle);
+                                LinearStringmapSet(&imageFilepathToHandleMap, ptext, &image_handle);
                             }
                         } 
                         else { current_node->glImageHandle = *(GLuint*)found; }
@@ -632,7 +633,7 @@ int NU_Generate_Tree(char* src, struct Vector* tokens, struct Vector* textRefs)
             }
             else // Failure 
             {
-                NU_Stringmap_Free(&image_filepath_to_handle_hmap);
+                LinearStringmapFree(&imageFilepathToHandleMap);
                 return 0;
             }
         }
@@ -640,7 +641,7 @@ int NU_Generate_Tree(char* src, struct Vector* tokens, struct Vector* textRefs)
         // Continue ^
         i+=1;
     }
-    NU_Stringmap_Free(&image_filepath_to_handle_hmap);
+    LinearStringmapFree(&imageFilepathToHandleMap);
     return 1; // Success
 }
 

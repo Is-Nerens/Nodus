@@ -173,7 +173,7 @@ void* HashmapGet(Hashmap* hmap, void* key)
 void HashmapSet(Hashmap* hmap, void* key, void* value)
 {
     // Resize if surpassed max load factor 
-    if ((float)hmap->itemCount / (float)hmap->capacity > 0.5f) {
+    if (hmap->itemCount * 10 > hmap->capacity * 7) {
         HashmapResize(hmap);
     }
 

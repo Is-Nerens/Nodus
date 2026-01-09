@@ -26,8 +26,7 @@ typedef struct NU_Stylesheet
     struct Hashmap class_pseudo_item_hashmap;
     struct Hashmap id_pseudo_item_hashmap;
 
-    NU_Stringmap image_filepath_to_handle_hmap;
-    NU_Stringmap font_name_index_map;
+    Stringmap font_name_index_map;
 
     Vector fonts;
 } NU_Stylesheet;

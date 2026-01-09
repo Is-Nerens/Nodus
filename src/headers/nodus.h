@@ -36,7 +36,7 @@ struct NU_GUI
     StringArena node_text_arena;
     String_Set class_string_set;
     String_Set id_string_set;
-    NU_Stringmap id_node_map;
+    Stringmap id_node_map;
     Hashmap canvas_contexts; 
 
     // Drawing Info Datastructures
@@ -126,7 +126,7 @@ int NU_Internal_Init()
     StringArena_Init(&__NGUI.node_text_arena, 1024);
     String_Set_Init(&__NGUI.class_string_set, 1024, 100);
     String_Set_Init(&__NGUI.id_string_set, 1024, 100);
-    NU_Stringmap_Init(&__NGUI.id_node_map, sizeof(uint32_t), 1024, 100);
+    StringmapInit(&__NGUI.id_node_map, sizeof(uint32_t), 100, 1024);
     HashmapInit(&__NGUI.canvas_contexts, sizeof(uint32_t), sizeof(NU_Canvas_Context), 4);
     Vector_Reserve(&__NGUI.stylesheets, sizeof(NU_Stylesheet), 2);
 
@@ -174,17 +174,6 @@ int NU_Internal_Init()
     return 1; // Success
 }
 
-uint32_t NU_Internal_Load_Stylesheet(char* filepath)
-{
-    NU_Stylesheet* stylesheet = Vector_Create_Uninitialised(&__NGUI.stylesheets);
-    if (!NU_Stylesheet_Create(stylesheet, filepath)) return 0; // Failure
-    uint32_t stylesheet_handle = __NGUI.stylesheets.size;
-    if (__NGUI.stylesheets.size == 1) { // If this is the first stylesheet -> auto apply
-        NU_Internal_Apply_Stylesheet(stylesheet_handle);
-    }
-    return stylesheet_handle;
-}
-
 int NU_Internal_Running()
 {
     if (__NGUI.running)
@@ -228,7 +217,7 @@ void NU_Internal_Render()
 void NU_Internal_Quit()
 {
     NU_Tree_Free(&__NGUI.tree);
-    NU_Stringmap_Free(&__NGUI.id_node_map);
+    StringmapFree(&__NGUI.id_node_map);
     String_Set_Free(&__NGUI.class_string_set);
     String_Set_Free(&__NGUI.id_string_set);
     StringArena_Free(&__NGUI.node_text_arena);

@@ -1,33 +1,69 @@
 #pragma once
 #include <stdint.h>
 #include <stdlib.h>
-#include <string.h>
+#include <datastructures/string.h>
+#include <datastructures/hashmap.h>
 
-typedef struct Stringmap
+typedef struct GrowStringmapChunk
 {
+    char* buffer;
+    uint32_t capacity;
+    uint32_t used;
+} GrowStringmapChunk;
+
+typedef struct GrowStringmap
+{
+    // chunk array
+    GrowStringmapChunk* chunkArray;
+    uint32_t chunkArraySize;
+    uint32_t chunkArrayCapacity;
+    uint32_t allocSearchStart;
+    
+    // hashmap
     uint8_t* occupancy;
     void* map;
     uint32_t mapCapacity;
     uint32_t itemSize;
     uint32_t itemCount;
     uint32_t maxProbes;
-} Stringmap;
+} GrowStringmap;
 
-void StringmapFree(Stringmap* map)
+void GrowStringmapFree(GrowStringmap* map)
 {
     if (!map) return;
+    if (map->chunkArray) free(map->chunkArray);
     if (map->occupancy) free(map->occupancy);
     if (map->map) free(map->map);
+    map->chunkArray = NULL;
     map->occupancy = NULL;
     map->map = NULL;
+    map->chunkArraySize = 0;
+    map->chunkArrayCapacity = 0;
+    map->allocSearchStart = 0;
     map->mapCapacity = 0;
     map->itemSize = 0;
     map->itemCount = 0;
     map->maxProbes = 0;
 }
 
-int StringmapInit(Stringmap* map, uint32_t itemSize, uint32_t mapCapacity, uint32_t chunkCapacity)
+int GrowStringmapInit(GrowStringmap* map, uint32_t itemSize, uint32_t mapCapacity, uint32_t chunkCapacity)
 {
+    // create chunk buffer array
+    if (chunkCapacity < 512) chunkCapacity = 512;
+    map->chunkArrayCapacity = 8;
+    map->chunkArray = malloc(sizeof(GrowStringmapChunk) * map->chunkArrayCapacity);
+    if (map->chunkArray == NULL) return 0;
+    map->chunkArraySize = 1;
+    map->allocSearchStart = 0;
+
+    // create first chunk
+    map->chunkArray[0].buffer = malloc(chunkCapacity);
+    if (map->chunkArray[0].buffer == NULL) {
+        GrowStringmapFree(map); return 0;
+    }
+    map->chunkArray[0].capacity = chunkCapacity;
+    map->chunkArray[0].used = 0;
+
     // create hashmap
     map->mapCapacity = mapCapacity;
     uint32_t occupancyRemainder = map->mapCapacity & 7;
@@ -35,7 +71,7 @@ int StringmapInit(Stringmap* map, uint32_t itemSize, uint32_t mapCapacity, uint3
     occupancyBytes += 1 * (occupancyRemainder != 0);
     map->occupancy = (uint8_t*)calloc(occupancyBytes, 1); 
     if (map->occupancy == NULL) {
-        StringmapFree(map); return 0;
+        GrowStringmapFree(map); return 0;
     }
     map->map = malloc((sizeof(char*) + itemSize) * mapCapacity);
     map->itemSize = itemSize;
@@ -46,7 +82,7 @@ int StringmapInit(Stringmap* map, uint32_t itemSize, uint32_t mapCapacity, uint3
     return 1;
 }
 
-uint32_t StringmapHash(char* string) {
+uint32_t GrowStringmapHash(char* string) {
     uint32_t hash = 2166136261u;
     for (uint8_t* p = (uint8_t*)string; *p; p++) {
         hash ^= *p;
@@ -55,22 +91,22 @@ uint32_t StringmapHash(char* string) {
     return hash;
 }
 
-static inline uint8_t StringmapSlotPresent(Stringmap* map, uint32_t i)
+static inline uint8_t GrowStringmapSlotPresent(GrowStringmap* map, uint32_t i)
 {
     return map->occupancy[i >> 3] & (1u << (i & 7));
 }
 
-static inline void StringmapMarkSlot(Stringmap* map, uint32_t i)
+static inline void GrowStringmapMarkSlot(GrowStringmap* map, uint32_t i)
 {
     map->occupancy[i >> 3] |= (uint8_t)(1 << (i & 7));
 }
 
-static inline void StringmapClearSlot(Stringmap* map, uint32_t i)
+static inline void GrowStringmapClearSlot(GrowStringmap* map, uint32_t i)
 {
     map->occupancy[i >> 3] &= ~(1u << (i & 7));
 }
 
-int StringmapGrowRehash(Stringmap* map)
+int GrowStringmapGrowRehash(GrowStringmap* map)
 {
     uint32_t oldMapCapacity = map->mapCapacity;
     uint8_t* oldOccupancy = map->occupancy;
@@ -81,7 +117,7 @@ int StringmapGrowRehash(Stringmap* map)
     uint32_t occupancyRemainder = map->mapCapacity & 7;
     uint32_t occupancyBytes = map->mapCapacity >> 3;
     occupancyBytes += 1 * (occupancyRemainder != 0);
-    map->occupancy = (uint8_t*)calloc(occupancyBytes, 1);
+    map->occupancy = calloc(occupancyBytes, 1);
     if (map->occupancy == NULL) {
         map->mapCapacity = oldMapCapacity;
         map->occupancy = oldOccupancy;
@@ -101,20 +137,20 @@ int StringmapGrowRehash(Stringmap* map)
     for (uint32_t j=0; j<oldMapCapacity; j++) {
         if (oldOccupancy[j >> 3] & (1u << (j & 7)))
         {
-            char* oldBase = (char*)oldMap + j * (sizeof(char*) + map->itemSize);
-            char* key  = *(char**)oldBase;
-            void* value = oldBase + sizeof(char*);
+            char* base = (char*)oldMap + j * (sizeof(char*) + map->itemSize);
+            char* key  = *(char**)base;
+            void* value = base + sizeof(char*);
 
             // add item
             uint32_t probes = 0;
-            uint32_t hash = StringmapHash(key);
+            uint32_t hash = GrowStringmapHash(key);
             while(probes < map->mapCapacity) {
                 uint32_t i = (hash + probes) % map->mapCapacity;
-                if (!StringmapSlotPresent(map, i)) {
+                if (!GrowStringmapSlotPresent(map, i)) {
                     char* base = (char*)map->map + i * (sizeof(char*) + map->itemSize);
-                    memcpy(base, &key, sizeof(char*));
+                    memcpy(base, key, sizeof(char*));
                     memcpy(base + sizeof(char*), value, map->itemSize);
-                    StringmapMarkSlot(map, i);
+                    GrowStringmapMarkSlot(map, i);
                     break;
                 }
                 probes++;
@@ -125,22 +161,65 @@ int StringmapGrowRehash(Stringmap* map)
     return 1;
 }
 
-int StringmapSet(Stringmap* map, char* key, void* value)
+char* GrowStringmapAddKey(GrowStringmap* map, char* key)
+{
+    char* storedKey;
+    uint32_t keyLen = strlen(key);
+    
+    // search chunks for space
+    for (uint32_t i=map->allocSearchStart; i<map->chunkArraySize; i++) {
+        GrowStringmapChunk* chunk = &map->chunkArray[i];
+        if (chunk->capacity - chunk->used >= keyLen + 1) {
+            storedKey = (char*)chunk->buffer + chunk->used;
+            memcpy(storedKey, key, keyLen);
+            storedKey[keyLen] = '\0';
+            chunk->used += keyLen + 1;
+            return storedKey;
+        }
+        else if (chunk->capacity - chunk->used < 20)
+        {
+            map->allocSearchStart++;
+        }
+    }
+
+    // no space? -> add new chunk
+    if (map->chunkArrayCapacity == map->chunkArraySize) {
+        map->chunkArrayCapacity *= 2;
+        map->chunkArray = realloc(map->chunkArray, sizeof(GrowStringmapChunk) * map->chunkArrayCapacity);
+        if (map->chunkArray == NULL) return NULL;
+    }
+    map->chunkArraySize++;
+    uint32_t newChunkCap = map->chunkArray[0].capacity;
+    if (newChunkCap < keyLen * 2) newChunkCap = keyLen * 2;
+    GrowStringmapChunk* newChunk = &map->chunkArray[map->chunkArraySize - 1];
+    newChunk->capacity = newChunkCap;
+    newChunk->buffer = malloc(newChunkCap);
+    if (newChunk->buffer == NULL) return NULL;
+    newChunk->used = keyLen + 1;
+
+    // copy key into new chunk
+    storedKey = (char*)newChunk->buffer;
+    memcpy(storedKey, key, keyLen);
+    storedKey[keyLen] = '\0';
+    return storedKey;
+}
+
+int GrowStringmapSet(GrowStringmap* map, char* key, void* value)
 {
     // resize if surpassed max load factor
     if (map->itemCount * 10 > map->mapCapacity * 7) {
-        if (!StringmapGrowRehash(map)) {
+        if (!GrowStringmapGrowRehash(map)) {
             return 0;
         }
     }
 
     uint32_t probes = 0;
-    uint32_t hash = StringmapHash(key);
+    uint32_t hash = GrowStringmapHash(key);
     while(probes < map->mapCapacity) {
         uint32_t i = (hash + probes) % map->mapCapacity;
 
         // if key exists -> update value
-        if (StringmapSlotPresent(map, i)) {
+        if (GrowStringmapSlotPresent(map, i)) {
             char* base = (char*)map->map + i * (sizeof(char*) + map->itemSize);
             char* storedKey = *(char**)base;
             if (strcmp(key, storedKey) == 0) {
@@ -150,10 +229,8 @@ int StringmapSet(Stringmap* map, char* key, void* value)
         }
         else
         {
-            StringmapMarkSlot(map, i);
-            uint32_t len = strlen(key);
-            char* storedKey = (char*)malloc(len + 1);
-            memcpy(storedKey, key, len); storedKey[len] = '\0';
+            GrowStringmapMarkSlot(map, i);
+            char* storedKey = GrowStringmapAddKey(map, key);
             if (storedKey == NULL) return 0;
 
             char* base = (char*)map->map + i * (sizeof(char*) + map->itemSize);
@@ -168,13 +245,13 @@ int StringmapSet(Stringmap* map, char* key, void* value)
     return 1;
 }
 
-void* StringmapGet(Stringmap* map, char* key)
+void* GrowStringmapGet(GrowStringmap* map, char* key)
 {
     uint32_t probes = 0;
-    uint32_t hash = StringmapHash(key);
+    uint32_t hash = GrowStringmapHash(key);
     while(probes < map->mapCapacity) {
         uint32_t i = (hash + probes) % map->mapCapacity;
-        if (StringmapSlotPresent(map, i)) {
+        if (GrowStringmapSlotPresent(map, i)) {
             char* base = (char*)map->map + i * (sizeof(char*) + map->itemSize);
             char* storedKey = *(char**)base;
             if (strcmp(key, storedKey) == 0) {
@@ -186,13 +263,13 @@ void* StringmapGet(Stringmap* map, char* key)
     return NULL;
 }
 
-int StringmapContains(Stringmap* map, char* key)
+int GrowStringmapContains(GrowStringmap* map, char* key)
 {
     uint32_t probes = 0;
-    uint32_t hash = StringmapHash(key);
-    while(probes < map->maxProbes) {
+    uint32_t hash = GrowStringmapHash(key);
+    while(probes < map->mapCapacity) {
         uint32_t i = (hash + probes) % map->mapCapacity;
-        if (StringmapSlotPresent(map, i)) {
+        if (GrowStringmapSlotPresent(map, i)) {
             char* base = (char*)map->map + i * (sizeof(char*) + map->itemSize);
             char* storedKey = *(char**)base;
             if (strcmp(key, storedKey) == 0) {
@@ -202,65 +279,4 @@ int StringmapContains(Stringmap* map, char* key)
         probes++;
     }
     return 0;
-}
-
-void StringmapDelete(Stringmap* map, char* key)
-{
-    uint32_t probes = 0;
-    uint32_t hash = StringmapHash(key);
-
-    int holeIndex = -1;
-    while(probes < map->mapCapacity) {
-        uint32_t i = (hash + probes) % map->mapCapacity;
-        if (StringmapSlotPresent(map, i)) {
-            char* base = (char*)map->map + i * (sizeof(char*) + map->itemSize);
-            char* storedKey = *(char**)base;
-            if (strcmp(key, storedKey) == 0) {
-                holeIndex = (int)i;
-                StringmapClearSlot(map, i);
-                free(storedKey);
-                break;
-            }
-        }
-        else break;
-        probes++;
-    }
-    
-    if (holeIndex == -1) return; // key not found
-
-    uint32_t i = (holeIndex + 1) % map->mapCapacity;
-    while (StringmapSlotPresent(map, i))
-    {
-        char* base = (char*)map->map + i * (sizeof(char*) + map->itemSize);
-        char* candidateKey = *(char**)base;
-        uint32_t candidateHash = StringmapHash(candidateKey);
-        uint32_t candidateHome = candidateHash % map->mapCapacity;
-
-        // can the candidate move into the hole?
-        int canMoveCandidate;
-        if (holeIndex <= i)
-            canMoveCandidate = (candidateHome <= holeIndex || candidateHome > i);
-        else
-            canMoveCandidate = (candidateHome <= holeIndex && candidateHome > i);
-
-        if (!canMoveCandidate) {
-            i = (i + 1) % map->mapCapacity;
-            continue;
-        }
-
-        // move candidate into the hole
-        memcpy(
-            (char*)map->map + holeIndex * (sizeof(char*) + map->itemSize),
-            base,
-            sizeof(char*) + map->itemSize
-        );
-
-        StringmapClearSlot(map, i);
-        StringmapMarkSlot(map, holeIndex);
-
-        holeIndex = i;
-        i = (i + 1) % map->mapCapacity;
-    }
-
-    map->itemCount--;
 }

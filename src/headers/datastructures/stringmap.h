@@ -7,7 +7,7 @@ typedef struct Stringmap
 {
     uint8_t* occupancy;
     void* map;
-    uint32_t mapCapacity;
+    uint32_t capacity;
     uint32_t itemSize;
     uint32_t itemCount;
     uint32_t maxProbes;
@@ -20,24 +20,24 @@ void StringmapFree(Stringmap* map)
     if (map->map) free(map->map);
     map->occupancy = NULL;
     map->map = NULL;
-    map->mapCapacity = 0;
+    map->capacity = 0;
     map->itemSize = 0;
     map->itemCount = 0;
     map->maxProbes = 0;
 }
 
-int StringmapInit(Stringmap* map, uint32_t itemSize, uint32_t mapCapacity, uint32_t chunkCapacity)
+int StringmapInit(Stringmap* map, uint32_t itemSize, uint32_t capacity, uint32_t chunkCapacity)
 {
     // create hashmap
-    map->mapCapacity = mapCapacity;
-    uint32_t occupancyRemainder = map->mapCapacity & 7;
-    uint32_t occupancyBytes = map->mapCapacity >> 3;
+    map->capacity = capacity;
+    uint32_t occupancyRemainder = map->capacity & 7;
+    uint32_t occupancyBytes = map->capacity >> 3;
     occupancyBytes += 1 * (occupancyRemainder != 0);
     map->occupancy = (uint8_t*)calloc(occupancyBytes, 1); 
     if (map->occupancy == NULL) {
         StringmapFree(map); return 0;
     }
-    map->map = malloc((sizeof(char*) + itemSize) * mapCapacity);
+    map->map = malloc((sizeof(char*) + itemSize) * capacity);
     map->itemSize = itemSize;
     map->itemCount = 0;
     map->maxProbes = 1;
@@ -72,25 +72,25 @@ static inline void StringmapClearSlot(Stringmap* map, uint32_t i)
 
 int StringmapGrowRehash(Stringmap* map)
 {
-    uint32_t oldMapCapacity = map->mapCapacity;
+    uint32_t oldMapCapacity = map->capacity;
     uint8_t* oldOccupancy = map->occupancy;
     void* oldMap = map->map;
 
     // reisze
-    map->mapCapacity *= 2;
-    uint32_t occupancyRemainder = map->mapCapacity & 7;
-    uint32_t occupancyBytes = map->mapCapacity >> 3;
+    map->capacity *= 2;
+    uint32_t occupancyRemainder = map->capacity & 7;
+    uint32_t occupancyBytes = map->capacity >> 3;
     occupancyBytes += 1 * (occupancyRemainder != 0);
     map->occupancy = (uint8_t*)calloc(occupancyBytes, 1);
     if (map->occupancy == NULL) {
-        map->mapCapacity = oldMapCapacity;
+        map->capacity = oldMapCapacity;
         map->occupancy = oldOccupancy;
         return 0;
     }
-    map->map = malloc((sizeof(char*) + map->itemSize) * map->mapCapacity);
+    map->map = malloc((sizeof(char*) + map->itemSize) * map->capacity);
     if (map->map == NULL) {
         free(map->occupancy);
-        map->mapCapacity = oldMapCapacity;
+        map->capacity = oldMapCapacity;
         map->occupancy = oldOccupancy;
         map->map = oldMap;
         return 0;
@@ -108,8 +108,8 @@ int StringmapGrowRehash(Stringmap* map)
             // add item
             uint32_t probes = 0;
             uint32_t hash = StringmapHash(key);
-            while(probes < map->mapCapacity) {
-                uint32_t i = (hash + probes) % map->mapCapacity;
+            while(probes < map->capacity) {
+                uint32_t i = (hash + probes) % map->capacity;
                 if (!StringmapSlotPresent(map, i)) {
                     char* base = (char*)map->map + i * (sizeof(char*) + map->itemSize);
                     memcpy(base, &key, sizeof(char*));
@@ -128,7 +128,7 @@ int StringmapGrowRehash(Stringmap* map)
 int StringmapSet(Stringmap* map, char* key, void* value)
 {
     // resize if surpassed max load factor
-    if (map->itemCount * 10 > map->mapCapacity * 7) {
+    if (map->itemCount * 10 > map->capacity * 7) {
         if (!StringmapGrowRehash(map)) {
             return 0;
         }
@@ -136,8 +136,8 @@ int StringmapSet(Stringmap* map, char* key, void* value)
 
     uint32_t probes = 0;
     uint32_t hash = StringmapHash(key);
-    while(probes < map->mapCapacity) {
-        uint32_t i = (hash + probes) % map->mapCapacity;
+    while(probes < map->capacity) {
+        uint32_t i = (hash + probes) % map->capacity;
 
         // if key exists -> update value
         if (StringmapSlotPresent(map, i)) {
@@ -172,8 +172,8 @@ void* StringmapGet(Stringmap* map, char* key)
 {
     uint32_t probes = 0;
     uint32_t hash = StringmapHash(key);
-    while(probes < map->mapCapacity) {
-        uint32_t i = (hash + probes) % map->mapCapacity;
+    while(probes < map->capacity) {
+        uint32_t i = (hash + probes) % map->capacity;
         if (StringmapSlotPresent(map, i)) {
             char* base = (char*)map->map + i * (sizeof(char*) + map->itemSize);
             char* storedKey = *(char**)base;
@@ -191,7 +191,7 @@ int StringmapContains(Stringmap* map, char* key)
     uint32_t probes = 0;
     uint32_t hash = StringmapHash(key);
     while(probes < map->maxProbes) {
-        uint32_t i = (hash + probes) % map->mapCapacity;
+        uint32_t i = (hash + probes) % map->capacity;
         if (StringmapSlotPresent(map, i)) {
             char* base = (char*)map->map + i * (sizeof(char*) + map->itemSize);
             char* storedKey = *(char**)base;
@@ -210,8 +210,8 @@ void StringmapDelete(Stringmap* map, char* key)
     uint32_t hash = StringmapHash(key);
 
     int holeIndex = -1;
-    while(probes < map->mapCapacity) {
-        uint32_t i = (hash + probes) % map->mapCapacity;
+    while(probes < map->capacity) {
+        uint32_t i = (hash + probes) % map->capacity;
         if (StringmapSlotPresent(map, i)) {
             char* base = (char*)map->map + i * (sizeof(char*) + map->itemSize);
             char* storedKey = *(char**)base;
@@ -228,13 +228,13 @@ void StringmapDelete(Stringmap* map, char* key)
     
     if (holeIndex == -1) return; // key not found
 
-    uint32_t i = (holeIndex + 1) % map->mapCapacity;
+    uint32_t i = (holeIndex + 1) % map->capacity;
     while (StringmapSlotPresent(map, i))
     {
         char* base = (char*)map->map + i * (sizeof(char*) + map->itemSize);
         char* candidateKey = *(char**)base;
         uint32_t candidateHash = StringmapHash(candidateKey);
-        uint32_t candidateHome = candidateHash % map->mapCapacity;
+        uint32_t candidateHome = candidateHash % map->capacity;
 
         // can the candidate move into the hole?
         int canMoveCandidate;
@@ -244,7 +244,7 @@ void StringmapDelete(Stringmap* map, char* key)
             canMoveCandidate = (candidateHome <= holeIndex && candidateHome > i);
 
         if (!canMoveCandidate) {
-            i = (i + 1) % map->mapCapacity;
+            i = (i + 1) % map->capacity;
             continue;
         }
 
@@ -259,7 +259,7 @@ void StringmapDelete(Stringmap* map, char* key)
         StringmapMarkSlot(map, holeIndex);
 
         holeIndex = i;
-        i = (i + 1) % map->mapCapacity;
+        i = (i + 1) % map->capacity;
     }
 
     map->itemCount--;

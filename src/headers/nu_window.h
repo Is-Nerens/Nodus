@@ -1,8 +1,6 @@
 #pragma once 
-
 #include <SDL3/SDL.h>
 #include <GL/glew.h>
-
 #include "draw/nu_draw.h"
 
 void NU_Create_Main_Window() 

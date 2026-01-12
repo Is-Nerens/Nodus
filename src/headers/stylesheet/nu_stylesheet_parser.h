@@ -1,6 +1,7 @@
 #pragma once
 #include "nu_stylesheet_grammar_assertions.h"
 #include <datastructures/linear_stringmap.h>
+#include <datastructures/linear_stringset.h>
 
 static int NU_Stylesheet_Parse(char* src, struct Vector* tokens, NU_Stylesheet* ss, struct Vector* text_refs)
 {
@@ -264,7 +265,7 @@ static int NU_Stylesheet_Parse(char* src, struct Vector* tokens, NU_Stylesheet* 
                     src[text_ref->src_index + text_ref->char_count] = '\0';
 
                     // Add class to set
-                    char* stored_class = String_Set_Add(&ss->class_string_set, src_class);
+                    char* stored_class = LinearStringsetAdd(&ss->class_string_set, src_class);
 
                     // If style item exists
                     void* found = HashmapGet(&ss->class_item_hashmap, &stored_class);
@@ -304,7 +305,7 @@ static int NU_Stylesheet_Parse(char* src, struct Vector* tokens, NU_Stylesheet* 
                         src[text_ref->src_index + text_ref->char_count] = '\0';
 
                         // Add class to set
-                        char* stored_class = String_Set_Add(&ss->class_string_set, src_class);
+                        char* stored_class = LinearStringsetAdd(&ss->class_string_set, src_class);
                         struct NU_Stylesheet_String_Pseudo_Pair key = { stored_class, pseudo_class };
                         void* found = HashmapGet(&ss->class_pseudo_item_hashmap, &key);
                         if (found != NULL) 
@@ -364,7 +365,7 @@ static int NU_Stylesheet_Parse(char* src, struct Vector* tokens, NU_Stylesheet* 
                     src[text_ref->src_index + text_ref->char_count] = '\0';
 
                     // Add id to set
-                    char* stored_id = String_Set_Add(&ss->id_string_set, src_id);
+                    char* stored_id = LinearStringsetAdd(&ss->id_string_set, src_id);
 
                     // If style item exists
                     void* found = HashmapGet(&ss->id_item_hashmap, &stored_id);
@@ -404,7 +405,7 @@ static int NU_Stylesheet_Parse(char* src, struct Vector* tokens, NU_Stylesheet* 
                         src[text_ref->src_index + text_ref->char_count] = '\0';
 
                         // Add id to set
-                        char* stored_id = String_Set_Add(&ss->id_string_set, src_id);
+                        char* stored_id = LinearStringsetAdd(&ss->id_string_set, src_id);
                         struct NU_Stylesheet_String_Pseudo_Pair key = { stored_id, pseudo_class };
                         void* found = HashmapGet(&ss->id_pseudo_item_hashmap, &key);
                         if (found != NULL) 

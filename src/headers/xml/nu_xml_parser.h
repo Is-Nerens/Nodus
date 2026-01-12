@@ -257,16 +257,16 @@ int NU_Generate_Tree(char* src, struct Vector* tokens, struct Vector* textRefs)
                 {
                     // Set id
                     case ID_PROPERTY:
-                        char* id_get = String_Set_Get(&__NGUI.id_string_set, ptext);
+                        char* id_get = StringsetGet(&__NGUI.id_string_set, ptext);
                         if (id_get == NULL) {
-                            current_node->id = String_Set_Add(&__NGUI.id_string_set, ptext);
+                            current_node->id = StringsetAdd(&__NGUI.id_string_set, ptext);
                             StringmapSet(&__NGUI.id_node_map, ptext, &current_node->handle);
                         }
                         break;
 
                     // Set class
                     case CLASS_PROPERTY:
-                        current_node->class = String_Set_Add(&__NGUI.class_string_set, ptext);
+                        current_node->class = StringsetAdd(&__NGUI.class_string_set, ptext);
                         break;
 
                     // Set layout direction

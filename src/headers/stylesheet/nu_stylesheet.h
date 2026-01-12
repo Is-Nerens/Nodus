@@ -5,6 +5,7 @@
 #include <stdlib.h>
 #include <stdio.h>
 #include "nu_convert.h"
+#include <datastructures/linear_stringset.h>
 #include "nu_stylesheet_tokens.h"
 #include "nu_stylesheet_structs.h"
 #include "nu_stylesheet_tokeniser.h"
@@ -23,8 +24,8 @@
 void NU_Stylesheet_Init(NU_Stylesheet* ss)
 {
     Vector_Reserve(&ss->items, sizeof(NU_Stylesheet_Item), 512);
-    String_Set_Init(&ss->class_string_set, 1024, 128);
-    String_Set_Init(&ss->id_string_set, 1024, 128);
+    LinearStringsetInit(&ss->class_string_set, 1024, 128);
+    LinearStringsetInit(&ss->id_string_set, 1024, 128);
     HashmapInit(&ss->class_item_hashmap, sizeof(char*), sizeof(uint32_t), 128);
     HashmapInit(&ss->id_item_hashmap, sizeof(char*), sizeof(uint32_t), 128);
     HashmapInit(&ss->tag_item_hashmap, sizeof(int), sizeof(uint32_t), 16);
@@ -37,8 +38,8 @@ void NU_Stylesheet_Init(NU_Stylesheet* ss)
 void NU_Stylesheet_Free(NU_Stylesheet* ss)
 {
     Vector_Free(&ss->items);
-    String_Set_Free(&ss->class_string_set);
-    String_Set_Free(&ss->id_string_set);
+    LinearStringsetFree(&ss->class_string_set);
+    LinearStringsetFree(&ss->id_string_set);
     HashmapFree(&ss->class_item_hashmap);
     HashmapFree(&ss->id_item_hashmap);
     HashmapFree(&ss->tag_item_hashmap);

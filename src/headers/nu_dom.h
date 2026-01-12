@@ -599,13 +599,13 @@ void NU_Internal_Set_Class(uint32_t handle, char* class)
      node->class = NULL;
 
     // Look for class in gui class string set
-    char* gui_class_get = String_Set_Get(&__NGUI.class_string_set, class);
+    char* gui_class_get = StringsetGet(&__NGUI.class_string_set, class);
     if (gui_class_get == NULL) { // Not found? Look in the stylesheet
-        char* style_class_get = String_Set_Get(&__NGUI.stylesheet->class_string_set, class);
+        char* style_class_get = LinearStringsetGet(&__NGUI.stylesheet->class_string_set, class);
 
         // If found in the stylesheet -> add it to the gui class set
         if (style_class_get) {
-            node->class = String_Set_Add(&__NGUI.class_string_set, class);
+            node->class = StringsetAdd(&__NGUI.class_string_set, class);
         }
     } 
     else {

@@ -14,7 +14,7 @@ const char* nu_xml_keywords[] = {
     "padding", "padding-top", "padding-bottom", "padding-left", "padding-right", 
     "image-src",
     "window",
-    "rect",
+    "box",
     "button",
     "grid",
     "canvas",
@@ -45,7 +45,7 @@ enum NU_XML_TOKEN
 
     // --- Tag Tokens ---
     WINDOW_TAG,
-    RECT_TAG,
+    BOX_TAG,
     BUTTON_TAG,
     GRID_TAG,
     CANVAS_TAG,

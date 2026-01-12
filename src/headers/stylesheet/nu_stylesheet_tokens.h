@@ -16,7 +16,7 @@ static const char* style_keywords[] = {
     "border-radius", "border-radius-top-left", "border-radius-top-right", "border-radius-bottom-left", "border-radius-bottom-right",
     "padding", "padding-top", "padding-bottom", "padding-left", "padding-right", 
     "image-src", "font", "src", "size", "weight",
-    "window", "rect", "button", "grid", "canvas", "image", "table", "thead", "row", "@font",
+    "window", "box", "button", "grid", "canvas", "image", "table", "thead", "row", "@font",
     "hover", "press", "focus",
 };
 
@@ -73,7 +73,7 @@ enum NU_Style_Token
 
     // --- Tag selectors ---
     STYLE_WINDOW_SELECTOR,
-    STYLE_RECT_SELECTOR,
+    STYLE_BOX_SELECTOR,
     STYLE_BUTTON_SELECTOR,
     STYLE_GRID_SELECTOR,
     STYLE_CANVAS_SELECTOR,

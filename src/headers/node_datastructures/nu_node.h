@@ -20,7 +20,7 @@
 enum Tag
 {
     WINDOW,
-    REC,
+    BOX,
     BUTTON,
     GRID,
     CANVAS,

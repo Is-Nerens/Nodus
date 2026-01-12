@@ -15,8 +15,8 @@ typedef struct NU_Stylesheet_String_Pseudo_Pair
 typedef struct NU_Stylesheet
 {
     struct Vector items;
-    String_Set class_string_set;
-    String_Set id_string_set;
+    LinearStringset class_string_set;
+    LinearStringset id_string_set;
     struct Hashmap class_item_hashmap;
     struct Hashmap id_item_hashmap;
     struct Hashmap tag_item_hashmap;

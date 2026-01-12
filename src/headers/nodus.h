@@ -5,9 +5,10 @@
 
 // === NODUS INCLUDES ===
 #include "datastructures/vector.h"
-#include "datastructures/string_set.h"
+#include "datastructures/stringset.h"
 #include "datastructures/hashmap.h"
 #include "datastructures/stringmap.h"
+#include "datastructures/linear_stringmap.h"
 #include "datastructures/string_arena.h"
 #include "datastructures/hashmap.h"
 #include "draw/nu_draw_structures.h"
@@ -16,8 +17,7 @@
 #include "node_datastructures/nu_nodelist.h"
 #include "node_datastructures/nu_tree.h"
 
-
-typedef struct NU_Window_Draw_Lists
+typedef struct NU_WindowDrawlists
 {
     Vector relativeNodeList;
     Vector clippedRelativeNodeList;
@@ -25,7 +25,7 @@ typedef struct NU_Window_Draw_Lists
     Vector clippedAbsoluteNodeList;
     Vector canvasNodeList;
     Vector clippedCanvasNodeList;
-} NU_Window_Draw_Lists;
+} NU_WindowDrawlists;
 
 
 struct NU_GUI
@@ -34,8 +34,8 @@ struct NU_GUI
     Vector windows;
     Vector windowNodes;
     StringArena node_text_arena;
-    String_Set class_string_set;
-    String_Set id_string_set;
+    Stringset class_string_set;
+    Stringset id_string_set;
     Stringmap id_node_map;
     Hashmap canvas_contexts; 
 
@@ -124,14 +124,14 @@ int NU_Internal_Init()
     Vector_Reserve(&__NGUI.windows, sizeof(SDL_Window*), 8);
     Vector_Reserve(&__NGUI.windowNodes, sizeof(uint32_t), 8);
     StringArena_Init(&__NGUI.node_text_arena, 1024);
-    String_Set_Init(&__NGUI.class_string_set, 1024, 100);
-    String_Set_Init(&__NGUI.id_string_set, 1024, 100);
+    StringsetInit(&__NGUI.class_string_set, 1024, 100);
+    StringsetInit(&__NGUI.id_string_set, 1024, 100);
     StringmapInit(&__NGUI.id_node_map, sizeof(uint32_t), 100, 1024);
     HashmapInit(&__NGUI.canvas_contexts, sizeof(uint32_t), sizeof(NU_Canvas_Context), 4);
     Vector_Reserve(&__NGUI.stylesheets, sizeof(NU_Stylesheet), 2);
 
     // Draw lists and clipping 
-    Vector_Reserve(&__NGUI.windowsDrawLists, sizeof(NU_Window_Draw_Lists), 8);
+    Vector_Reserve(&__NGUI.windowsDrawLists, sizeof(NU_WindowDrawlists), 8);
     Vector_Reserve(&__NGUI.absoluteRootNodes, sizeof(Node*), 8);
     HashmapInit(&__NGUI.node_clip_map, sizeof(uint32_t), sizeof(NU_Clip_Bounds), 16);
 
@@ -218,12 +218,12 @@ void NU_Internal_Quit()
 {
     NU_Tree_Free(&__NGUI.tree);
     StringmapFree(&__NGUI.id_node_map);
-    String_Set_Free(&__NGUI.class_string_set);
-    String_Set_Free(&__NGUI.id_string_set);
+    StringsetFree(&__NGUI.class_string_set);
+    StringsetFree(&__NGUI.id_string_set);
     StringArena_Free(&__NGUI.node_text_arena);
     for (uint32_t i=0; i<__NGUI.windowsDrawLists.size; i++)
     {
-        NU_Window_Draw_Lists* list = Vector_Get(&__NGUI.windowsDrawLists, i);
+        NU_WindowDrawlists* list = Vector_Get(&__NGUI.windowsDrawLists, i);
         Vector_Free(&list->relativeNodeList);
         Vector_Free(&list->clippedRelativeNodeList);
         Vector_Free(&list->absoluteNodeList);

@@ -1204,7 +1204,7 @@ void NU_Populate_Draw_Lists()
     uint32_t window_count = __NGUI.windows.size;
     for (uint32_t i=0; i<window_count; i++) 
     {
-        NU_Window_Draw_Lists* lists = Vector_Get(&__NGUI.windowsDrawLists, i);
+        NU_WindowDrawlists* lists = Vector_Get(&__NGUI.windowsDrawLists, i);
         Vector_Reserve(&lists->relativeNodeList, sizeof(Node*), 512);
         Vector_Reserve(&lists->clippedRelativeNodeList, sizeof(Node*), 64);
         Vector_Reserve(&lists->absoluteNodeList, sizeof(Node*), 64);
@@ -1221,7 +1221,7 @@ void NU_Populate_Draw_Lists()
 
     
 
-    NU_Window_Draw_Lists* root_lists = Vector_Get(&__NGUI.windowsDrawLists, 0);
+    NU_WindowDrawlists* root_lists = Vector_Get(&__NGUI.windowsDrawLists, 0);
 
 
     Node* root = &__NGUI.tree.layers[0].node_array[0];
@@ -1270,10 +1270,8 @@ void NU_Populate_Draw_Lists()
                 Node* child = NU_Layer_Get(child_layer, i); if (child->nodeState == 2) continue;
 
                 // If child not visible in window bounds -> mark as hidden
-                int window_index, w, h;
-                window_index = NU_Draw_Find_Window(child);
-                SDL_Window* window = *(SDL_Window**) Vector_Get(&__NGUI.windows, window_index);
-                SDL_GetWindowSize(window, &w, &h);
+                int w, h;
+                SDL_GetWindowSize(node->window, &w, &h);
                 if (!Is_Node_Visible_In_Window(child, (float)w, (float)h)) {
                     child->nodeState = 2; 
                     continue;
@@ -1285,9 +1283,7 @@ void NU_Populate_Draw_Lists()
                 }
 
                 // Get correct draw lists
-                NU_Window_Draw_Lists* lists = Vector_Get(&__NGUI.windowsDrawLists, window_index);
-
-
+                NU_WindowDrawlists* lists = Vector_Get(&__NGUI.windowsDrawLists, window_index);
 
                 // Skip node if not visible in parent (due to overflow)
                 if (parent->layoutFlags & OVERFLOW_VERTICAL_SCROLL && child->tag != THEAD) 
@@ -1407,7 +1403,7 @@ void NU_Draw()
     // For each window
     for (uint32_t i=0; i<window_count; i++)
     {
-        NU_Window_Draw_Lists* lists = Vector_Get(&__NGUI.windowsDrawLists, i);
+        NU_WindowDrawlists* lists = Vector_Get(&__NGUI.windowsDrawLists, i);
         SDL_Window* window = *(SDL_Window**) Vector_Get(&__NGUI.windows, i);
         SDL_GL_MakeCurrent(window, __NGUI.gl_ctx);
 
@@ -1673,7 +1669,7 @@ void NU_Draw()
     // --- Free memory -------
     // -----------------------
     for (uint32_t i=0; i<window_count; i++) {
-        NU_Window_Draw_Lists* lists = Vector_Get(&__NGUI.windowsDrawLists, i);
+        NU_WindowDrawlists* lists = Vector_Get(&__NGUI.windowsDrawLists, i);
         Vector_Free(&lists->relativeNodeList);
         Vector_Free(&lists->clippedRelativeNodeList);
         Vector_Free(&lists->absoluteNodeList);

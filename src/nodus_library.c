@@ -5,9 +5,10 @@
 // --------------------------
 // --- Nodus UI functions ---
 // --------------------------
-__declspec(dllexport) int NU_Init(void) {
-    return NU_Internal_Init();  
+__declspec(dllexport) int NU_Create_Gui(char* xml_filepath, char* css_filepath) {
+    return NU_Internal_Create_Gui(xml_filepath, css_filepath);
 }
+
 __declspec(dllexport) void NU_Quit(void) {
     NU_Internal_Quit();
 }
@@ -17,10 +18,6 @@ __declspec(dllexport) int NU_Running(void) {
 
 __declspec(dllexport) void NU_Unblock(void) {
     NU_Internal_Unblock();
-}
-
-__declspec(dllexport) int NU_Load_XML(char* filepath) {
-    return NU_Internal_Load_XML(filepath);
 }
 
 // ----------------------------
@@ -77,7 +74,7 @@ __declspec(dllexport) void NU_Register_Event(
 }
 
 // -----------------------------
-// --- Canvas draw functions ---
+// --- Canvas API functions ---
 // -----------------------------
 __declspec(dllexport) void NU_Clear_Canvas(uint32_t canvas_handle) 
 {

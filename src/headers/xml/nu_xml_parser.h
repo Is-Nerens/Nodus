@@ -9,8 +9,8 @@
 #include <ctype.h>
 #include <datastructures/string.h>
 #include <datastructures/linear_stringmap.h>
-#include <filesystem/file.h>
-#include "nu_convert.h"
+#include <filesystem/nu_file.h>
+#include <utils/nu_convert.h>
 #include "stylesheet/nu_stylesheet.h"
 #include "nodus.h"
 

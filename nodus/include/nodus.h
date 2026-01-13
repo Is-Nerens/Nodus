@@ -157,11 +157,10 @@ struct NU_Callback_Info
 
 
 // UI functions
-__declspec(dllimport) int NU_Init(void);
+__declspec(dllimport) int NU_Create_Gui(char* xml_filepath, char* css_filepath);
 __declspec(dllimport) void NU_Quit(void);
 __declspec(dllimport) int NU_Running(void);
 __declspec(dllimport) void NU_Unblock(void);
-__declspec(dllimport) int NU_Load_XML(char* filepath);
 
 // Stylesheet functions
 __declspec(dllimport) uint32_t NU_Load_Stylesheet(char* css_filepath);

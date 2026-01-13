@@ -10,7 +10,7 @@ build
 documentation
 fonts
 app
-src/thirdParty/freetype
-src/thirdParty/glew
-src/thirdParty/SDL3
+src/vendor/freetype
+src/vendor/glew
+src/vendor/SDL3
 app-compile.ps1

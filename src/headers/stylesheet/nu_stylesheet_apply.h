@@ -156,28 +156,3 @@ void NU_Apply_Pseudo_Style_To_Node(Node* node, NU_Stylesheet* ss, enum NU_Pseudo
         }
     }
 }
-
-int NU_Internal_Apply_Stylesheet(uint32_t stylesheet_handle)
-{
-    // Passing in a corrupted stylesheet
-    if (stylesheet_handle == -1) return 0;
-
-    NU_Stylesheet* stylesheet = Vector_Get(&__NGUI.stylesheets, stylesheet_handle - 1);   
-
-    Node* root_window = NU_Tree_Get(&__NGUI.tree, 0, 0);
-    NU_Apply_Stylesheet_To_Node(root_window, stylesheet);
-
-    // For each layer
-    for (uint16_t l=0; l<=__NGUI.deepest_layer; l++)
-    {
-        NU_Layer* layer = &__NGUI.tree.layers[l];
-        for (uint32_t i=0; i<layer->size; i++)
-        {
-            Node* node = NU_Layer_Get(layer, i); if (!node->nodeState) continue;
-            NU_Apply_Stylesheet_To_Node(node, stylesheet);
-        }
-    }
-
-    __NGUI.stylesheet = stylesheet;
-    return 1; // success
-}

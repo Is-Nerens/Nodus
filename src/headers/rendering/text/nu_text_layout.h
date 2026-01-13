@@ -2,7 +2,7 @@
 #include <stdint.h> 
 #include <string.h> 
 #include "nu_font.h"
-#include <rendering/nu_draw_structures.h>
+#include <rendering/nu_renderer_structures.h>
 
 float NU_Calculate_Text_Min_Wrap_Width(NU_Font* font, const char* string)
 {

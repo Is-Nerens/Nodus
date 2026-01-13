@@ -1,13 +1,11 @@
 #pragma once
-
 #include <string.h>
 #include <stdint.h>
 #include <stdlib.h>
 #include <stdio.h>
-#include <nu_convert.h>
-#include <filesystem/file.h>
+#include <utils/nu_convert.h>
+#include <filesystem/nu_file.h>
 #include <datastructures/string.h>
-#include <performance.h>
 #include <datastructures/linear_stringset.h>
 #include "nu_stylesheet_tokens.h"
 #include "nu_stylesheet_structs.h"
@@ -15,11 +13,6 @@
 #include "nu_stylesheet_parser.h"
 #include "nu_stylesheet_apply.h"
 
-
-
-// -------------------------------------------------
-// --- STYLESHEET INIT AND FREE ====================
-// -------------------------------------------------
 void NU_Stylesheet_Init(NU_Stylesheet* ss)
 {
     Vector_Reserve(&ss->items, sizeof(NU_Stylesheet_Item), 512);
@@ -47,11 +40,6 @@ void NU_Stylesheet_Free(NU_Stylesheet* ss)
     HashmapFree(&ss->id_pseudo_item_hashmap);
     Vector_Free(&ss->fonts);
 }
-
-
-// -------------------------------------------------
-// --- STYLESHEET PARSING AND CREATION =============
-// -------------------------------------------------
 
 int NU_Stylesheet_Create(NU_Stylesheet* stylesheet, char* filepath)
 {
@@ -89,9 +77,28 @@ uint32_t NU_Internal_Load_Stylesheet(char* filepath)
     NU_Stylesheet* stylesheet = Vector_Create_Uninitialised(&__NGUI.stylesheets);
     if (!NU_Stylesheet_Create(stylesheet, filepath)) return 0; // Failure
     uint32_t stylesheet_handle = __NGUI.stylesheets.size;
-    if (__NGUI.stylesheets.size == 1) { // If this is the first stylesheet -> auto apply
-        __NGUI.running = true;
-        NU_Internal_Apply_Stylesheet(stylesheet_handle);
-    }
     return stylesheet_handle;
+}
+
+int NU_Internal_Apply_Stylesheet(uint32_t stylesheet_handle)
+{
+    NU_Stylesheet* stylesheet = Vector_Get_Safe(&__NGUI.stylesheets, stylesheet_handle - 1);   
+    if (stylesheet == NULL) return 0;
+
+    Node* root_window = NU_Tree_Get(&__NGUI.tree, 0, 0);
+    NU_Apply_Stylesheet_To_Node(root_window, stylesheet);
+
+    // For each layer
+    for (uint16_t l=0; l<=__NGUI.deepest_layer; l++)
+    {
+        NU_Layer* layer = &__NGUI.tree.layers[l];
+        for (uint32_t i=0; i<layer->size; i++)
+        {
+            Node* node = NU_Layer_Get(layer, i); if (!node->nodeState) continue;
+            NU_Apply_Stylesheet_To_Node(node, stylesheet);
+        }
+    }
+
+    __NGUI.stylesheet = stylesheet;
+    return 1; // success
 }

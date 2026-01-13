@@ -80,6 +80,12 @@ inline void* Vector_Get(Vector* vector, uint32_t index)
     return (char*) vector->data + index * vector->element_size;
 }
 
+inline void* Vector_Get_Safe(Vector* vector, uint32_t index)
+{
+    if (index >= vector->size) return NULL;
+    return (char*) vector->data + index * vector->element_size;
+}
+
 inline void Vector_Set(Vector* vector, uint32_t index, void* value) // Unsafe but very fast
 {
     void* dst = (char*)vector->data + index * vector->element_size;

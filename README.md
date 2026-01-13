@@ -136,10 +136,8 @@ void Press(NU_Event event, void* args)
 int main()
 {
     // initialise
-    if (!NU_Init()) return -1;
-    if (!NU_Load_XML("app.xml")) return -1;
-    if (!NU_Load_Stylesheet("app.css")) return -1;
-
+    if (!NU_Create_Gui("app.xml", "app.css")) return -1;
+    
     // get node handles
     uint32_t button = NU_Get_Node_By_Id("btn");
     uint32_t chart = NU_Get_Node_By_Id("interactive-chart");

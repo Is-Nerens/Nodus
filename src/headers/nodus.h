@@ -4,19 +4,19 @@
 #include <GL/glew.h>
 
 // === NODUS INCLUDES ===
-#include "datastructures/vector.h"
-#include "datastructures/stringset.h"
-#include "datastructures/hashmap.h"
-#include "datastructures/stringmap.h"
-#include "datastructures/linear_stringmap.h"
-#include "datastructures/string_arena.h"
-#include "datastructures/hashmap.h"
+#include <datastructures/vector.h>
+#include <datastructures/stringset.h>
+#include <datastructures/hashmap.h>
+#include <datastructures/stringmap.h>
+#include <datastructures/linear_stringmap.h>
+#include <datastructures/string_arena.h>
+#include <datastructures/hashmap.h>
 #include <rendering/text/nu_font.h>
-#include <rendering/nu_draw_structures.h>
-#include "node_datastructures/nu_node.h"
-#include "node_datastructures/nu_nodelist.h"
-#include "node_datastructures/nu_tree.h"
-#include "window/nu_window_manager_structs.h"
+#include <rendering/nu_renderer_structures.h>
+#include <node_datastructures/nu_node.h>
+#include <node_datastructures/nu_nodelist.h>
+#include <node_datastructures/nu_tree.h>
+#include <window/nu_window_manager_structs.h>
 
 struct NU_GUI
 {
@@ -28,7 +28,7 @@ struct NU_GUI
     Stringmap id_node_map;
     Hashmap canvas_contexts; 
 
-    // State
+    // state
     uint32_t hovered_node;
     uint32_t mouse_down_node;
     uint32_t scroll_hovered_node;
@@ -40,13 +40,13 @@ struct NU_GUI
     bool running;
     bool awaiting_redraw;
 
-    // Styles
+    // styles
     Vector stylesheets;
     struct NU_Stylesheet* stylesheet;
     SDL_GLContext gl_ctx;
     SDL_Window* hovered_window;
 
-    // Event NU_Hashmaps
+    // events
     Hashmap on_click_events;
     Hashmap on_changed_events;
     Hashmap on_drag_events;
@@ -64,6 +64,7 @@ struct NU_GUI
     bool unblock;
 };
 
+// global gui instance
 struct NU_GUI __NGUI;
 
 
@@ -86,17 +87,18 @@ void NU_Add_Canvas_Context(uint32_t canvas_node_handle)
     HashmapSet(&__NGUI.canvas_contexts, &canvas_node_handle, &ctx);
 }
 
-#include <rendering/nu_draw.h>
+#include <rendering/nu_renderer.h>
 #include <rendering/canvas/nu_canvas_api.h>
 #include <rendering/image/nu_image.h>
-#include "window/nu_window_manager.h"
-#include "./xml/nu_xml_parser.h"
-#include "./stylesheet/nu_stylesheet.h"
+#include <window/nu_window_manager.h>
+#include <xml/nu_xml_parser.h>
+#include <stylesheet/nu_stylesheet.h>
 #include "nu_layout.h"
+#include "nu_draw.h"
 #include "nu_events.h"
 #include "nu_dom.h"
 
-int NU_Internal_Init()
+int NU_Internal_Create_Gui(char* xml_filepath, char* css_filepath)
 {
     // init SDL and GLEW
     if (!SDL_Init(SDL_INIT_VIDEO)) {
@@ -144,7 +146,19 @@ int NU_Internal_Init()
         return -1;
     }
 
+    // Event watcher
     SDL_AddEventWatch(EventWatcher, NULL);
+
+    // Load xml
+    if (!NU_Internal_Load_XML(xml_filepath)) return 0;
+
+    // Load css
+    uint32_t stylesheetHandle = NU_Internal_Load_Stylesheet(css_filepath);
+    if (stylesheetHandle == 0) return 0;
+    if (!NU_Internal_Apply_Stylesheet(stylesheetHandle)) return 0;
+
+    __NGUI.running = true;
+
     return 1; // Success
 }
 

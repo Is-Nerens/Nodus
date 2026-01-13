@@ -1,10 +1,10 @@
 $headersInclude = "src\headers"
-$sdlLib = "src\thirdParty\SDL3\lib" 
-$sdlInclude = "src\thirdParty\SDL3\include"
-$glewInclude = "src\thirdParty\glew\include"
-$glewLib = "src\thirdParty\glew\lib"
-$freetypeInclude = "src\thirdParty\freetype\include"
-$freetypeLib = "src\thirdParty\freetype\lib"
+$sdlLib = "src\vendor\SDL3\lib" 
+$sdlInclude = "src\vendor\SDL3\include"
+$glewInclude = "src\vendor\glew\include"
+$glewLib = "src\vendor\glew\lib"
+$freetypeInclude = "src\vendor\freetype\include"
+$freetypeLib = "src\vendor\freetype\lib"
 clang -std=c99 -O3 "src\nodus_library.c" `
 -I"$headersInclude" `
 -I"$glewInclude" `

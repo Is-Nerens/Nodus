@@ -20,14 +20,10 @@ typedef struct NU_Stylesheet
     struct Hashmap class_item_hashmap;
     struct Hashmap id_item_hashmap;
     struct Hashmap tag_item_hashmap;
-
-    // (NU_Stylesheet_Tag_Pseudo_Pair -> style item index) in items vector
     struct Hashmap tag_pseudo_item_hashmap; 
     struct Hashmap class_pseudo_item_hashmap;
     struct Hashmap id_pseudo_item_hashmap;
-
     Stringmap font_name_index_map;
-
     Vector fonts;
 } NU_Stylesheet;
 

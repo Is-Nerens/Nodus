@@ -1,8 +1,4 @@
 #pragma once
-
-#include <SDL3/SDL.h>
-#include "performance.h"
-
 #define NU_EVENT_FLAG_ON_CLICK       0x01         // 0b0000000000000001
 #define NU_EVENT_FLAG_ON_CHANGED     0x02         // 0b0000000000000010
 #define NU_EVENT_FLAG_ON_DRAG        0x04         // 0b0000000000000100
@@ -49,8 +45,6 @@ struct NU_Callback_Info
     void* args;
     NU_Callback callback;
 };
-
-
 
 void NU_Internal_Register_Event(uint32_t node_handle, void* args, NU_Callback callback, enum NU_Event_Type event_type)
 {
@@ -104,18 +98,7 @@ void NU_Internal_Register_Event(uint32_t node_handle, void* args, NU_Callback ca
     }
 }
 
-
-
-
-
-
-
-
-
-// ---------------------------------
-// --- Node event trigger checks ---
-// ---------------------------------
-void Check_For_Resizes_Events()
+void CheckForResizeEvents()
 {
     if (__NGUI.on_resize_events.itemCount > 0)
     {
@@ -156,7 +139,7 @@ void Check_For_Resizes_Events()
     }
 }
 
-void Trigger_Mouse_Up_Events(float mouse_x, float mouse_y, int mouse_btn)
+void TriggerAllMouseupEvents(float mouse_x, float mouse_y, int mouse_btn)
 {
     if (__NGUI.on_mouse_up_events.itemCount > 0)
     {
@@ -177,10 +160,6 @@ void Trigger_Mouse_Up_Events(float mouse_x, float mouse_y, int mouse_btn)
     }
 }
 
-
-// -------------------------------------------------------
-// --- Function is triggered when SDL detects an event ---
-// -------------------------------------------------------
 bool EventWatcher(void* data, SDL_Event* event) 
 {
     if (!__NGUI.running) return false;
@@ -382,7 +361,7 @@ bool EventWatcher(void* data, SDL_Event* event)
             SDL_GetWindowPosition(NODE(__NGUI.hovered_node)->window, &win_x, &win_y);
             float mouse_x = __NGUI.mouse_down_global_x - win_x;
             float mouse_y = __NGUI.mouse_down_global_y - win_y;
-            Trigger_Mouse_Up_Events(mouse_x, mouse_y, (int)event->button.button);
+            TriggerAllMouseupEvents(mouse_x, mouse_y, (int)event->button.button);
         }
 
         // If there is a pressed node
@@ -439,7 +418,7 @@ bool EventWatcher(void* data, SDL_Event* event)
             node->scrollV = min(max(node->scrollV, 0.0f), 1.0f); // Clamp to range [0,1]
 
             // Re-render and exit function
-            NU_Reflow();
+            NU_Layout();
             NU_Mouse_Hover();
             NU_Draw();
             return true;
@@ -449,9 +428,9 @@ bool EventWatcher(void* data, SDL_Event* event)
 
     if (__NGUI.awaiting_redraw) 
     {
-        NU_Reflow();
+        NU_Layout();
         NU_Draw();
-        Check_For_Resizes_Events();
+        CheckForResizeEvents();
     }
     return true;
 }

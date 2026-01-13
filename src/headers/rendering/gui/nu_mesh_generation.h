@@ -1,5 +1,5 @@
 #pragma once
-#include <rendering/nu_draw_structures.h>
+#include <rendering/nu_renderer_structures.h>
 #include <math.h>
 
 void Generate_Corner_Segment(

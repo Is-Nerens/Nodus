@@ -183,32 +183,30 @@ void Trigger_Mouse_Up_Events(float mouse_x, float mouse_y, int mouse_btn)
 // -------------------------------------------------------
 bool EventWatcher(void* data, SDL_Event* event) 
 {
+    if (!__NGUI.running) return false;
+
     // -----------------------------------------------------------------------------------
     // --- Window Closed -> main Window? close application : destroy sub window branch ---
     // -----------------------------------------------------------------------------------
-    if (event->type == SDL_EVENT_WINDOW_CLOSE_REQUESTED)
-    {
+    if (event->type == SDL_EVENT_WINDOW_CLOSE_REQUESTED) {
         __NGUI.running = false;
     }
     // -----------------------------------------------------------------------------------
     // --- Close application -------------------------------------------------------------
     // -----------------------------------------------------------------------------------
-    else if (event->type == SDL_EVENT_QUIT)
-    {
+    else if (event->type == SDL_EVENT_QUIT) {
         __NGUI.running = false;
     }
     // -----------------------------------------------------------------------------------
     // --- Resize -> redraw --------------------------------------------------------------
     // -----------------------------------------------------------------------------------
-    else if (event->type == SDL_EVENT_WINDOW_RESIZED)
-    {
+    else if (event->type == SDL_EVENT_WINDOW_RESIZED) {
         __NGUI.awaiting_redraw = true;
     }
     // -----------------------------------------------------------------------------------
     // --- Render -> redraw --------------------------------------------------------------
     // -----------------------------------------------------------------------------------
-    else if (event->type == __NGUI.SDL_CUSTOM_RENDER_EVENT)
-    {
+    else if (event->type == __NGUI.SDL_CUSTOM_RENDER_EVENT) {
         __NGUI.awaiting_redraw = true;
     }
     // -----------------------------------------------------------------------------------
@@ -217,17 +215,12 @@ bool EventWatcher(void* data, SDL_Event* event)
     else if (event->type == SDL_EVENT_MOUSE_MOTION)
     {
         Uint32 id = event->motion.windowID;
-        __NGUI.hovered_window = SDL_GetWindowFromID(id);
+        __NGUI.winManager.hoveredWindow = SDL_GetWindowFromID(id);
         uint32_t prev_hovered_node = __NGUI.hovered_node;
         NU_Mouse_Hover();
 
-        // Get global mouse coordinates
-        float mouse_x_global, mouse_y_global;
-        int win_x, win_y; 
-        SDL_GetGlobalMouseState(&mouse_x_global, &mouse_y_global);
-        SDL_GetWindowPosition(__NGUI.hovered_window, &win_x, &win_y);
-        float mouse_x = mouse_x_global - win_x;
-        float mouse_y = mouse_y_global - win_y;
+        // Get local mouse coordinates
+        float mouseX, mouseY; GetLocalMouseCoords(&__NGUI.winManager, &mouseX, &mouseY);
 
         // On mouse in event triggered
         if (__NGUI.hovered_node != UINT32_MAX &&
@@ -237,8 +230,8 @@ bool EventWatcher(void* data, SDL_Event* event)
             void* found_cb = HashmapGet(&__NGUI.on_mouse_in_events, &__NGUI.hovered_node);
             if (found_cb != NULL) {
                 struct NU_Callback_Info* cb_info = (struct NU_Callback_Info*)found_cb;
-                cb_info->event.mouse.mouse_x = mouse_x;
-                cb_info->event.mouse.mouse_y = mouse_y;
+                cb_info->event.mouse.mouse_x = mouseX;
+                cb_info->event.mouse.mouse_y = mouseY;
                 cb_info->event.mouse.delta_x = event->motion.xrel;
                 cb_info->event.mouse.delta_y = event->motion.yrel;
                 cb_info->callback(cb_info->event, cb_info->args);
@@ -253,8 +246,8 @@ bool EventWatcher(void* data, SDL_Event* event)
             void* found_cb = HashmapGet(&__NGUI.on_mouse_out_events, &prev_hovered_node);
             if (found_cb != NULL) {
                 struct NU_Callback_Info* cb_info = (struct NU_Callback_Info*)found_cb;
-                cb_info->event.mouse.mouse_x = mouse_x;
-                cb_info->event.mouse.mouse_y = mouse_y;
+                cb_info->event.mouse.mouse_x = mouseX;
+                cb_info->event.mouse.mouse_y = mouseY;
                 cb_info->event.mouse.delta_x = event->motion.xrel;
                 cb_info->event.mouse.delta_y = event->motion.yrel;
                 cb_info->callback(cb_info->event, cb_info->args);
@@ -273,7 +266,7 @@ bool EventWatcher(void* data, SDL_Event* event)
             float inner_proportion_of_content_height = inner_height_w_pad / node->contentHeight;
             float thumb_height = inner_proportion_of_content_height * track_height;
             float track_top_y = node->y + node->borderTop;
-            float drag_dist = (mouse_y - __NGUI.v_scroll_thumb_grab_offset) - track_top_y;
+            float drag_dist = (mouseY - __NGUI.v_scroll_thumb_grab_offset) - track_top_y;
 
             // Apply scroll and clamp
             node->scrollV = drag_dist / (track_height - thumb_height);
@@ -296,8 +289,8 @@ bool EventWatcher(void* data, SDL_Event* event)
                 struct NU_Callback_Info* cb_info = (struct NU_Callback_Info*)val;
 
                 // Call callback
-                cb_info->event.mouse.mouse_x = mouse_x;
-                cb_info->event.mouse.mouse_y = mouse_y;
+                cb_info->event.mouse.mouse_x = mouseX;
+                cb_info->event.mouse.mouse_y = mouseY;
                 cb_info->event.mouse.delta_x = event->motion.xrel;
                 cb_info->event.mouse.delta_y = event->motion.yrel;
                 cb_info->callback(cb_info->event, cb_info->args);

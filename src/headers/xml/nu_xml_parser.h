@@ -11,10 +11,8 @@
 #include <datastructures/linear_stringmap.h>
 #include <filesystem/file.h>
 #include "nu_convert.h"
-#include "image/nu_image.h"
 #include "stylesheet/nu_stylesheet.h"
 #include "nodus.h"
-#include "nu_window.h"
 
 
 #include "nu_xml_tokens.h"
@@ -37,10 +35,8 @@ int NU_Generate_Tree(char* src, struct Vector* tokens, struct Vector* textRefs)
     Node root_node;
     NU_Apply_Node_Defaults(&root_node);
     root_node.tag = WINDOW;
-    root_node.window = *(SDL_Window**) Vector_Get(&__NGUI.windows, 0);
     Node* root_window_node = NU_Tree_Append(&__NGUI.tree, &root_node, 0);
-    Vector_Push(&__NGUI.windowNodes, &root_window_node->handle);
-
+    AssignRootWindow(&__NGUI.winManager, root_window_node);
 
     // ---------------------------------
     // Get first property text reference
@@ -116,8 +112,7 @@ int NU_Generate_Tree(char* src, struct Vector* tokens, struct Vector* textRefs)
                 // --- Handle scenarios for different tags
                 // ----------------------------------------
                 if (current_node->tag == WINDOW) { // If node is a window -> create SDL window
-                    NU_Create_Subwindow(current_node);
-                    Vector_Push(&__NGUI.windowNodes, &current_node->handle);
+                    CreateSubwindow(&__NGUI.winManager, current_node);
                 }
                 else if (current_node->tag == TABLE) {
                     current_node->inlineStyleFlags |= 1ULL << 0; // Enforce vertical direction

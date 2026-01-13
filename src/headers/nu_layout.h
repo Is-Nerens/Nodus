@@ -4,9 +4,7 @@
 #include <GL/glew.h>
 #include <stdbool.h>
 #include <math.h>
-#include "./text/nu_text.h"
-#include "./draw/nu_draw.h"
-#include "nu_window.h"
+#include <rendering/text/nu_text_layout.h>
 
 // ---------------------------
 // --- UI layout -------------
@@ -30,23 +28,23 @@ static void NU_Apply_Min_Max_Height_Constraint(Node* node)
     node->height = max(node->height, node->preferred_height);
 }
 
-static void NU_Clear_Node_Sizes()
+static void NU_Prepass()
 {
     for (int l=0; l<=__NGUI.deepest_layer; l++)
     {
-        NU_Layer* parent_layer = &__NGUI.tree.layers[l];
-        NU_Layer* child_layer = &__NGUI.tree.layers[l+1];
+        NU_Layer* parentlayer = &__NGUI.tree.layers[l];
+        NU_Layer* childlayer = &__NGUI.tree.layers[l+1];
 
         // Iterate over parent layer
-        for (int p=0; p<parent_layer->size; p++)
+        for (int p=0; p<parentlayer->size; p++)
         {       
-            Node* parent = NU_Layer_Get(parent_layer, p); if (parent->nodeState == 0) continue;
+            Node* parent = NU_Layer_Get(parentlayer, p); if (parent->nodeState == 0) continue;
             parent->clippingRootHandle = UINT32_MAX;
 
             // Iterate over children
             for (uint16_t i=parent->firstChildIndex; i<parent->firstChildIndex + parent->childCount; i++)
             {
-                Node* child = NU_Layer_Get(child_layer, i);
+                Node* child = NU_Layer_Get(childlayer, i);
 
                 // Hide child if parent is hidden or child is hidden
                 child->nodeState = 1;
@@ -130,13 +128,13 @@ static void NU_Calculate_Fit_Size_Widths()
     // Traverse the tree bottom-up
     for (int l=__NGUI.deepest_layer-1; l>=0; l--)
     {
-        NU_Layer* parent_layer = &__NGUI.tree.layers[l];
-        NU_Layer* child_layer = &__NGUI.tree.layers[l+1];
+        NU_Layer* parentlayer = &__NGUI.tree.layers[l];
+        NU_Layer* childlayer = &__NGUI.tree.layers[l+1];
         
         // Iterate over parent layer
-        for (uint32_t p=0; p<parent_layer->size; p++)
+        for (uint32_t p=0; p<parentlayer->size; p++)
         {       
-            Node* parent = NU_Layer_Get(parent_layer, p);
+            Node* parent = NU_Layer_Get(parentlayer, p);
             if (parent->nodeState == 0 || parent->nodeState == 2) continue;
             int is_layout_horizontal = !(parent->layoutFlags & LAYOUT_VERTICAL);
 
@@ -155,7 +153,7 @@ static void NU_Calculate_Fit_Size_Widths()
             int visible_children = 0;
             for (uint16_t i=parent->firstChildIndex; i<parent->firstChildIndex + parent->childCount; i++)
             {
-                Node* child = NU_Layer_Get(child_layer, i); 
+                Node* child = NU_Layer_Get(childlayer, i); 
 
                 // Ignore if child is hidden or window or absolutely positioned
                 if (child->nodeState == 2 || child->tag == WINDOW || child->layoutFlags & POSITION_ABSOLUTE) continue; 
@@ -184,13 +182,13 @@ static void NU_Calculate_Fit_Size_Heights()
     // Traverse the tree bottom-up
     for (int l=__NGUI.deepest_layer-1; l>= 0; l--)
     {
-        NU_Layer* parent_layer = &__NGUI.tree.layers[l];
-        NU_Layer* child_layer = &__NGUI.tree.layers[l+1];
+        NU_Layer* parentlayer = &__NGUI.tree.layers[l];
+        NU_Layer* childlayer = &__NGUI.tree.layers[l+1];
 
         // Iterate over parent layer
-        for (uint32_t p=0; p<parent_layer->size; p++)
+        for (uint32_t p=0; p<parentlayer->size; p++)
         {       
-            Node* parent = NU_Layer_Get(parent_layer, p);
+            Node* parent = NU_Layer_Get(parentlayer, p);
             if (parent->nodeState == 0 || parent->nodeState == 2) continue;
             int is_layout_horizontal = !(parent->layoutFlags & LAYOUT_VERTICAL);
 
@@ -201,7 +199,7 @@ static void NU_Calculate_Fit_Size_Heights()
             int visible_children = 0;
             for (uint16_t i=parent->firstChildIndex; i<parent->firstChildIndex + parent->childCount; i++)
             {
-                Node* child = NU_Layer_Get(child_layer, i);
+                Node* child = NU_Layer_Get(childlayer, i);
 
                 // Ignore if child is hidden or window or absolutely positioned
                 if (child->nodeState == 2 || child->tag == WINDOW || child->layoutFlags & POSITION_ABSOLUTE) continue;
@@ -225,7 +223,7 @@ static void NU_Calculate_Fit_Size_Heights()
     }
 }
 
-static void NU_Grow_Shrink_Child_Node_Widths(Node* parent, NU_Layer* child_layer)
+static void NU_Grow_Shrink_Child_Node_Widths(Node* parent, NU_Layer* childlayer)
 {
     float remaining_width = parent->width - parent->padLeft - parent->padRight - parent->borderLeft - parent->borderRight;
 
@@ -234,7 +232,7 @@ static void NU_Grow_Shrink_Child_Node_Widths(Node* parent, NU_Layer* child_layer
     // ---------------------------------------------------------------------------------------
     for (uint16_t i=parent->firstChildIndex; i<parent->firstChildIndex + parent->childCount; i++)
     {
-        Node* child = NU_Layer_Get(child_layer, i); if (child->nodeState == 2 || child->tag == WINDOW || !(child->layoutFlags & POSITION_ABSOLUTE)) continue;
+        Node* child = NU_Layer_Get(childlayer, i); if (child->nodeState == 2 || child->tag == WINDOW || !(child->layoutFlags & POSITION_ABSOLUTE)) continue;
         if (child->left > 0.0f && child->right > 0.0f) {
             float expanded_width = remaining_width - child->left - child->right;
             if (expanded_width > child->width) child->width = expanded_width;
@@ -251,7 +249,7 @@ static void NU_Grow_Shrink_Child_Node_Widths(Node* parent, NU_Layer* child_layer
     {   
         for (uint16_t i=parent->firstChildIndex; i<parent->firstChildIndex + parent->childCount; i++)
         {
-            Node* child = NU_Layer_Get(child_layer, i); if (child->nodeState == 2 || child->tag == WINDOW || child->layoutFlags & POSITION_ABSOLUTE) continue;
+            Node* child = NU_Layer_Get(childlayer, i); if (child->nodeState == 2 || child->tag == WINDOW || child->layoutFlags & POSITION_ABSOLUTE) continue;
             if (child->layoutFlags & GROW_HORIZONTAL && remaining_width > child->width)
             {
                 float pad_and_border = child->padLeft + child->padRight + child->borderLeft + child->borderRight;
@@ -274,7 +272,7 @@ static void NU_Grow_Shrink_Child_Node_Widths(Node* parent, NU_Layer* child_layer
         int visible_children = 0;
         for (uint16_t i=parent->firstChildIndex; i<parent->firstChildIndex + parent->childCount; i++)
         {
-            Node* child = NU_Layer_Get(child_layer, i); if (child->nodeState == 2 || child->tag == WINDOW  || child->layoutFlags & POSITION_ABSOLUTE) continue;
+            Node* child = NU_Layer_Get(childlayer, i); if (child->nodeState == 2 || child->tag == WINDOW  || child->layoutFlags & POSITION_ABSOLUTE) continue;
             else remaining_width -= child->width;
             if (child->layoutFlags & GROW_HORIZONTAL && child->tag != WINDOW) growable_count++;
             visible_children++;
@@ -294,7 +292,7 @@ static void NU_Grow_Shrink_Child_Node_Widths(Node* parent, NU_Layer* child_layer
             float second_smallest = 1e30f;
             growable_count = 0;
             for (uint16_t i=parent->firstChildIndex; i<parent->firstChildIndex + parent->childCount; i++) {
-                Node* child = NU_Layer_Get(child_layer, i); if (child->nodeState == 2 || child->tag == WINDOW || child->layoutFlags & POSITION_ABSOLUTE) continue;
+                Node* child = NU_Layer_Get(childlayer, i); if (child->nodeState == 2 || child->tag == WINDOW || child->layoutFlags & POSITION_ABSOLUTE) continue;
                 if ((child->layoutFlags & GROW_HORIZONTAL) && child->width < child->maxWidth) {
                     growable_count++;
                     if (child->width < smallest) {
@@ -319,7 +317,7 @@ static void NU_Grow_Shrink_Child_Node_Widths(Node* parent, NU_Layer* child_layer
             // -----------------------------------------
             bool grew_any = false;
             for (uint16_t i=parent->firstChildIndex; i<parent->firstChildIndex + parent->childCount; i++) {
-                Node* child = NU_Layer_Get(child_layer, i); if (child->nodeState == 2 || child->tag == WINDOW || child->layoutFlags & POSITION_ABSOLUTE) continue;        
+                Node* child = NU_Layer_Get(childlayer, i); if (child->nodeState == 2 || child->tag == WINDOW || child->layoutFlags & POSITION_ABSOLUTE) continue;        
                 if (child->layoutFlags & GROW_HORIZONTAL && child->width < child->maxWidth) { // if child is growable
                     if (child->width == smallest) {
                         float available = child->maxWidth - child->width;
@@ -348,7 +346,7 @@ static void NU_Grow_Shrink_Child_Node_Widths(Node* parent, NU_Layer* child_layer
             float second_largest = -1e30f;
             int shrinkable_count = 0;
             for (uint16_t i = parent->firstChildIndex; i<parent->firstChildIndex + parent->childCount; i++) {
-                Node* child = NU_Layer_Get(child_layer, i); if (child->nodeState == 2 || child->tag == WINDOW || child->layoutFlags & POSITION_ABSOLUTE) continue;
+                Node* child = NU_Layer_Get(childlayer, i); if (child->nodeState == 2 || child->tag == WINDOW || child->layoutFlags & POSITION_ABSOLUTE) continue;
                 if ((child->layoutFlags & GROW_HORIZONTAL) && child->width > child->minWidth) {
                     shrinkable_count++;
                     if (child->width > largest) {
@@ -373,7 +371,7 @@ static void NU_Grow_Shrink_Child_Node_Widths(Node* parent, NU_Layer* child_layer
             // -------------------------------------------
             bool shrunk_any = false;
             for (uint16_t i=parent->firstChildIndex; i<parent->firstChildIndex + parent->childCount; i++) {
-                Node* child = NU_Layer_Get(child_layer, i); if (child->nodeState == 2 || child->tag == WINDOW || child->layoutFlags & POSITION_ABSOLUTE) continue;
+                Node* child = NU_Layer_Get(childlayer, i); if (child->nodeState == 2 || child->tag == WINDOW || child->layoutFlags & POSITION_ABSOLUTE) continue;
                 if ((child->layoutFlags & GROW_HORIZONTAL) && child->width > child->minWidth) {
                     if (child->width == largest) {
                         float available = child->width - child->minWidth;
@@ -392,7 +390,7 @@ static void NU_Grow_Shrink_Child_Node_Widths(Node* parent, NU_Layer* child_layer
     }
 }
 
-static void NU_Grow_Shrink_Child_Node_Heights(Node* parent, NU_Layer* child_layer)
+static void NU_Grow_Shrink_Child_Node_Heights(Node* parent, NU_Layer* childlayer)
 {
     float remaining_height = parent->height - parent->padTop - parent->padBottom - parent->borderTop - parent->borderBottom;
     
@@ -401,7 +399,7 @@ static void NU_Grow_Shrink_Child_Node_Heights(Node* parent, NU_Layer* child_laye
     // ----------------------------------------------------------------------------------------
     for (uint16_t i=parent->firstChildIndex; i<parent->firstChildIndex + parent->childCount; i++)
     {
-        Node* child = NU_Layer_Get(child_layer, i); if (child->nodeState == 2 || child->tag == WINDOW || !(child->layoutFlags & POSITION_ABSOLUTE)) continue;
+        Node* child = NU_Layer_Get(childlayer, i); if (child->nodeState == 2 || child->tag == WINDOW || !(child->layoutFlags & POSITION_ABSOLUTE)) continue;
         if (child->top > 0.0f && child->bottom > 0.0f) {
             float expanded_height = remaining_height - child->top - child->bottom;
             if (expanded_height > child->height) child->height = expanded_height;
@@ -415,7 +413,7 @@ static void NU_Grow_Shrink_Child_Node_Heights(Node* parent, NU_Layer* child_laye
     {
         for (uint16_t i=parent->firstChildIndex; i<parent->firstChildIndex + parent->childCount; i++)
         {
-            Node* child = NU_Layer_Get(child_layer, i); if (child->nodeState == 2 || child->tag == WINDOW || child->layoutFlags & POSITION_ABSOLUTE) continue;
+            Node* child = NU_Layer_Get(childlayer, i); if (child->nodeState == 2 || child->tag == WINDOW || child->layoutFlags & POSITION_ABSOLUTE) continue;
             if (child->layoutFlags & GROW_VERTICAL && remaining_height > child->height)
             {  
                 float pad_and_border = child->padTop + child->padBottom + child->borderTop + child->borderBottom;
@@ -434,7 +432,7 @@ static void NU_Grow_Shrink_Child_Node_Heights(Node* parent, NU_Layer* child_laye
         int visible_children = 0;
         for (uint16_t i=parent->firstChildIndex; i<parent->firstChildIndex + parent->childCount; i++)
         {
-            Node* child = NU_Layer_Get(child_layer, i);
+            Node* child = NU_Layer_Get(childlayer, i);
             if (child->nodeState == 2 || child->tag == WINDOW || child->layoutFlags & POSITION_ABSOLUTE) continue;
             else remaining_height -= child->height;
             if (child->layoutFlags & GROW_VERTICAL && child->tag != WINDOW) growable_count++;
@@ -455,7 +453,7 @@ static void NU_Grow_Shrink_Child_Node_Heights(Node* parent, NU_Layer* child_laye
             float second_smallest = 1e30f;
             growable_count = 0;
             for (uint16_t i=parent->firstChildIndex; i< parent->firstChildIndex + parent->childCount; i++) {
-                Node* child = NU_Layer_Get(child_layer, i); if (child->nodeState == 2 || child->tag == WINDOW || child->layoutFlags & POSITION_ABSOLUTE) continue;
+                Node* child = NU_Layer_Get(childlayer, i); if (child->nodeState == 2 || child->tag == WINDOW || child->layoutFlags & POSITION_ABSOLUTE) continue;
                 if ((child->layoutFlags & GROW_VERTICAL) && child->height < child->maxHeight) {
                     growable_count++;
                     if (child->height < smallest) {
@@ -480,7 +478,7 @@ static void NU_Grow_Shrink_Child_Node_Heights(Node* parent, NU_Layer* child_laye
             // ------------------------------------------
             bool grew_any = false;
             for (uint16_t i=parent->firstChildIndex; i<parent->firstChildIndex + parent->childCount; i++) {
-                Node* child = NU_Layer_Get(child_layer, i); if (child->nodeState == 2 || child->tag == WINDOW || child->layoutFlags & POSITION_ABSOLUTE) continue;
+                Node* child = NU_Layer_Get(childlayer, i); if (child->nodeState == 2 || child->tag == WINDOW || child->layoutFlags & POSITION_ABSOLUTE) continue;
                 if (child->layoutFlags & GROW_VERTICAL && child->height < child->maxHeight) { // if child is growable
                     if (child->height == smallest) {
                         float available = child->maxHeight - child->height;
@@ -509,7 +507,7 @@ static void NU_Grow_Shrink_Child_Node_Heights(Node* parent, NU_Layer* child_laye
             float second_largest = -1e30f;
             int shrinkable_count = 0;
             for (uint16_t i = parent->firstChildIndex; i<parent->firstChildIndex + parent->childCount; i++) {
-                Node* child = NU_Layer_Get(child_layer, i); if (child->nodeState == 2 || child->tag == WINDOW || child->layoutFlags & POSITION_ABSOLUTE) continue;
+                Node* child = NU_Layer_Get(childlayer, i); if (child->nodeState == 2 || child->tag == WINDOW || child->layoutFlags & POSITION_ABSOLUTE) continue;
                 if ((child->layoutFlags & GROW_VERTICAL) && child->height > child->minHeight) {
                     shrinkable_count++;
                     if (child->height > largest) {
@@ -534,7 +532,7 @@ static void NU_Grow_Shrink_Child_Node_Heights(Node* parent, NU_Layer* child_laye
             // -------------------------------------------
             bool shrunk_any = false;
             for (uint16_t i=parent->firstChildIndex; i<parent->firstChildIndex + parent->childCount; i++) {
-                Node* child = NU_Layer_Get(child_layer, i); if (child->nodeState == 2 || child->tag == WINDOW || child->layoutFlags & POSITION_ABSOLUTE) continue;
+                Node* child = NU_Layer_Get(childlayer, i); if (child->nodeState == 2 || child->tag == WINDOW || child->layoutFlags & POSITION_ABSOLUTE) continue;
                 if ((child->layoutFlags & GROW_VERTICAL) && child->height > child->minHeight) {
                     if (child->height == largest) {
                         float available = child->height - child->minHeight;
@@ -557,15 +555,15 @@ static void NU_Grow_Shrink_Widths()
 {
     for (uint16_t l=0; l<=__NGUI.deepest_layer; l++)
     {
-        NU_Layer* parent_layer = &__NGUI.tree.layers[l];
-        NU_Layer* child_layer = &__NGUI.tree.layers[l+1];
+        NU_Layer* parentlayer = &__NGUI.tree.layers[l];
+        NU_Layer* childlayer = &__NGUI.tree.layers[l+1];
 
-        for (int p=0; p<parent_layer->size; p++)
+        for (int p=0; p<parentlayer->size; p++)
         {       
-            Node* parent = NU_Layer_Get(parent_layer, p);
+            Node* parent = NU_Layer_Get(parentlayer, p);
             if (parent->nodeState == 0 || parent->nodeState == 2 || parent->tag == ROW || parent->tag == TABLE) continue;
 
-            NU_Grow_Shrink_Child_Node_Widths(parent, child_layer);
+            NU_Grow_Shrink_Child_Node_Widths(parent, childlayer);
         }
     }
 }
@@ -574,15 +572,15 @@ static void NU_Grow_Shrink_Heights()
 {
     for (uint16_t l=0; l<=__NGUI.deepest_layer; l++)
     {
-        NU_Layer* parent_layer = &__NGUI.tree.layers[l];
-        NU_Layer* child_layer = &__NGUI.tree.layers[l+1];
+        NU_Layer* parentlayer = &__NGUI.tree.layers[l];
+        NU_Layer* childlayer = &__NGUI.tree.layers[l+1];
 
-        for (int p=0; p<parent_layer->size; p++)
+        for (int p=0; p<parentlayer->size; p++)
         {       
-            Node* parent = NU_Layer_Get(parent_layer, p);
+            Node* parent = NU_Layer_Get(parentlayer, p);
             if (parent->nodeState == 0 || parent->nodeState == 2 || parent->tag == TABLE) continue;
 
-            NU_Grow_Shrink_Child_Node_Heights(parent, child_layer);
+            NU_Grow_Shrink_Child_Node_Heights(parent, childlayer);
         }
     }
 }
@@ -715,63 +713,22 @@ static void NU_Calculate_Text_Heights()
     }
 }
 
-static void NU_Horizontally_Place_Children(Node* parent, NU_Layer* child_layer)
+static void NU_PositionChildrenHorizontally(Node* parent, NU_Layer* childlayer)
 {
-    // Children placed top to bottom
+    // layout dir -> top to bottom
     if (parent->layoutFlags & LAYOUT_VERTICAL)
     {   
         for (uint16_t i=parent->firstChildIndex; i<parent->firstChildIndex + parent->childCount; i++)
         {
-            Node* child = NU_Layer_Get(child_layer, i);
-            if (child->nodeState == 2) continue;
+            Node* child = NU_Layer_Get(childlayer, i); 
+            if (child->nodeState == 2 || child->tag == WINDOW) continue;
 
-            // Position absolute
-            if (child->layoutFlags & POSITION_ABSOLUTE) 
-            {
-                child->x = parent->x + parent->padLeft + parent->borderLeft;
-                if (child->left > 0.0f) {
-                    child->x = parent->x + child->left + parent->padLeft + parent->borderLeft;
-                }
-                else if (child->right > 0.0f) {
-                    float inner_width = parent->width - parent->padLeft - parent->padRight - parent->borderLeft - parent->borderRight;
-                    child->x = parent->x + inner_width - child->width - child->right;
-                }
-            }
-
-            // Position relative
-            else
-            {
+            if (!(child->layoutFlags & POSITION_ABSOLUTE)) { // position relative
                 float remaning_width = (parent->width - parent->padLeft - parent->padRight - parent->borderLeft - parent->borderRight) - child->width;
                 float x_align_offset = remaning_width * 0.5f * (float)parent->horizontalAlignment;
                 child->x = parent->x + parent->padLeft + parent->borderLeft + x_align_offset;
             }
-        }
-    }
-
-    // Children placed left to right
-    else
-    {
-        // Calculate remaining width (optimise this by caching this value inside parent's content width variable)
-        float remaining_width = (parent->width - parent->padLeft - parent->padRight - parent->borderLeft - parent->borderRight) - (parent->childCount - 1) * parent->gap - (!!(parent->layoutFlags & OVERFLOW_VERTICAL_SCROLL)) * 8.0f;
-        for (uint16_t i=parent->firstChildIndex; i<parent->firstChildIndex + parent->childCount; i++)
-        {
-            Node* child = NU_Layer_Get(child_layer, i);
-            if (child->nodeState == 2) continue;
-            if (child->layoutFlags & POSITION_ABSOLUTE) continue; // Skip because absolute child doen't affect flow
-            if (child->tag == WINDOW) remaining_width += parent->gap;
-            else remaining_width -= child->width;
-        }
-
-        float cursor_x = 0.0f;
-
-        for (uint16_t i=parent->firstChildIndex; i<parent->firstChildIndex + parent->childCount; i++)
-        {
-            Node* child = NU_Layer_Get(child_layer, i);
-            if (child->nodeState == 2) continue;
-            
-            // Position absolute
-            if (child->layoutFlags & POSITION_ABSOLUTE) 
-            {
+            else { // position absolute
                 child->x = parent->x + parent->padLeft + parent->borderLeft;
                 if (child->left > 0.0f) {
                     child->x = parent->x + child->left + parent->padLeft + parent->borderLeft;
@@ -781,22 +738,56 @@ static void NU_Horizontally_Place_Children(Node* parent, NU_Layer* child_layer)
                     child->x = parent->x + inner_width - child->width - child->right;
                 }
             }
+        }
+    }
 
-            // Position relative
-            else 
-            {
-                float x_align_offset = remaining_width * 0.5f * (float)parent->horizontalAlignment;
-                child->x = parent->x + parent->padLeft + parent->borderLeft + cursor_x + x_align_offset;
-                cursor_x += child->width + parent->gap;
+    // layout dir -> left to right
+    else
+    {
+        // calculate remaining width (optimise this by caching this value inside parent's content width variable)
+        float remainingWidth = (parent->width - parent->padLeft - parent->padRight - parent->borderLeft - parent->borderRight);
+        remainingWidth -= (!!(parent->layoutFlags & OVERFLOW_VERTICAL_SCROLL)) * 8.0f;
+        int numChildrenAffectingWidth = 0;
+        for (uint16_t i=parent->firstChildIndex; i<parent->firstChildIndex + parent->childCount; i++) {
+            Node* child = NU_Layer_Get(childlayer, i);
+            if (child->nodeState == 2 || child->tag == WINDOW || child->layoutFlags & POSITION_ABSOLUTE) continue;
+            remainingWidth -= child->width; numChildrenAffectingWidth++;
+        }
+        remainingWidth -= parent->gap * (numChildrenAffectingWidth - 1);
+
+
+
+        // position children horizontally
+        float cursorX = 0.0f;
+        for (uint16_t i=parent->firstChildIndex; i<parent->firstChildIndex + parent->childCount; i++)
+        {
+            Node* child = NU_Layer_Get(childlayer, i); 
+            if (child->nodeState == 2 || child->tag == WINDOW) continue;
+            
+            if (!(child->layoutFlags & POSITION_ABSOLUTE)) { // position relative
+                float x_align_offset = remainingWidth * 0.5f * (float)parent->horizontalAlignment;
+                child->x = parent->x + parent->padLeft + parent->borderLeft + cursorX + x_align_offset;
+                cursorX += child->width + parent->gap;
+            }
+            else { // position absolute 
+                child->x = parent->x + parent->padLeft + parent->borderLeft;
+                if (child->left > 0.0f) {
+                    child->x = parent->x + child->left + parent->padLeft + parent->borderLeft;
+                }
+                else if (child->right > 0.0f) {
+                    float inner_width = parent->width - parent->padLeft - parent->padRight - parent->borderLeft - parent->borderRight;
+                    child->x = parent->x + inner_width - child->width - child->right;
+                }
             }
         }
     }
 }
 
-static void NU_Vertically_Place_Children(Node* parent, NU_Layer* child_layer)
+static void NU_PositionChildrenVertically(Node* parent, NU_Layer* childlayer)
 {
     float y_scroll_offset = 0.0f;
-    if (parent->layoutFlags & OVERFLOW_VERTICAL_SCROLL && parent->childCount > 0 && 
+    if (parent->layoutFlags & OVERFLOW_VERTICAL_SCROLL && 
+        parent->childCount > 0 && 
         parent->contentHeight > parent->height - parent->padTop - parent->padBottom - parent->borderTop - parent->borderBottom) 
     {
         float track_h = parent->height - parent->borderTop - parent->borderBottom;
@@ -808,66 +799,27 @@ static void NU_Vertically_Place_Children(Node* parent, NU_Layer* child_layer)
         float scroll_factor = content_scroll_range / max(thumb_scroll_range, 1.0f);
         y_scroll_offset += (-parent->scrollV * (track_h - thumb_h)) * scroll_factor;
 
-        Node* first_child = NU_Layer_Get(child_layer, parent->firstChildIndex);
+        // undo effect of scroll offset for table header row
+        Node* first_child = NU_Layer_Get(childlayer, parent->firstChildIndex);
         if (first_child->nodeState != 2 && first_child->tag == THEAD) {
             first_child->y -= y_scroll_offset;
         }
     }
 
-    // Children placed left to right
+    // layout dir -> left to right
     if (!(parent->layoutFlags & LAYOUT_VERTICAL))
     {   
         for (uint16_t i=parent->firstChildIndex; i<parent->firstChildIndex + parent->childCount; i++)
         {
-            Node* child = NU_Layer_Get(child_layer, i);
-            if (child->nodeState == 2) continue;
+            Node* child = NU_Layer_Get(childlayer, i); 
+            if (child->nodeState == 2 || child->tag == WINDOW) continue;
 
-            // Position absolute
-            if (child->layoutFlags & POSITION_ABSOLUTE) 
-            {
-                child->y = parent->y + parent->padTop + parent->borderTop;
-                if (child->top > 0.0f) {
-                    child->y = parent->y + child->top + parent->padTop + parent->borderTop;
-                }
-                else if (child->bottom > 0.0f) {
-                    float inner_height = parent->height - parent->padTop - parent->padBottom - parent->borderTop - parent->borderBottom;
-                    child->y = parent->y + inner_height - child->height - child->bottom;
-                }
-            }
-
-            // Position relative
-            else 
-            {
+            if (!(child->layoutFlags & POSITION_ABSOLUTE)) { // position relative
                 float remaining_height = (parent->height - parent->padTop - parent->padBottom - parent->borderTop - parent->borderBottom) - child->height;
                 float y_align_offset = remaining_height * 0.5f * (float)parent->verticalAlignment;
                 child->y += parent->y + parent->padTop + parent->borderTop + y_align_offset + y_scroll_offset;
             }
-        }
-    }
-
-    // Children placed top to bottom
-    else
-    {
-        // Calculate remaining height (optimise this by caching this value inside parent's content height variable)
-        float remaining_height = (parent->height - parent->padTop - parent->padBottom - parent->borderTop - parent->borderBottom) - (parent->childCount - 1) * parent->gap - (!!(parent->layoutFlags & OVERFLOW_HORIZONTAL_SCROLL)) * 8.0f;
-        for (uint16_t i=parent->firstChildIndex; i<parent->firstChildIndex + parent->childCount; i++)
-        {
-            Node* child = NU_Layer_Get(child_layer, i);
-            if (child->nodeState == 2) continue;
-            if (child->tag == WINDOW) remaining_height += parent->gap;
-            else remaining_height -= child->height;
-        }
-
-        float cursor_y = 0.0f;
-
-        for (uint16_t i=parent->firstChildIndex; i<parent->firstChildIndex + parent->childCount; i++)
-        {
-            Node* child = NU_Layer_Get(child_layer, i);
-            if (child->nodeState == 2) continue;
-
-            // Position relative
-            if (child->layoutFlags & POSITION_ABSOLUTE) 
-            {
+            else { // position absolute 
                 child->y = parent->y + parent->padTop + parent->borderTop;
                 if (child->top > 0.0f) {
                     child->y = parent->y + child->top + parent->padTop + parent->borderTop;
@@ -877,13 +829,46 @@ static void NU_Vertically_Place_Children(Node* parent, NU_Layer* child_layer)
                     child->y = parent->y + inner_height - child->height - child->bottom;
                 }
             }
+        }
+    }
 
-            // Position relative
-            else 
-            {
-                float y_align_offset = remaining_height * 0.5f * (float)parent->verticalAlignment;
-                child->y += parent->y + parent->padTop + parent->borderTop + cursor_y + y_align_offset + y_scroll_offset;
-                cursor_y += child->height + parent->gap;
+    // layout dir -> top to bottom
+    else
+    {
+        // calculate remaining height (optimise this by caching this value inside parent's content height variable)
+        float remainingHeight = (parent->height - parent->padTop - parent->padBottom - parent->borderTop - parent->borderBottom);
+        remainingHeight -= (!!(parent->layoutFlags & OVERFLOW_HORIZONTAL_SCROLL)) * 8.0f;
+        int numChildrenAffectingHeight = 0;
+        for (uint16_t i=parent->firstChildIndex; i<parent->firstChildIndex + parent->childCount; i++) {
+            Node* child = NU_Layer_Get(childlayer, i);
+            if (child->nodeState == 2 || child->tag == WINDOW || child->layoutFlags & POSITION_ABSOLUTE) continue;
+            remainingHeight -= child->height; numChildrenAffectingHeight++;
+        }
+        remainingHeight -= parent->gap * (numChildrenAffectingHeight - 1);
+
+
+
+        // position children vertically
+        float cursorY = 0.0f;
+        for (uint16_t i=parent->firstChildIndex; i<parent->firstChildIndex + parent->childCount; i++)
+        {
+            Node* child = NU_Layer_Get(childlayer, i);
+            if (child->nodeState == 2 || child->tag == WINDOW) continue;
+
+            if (!(child->layoutFlags & POSITION_ABSOLUTE)) { // position relative
+                float y_align_offset = remainingHeight * 0.5f * (float)parent->verticalAlignment;
+                child->y += parent->y + parent->padTop + parent->borderTop + cursorY + y_align_offset + y_scroll_offset;
+                cursorY += child->height + parent->gap;
+            }
+            else { // position abosolute
+                child->y = parent->y + parent->padTop + parent->borderTop;
+                if (child->top > 0.0f) {
+                    child->y = parent->y + child->top + parent->padTop + parent->borderTop;
+                }
+                else if (child->bottom > 0.0f) {
+                    float inner_height = parent->height - parent->padTop - parent->padBottom - parent->borderTop - parent->borderBottom;
+                    child->y = parent->y + inner_height - child->height - child->bottom;
+                }
             }
         }
     }
@@ -893,13 +878,13 @@ static void NU_Calculate_Positions()
 {
     for (uint16_t l=0; l<=__NGUI.deepest_layer; l++) 
     {
-        NU_Layer* parent_layer = &__NGUI.tree.layers[l];
-        NU_Layer* child_layer = &__NGUI.tree.layers[l+1];
+        NU_Layer* parentlayer = &__NGUI.tree.layers[l];
+        NU_Layer* childlayer = &__NGUI.tree.layers[l+1];
         
         // Iterate over parent layer
-        for (uint32_t p=0; p<parent_layer->size; p++) // For node in layer
+        for (uint32_t p=0; p<parentlayer->size; p++) // For node in layer
         {   
-            Node* parent = NU_Layer_Get(parent_layer, p);
+            Node* parent = NU_Layer_Get(parentlayer, p);
             if (parent->nodeState == 0 || parent->nodeState == 2) continue;
 
             if (parent->tag == WINDOW)
@@ -908,8 +893,8 @@ static void NU_Calculate_Positions()
                 parent->y = 0;
             }
 
-            NU_Horizontally_Place_Children(parent, child_layer);
-            NU_Vertically_Place_Children(parent, child_layer);
+            NU_PositionChildrenHorizontally(parent, childlayer);
+            NU_PositionChildrenVertically(parent, childlayer);
         }
     }
 }
@@ -929,7 +914,7 @@ static bool NU_Mouse_Over_Node(Node* node, float mouse_x, float mouse_y)
     float bottom_wall = node->y + node->height; 
     if (node->clippingRootHandle != UINT32_MAX)
     {
-        NU_Clip_Bounds* clip = HashmapGet(&__NGUI.node_clip_map, &node->clippingRootHandle);
+        NU_ClipBounds* clip = HashmapGet(&__NGUI.winManager.clipMap, &node->clippingRootHandle);
         left_wall = max(clip->clip_left, node->x);
         right_wall = min(clip->clip_right, node->x + node->width);
         top_wall = max(clip->clip_top, node->y);
@@ -1005,6 +990,7 @@ static bool NU_Mouse_Over_Node_V_Scrollbar(Node* node, float mouse_x, float mous
 
 void NU_Mouse_Hover()
 {   
+
     // -----------------------------------------------------------
     // --- Remove potential pseudo style from current hovered node
     // -----------------------------------------------------------
@@ -1015,19 +1001,12 @@ void NU_Mouse_Hover()
     __NGUI.hovered_node = UINT32_MAX;
     __NGUI.scroll_hovered_node = UINT32_MAX;
 
-    if (__NGUI.hovered_window == NULL) return;
-
+    if (__NGUI.winManager.hoveredWindow == NULL) return;
 
     // -----------------------------
     // --- Get local mouse position
     // -----------------------------
-    float global_mouse_x, global_mouse_y;
-    int window_x, window_y;
-    SDL_GetGlobalMouseState(&global_mouse_x, &global_mouse_y);
-    SDL_GetWindowPosition(__NGUI.hovered_window, &window_x, &window_y);
-    float mouse_x = global_mouse_x - window_x;
-    float mouse_y = global_mouse_y - window_y;
-
+    float mouseX, mouseY; GetLocalMouseCoords(&__NGUI.winManager, &mouseX, &mouseY);
 
     // ----------------------------
     // --- Create a traversal stack
@@ -1038,19 +1017,17 @@ void NU_Mouse_Hover()
     // -----------------------------------------------
     // --- Push all the nodes to start traversing from
     // -----------------------------------------------
-    for (uint32_t i=0; i<__NGUI.absoluteRootNodes.size; i++)
-    {
-        Node* absolute_node = *(Node**)Vector_Get(&__NGUI.absoluteRootNodes, i);
-        if (absolute_node->window == __NGUI.hovered_window && NU_Mouse_Over_Node(absolute_node, mouse_x, mouse_y)) {
+    for (uint32_t i=0; i<__NGUI.winManager.absoluteRootNodes.size; i++) {
+        Node* absolute_node = *(Node**)Vector_Get(&__NGUI.winManager.absoluteRootNodes, i);
+        if (absolute_node->window == __NGUI.winManager.hoveredWindow && NU_Mouse_Over_Node(absolute_node, mouseX, mouseY)) {
             Vector_Push(&stack, &absolute_node);
         }
     }
 
-    for (uint32_t i=0; i<__NGUI.windowNodes.size; i++)
-    {
-        uint32_t handle = *(uint32_t*)Vector_Get(&__NGUI.windowNodes, i);
+    for (uint32_t i=0; i<__NGUI.winManager.windowNodes.size; i++) {
+        uint32_t handle = *(uint32_t*)Vector_Get(&__NGUI.winManager.windowNodes, i);
         Node* node = NODE(handle);
-        if (node->window == __NGUI.hovered_window){
+        if (node->window == __NGUI.winManager.hoveredWindow){
             Vector_Push(&stack, &node);
             break;
         }
@@ -1074,14 +1051,14 @@ void NU_Mouse_Hover()
         // ------------------------------
         // --- Iterate over children
         // ------------------------------
-        NU_Layer* child_layer = &__NGUI.tree.layers[current_node->layer+1];
+        NU_Layer* childlayer = &__NGUI.tree.layers[current_node->layer+1];
         for (uint16_t i=current_node->firstChildIndex; i<current_node->firstChildIndex + current_node->childCount; i++)
         {
-            Node* child = NU_Layer_Get(child_layer, i);
+            Node* child = NU_Layer_Get(childlayer, i);
             if (child->nodeState == 2 || 
                 child->layoutFlags & POSITION_ABSOLUTE || 
                 child->tag == WINDOW ||
-                !NU_Mouse_Over_Node(child, mouse_x, mouse_y)) continue; // Skip
+                !NU_Mouse_Over_Node(child, mouseX, mouseY)) continue; // Skip
 
             // Check for scroll hover
             if (child->layoutFlags & OVERFLOW_V_PROPERTY) {
@@ -1136,19 +1113,6 @@ void NU_Add_Text_Mesh(Vertex_RGB_UV_List* vertices, Index_List* indices, Node* n
     NU_Generate_Text_Mesh(vertices, indices, node_font, node->textContent, floorf(textPosX), floorf(textPosY), r, g, b, inner_width);
 }
 
-static bool Is_Node_Visible_In_Window(Node* node, float window_width, float window_height)
-{
-    // Compute the node's content rectangle
-    float left   = node->x;
-    float top    = node->y;
-    float right  = left + node->width;
-    float bottom = top  + node->height;
-
-    // Check for any overlap with the window bounds
-    bool visible = !(right < 0 || bottom < 0 || left > window_width || top > window_height);
-    return visible;
-}
-
 static bool Is_Node_Visible_In_Bounds(Node* node, float x, float y, float w, float h)
 {
     // Compute the node's content rectangle
@@ -1168,91 +1132,53 @@ static bool Is_Node_Visible_In_Bounds(Node* node, float x, float y, float w, flo
     return visible;
 }
 
-static int Node_Vertical_Overlap_State(Node* node, float y, float h)
+static int NodeVerticalOverlapState(Node* node, float y, float h)
 {
     float top    = node->y;
     float bottom = top + node->height;
-
     float bounds_top    = y;
     float bounds_bottom = y + h;
-
-    // No intersection
-    if (bottom <= bounds_top || top >= bounds_bottom)
-        return 0;
-
-    // Fully inside
-    if (top >= bounds_top && bottom <= bounds_bottom)
-        return 2;
-
-    // Partial overlap
-    return 1;
+    if (bottom <= bounds_top || top >= bounds_bottom) return 0; // no overlap
+    if (top >= bounds_top && bottom <= bounds_bottom) return 2; // fully inside
+    return 1; // partial overlap
 }
 
-static int NU_Draw_Find_Window(Node* node) {
-    for (int i=0; i<__NGUI.windows.size; i++) {
-        SDL_Window* window = *(SDL_Window**) Vector_Get(&__NGUI.windows, i);
-        if (window == node->window) {
-            return i;
-        }
-    }
-    return 0;
-}
-
-void NU_Populate_Draw_Lists()
+void NU_GenerateDrawlists()
 {
-    // Initialise draw lists
-    uint32_t window_count = __NGUI.windows.size;
-    for (uint32_t i=0; i<window_count; i++) 
-    {
-        NU_WindowDrawlists* lists = Vector_Get(&__NGUI.windowsDrawLists, i);
-        Vector_Reserve(&lists->relativeNodeList, sizeof(Node*), 512);
-        Vector_Reserve(&lists->clippedRelativeNodeList, sizeof(Node*), 64);
-        Vector_Reserve(&lists->absoluteNodeList, sizeof(Node*), 64);
-        Vector_Reserve(&lists->clippedAbsoluteNodeList, sizeof(Node*), 16);
-        Vector_Reserve(&lists->canvasNodeList, sizeof(Node*), 4);
-        Vector_Reserve(&lists->clippedCanvasNodeList, sizeof(Node*), 1);
-    }
+    // prepare draw datastructures
+    PrepareDrawlists(&__NGUI.winManager);
 
-    // Clear clip map
-    Hashmap* node_clip_map = &__NGUI.node_clip_map;
-    HashmapClear(&__NGUI.node_clip_map);
-
-    __NGUI.absoluteRootNodes.size = 0;
-
-    
-
-    NU_WindowDrawlists* root_lists = Vector_Get(&__NGUI.windowsDrawLists, 0);
-
-
+    // add root to drawlist 
     Node* root = &__NGUI.tree.layers[0].node_array[0];
-    Vector_Push(&root_lists->relativeNodeList, &root);
+    SetNodeDrawlist_Relative(&__NGUI.winManager, root);
+
+    // traverse the tree
     for (int l=0; l<=__NGUI.deepest_layer; l++)
     {
-        NU_Layer* parent_layer = &__NGUI.tree.layers[l];
-        NU_Layer* child_layer = &__NGUI.tree.layers[l+1];
+        NU_Layer* parentlayer = &__NGUI.tree.layers[l];
+        NU_Layer* childlayer = &__NGUI.tree.layers[l+1];
 
-        // Iterate over parent layer
-        for (int p=0; p<parent_layer->size; p++)
+        // iterate over parent layer
+        for (int p=0; p<parentlayer->size; p++) 
         {       
-            Node* parent = NU_Layer_Get(parent_layer, p);
+            Node* parent = NU_Layer_Get(parentlayer, p);
             if (parent->nodeState == 0) continue;
             if (parent->nodeState == 2) { // Parent not visible -> children must inherit this
                 for (uint16_t i=parent->firstChildIndex; i<parent->firstChildIndex + parent->childCount; i++) {
-                    Node* child = NU_Layer_Get(child_layer, i);
-                    child->nodeState = 2;
+                    Node* child = NU_Layer_Get(childlayer, i); child->nodeState = 2;
                 }
                 continue;
             }
 
-            // Precompute once (optimisation)
+            // precompute parent inner rect
             float parent_inner_x, parent_inner_y, parent_inner_width, parent_inner_height = 0;
             if (parent->layoutFlags & OVERFLOW_VERTICAL_SCROLL) {
                 parent_inner_y = parent->y + parent->borderTop + parent->padTop;
                 parent_inner_height = parent->height - parent->borderTop - parent->borderBottom - parent->padTop - parent->padBottom;
 
                 // Handle case where parent is a table with a thead
-                if (parent->tag == TABLE) {
-                    Node* first_child = NU_Layer_Get(child_layer, parent->firstChildIndex);
+                if (parent->tag == TABLE && parent->childCount > 0) {
+                    Node* first_child = NU_Layer_Get(childlayer, parent->firstChildIndex);
                     if (first_child->tag == THEAD) {
                         parent_inner_y += first_child->height;
                         parent_inner_height -= first_child->height;
@@ -1264,119 +1190,105 @@ void NU_Populate_Draw_Lists()
                 parent_inner_width = parent->width - parent->borderLeft - parent->borderRight - parent->padLeft - parent->padRight;
             }
 
-            // Iterate over children
+            // iterate over children
             for (uint16_t i=parent->firstChildIndex; i<parent->firstChildIndex + parent->childCount; i++)
             {
-                Node* child = NU_Layer_Get(child_layer, i); if (child->nodeState == 2) continue;
+                Node* child = NU_Layer_Get(childlayer, i); if (child->nodeState == 2) continue;
 
-                // If child not visible in window bounds -> mark as hidden
-                int w, h;
-                SDL_GetWindowSize(node->window, &w, &h);
-                if (!Is_Node_Visible_In_Window(child, (float)w, (float)h)) {
+                // if child not visible in window bounds -> mark as hidden
+                if (!NodeVisibleInWindow(&__NGUI.winManager, child)) {
                     child->nodeState = 2; 
                     continue;
                 }
 
-                // Add child to list of root absolute nodes
+                // add child to list of root absolute nodes
                 if (child->layoutFlags & POSITION_ABSOLUTE) {
-                    Vector_Push(&__NGUI.absoluteRootNodes, &child);
+                    Vector_Push(&__NGUI.winManager.absoluteRootNodes, &child);
                 }
 
-                // Get correct draw lists
-                NU_WindowDrawlists* lists = Vector_Get(&__NGUI.windowsDrawLists, window_index);
-
-                // Skip node if not visible in parent (due to overflow)
+                // skip child if overflowed parent's bounds
                 if (parent->layoutFlags & OVERFLOW_VERTICAL_SCROLL && child->tag != THEAD) 
                 {   
-                    int intersect_state = Node_Vertical_Overlap_State(child, parent_inner_y, parent_inner_height);
+                    int intersect_state = NodeVerticalOverlapState(child, parent_inner_y, parent_inner_height);
 
-                    // Child not inside parent -> hide in this draw pass
-                    if (intersect_state == 0) {
-                        child->nodeState = 2; 
-                        continue;
-                    }
+                    // child not inside parent -> hide in this draw pass
+                    if (intersect_state == 0) { child->nodeState = 2; continue; }
 
-                    // Child overlaps parent boundary
+                    // child overlaps parent boundary
                     else if (intersect_state == 1) 
                     {
-                        // Determine clipping
-                        NU_Clip_Bounds clip;
+                        // determine clipping
+                        NU_ClipBounds clip;
                         clip.clip_top = fmaxf(child->y - 1, parent_inner_y);
                         clip.clip_bottom = fminf(child->y + child->height, parent_inner_y + parent_inner_height);
                         clip.clip_left = -1.0f;
                         clip.clip_right = 1000000.0f;
 
-                        // Position Absolute -> secondary drawing list
+                        // position absolute -> secondary drawing list
                         if (child->positionAbsolute)
                         {
-                            // If parent is also clipped -> merge clips (stack clipping behaviour)
+                            // Iif parent is also clipped -> merge clips (stack clipping behaviour)
                             if (parent->clippingRootHandle != UINT32_MAX) {
-                                NU_Clip_Bounds* parent_clip = HashmapGet(node_clip_map, &parent->clippingRootHandle);
+                                NU_ClipBounds* parent_clip = HashmapGet(&__NGUI.winManager.clipMap, &parent->clippingRootHandle);
                                 clip.clip_top = fmaxf(clip.clip_top, parent_clip->clip_top);
                                 clip.clip_bottom = fminf(clip.clip_bottom, parent_clip->clip_bottom);
                             }
                             
-                            // Add clipping to hashmap
-                            HashmapSet(node_clip_map, &child->handle, &clip);
+                            // add clipping to hashmap
+                            HashmapSet(&__NGUI.winManager.clipMap, &child->handle, &clip);
                             child->clippingRootHandle = child->handle; // Set clip root to self
 
-                            // Append node to correct window clipped node list
-                            Vector_Push(&lists->clippedAbsoluteNodeList, &child);
+                            // append node to correct window clipped node list
+                            SetNodeDrawlist_ClippedAbsolute(&__NGUI.winManager, child);
                             continue;
                         }
-                        // Position Relative -> main drawing list
+                        // position relative -> main drawing list
                         else
                         {
-                            // If parent is also clipped -> merge clips (stack clipping behaviour)
+                            // if parent is also clipped -> merge clips (stack clipping behaviour)
                             if (parent->clippingRootHandle != UINT32_MAX) {
-                                NU_Clip_Bounds* parent_clip = HashmapGet(node_clip_map, &parent->clippingRootHandle);
+                                NU_ClipBounds* parent_clip = HashmapGet(&__NGUI.winManager.clipMap, &parent->clippingRootHandle);
                                 clip.clip_top = fmaxf(clip.clip_top, parent_clip->clip_top);
                                 clip.clip_bottom = fminf(clip.clip_bottom, parent_clip->clip_bottom);
                             }
                             
-                            // Add clipping to hashmap
-                            HashmapSet(node_clip_map, &child->handle, &clip);
+                            // add clipping to hashmap
+                            HashmapSet(&__NGUI.winManager.clipMap, &child->handle, &clip);
                             child->clippingRootHandle = child->handle; // Set clip root to self
 
-                            // Append node to correct window clipped node list
-                            Vector_Push(&lists->clippedRelativeNodeList, &child);
+                            // append node to correct window clipped node list
+                            SetNodeDrawlist_ClippedRelative(&__NGUI.winManager, child);
                             continue;
                         }
                     }
                 }
 
-                // If parent is clipped -> child inherits clip from parent
+                // if parent is clipped -> child inherits clip from parent
                 if (parent->clippingRootHandle != UINT32_MAX) {
                     child->clippingRootHandle = parent->clippingRootHandle;
 
-                    // Position Absolute -> secondary drawing list
-                    if (child->positionAbsolute)
-                    {
-                        Vector_Push(&lists->clippedAbsoluteNodeList, &child);
+                    // position absolute -> secondary drawing list
+                    if (child->positionAbsolute) {
+                        SetNodeDrawlist_ClippedAbsolute(&__NGUI.winManager, child);
                     }
-                    // Position Relative -> main drawing list
-                    else
-                    {
-                        Vector_Push(&lists->clippedRelativeNodeList, &child);
+                    // position relative -> main drawing list
+                    else {
+                        SetNodeDrawlist_ClippedRelative(&__NGUI.winManager, child);
                     }
                     continue;
                 }
 
-
-
-                // Neither child nor parent is clipped -> append node to correct window node list
-                if (child->positionAbsolute) // Position Absolute -> secondary drawing list
-                {
-                    Vector_Push(&lists->absoluteNodeList, &child);
+                // neither child nor parent is clipped -> append node to correct window node list
+                if (child->positionAbsolute) { // Position Absolute -> secondary drawing list
+                    SetNodeDrawlist_Absolute(&__NGUI.winManager, child);
                 }
-                else // Position Relative -> main drawing list
-                {
-                    Vector_Push(&lists->relativeNodeList, &child);
+                else { // position Relative -> main drawing list
+                    SetNodeDrawlist_Relative(&__NGUI.winManager, child);
                 }
 
-                // Append node to canvas API drawing list
+                // append node to canvas API drawing list
                 if (child->tag == CANVAS) {
-                    Vector_Push(&lists->canvasNodeList, &child);
+                    SetNodeDrawlist_Canvas(&__NGUI.winManager, child);
                 }
             }
         }
@@ -1385,8 +1297,6 @@ void NU_Populate_Draw_Lists()
 
 void NU_Draw()
 {
-    uint32_t window_count = __NGUI.windows.size;
-
     // Initialise text vertex and index buffers (per font)
     Vertex_RGB_UV_List text_relative_vertex_buffers[__NGUI.stylesheet->fonts.size];
     Vertex_RGB_UV_List text_absolute_vertex_buffers[__NGUI.stylesheet->fonts.size];
@@ -1401,23 +1311,17 @@ void NU_Draw()
     }
 
     // For each window
-    for (uint32_t i=0; i<window_count; i++)
+    for (uint32_t i=0; i<__NGUI.winManager.windows.size; i++)
     {
-        NU_WindowDrawlists* lists = Vector_Get(&__NGUI.windowsDrawLists, i);
-        SDL_Window* window = *(SDL_Window**) Vector_Get(&__NGUI.windows, i);
+        // ---------------------------------------------
+        // --- Get the window and dimensions, clear and start new frame
+        // ---------------------------------------------
+        SDL_Window* window = *(SDL_Window**) Vector_Get(&__NGUI.winManager.windows, i);
         SDL_GL_MakeCurrent(window, __NGUI.gl_ctx);
-
-        // ----------------------------------------
-        // --- Clear the window and start new frame
-        // ----------------------------------------
-        int w, h;
-        SDL_GetWindowSize(window, &w, &h);
-        float w_fl = (float)w; float h_fl = (float)h;
-        glViewport(0, 0, w, h); glClearColor(0.0f, 0.0f, 0.0f, 1.0f); 
-        glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT | GL_STENCIL_BUFFER_BIT);
-
-
-
+        WindowStartNewFrame(window);
+        NU_WindowDrawlist* drawList = Vector_Get(&__NGUI.winManager.windowDrawLists, i);
+        float winW, winH; GetWindowSize(window, &winW, &winH);
+        
 
         // --------------------------------------------------------------------------------------------------------
         // --- Draw Relative Positioned Nodes [First Draw Pass] ===================================================
@@ -1426,23 +1330,23 @@ void NU_Draw()
         // --- Draw Border Rects ---
         Vertex_RGB_List border_rect_vertices;              Index_List border_rect_indices;
         Vertex_RGB_List_Init(&border_rect_vertices, 5000); Index_List_Init(&border_rect_indices, 15000);
-        for (int n=0; n<lists->relativeNodeList.size; n++) { // Construct border rect vertices and indices for each node
-            Node* node = *(Node**) Vector_Get(&lists->relativeNodeList, n);
-            Construct_Border_Rect(node, w_fl, h_fl, &border_rect_vertices, &border_rect_indices);
+        for (uint32_t n=0; n<drawList->relativeNodes.size; n++) { // Construct border rect vertices and indices for each node
+            Node* node = *(Node**)Vector_Get(&drawList->relativeNodes, n);
+            Construct_Border_Rect(node, winW, winH, &border_rect_vertices, &border_rect_indices);
             if (node->layoutFlags & OVERFLOW_VERTICAL_SCROLL 
                 && node->contentHeight > (node->height - node->padTop - node->padBottom - node->borderTop - node->borderBottom)) {
-                Construct_Scroll_Thumb(node, w_fl, h_fl, &border_rect_vertices, &border_rect_indices);
+                Construct_Scroll_Thumb(node, winW, winH, &border_rect_vertices, &border_rect_indices);
             }
         }
-        Draw_Vertex_RGB_List(&border_rect_vertices, &border_rect_indices, w_fl, h_fl, 0.0f, 0.0f); // Draw border rects in one call
+        Draw_Vertex_RGB_List(&border_rect_vertices, &border_rect_indices, winW, winH, 0.0f, 0.0f); // Draw border rects in one call
         Vertex_RGB_List_Free(&border_rect_vertices);
         Index_List_Free(&border_rect_indices);
 
 
         // --- Draw Canvas API Content ---
-        for (uint32_t n=0; n<lists->canvasNodeList.size; n++)
+        for (uint32_t n=0; n<drawList->canvasNodes.size; n++)
         {
-            Node* canvas_node = *(Node**) Vector_Get(&lists->canvasNodeList, n);
+            Node* canvas_node = *(Node**)Vector_Get(&drawList->canvasNodes, n);
             float offset_x = canvas_node->x + canvas_node->borderLeft + canvas_node->padLeft;
             float offset_y = canvas_node->y + canvas_node->borderTop + canvas_node->padTop;
             float clip_top    = canvas_node->y + canvas_node->borderTop + canvas_node->padTop;
@@ -1453,7 +1357,7 @@ void NU_Draw()
             Draw_Clipped_Vertex_RGB_List(
                 &ctx->vertices, 
                 &ctx->indices,
-                w_fl, h_fl, 
+                winW, winH, 
                 offset_x, offset_y,
                 clip_top, clip_bottom, clip_left, clip_right 
             );
@@ -1461,11 +1365,11 @@ void NU_Draw()
 
 
         // --- Construct Text Meshes & Draw Images ---
-        for (int n=0; n<lists->relativeNodeList.size; n++) 
+        for (uint32_t n=0; n<drawList->relativeNodes.size; n++) 
         {
 
             // Construct text mesh for node
-            Node* node = *(Node**) Vector_Get(&lists->relativeNodeList, n);
+            Node* node = *(Node**)Vector_Get(&drawList->relativeNodes, n);
             if (node->textContent != NULL) {
                 Vertex_RGB_UV_List* text_vertices = &text_relative_vertex_buffers[node->fontId];
                 Index_List* text_indices = &text_relative_index_buffers[node->fontId];
@@ -1481,7 +1385,7 @@ void NU_Draw()
                 NU_Draw_Image(
                     x, y, 
                     inner_width, inner_height, 
-                    w_fl, h_fl, 
+                    winW, winH, 
                     -1.0f, 100000.0f, -1.0f, 100000.0f,
                     node->glImageHandle);
             }
@@ -1491,24 +1395,24 @@ void NU_Draw()
             Vertex_RGB_UV_List* text_vertices = &text_relative_vertex_buffers[t];
             Index_List* text_indices = &text_relative_index_buffers[t];
             NU_Font* node_font = Vector_Get(&__NGUI.stylesheet->fonts, t);
-            NU_Render_Text(text_vertices, text_indices, node_font, w_fl, h_fl, -1.0f, 100000.0f, -1.0f, 100000.0f);
+            NU_Render_Text(text_vertices, text_indices, node_font, winW, winH, -1.0f, 100000.0f, -1.0f, 100000.0f);
             text_vertices->size = 0;
             text_indices->size = 0;
         }
 
 
         // --- Draw Partially Visible Nodes ---
-        for (int n=0; n<lists->clippedRelativeNodeList.size; n++) {
-            Node* node = *(Node**) Vector_Get(&lists->clippedRelativeNodeList, n);
-            NU_Clip_Bounds* clip = (NU_Clip_Bounds*)HashmapGet(&__NGUI.node_clip_map, &node->clippingRootHandle);
+        for (uint32_t n=0; n<drawList->clippedRelativeNodes.size; n++) {
+            Node* node = *(Node**)Vector_Get(&drawList->clippedRelativeNodes, n);
+            NU_ClipBounds* clip = (NU_ClipBounds*)HashmapGet(&__NGUI.winManager.clipMap, &node->clippingRootHandle);
 
             // Draw border rects
             Vertex_RGB_List vertices;
             Index_List indices;
             Vertex_RGB_List_Init(&vertices, 100);
             Index_List_Init(&indices, 100);
-            Construct_Border_Rect(node, w_fl, h_fl, &vertices, &indices);
-            Draw_Clipped_Vertex_RGB_List(&vertices, &indices, w_fl, h_fl, 0.0f, 0.0f, clip->clip_top, clip->clip_bottom, clip->clip_left, clip->clip_right);
+            Construct_Border_Rect(node, winW, winH, &vertices, &indices);
+            Draw_Clipped_Vertex_RGB_List(&vertices, &indices, winW, winH, 0.0f, 0.0f, clip->clip_top, clip->clip_bottom, clip->clip_left, clip->clip_right);
             Vertex_RGB_List_Free(&vertices);
             Index_List_Free(&indices);
 
@@ -1521,7 +1425,7 @@ void NU_Draw()
                 Index_List_Init(&clipped_text_indices, 600);
                 NU_Font* node_font = Vector_Get(&__NGUI.stylesheet->fonts, node->fontId);
                 NU_Add_Text_Mesh(&clipped_text_vertices, &clipped_text_indices, node);
-                NU_Render_Text(&clipped_text_vertices, &clipped_text_indices, node_font, w_fl, h_fl, clip->clip_top, clip->clip_bottom, clip->clip_left, clip->clip_right);
+                NU_Render_Text(&clipped_text_vertices, &clipped_text_indices, node_font, winW, winH, clip->clip_top, clip->clip_bottom, clip->clip_left, clip->clip_right);
                 Vertex_RGB_UV_List_Free(&clipped_text_vertices);
                 Index_List_Free(&clipped_text_indices);
             }
@@ -1535,7 +1439,7 @@ void NU_Draw()
                     node->x + node->borderLeft + node->padLeft, 
                     node->y + node->borderTop + node->padTop, 
                     inner_width, inner_height, 
-                    w_fl, h_fl, 
+                    winW, winH, 
                     clip->clip_top, clip->clip_bottom, clip->clip_left, clip->clip_right,
                     node->glImageHandle);
             }
@@ -1564,25 +1468,25 @@ void NU_Draw()
 
         // --- Draw Border Rects ---
         Vertex_RGB_List_Init(&border_rect_vertices, 5000); Index_List_Init(&border_rect_indices, 15000);
-        for (int n=0; n<lists->absoluteNodeList.size; n++) { // Construct border rect vertices and indices for each node
-            Node* node = *(Node**) Vector_Get(&lists->absoluteNodeList, n);
-            Construct_Border_Rect(node, w_fl, h_fl, &border_rect_vertices, &border_rect_indices);
+        for (uint32_t n=0; n<drawList->absoluteNodes.size; n++) { // Construct border rect vertices and indices for each node
+            Node* node = *(Node**)Vector_Get(&drawList->absoluteNodes, n);
+            Construct_Border_Rect(node, winW, winH, &border_rect_vertices, &border_rect_indices);
             if (node->layoutFlags & OVERFLOW_VERTICAL_SCROLL 
                 && node->contentHeight > (node->height - node->padTop - node->padBottom - node->borderTop - node->borderBottom)) {
-                Construct_Scroll_Thumb(node, w_fl, h_fl, &border_rect_vertices, &border_rect_indices);
+                Construct_Scroll_Thumb(node, winW, winH, &border_rect_vertices, &border_rect_indices);
             }
         }
-        Draw_Vertex_RGB_List(&border_rect_vertices, &border_rect_indices, w_fl, h_fl, 0.0f, 0.0f); // Draw border rects in one call
+        Draw_Vertex_RGB_List(&border_rect_vertices, &border_rect_indices, winW, winH, 0.0f, 0.0f); // Draw border rects in one call
         Vertex_RGB_List_Free(&border_rect_vertices);
         Index_List_Free(&border_rect_indices);
 
 
         // --- Construct Text Meshes & Draw Images ---
-        for (int n=0; n<lists->absoluteNodeList.size; n++) 
+        for (uint32_t n=0; n<drawList->absoluteNodes.size; n++) 
         {
 
             // Construct text mesh for node
-            Node* node = *(Node**) Vector_Get(&lists->absoluteNodeList, n);
+            Node* node = *(Node**)Vector_Get(&drawList->absoluteNodes, n);
             if (node->textContent != NULL) {
                 Vertex_RGB_UV_List* text_vertices = &text_absolute_vertex_buffers[node->fontId];
                 Index_List* text_indices = &text_absolute_index_buffers[node->fontId];
@@ -1598,7 +1502,7 @@ void NU_Draw()
                 NU_Draw_Image(
                     x, y, 
                     inner_width, inner_height, 
-                    w_fl, h_fl, 
+                    winW, winH, 
                     -1.0f, 100000.0f, -1.0f, 100000.0f,
                     node->glImageHandle);
             }
@@ -1608,23 +1512,23 @@ void NU_Draw()
             Vertex_RGB_UV_List* text_vertices = &text_absolute_vertex_buffers[t];
             Index_List* text_indices = &text_absolute_index_buffers[t];
             NU_Font* node_font = Vector_Get(&__NGUI.stylesheet->fonts, t);
-            NU_Render_Text(text_vertices, text_indices, node_font, w_fl, h_fl, -1.0f, 100000.0f, -1.0f, 100000.0f);
+            NU_Render_Text(text_vertices, text_indices, node_font, winW, winH, -1.0f, 100000.0f, -1.0f, 100000.0f);
             text_vertices->size = 0;
             text_indices->size = 0;
         }
 
         // --- Draw Partially Visible Nodes ---
-        for (int n=0; n<lists->clippedAbsoluteNodeList.size; n++) {
-            Node* node = *(Node**) Vector_Get(&lists->clippedAbsoluteNodeList, n);
-            NU_Clip_Bounds* clip = (NU_Clip_Bounds*)HashmapGet(&__NGUI.node_clip_map, &node->clippingRootHandle);
+        for (uint32_t n=0; n<drawList->clippedAbsoluteNodes.size; n++) {
+            Node* node = *(Node**) Vector_Get(&drawList->clippedAbsoluteNodes, n);
+            NU_ClipBounds* clip = (NU_ClipBounds*)HashmapGet(&__NGUI.winManager.clipMap, &node->clippingRootHandle);
 
             // Draw border rects
             Vertex_RGB_List vertices;
             Index_List indices;
             Vertex_RGB_List_Init(&vertices, 100);
             Index_List_Init(&indices, 100);
-            Construct_Border_Rect(node, w_fl, h_fl, &vertices, &indices);
-            Draw_Clipped_Vertex_RGB_List(&vertices, &indices, w_fl, h_fl, 0.0f, 0.0f, clip->clip_top, clip->clip_bottom, clip->clip_left, clip->clip_right);
+            Construct_Border_Rect(node, winW, winH, &vertices, &indices);
+            Draw_Clipped_Vertex_RGB_List(&vertices, &indices, winW, winH, 0.0f, 0.0f, clip->clip_top, clip->clip_bottom, clip->clip_left, clip->clip_right);
             Vertex_RGB_List_Free(&vertices);
             Index_List_Free(&indices);
 
@@ -1637,7 +1541,7 @@ void NU_Draw()
                 Index_List_Init(&clipped_text_indices, 600);
                 NU_Font* node_font = Vector_Get(&__NGUI.stylesheet->fonts, node->fontId);
                 NU_Add_Text_Mesh(&clipped_text_vertices, &clipped_text_indices, node);
-                NU_Render_Text(&clipped_text_vertices, &clipped_text_indices, node_font, w_fl, h_fl, clip->clip_top, clip->clip_bottom, clip->clip_left, clip->clip_right);
+                NU_Render_Text(&clipped_text_vertices, &clipped_text_indices, node_font, winW, winH, clip->clip_top, clip->clip_bottom, clip->clip_left, clip->clip_right);
                 Vertex_RGB_UV_List_Free(&clipped_text_vertices);
                 Index_List_Free(&clipped_text_indices);
             }
@@ -1651,7 +1555,7 @@ void NU_Draw()
                     node->x + node->borderLeft + node->padLeft, 
                     node->y + node->borderTop + node->padTop, 
                     inner_width, inner_height, 
-                    w_fl, h_fl, 
+                    winW, winH, 
                     clip->clip_top, clip->clip_bottom, clip->clip_left, clip->clip_right,
                     node->glImageHandle);
             }
@@ -1668,15 +1572,6 @@ void NU_Draw()
     // -----------------------
     // --- Free memory -------
     // -----------------------
-    for (uint32_t i=0; i<window_count; i++) {
-        NU_WindowDrawlists* lists = Vector_Get(&__NGUI.windowsDrawLists, i);
-        Vector_Free(&lists->relativeNodeList);
-        Vector_Free(&lists->clippedRelativeNodeList);
-        Vector_Free(&lists->absoluteNodeList);
-        Vector_Free(&lists->clippedAbsoluteNodeList);
-        Vector_Free(&lists->canvasNodeList);
-        Vector_Free(&lists->clippedCanvasNodeList);
-    }
     for (uint32_t i=0; i<__NGUI.stylesheet->fonts.size; i++) {
         Vertex_RGB_UV_List_Free(&text_relative_vertex_buffers[i]);
         Index_List_Free(&text_relative_index_buffers[i]);
@@ -1689,8 +1584,8 @@ void NU_Draw()
 
 void NU_Reflow()
 {
-    NU_Clear_Node_Sizes();            // Reset dimensions and positions
-    NU_Calculate_Text_Fit_Widths();   // Width and height of unwrapped text nodes
+    NU_Prepass();
+    NU_Calculate_Text_Fit_Widths();
     NU_Calculate_Fit_Size_Widths();   
     NU_Grow_Shrink_Widths();
     NU_Calculate_Table_Column_Widths();
@@ -1698,5 +1593,5 @@ void NU_Reflow()
     NU_Calculate_Fit_Size_Heights();
     NU_Grow_Shrink_Heights();
     NU_Calculate_Positions();
-    NU_Populate_Draw_Lists();
+    NU_GenerateDrawlists();
 }

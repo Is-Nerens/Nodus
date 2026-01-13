@@ -4,17 +4,16 @@
 #include <stdint.h>
 #include <stdlib.h>
 #include <stdio.h>
-#include "nu_convert.h"
+#include <nu_convert.h>
+#include <filesystem/file.h>
+#include <datastructures/string.h>
+#include <performance.h>
 #include <datastructures/linear_stringset.h>
 #include "nu_stylesheet_tokens.h"
 #include "nu_stylesheet_structs.h"
 #include "nu_stylesheet_tokeniser.h"
 #include "nu_stylesheet_parser.h"
 #include "nu_stylesheet_apply.h"
-#include <image/nu_image.h>
-#include <filesystem/file.h>
-#include <datastructures/string.h>
-#include <performance.h>
 
 
 
@@ -91,6 +90,7 @@ uint32_t NU_Internal_Load_Stylesheet(char* filepath)
     if (!NU_Stylesheet_Create(stylesheet, filepath)) return 0; // Failure
     uint32_t stylesheet_handle = __NGUI.stylesheets.size;
     if (__NGUI.stylesheets.size == 1) { // If this is the first stylesheet -> auto apply
+        __NGUI.running = true;
         NU_Internal_Apply_Stylesheet(stylesheet_handle);
     }
     return stylesheet_handle;

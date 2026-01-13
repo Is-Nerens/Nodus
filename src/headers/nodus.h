@@ -11,38 +11,22 @@
 #include "datastructures/linear_stringmap.h"
 #include "datastructures/string_arena.h"
 #include "datastructures/hashmap.h"
-#include "draw/nu_draw_structures.h"
-#include "text/nu_font.h"
+#include <rendering/text/nu_font.h>
+#include <rendering/nu_draw_structures.h>
 #include "node_datastructures/nu_node.h"
 #include "node_datastructures/nu_nodelist.h"
 #include "node_datastructures/nu_tree.h"
-
-typedef struct NU_WindowDrawlists
-{
-    Vector relativeNodeList;
-    Vector clippedRelativeNodeList;
-    Vector absoluteNodeList;
-    Vector clippedAbsoluteNodeList;
-    Vector canvasNodeList;
-    Vector clippedCanvasNodeList;
-} NU_WindowDrawlists;
-
+#include "window/nu_window_manager_structs.h"
 
 struct NU_GUI
 {
     NU_Tree tree;
-    Vector windows;
-    Vector windowNodes;
+    NU_WindowManager winManager;
     StringArena node_text_arena;
     Stringset class_string_set;
     Stringset id_string_set;
     Stringmap id_node_map;
     Hashmap canvas_contexts; 
-
-    // Drawing Info Datastructures
-    Vector windowsDrawLists; 
-    Vector absoluteRootNodes;
-    Hashmap node_clip_map;
 
     // State
     uint32_t hovered_node;
@@ -102,38 +86,30 @@ void NU_Add_Canvas_Context(uint32_t canvas_node_handle)
     HashmapSet(&__NGUI.canvas_contexts, &canvas_node_handle, &ctx);
 }
 
-
+#include <rendering/nu_draw.h>
+#include <rendering/canvas/nu_canvas_api.h>
+#include <rendering/image/nu_image.h>
+#include "window/nu_window_manager.h"
 #include "./xml/nu_xml_parser.h"
 #include "./stylesheet/nu_stylesheet.h"
-#include "./draw/nu_draw.h"
-#include "./draw/nu_canvas_draw.h"
-#include "nu_window.h"
 #include "nu_layout.h"
 #include "nu_events.h"
 #include "nu_dom.h"
 
 int NU_Internal_Init()
 {
-    // Check if SDL initialised
-    if (!SDL_Init(SDL_INIT_VIDEO)) 
-    {
+    // init SDL and GLEW
+    if (!SDL_Init(SDL_INIT_VIDEO)) {
         printf("SDL could not initialize! SDL_Error: %s\n", SDL_GetError());
         return -1;
     }
-
-    Vector_Reserve(&__NGUI.windows, sizeof(SDL_Window*), 8);
-    Vector_Reserve(&__NGUI.windowNodes, sizeof(uint32_t), 8);
+    NU_WindowManagerInit(&__NGUI.winManager);
     StringArena_Init(&__NGUI.node_text_arena, 1024);
     StringsetInit(&__NGUI.class_string_set, 1024, 100);
     StringsetInit(&__NGUI.id_string_set, 1024, 100);
     StringmapInit(&__NGUI.id_node_map, sizeof(uint32_t), 100, 1024);
     HashmapInit(&__NGUI.canvas_contexts, sizeof(uint32_t), sizeof(NU_Canvas_Context), 4);
     Vector_Reserve(&__NGUI.stylesheets, sizeof(NU_Stylesheet), 2);
-
-    // Draw lists and clipping 
-    Vector_Reserve(&__NGUI.windowsDrawLists, sizeof(NU_WindowDrawlists), 8);
-    Vector_Reserve(&__NGUI.absoluteRootNodes, sizeof(Node*), 8);
-    HashmapInit(&__NGUI.node_clip_map, sizeof(uint32_t), sizeof(NU_Clip_Bounds), 16);
 
     // Events
     HashmapInit(&__NGUI.on_click_events,      sizeof(uint32_t), sizeof(struct NU_Callback_Info), 50);
@@ -156,8 +132,8 @@ int NU_Internal_Init()
     __NGUI.deepest_layer = 0;
     __NGUI.stylesheet = NULL;
     __NGUI.hovered_window = NULL;
-    __NGUI.running = true;
-    __NGUI.awaiting_redraw = true;
+    __NGUI.running = false;
+    __NGUI.awaiting_redraw = false;
     __NGUI.unblock_mutex = NULL;
     __NGUI.unblock = false;
 
@@ -168,8 +144,6 @@ int NU_Internal_Init()
         return -1;
     }
 
-    NU_Create_Main_Window();
-    NU_Text_Renderer_Init();
     SDL_AddEventWatch(EventWatcher, NULL);
     return 1; // Success
 }
@@ -217,31 +191,17 @@ void NU_Internal_Render()
 void NU_Internal_Quit()
 {
     NU_Tree_Free(&__NGUI.tree);
+    NU_WindowManagerFree(&__NGUI.winManager);
     StringmapFree(&__NGUI.id_node_map);
     StringsetFree(&__NGUI.class_string_set);
     StringsetFree(&__NGUI.id_string_set);
     StringArena_Free(&__NGUI.node_text_arena);
-    for (uint32_t i=0; i<__NGUI.windowsDrawLists.size; i++)
-    {
-        NU_WindowDrawlists* list = Vector_Get(&__NGUI.windowsDrawLists, i);
-        Vector_Free(&list->relativeNodeList);
-        Vector_Free(&list->clippedRelativeNodeList);
-        Vector_Free(&list->absoluteNodeList);
-        Vector_Free(&list->clippedAbsoluteNodeList);
-        Vector_Free(&list->canvasNodeList);
-        Vector_Free(&list->clippedCanvasNodeList);
-    }
-    Vector_Free(&__NGUI.windowsDrawLists);
-    Vector_Free(&__NGUI.absoluteRootNodes);
-    Vector_Free(&__NGUI.windows);
-    Vector_Free(&__NGUI.windowNodes);
     for (uint32_t i=0; i<__NGUI.stylesheets.size; i++)
     {
         NU_Stylesheet* stylesheet = Vector_Get(&__NGUI.stylesheets, i);
         NU_Stylesheet_Free(stylesheet);
     }
     Vector_Free(&__NGUI.stylesheets);
-    HashmapFree(&__NGUI.node_clip_map);
     HashmapFree(&__NGUI.on_click_events);
     HashmapFree(&__NGUI.on_changed_events);
     HashmapFree(&__NGUI.on_drag_events);

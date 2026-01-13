@@ -86,6 +86,12 @@ inline void Vector_Set(Vector* vector, uint32_t index, void* value) // Unsafe bu
     memcpy(dst, value, vector->element_size);
 }
 
+inline void Vector_Clear(Vector* vector)
+{
+    vector->size = 0;
+}
+
+
 void* Vector_Create_Uninitialised(Vector* vector)
 {
     if (vector->size == vector->capacity) {

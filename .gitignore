@@ -13,4 +13,4 @@ app
 src/vendor/freetype
 src/vendor/glew
 src/vendor/SDL3
-app-compile.ps1
+compile-app.ps1

@@ -41,7 +41,6 @@ struct NU_GUI
     float mouse_down_global_x;
     float mouse_down_global_y;
     float v_scroll_thumb_grab_offset;
-    u16 deepest_layer;
     bool running;
     bool awaiting_redraw;
 
@@ -186,7 +185,6 @@ int NU_Internal_Create_Gui(char* xml_filepath, char* css_filepath)
     __NGUI.mouse_down_node = UINT32_MAX;
     __NGUI.scroll_hovered_node = UINT32_MAX;
     __NGUI.scroll_mouse_down_node = UINT32_MAX;
-    __NGUI.deepest_layer = 0;
     __NGUI.stylesheet = NULL;
     __NGUI.hovered_window = NULL;
     __NGUI.running = false;

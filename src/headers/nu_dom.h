@@ -21,7 +21,7 @@ NU_Nodelist NU_Internal_Get_Nodes_By_Class(char* class)
     NU_Nodelist_Init(&result, 8);
 
     // For each layer
-    for (uint16_t l=0; l<=__NGUI.deepest_layer; l++)
+    for (uint32_t l=0; l<=__NGUI.tree.depth-1; l++)
     {
         Layer* layer = &__NGUI.tree.layers[l];
 
@@ -46,7 +46,7 @@ NU_Nodelist NU_Internal_Get_Nodes_By_Tag(NodeType type)
     NU_Nodelist_Init(&result, 8);
 
     // For each layer
-    for (uint16_t l=0; l<=__NGUI.deepest_layer; l++)
+    for (uint32_t l=0; l<=__NGUI.tree.depth-1; l++)
     {
         Layer* layer = &__NGUI.tree.layers[l];
         
@@ -70,12 +70,6 @@ NU_Nodelist NU_Internal_Get_Nodes_By_Tag(NodeType type)
 // -------------------------------
 // --- Node Deletion Functions ---
 // -------------------------------
-typedef struct {
-    uint16_t start;
-    uint16_t count;
-    uint16_t capacity;
-    uint16_t layer;
-} Node_Delete_Range;
 
 void NU_DissociateNode(NodeP* node)
 {

@@ -152,7 +152,6 @@ int NU_Generate_Tree(char* src, struct Vector* tokens, struct Vector* textRefs)
 
                 // Move one layer deeper
                 currentLayer++;
-                __NGUI.deepest_layer = MAX(__NGUI.deepest_layer, currentLayer);
 
                 // Continue ^
                 i+=2; continue;

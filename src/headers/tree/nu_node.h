@@ -95,7 +95,6 @@ void NU_ApplyNodeDefaults(NodeP* node)
     node->node.id = NULL;
     node->node.textContent = NULL;
     node->node.inlineStyleFlags = 0;
-    node->clippingRootHandle = 0;
     node->node.positionAbsolute = 0;
     node->node.glImageHandle = 0;
     node->node.preferred_width = 0.0f;

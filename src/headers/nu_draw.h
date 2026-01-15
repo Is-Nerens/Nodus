@@ -64,7 +64,7 @@ void NU_GenerateDrawlists()
     SetNodeDrawlist_Relative(&__NGUI.winManager, root);
 
     // traverse the tree
-    for (int l=0; l<=__NGUI.deepest_layer; l++)
+    for (int l=0; l<=__NGUI.tree.depth-1; l++)
     {
         Layer* parentlayer = &__NGUI.tree.layers[l];
         Layer* childlayer = &__NGUI.tree.layers[l+1];
@@ -75,7 +75,7 @@ void NU_GenerateDrawlists()
             NodeP* parent = LayerGet(parentlayer, p);
             if (parent->state == 0) continue;
             if (parent->state == 2) { // Parent not visible -> children must inherit this
-                for (uint16_t i=parent->firstChildIndex; i<parent->firstChildIndex + parent->childCount; i++) {
+                for (uint32_t i=parent->firstChildIndex; i<parent->firstChildIndex + parent->childCount; i++) {
                     NodeP* child = LayerGet(childlayer, i); child->state = 2;
                 }
                 continue;
@@ -102,7 +102,7 @@ void NU_GenerateDrawlists()
             }
 
             // iterate over children
-            for (uint16_t i=parent->firstChildIndex; i<parent->firstChildIndex + parent->childCount; i++)
+            for (uint32_t i=parent->firstChildIndex; i<parent->firstChildIndex + parent->childCount; i++)
             {
                 NodeP* child = LayerGet(childlayer, i); if (child->state == 2) continue;
 

@@ -89,7 +89,7 @@ int NU_Internal_Apply_Stylesheet(uint32_t stylesheet_handle)
     NU_Apply_Stylesheet_To_Node(rootWindow, stylesheet);
 
     // For each layer
-    for (uint16_t l=0; l<=__NGUI.deepest_layer; l++)
+    for (uint32_t l=0; l<=__NGUI.tree.depth-1; l++)
     {
         Layer* layer = &__NGUI.tree.layers[l];
         for (uint32_t i=0; i<layer->size; i++)

@@ -62,7 +62,7 @@ NodeP* TreeCreate(Tree* tree, u32 reserveNodesPerLayer, NodeType rootType)
     root->type = rootType;
     root->index = 0;
     root->parentHandle = UINT32_MAX;
-    root->firstChildIndex = UINT32_MAX;
+    root->firstChildIndex = 0;
     root->childCapacity = reserveNodesPerLayer;
     root->childCount = 0;
     root->layer = 0;
@@ -133,7 +133,7 @@ NodeP* TreeAppendNode(Tree* tree, u32 layer, NodeType type)
     NodeP* node = &appendLayer->nodeArray[appendLayer->size-1];
     node->type = type;
     node->index = appendLayer->size-1;
-    node->firstChildIndex = UINT32_MAX;
+    node->firstChildIndex = 0;
     node->childCapacity = 0;
     node->childCount = 0;
     node->layer = layer;
@@ -247,7 +247,7 @@ void TreeBackshiftChildren(Tree* tree, NodeP* parent, u32 dist)
 
     // cannot backshift past 0 → reclaim slab instead
     if (parent->firstChildIndex < dist) {
-        parent->firstChildIndex = UINT32_MAX;
+        parent->firstChildIndex = 0;
         parent->childCapacity   = 0;
         parent->childCount      = 0;
         return;
@@ -451,9 +451,6 @@ void TreeDeleteBranch(Tree* tree, NodeP* node, TreeDeleteCallback deleteCB)
     }
 
     // finally delete the branch root itself
-    node->childCount = 0;
-    node->childCapacity = 0;
-    node->firstChildIndex = UINT32_MAX;
     TreeDeleteChildlessNode(tree, node, deleteCB);
 }
 

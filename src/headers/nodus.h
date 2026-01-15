@@ -2,6 +2,11 @@
 #include <math.h>
 #include <SDL3/SDL.h>
 #include <GL/glew.h>
+#include <stdint.h>
+typedef uint8_t u8;
+typedef uint16_t u16;
+typedef uint32_t u32;
+typedef uint64_t u64;
 
 // === NODUS INCLUDES ===
 #include <datastructures/vector.h>
@@ -13,14 +18,14 @@
 #include <datastructures/hashmap.h>
 #include <rendering/text/nu_font.h>
 #include <rendering/nu_renderer_structures.h>
-#include <node_datastructures/nu_node.h>
-#include <node_datastructures/nu_nodelist.h>
-#include <node_datastructures/nu_tree.h>
+#include <tree/nu_node.h>
+#include <tree/nu_tree.h>
+#include <tree/nu_nodelist.h>
 #include <window/nu_window_manager_structs.h>
 
 struct NU_GUI
 {
-    NU_Tree tree;
+    Tree tree;
     NU_WindowManager winManager;
     StringArena node_text_arena;
     Stringset class_string_set;
@@ -29,14 +34,14 @@ struct NU_GUI
     Hashmap canvas_contexts; 
 
     // state
-    uint32_t hovered_node;
-    uint32_t mouse_down_node;
-    uint32_t scroll_hovered_node;
-    uint32_t scroll_mouse_down_node;
+    u32 hovered_node;
+    u32 mouse_down_node;
+    u32 scroll_hovered_node;
+    u32 scroll_mouse_down_node;
     float mouse_down_global_x;
     float mouse_down_global_y;
     float v_scroll_thumb_grab_offset;
-    uint16_t deepest_layer;
+    u16 deepest_layer;
     bool running;
     bool awaiting_redraw;
 
@@ -67,19 +72,7 @@ struct NU_GUI
 // global gui instance
 struct NU_GUI __NGUI;
 
-
-inline Node* NODE(uint32_t handle)
-{
-    if (handle >= __NGUI.tree.node_table.capacity) return NULL;
-    uint32_t rem = handle & 7;                                // i % 8
-    uint32_t occupancy_index = handle >> 3;                   // i / 8
-    if (!(__NGUI.tree.node_table.occupancy[occupancy_index] & (1u << rem))) { // Found empty
-        return NULL;
-    }
-    return __NGUI.tree.node_table.data[handle];
-}
-
-void NU_Add_Canvas_Context(uint32_t canvas_node_handle)
+void NU_Add_Canvas_Context(u32 canvas_node_handle)
 {
     NU_Canvas_Context ctx;
     Vertex_RGB_List_Init(&ctx.vertices, 512);
@@ -87,16 +80,78 @@ void NU_Add_Canvas_Context(uint32_t canvas_node_handle)
     HashmapSet(&__NGUI.canvas_contexts, &canvas_node_handle, &ctx);
 }
 
+inline NodeP* NODE_P(u32 nodeHandle)
+{
+    NodeP* nodeP = NodeTableGet(&__NGUI.tree.table, nodeHandle);
+    if (nodeP == NULL) return NULL;
+    return nodeP; 
+}
+
+inline Node* NODE(u32 nodeHandle)
+{
+    NodeP* nodeP = NodeTableGet(&__NGUI.tree.table, nodeHandle);
+    if (nodeP == NULL) return NULL;
+    return &nodeP->node; 
+}
+
+inline u32 PARENT(u32 nodeHandle)
+{
+    NodeP* nodeP = NodeTableGet(&__NGUI.tree.table, nodeHandle);
+    if (nodeP == NULL) return UINT32_MAX;
+    return nodeP->parentHandle;
+}
+
+inline u32 CHILD(u32 nodeHandle, u32 childIndex)
+{
+    NodeP* nodeP = NodeTableGet(&__NGUI.tree.table, nodeHandle);
+    if (nodeP == NULL || childIndex >= nodeP->childCount) return UINT32_MAX;
+    NodeP* child = &__NGUI.tree.layers[nodeP->layer+1].nodeArray[nodeP->firstChildIndex + childIndex];
+    return child->handle;
+}
+
+inline u32 CHILD_COUNT(u32 nodeHandle)
+{
+    NodeP* nodeP = NodeTableGet(&__NGUI.tree.table, nodeHandle);
+    if (nodeP == NULL) return UINT32_MAX;
+    return nodeP->childCount;
+}
+
+inline u32 DEPTH(u32 nodeHandle)
+{
+    NodeP* nodeP = NodeTableGet(&__NGUI.tree.table, nodeHandle);
+    if (nodeP == NULL) return UINT32_MAX;
+    return nodeP->layer;
+}
+
+
+
 #include <rendering/nu_renderer.h>
 #include <rendering/canvas/nu_canvas_api.h>
-#include <rendering/image/nu_image.h>
 #include <window/nu_window_manager.h>
-#include <xml/nu_xml_parser.h>
+#include <rendering/image/nu_image.h>
 #include <stylesheet/nu_stylesheet.h>
+#include <xml/nu_xml_parser.h>
 #include "nu_layout.h"
 #include "nu_draw.h"
 #include "nu_events.h"
 #include "nu_dom.h"
+
+inline u32 CREATE_NODE(u32 parentHandle, NodeType type)
+{
+    if (type == WINDOW) return UINT32_MAX; // Nodus doesn't yet support window creation
+    u32 nodeHandle = TreeCreateNode(&__NGUI.tree, parentHandle, type);
+    NodeP* node = NodeTableGet(&__NGUI.tree.table, nodeHandle);
+    NU_ApplyNodeDefaults(node);
+    NU_Apply_Stylesheet_To_Node(node, __NGUI.stylesheet);
+    return nodeHandle;
+}
+
+inline void DELETE_NODE(u32 nodeHandle)
+{
+    NodeP* nodeP = NodeTableGet(&__NGUI.tree.table, nodeHandle);
+    if (nodeP == NULL) return;
+    return TreeDeleteNode(&__NGUI.tree, nodeHandle, NU_DissociateNode);
+}
 
 int NU_Internal_Create_Gui(char* xml_filepath, char* css_filepath)
 {
@@ -109,22 +164,22 @@ int NU_Internal_Create_Gui(char* xml_filepath, char* css_filepath)
     StringArena_Init(&__NGUI.node_text_arena, 1024);
     StringsetInit(&__NGUI.class_string_set, 1024, 100);
     StringsetInit(&__NGUI.id_string_set, 1024, 100);
-    StringmapInit(&__NGUI.id_node_map, sizeof(uint32_t), 100, 1024);
-    HashmapInit(&__NGUI.canvas_contexts, sizeof(uint32_t), sizeof(NU_Canvas_Context), 4);
+    StringmapInit(&__NGUI.id_node_map, sizeof(u32), 100, 1024);
+    HashmapInit(&__NGUI.canvas_contexts, sizeof(u32), sizeof(NU_Canvas_Context), 4);
     Vector_Reserve(&__NGUI.stylesheets, sizeof(NU_Stylesheet), 2);
 
     // Events
-    HashmapInit(&__NGUI.on_click_events,      sizeof(uint32_t), sizeof(struct NU_Callback_Info), 50);
-    HashmapInit(&__NGUI.on_changed_events,    sizeof(uint32_t), sizeof(struct NU_Callback_Info), 10);
-    HashmapInit(&__NGUI.on_drag_events,       sizeof(uint32_t), sizeof(struct NU_Callback_Info), 10);
-    HashmapInit(&__NGUI.on_released_events,   sizeof(uint32_t), sizeof(struct NU_Callback_Info), 10);
-    HashmapInit(&__NGUI.on_resize_events,     sizeof(uint32_t), sizeof(struct NU_Callback_Info), 10);
-    HashmapInit(&__NGUI.node_resize_tracking, sizeof(uint32_t), sizeof(NU_Node_Dimensions)     , 10);
-    HashmapInit(&__NGUI.on_mouse_down_events, sizeof(uint32_t), sizeof(struct NU_Callback_Info), 10);
-    HashmapInit(&__NGUI.on_mouse_up_events,   sizeof(uint32_t), sizeof(struct NU_Callback_Info), 10);
-    HashmapInit(&__NGUI.on_mouse_move_events, sizeof(uint32_t), sizeof(struct NU_Callback_Info), 10);
-    HashmapInit(&__NGUI.on_mouse_in_events,   sizeof(uint32_t), sizeof(struct NU_Callback_Info), 10);
-    HashmapInit(&__NGUI.on_mouse_out_events,  sizeof(uint32_t), sizeof(struct NU_Callback_Info), 10);
+    HashmapInit(&__NGUI.on_click_events,      sizeof(u32), sizeof(struct NU_Callback_Info), 50);
+    HashmapInit(&__NGUI.on_changed_events,    sizeof(u32), sizeof(struct NU_Callback_Info), 10);
+    HashmapInit(&__NGUI.on_drag_events,       sizeof(u32), sizeof(struct NU_Callback_Info), 10);
+    HashmapInit(&__NGUI.on_released_events,   sizeof(u32), sizeof(struct NU_Callback_Info), 10);
+    HashmapInit(&__NGUI.on_resize_events,     sizeof(u32), sizeof(struct NU_Callback_Info), 10);
+    HashmapInit(&__NGUI.node_resize_tracking, sizeof(u32), sizeof(NU_NodeDimensions)     , 10);
+    HashmapInit(&__NGUI.on_mouse_down_events, sizeof(u32), sizeof(struct NU_Callback_Info), 10);
+    HashmapInit(&__NGUI.on_mouse_up_events,   sizeof(u32), sizeof(struct NU_Callback_Info), 10);
+    HashmapInit(&__NGUI.on_mouse_move_events, sizeof(u32), sizeof(struct NU_Callback_Info), 10);
+    HashmapInit(&__NGUI.on_mouse_in_events,   sizeof(u32), sizeof(struct NU_Callback_Info), 10);
+    HashmapInit(&__NGUI.on_mouse_out_events,  sizeof(u32), sizeof(struct NU_Callback_Info), 10);
 
     // State
     __NGUI.hovered_node = UINT32_MAX;
@@ -153,7 +208,7 @@ int NU_Internal_Create_Gui(char* xml_filepath, char* css_filepath)
     if (!NU_Internal_Load_XML(xml_filepath)) return 0;
 
     // Load css
-    uint32_t stylesheetHandle = NU_Internal_Load_Stylesheet(css_filepath);
+    u32 stylesheetHandle = NU_Internal_Load_Stylesheet(css_filepath);
     if (stylesheetHandle == 0) return 0;
     if (!NU_Internal_Apply_Stylesheet(stylesheetHandle)) return 0;
 
@@ -204,13 +259,13 @@ void NU_Internal_Render()
 
 void NU_Internal_Quit()
 {
-    NU_Tree_Free(&__NGUI.tree);
+    TreeFree(&__NGUI.tree);
     NU_WindowManagerFree(&__NGUI.winManager);
     StringmapFree(&__NGUI.id_node_map);
     StringsetFree(&__NGUI.class_string_set);
     StringsetFree(&__NGUI.id_string_set);
     StringArena_Free(&__NGUI.node_text_arena);
-    for (uint32_t i=0; i<__NGUI.stylesheets.size; i++)
+    for (u32 i=0; i<__NGUI.stylesheets.size; i++)
     {
         NU_Stylesheet* stylesheet = Vector_Get(&__NGUI.stylesheets, i);
         NU_Stylesheet_Free(stylesheet);

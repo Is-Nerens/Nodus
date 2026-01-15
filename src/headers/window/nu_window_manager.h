@@ -24,7 +24,7 @@ void NU_WindowManagerInit(NU_WindowManager* winManager)
 {
     Vector_Reserve(&winManager->windows, sizeof(SDL_Window*), 8);
     Vector_Reserve(&winManager->windowNodes, sizeof(uint32_t), 8);
-    Vector_Reserve(&winManager->absoluteRootNodes, sizeof(Node*), 8);
+    Vector_Reserve(&winManager->absoluteRootNodes, sizeof(NodeP*), 8);
     Vector_Reserve(&winManager->windowDrawLists, sizeof(NU_WindowDrawlist), 8);
     HashmapInit(&winManager->clipMap, sizeof(uint32_t), sizeof(NU_ClipBounds), 16);
     CreateMainWindow(winManager);
@@ -50,40 +50,40 @@ void NU_WindowManagerFree(NU_WindowManager* winManager)
     winManager->hoveredWindow = NULL;
 }
 
-void AssignRootWindow(NU_WindowManager* winManager, Node* rootNode)
+void AssignRootWindow(NU_WindowManager* winManager, NodeP* rootNode)
 {
     SDL_Window* window = *(SDL_Window**)Vector_Get(&winManager->windows, 0);
     SDL_ShowWindow(window);
     Vector_Push(&winManager->windowNodes, &rootNode->handle);
-    rootNode->window = window;
+    rootNode->node.window = window;
 
     // create drawlist
     NU_WindowDrawlist* list = Vector_Create_Uninitialised(&winManager->windowDrawLists);
-    Vector_Reserve(&list->relativeNodes, sizeof(Node*), 512);
-    Vector_Reserve(&list->absoluteNodes, sizeof(Node*), 64);
-    Vector_Reserve(&list->canvasNodes,   sizeof(Node*), 8);
-    Vector_Reserve(&list->relativeNodes, sizeof(Node*), 64);
-    Vector_Reserve(&list->absoluteNodes, sizeof(Node*), 16);
-    Vector_Reserve(&list->canvasNodes,   sizeof(Node*), 4);
+    Vector_Reserve(&list->relativeNodes, sizeof(NodeP*), 512);
+    Vector_Reserve(&list->absoluteNodes, sizeof(NodeP*), 64);
+    Vector_Reserve(&list->canvasNodes,   sizeof(NodeP*), 8);
+    Vector_Reserve(&list->relativeNodes, sizeof(NodeP*), 64);
+    Vector_Reserve(&list->absoluteNodes, sizeof(NodeP*), 16);
+    Vector_Reserve(&list->canvasNodes,   sizeof(NodeP*), 4);
 
     NU_Draw_Init();
 }
 
-void CreateSubwindow(NU_WindowManager* winManager, Node* node)
+void CreateSubwindow(NU_WindowManager* winManager, NodeP* node)
 {
     SDL_Window* window = SDL_CreateWindow("window", 500, 400, SDL_WINDOW_OPENGL | SDL_WINDOW_RESIZABLE);
-    node->window = window;
+    node->node.window = window;
     Vector_Push(&winManager->windows, &window);
     Vector_Push(&winManager->windowNodes, &node->handle);
 
     // create drawlist
     NU_WindowDrawlist* list = Vector_Create_Uninitialised(&winManager->windowDrawLists);
-    Vector_Reserve(&list->relativeNodes, sizeof(Node*), 512);
-    Vector_Reserve(&list->absoluteNodes, sizeof(Node*), 64);
-    Vector_Reserve(&list->canvasNodes,   sizeof(Node*), 8);
-    Vector_Reserve(&list->relativeNodes, sizeof(Node*), 64);
-    Vector_Reserve(&list->absoluteNodes, sizeof(Node*), 16);
-    Vector_Reserve(&list->canvasNodes,   sizeof(Node*), 4);
+    Vector_Reserve(&list->relativeNodes, sizeof(NodeP*), 512);
+    Vector_Reserve(&list->absoluteNodes, sizeof(NodeP*), 64);
+    Vector_Reserve(&list->canvasNodes,   sizeof(NodeP*), 8);
+    Vector_Reserve(&list->relativeNodes, sizeof(NodeP*), 64);
+    Vector_Reserve(&list->absoluteNodes, sizeof(NodeP*), 16);
+    Vector_Reserve(&list->canvasNodes,   sizeof(NodeP*), 4);
 }
 
 void GetLocalMouseCoords(NU_WindowManager* winManager, float* outX, float* outY)
@@ -103,18 +103,18 @@ inline void GetWindowSize(SDL_Window* window, float* wOut, float* hOut)
     *wOut = (float)w; *hOut = (float)h;
 }
 
-inline int InHoverredWindow(NU_WindowManager* winManager, Node* node)
+inline int InHoverredWindow(NU_WindowManager* winManager, NodeP* node)
 {
-    return node->window == winManager->hoveredWindow;
+    return node->node.window == winManager->hoveredWindow;
 }
 
-inline int NodeVisibleInWindow(NU_WindowManager* winManager, Node* node)
+inline int NodeVisibleInWindow(NU_WindowManager* winManager, NodeP* node)
 {
     int windowW, windowH;
-    SDL_GetWindowSize(node->window, &windowW, &windowH);
-    float right  = node->x + node->width;
-    float bottom = node->y  + node->height;
-    return !(right < 0 || bottom < 0 || node->x > windowW || node->y > windowH);
+    SDL_GetWindowSize(node->node.window, &windowW, &windowH);
+    float right  = node->node.x + node->node.width;
+    float bottom = node->node.y + node->node.height;
+    return !(right < 0 || bottom < 0 || node->node.x > windowW || node->node.y > windowH);
 }
 
 NU_WindowDrawlist* GetWindowDrawlist(NU_WindowManager* winManager, SDL_Window* window)
@@ -154,38 +154,38 @@ void PrepareDrawlists(NU_WindowManager* winManager)
     Vector_Clear(&winManager->absoluteRootNodes);
 }
 
-inline void SetNodeDrawlist_Relative(NU_WindowManager* winManager, Node* node)
+inline void SetNodeDrawlist_Relative(NU_WindowManager* winManager, NodeP* node)
 {
-    NU_WindowDrawlist* list = GetWindowDrawlist(winManager, node->window);
+    NU_WindowDrawlist* list = GetWindowDrawlist(winManager, node->node.window);
     Vector_Push(&list->relativeNodes, &node);
 }
 
-inline void SetNodeDrawlist_Absolute(NU_WindowManager* winManager, Node* node)
+inline void SetNodeDrawlist_Absolute(NU_WindowManager* winManager, NodeP* node)
 {
-    NU_WindowDrawlist* list = GetWindowDrawlist(winManager, node->window);
+    NU_WindowDrawlist* list = GetWindowDrawlist(winManager, node->node.window);
     Vector_Push(&list->absoluteNodes, &node);
 }
 
-inline void SetNodeDrawlist_Canvas(NU_WindowManager* winManager, Node* node)
+inline void SetNodeDrawlist_Canvas(NU_WindowManager* winManager, NodeP* node)
 {   
-    NU_WindowDrawlist* list = GetWindowDrawlist(winManager, node->window);
+    NU_WindowDrawlist* list = GetWindowDrawlist(winManager, node->node.window);
     Vector_Push(&list->canvasNodes, &node);
 }
 
-inline void SetNodeDrawlist_ClippedRelative(NU_WindowManager* winManager, Node* node)
+inline void SetNodeDrawlist_ClippedRelative(NU_WindowManager* winManager, NodeP* node)
 {
-    NU_WindowDrawlist* list = GetWindowDrawlist(winManager, node->window);
+    NU_WindowDrawlist* list = GetWindowDrawlist(winManager, node->node.window);
     Vector_Push(&list->clippedRelativeNodes, &node);
 }   
 
-inline void SetNodeDrawlist_ClippedAbsolute(NU_WindowManager* winManager, Node* node)
+inline void SetNodeDrawlist_ClippedAbsolute(NU_WindowManager* winManager, NodeP* node)
 {
-    NU_WindowDrawlist* list = GetWindowDrawlist(winManager, node->window);
+    NU_WindowDrawlist* list = GetWindowDrawlist(winManager, node->node.window);
     Vector_Push(&list->clippedAbsoluteNodes, &node);
 }
 
-inline void SetNodeDrawlist_ClippedCanvas(NU_WindowManager* winManager, Node* node)
+inline void SetNodeDrawlist_ClippedCanvas(NU_WindowManager* winManager, NodeP* node)
 {
-    NU_WindowDrawlist* list = GetWindowDrawlist(winManager, node->window);
+    NU_WindowDrawlist* list = GetWindowDrawlist(winManager, node->node.window);
     Vector_Push(&list->clippedCanvasNodes, &node);
 }

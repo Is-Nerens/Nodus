@@ -33,8 +33,26 @@ __declspec(dllexport) int NU_Apply_Stylesheet(uint32_t stylesheet_handle) {
 // ---------------------
 // --- DOM functions ---
 // ---------------------
-__declspec(dllexport) inline struct Node* NU_NODE(uint32_t handle) {
-    return NODE(handle);
+__declspec(dllexport) inline Node* NU_NODE(uint32_t nodeHandle) {
+    return NODE(nodeHandle);
+}
+__declspec(dllexport) inline uint32_t NU_PARENT(uint32_t nodeHandle) {
+    return PARENT(nodeHandle);
+}
+__declspec(dllexport) inline uint32_t NU_CHILD(uint32_t nodeHandle, uint32_t childIndex) {
+    return CHILD(nodeHandle, childIndex);
+}
+__declspec(dllexport) inline uint32_t NU_CHILD_COUNT(uint32_t nodeHandle) {
+    return CHILD_COUNT(nodeHandle);
+}
+__declspec(dllexport) inline uint32_t NU_DEPTH(uint32_t nodeHandle) {
+    return DEPTH(nodeHandle);
+}
+__declspec(dllexport) uint32_t NU_CREATE_NODE(uint32_t parentHandle, NodeType type) {
+    return CREATE_NODE(parentHandle, type);
+}
+__declspec(dllexport) void NU_DELETE_NODE(uint32_t nodeHandle) {
+    DELETE_NODE(nodeHandle);
 }
 __declspec(dllexport) uint32_t NU_Get_Node_By_Id(char* id) {
     return NU_Internal_Get_Node_By_Id(id);
@@ -42,23 +60,17 @@ __declspec(dllexport) uint32_t NU_Get_Node_By_Id(char* id) {
 __declspec(dllexport) NU_Nodelist NU_Get_Nodes_By_Class(char* class_name) {
     return NU_Internal_Get_Nodes_By_Class(class_name);
 }
-__declspec(dllexport) NU_Nodelist NU_Get_Nodes_By_Tag(enum Tag tag) {
-    return NU_Internal_Get_Nodes_By_Tag(tag);
+__declspec(dllexport) NU_Nodelist NU_Get_Nodes_By_Tag(NodeType type) {
+    return NU_Internal_Get_Nodes_By_Tag(type);
 }
-__declspec(dllexport) uint32_t NU_Create_Node(uint32_t parent_handle, enum Tag tag) {
-    return NU_Internal_Create_Node(parent_handle, tag);
+__declspec(dllexport) void NU_Set_Class(uint32_t nodeHandle, char* class_name) {
+    NU_Internal_Set_Class(nodeHandle, class_name);
 }
-__declspec(dllexport) void NU_Delete_Node(uint32_t handle) {
-    NU_Internal_Delete_Node(handle);
+__declspec(dllexport) void NU_Hide(uint32_t nodeHandle) {
+    NU_Internal_Hide(nodeHandle);
 }
-__declspec(dllexport) void NU_Set_Class(uint32_t handle, char* class_name) {
-    NU_Internal_Set_Class(handle, class_name);
-}
-__declspec(dllexport) void NU_Hide(uint32_t handle) {
-    NU_Internal_Hide(handle);
-}
-__declspec(dllexport) void NU_Show(uint32_t handle) {
-    NU_Internal_Show(handle);
+__declspec(dllexport) void NU_Show(uint32_t nodeHandle) {
+    NU_Internal_Show(nodeHandle);
 }
 
 // -----------------------

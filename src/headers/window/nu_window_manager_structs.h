@@ -3,7 +3,7 @@
 #include <GL/glew.h>
 #include <datastructures/vector.h>
 #include <datastructures/hashmap.h>
-#include <node_datastructures/nu_node.h>
+#include <tree/nu_node.h>
 
 typedef struct NU_WindowDrawlist
 {

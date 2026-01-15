@@ -40,7 +40,7 @@ void NU_Nodelist_Push(NU_Nodelist* nodelist, uint32_t node_handle)
     nodelist->size += 1;
 }
 
-uint32_t NU_Nodelist_Get(NU_Nodelist* nodelist, uint32_t index)
+inline uint32_t NU_Nodelist_Get(NU_Nodelist* nodelist, uint32_t index)
 {
     return nodelist->data[index];
 }
@@ -48,9 +48,7 @@ uint32_t NU_Nodelist_Get(NU_Nodelist* nodelist, uint32_t index)
 void NU_Nodelist_Set(NU_Nodelist* nodelist, uint32_t index, uint32_t node_handle)
 {
     // Out of bounds
-    if (index >= nodelist->size) {
-        return;
-    }
+    if (index >= nodelist->size) return;
     void* dst = (char*)nodelist->data + index * sizeof(uint32_t);
     memcpy(dst, &node_handle, sizeof(uint32_t));
 }
@@ -58,9 +56,7 @@ void NU_Nodelist_Set(NU_Nodelist* nodelist, uint32_t index, uint32_t node_handle
 void NU_Nodelist_Insert(NU_Nodelist* nodelist, uint32_t index, uint32_t node_handle)
 {
     // Out of bounds — can only insert at or before size
-    if (index > nodelist->size) {
-        return;
-    }
+    if (index > nodelist->size) return;
 
     // Grow if needed
     if (nodelist->size == nodelist->capacity) {

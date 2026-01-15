@@ -65,6 +65,84 @@ enum NU_XML_TOKEN
     UNDEFINED
 };
 
+void printToken(enum NU_XML_TOKEN token)
+{
+    switch (token)
+    {
+        // Property Tokens
+        case ID_PROPERTY: printf("ID_PROPERTY"); break;
+        case CLASS_PROPERTY: printf("CLASS_PROPERTY"); break;
+        case LAYOUT_DIRECTION_PROPERTY: printf("LAYOUT_DIRECTION_PROPERTY"); break;
+        case GROW_PROPERTY: printf("GROW_PROPERTY"); break;
+        case OVERFLOW_V_PROPERTY: printf("OVERFLOW_V_PROPERTY"); break;
+        case OVERFLOW_H_PROPERTY: printf("OVERFLOW_H_PROPERTY"); break;
+        case POSITION_PROPERTY: printf("POSITION_PROPERTY"); break;
+        case HIDE_PROPERTY: printf("HIDE_PROPERTY"); break;
+        case GAP_PROPERTY: printf("GAP_PROPERTY"); break;
+        case WIDTH_PROPERTY: printf("WIDTH_PROPERTY"); break;
+        case MIN_WIDTH_PROPERTY: printf("MIN_WIDTH_PROPERTY"); break;
+        case MAX_WIDTH_PROPERTY: printf("MAX_WIDTH_PROPERTY"); break;
+        case HEIGHT_PROPERTY: printf("HEIGHT_PROPERTY"); break;
+        case MIN_HEIGHT_PROPERTY: printf("MIN_HEIGHT_PROPERTY"); break;
+        case MAX_HEIGHT_PROPERTY: printf("MAX_HEIGHT_PROPERTY"); break;
+        case ALIGN_H_PROPERTY: printf("ALIGN_H_PROPERTY"); break;
+        case ALIGN_V_PROPERTY: printf("ALIGN_V_PROPERTY"); break;
+        case TEXT_ALIGN_H_PROPERTY: printf("TEXT_ALIGN_H_PROPERTY"); break;
+        case TEXT_ALIGN_V_PROPERTY: printf("TEXT_ALIGN_V_PROPERTY"); break;
+        case LEFT_PROPERTY: printf("LEFT_PROPERTY"); break;
+        case RIGHT_PROPERTY: printf("RIGHT_PROPERTY"); break;
+        case TOP_PROPERTY: printf("TOP_PROPERTY"); break;
+        case BOTTOM_PROPERTY: printf("BOTTOM_PROPERTY"); break;
+        case BACKGROUND_COLOUR_PROPERTY: printf("BACKGROUND_COLOUR_PROPERTY"); break;
+        case BORDER_COLOUR_PROPERTY: printf("BORDER_COLOUR_PROPERTY"); break;
+        case TEXT_COLOUR_PROPERTY: printf("TEXT_COLOUR_PROPERTY"); break;
+        case BORDER_WIDTH_PROPERTY: printf("BORDER_WIDTH_PROPERTY"); break;
+        case BORDER_TOP_WIDTH_PROPERTY: printf("BORDER_TOP_WIDTH_PROPERTY"); break;
+        case BORDER_BOTTOM_WIDTH_PROPERTY: printf("BORDER_BOTTOM_WIDTH_PROPERTY"); break;
+        case BORDER_LEFT_WIDTH_PROPERTY: printf("BORDER_LEFT_WIDTH_PROPERTY"); break;
+        case BORDER_RIGHT_WIDTH_PROPERTY: printf("BORDER_RIGHT_WIDTH_PROPERTY"); break;
+        case BORDER_RADIUS_PROPERTY: printf("BORDER_RADIUS_PROPERTY"); break;
+        case BORDER_TOP_LEFT_RADIUS_PROPERTY: printf("BORDER_TOP_LEFT_RADIUS_PROPERTY"); break;
+        case BORDER_TOP_RIGHT_RADIUS_PROPERTY: printf("BORDER_TOP_RIGHT_RADIUS_PROPERTY"); break;
+        case BORDER_BOTTOM_LEFT_RADIUS_PROPERTY: printf("BORDER_BOTTOM_LEFT_RADIUS_PROPERTY"); break;
+        case BORDER_BOTTOM_RIGHT_RADIUS_PROPERTY: printf("BORDER_BOTTOM_RIGHT_RADIUS_PROPERTY"); break;
+        case PADDING_PROPERTY: printf("PADDING_PROPERTY"); break;
+        case PADDING_TOP_PROPERTY: printf("PADDING_TOP_PROPERTY"); break;
+        case PADDING_BOTTOM_PROPERTY: printf("PADDING_BOTTOM_PROPERTY"); break;
+        case PADDING_LEFT_PROPERTY: printf("PADDING_LEFT_PROPERTY"); break;
+        case PADDING_RIGHT_PROPERTY: printf("PADDING_RIGHT_PROPERTY"); break;
+        case IMAGE_SOURCE_PROPERTY: printf("IMAGE_SOURCE_PROPERTY"); break;
+
+        // Tag Tokens
+        case WINDOW_TAG: printf("WINDOW_TAG"); break;
+        case BOX_TAG: printf("BOX_TAG"); break;
+        case BUTTON_TAG: printf("BUTTON_TAG"); break;
+        case TEXT_INPUT_TAG: printf("TEXT_INPUT_TAG"); break;
+        case CANVAS_TAG: printf("CANVAS_TAG"); break;
+        case IMAGE_TAG: printf("IMAGE_TAG"); break;
+        case TABLE_TAG: printf("TABLE_TAG"); break;
+        case TABLE_HEAD_TAG: printf("TABLE_HEAD_TAG"); break;
+        case ROW_TAG: printf("ROW_TAG"); break;
+
+        // XML Control Tokens
+        case OPEN_TAG: printf("OPEN_TAG"); break;
+        case CLOSE_TAG: printf("CLOSE_TAG"); break;
+        case OPEN_END_TAG: printf("OPEN_END_TAG"); break;
+        case CLOSE_END_TAG: printf("CLOSE_END_TAG"); break;
+
+        case PROPERTY_ASSIGNMENT: printf("PROPERTY_ASSIGNMENT"); break;
+        case PROPERTY_VALUE: printf("PROPERTY_VALUE"); break;
+        case TEXT_CONTENT: printf("TEXT_CONTENT"); break;
+
+        // Undefined
+        case UNDEFINED_TAG: printf("UNDEFINED_TAG"); break;
+        case UNDEFINED_PROPERTY: printf("UNDEFINED_PROPERTY"); break;
+        case UNDEFINED: printf("UNDEFINED"); break;
+
+        default: printf("UNKNOWN_TOKEN"); break;
+    }
+}
+
 typedef struct Text_Ref
 {
     uint32_t NU_Token_index;
@@ -105,7 +183,7 @@ enum NU_XML_TOKEN NU_Word_To_Property_Token(char* word, uint8_t wordLen)
     return UNDEFINED_PROPERTY;
 }
 
-enum Tag NU_Token_To_Tag(enum NU_XML_TOKEN NU_XML_TOKEN)
+NodeType NU_TokenToNodeType(enum NU_XML_TOKEN NU_XML_TOKEN)
 {
     int tag_candidate = NU_XML_TOKEN - NU_XML_PROPERTY_COUNT;
     if (tag_candidate < 0 || tag_candidate > 8) return NAT;

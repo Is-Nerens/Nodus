@@ -67,61 +67,52 @@ struct NU_Hashmap
 };
 
 // Visible structs
-enum Tag
+typedef enum NodeType
 {
-    WINDOW,
-    REC,
-    BUTTON,
-    GRID,
-    CANVAS,
-    IMAGE,
-    TABLE,
-    THEAD,
-    ROW,
-    NAT,
-};
+    WINDOW, BOX, BUTTON, TEXTINPUT, CANVAS, IMAGE, TABLE, THEAD, ROW, NAT,
+} NodeType;
 
 typedef struct Node
 {
     SDL_Window* window;
     char* class;
     char* id;
-    char* text_content;
-    uint64_t inline_style_flags;
-    uint16_t event_flags;
-    uint32_t handle;
-    uint32_t clipping_root_handle;
-    uint16_t index;
-    uint16_t parent_index;
-    uint16_t first_child_index;
-    uint16_t child_capacity;
-    uint16_t child_count;
-    uint8_t node_present;
-    uint8_t layer; 
-    uint8_t position_absolute;
-    enum Tag tag;
-    GLuint gl_image_handle;
+    char* textContent;
+
+    // --- Tracks which styles were applied in xml ---
+    uint64_t inlineStyleFlags;
+
+    // --- Event Information
+    uint16_t eventFlags;
+
+    // --- Tree information ---
+    uint32_t positionAbsolute;
+
+    // --- Styling ---
+    GLuint glImageHandle;
     float x, y, width, height, preferred_width, preferred_height;
-    float min_width, max_width, min_height, max_height;
-    float gap, content_width, content_height, scroll_x, scroll_v;
+    float minWidth, maxWidth, minHeight, maxHeight;
+    float gap, contentWidth, contentHeight, scrollX, scrollV;
     float left, right, top, bottom;
-    uint8_t pad_top, pad_bottom, pad_left, pad_right;
-    uint8_t border_top, border_bottom, border_left, border_right;
-    uint8_t border_radius_tl, border_radius_tr, border_radius_bl, border_radius_br;
-    uint8_t background_r, background_g, background_b;
-    uint8_t border_r, border_g, border_b;
-    uint8_t text_r, text_g, text_b;
-    uint8_t font_id;
-    uint8_t layout_flags;
-    char horizontal_alignment;
-    char vertical_alignment;
-    char horizontal_text_alignment;
-    char vertical_text_alignment;
-    bool hide_background;
+    uint32_t padTop, padBottom, padLeft, padRight;
+    uint32_t borderTop, borderBottom, borderLeft, borderRight;
+    uint32_t borderRadiusTl, borderRadiusTr, borderRadiusBl, borderRadiusBr;
+    uint32_t backgroundR, backgroundG, backgroundB;
+    uint32_t borderR, borderG, borderB;
+    uint32_t textR, textG, textB;
+    uint32_t fontId;
+    uint32_t layoutFlags;
+    char horizontalAlignment;
+    char verticalAlignment;
+    char horizontalTextAlignment;
+    char verticalTextAlignment;
+    bool hideBackground;
 } Node;
+
 typedef struct {
     float r, g, b;
 } NU_RGB;
+
 enum NU_Event_Type
 {
     NU_EVENT_ON_CLICK,
@@ -135,18 +126,22 @@ enum NU_Event_Type
     NU_EVENT_ON_MOUSE_IN,
     NU_EVENT_ON_MOUSE_OUT,
 };
+
 typedef struct NU_Event_Info_Mouse
 {
     int mouse_btn;
     int mouse_x, mouse_y;
     float delta_x, delta_y;
 } NU_Event_Info_Mouse;
+
 typedef struct NU_Event
 {
-    uint32_t handle;
+    uint32_t nodeHandle;
     NU_Event_Info_Mouse mouse;
 } NU_Event;
+
 typedef void (*NU_Callback)(NU_Event event, void* args);
+
 struct NU_Callback_Info
 {
     NU_Event event;
@@ -167,15 +162,19 @@ __declspec(dllimport) uint32_t NU_Load_Stylesheet(char* css_filepath);
 __declspec(dllimport) int NU_Apply_Stylesheet(uint32_t stylesheet_handle);
 
 // DOM functions
-__declspec(dllimport) inline Node* NU_NODE(uint32_t handle);
+__declspec(dllimport) inline Node* NU_NODE(uint32_t nodeHandle);
+__declspec(dllimport) inline uint32_t NU_PARENT(uint32_t nodeHandle);
+__declspec(dllimport) inline uint32_t NU_CHILD(uint32_t nodeHandle, uint32_t childIndex);
+__declspec(dllimport) inline uint32_t* NU_CHILD_COUNT(uint32_t nodeHandle);
+__declspec(dllimport) inline uint32_t NU_DEPTH(uint32_t nodeHandle);
+__declspec(dllimport) inline uint32_t NU_CREATE_NODE(uint32_t nodeHandle);
+__declspec(dllimport) inline void NU_DELETE_NODE(uint32_t nodeHandle);
 __declspec(dllimport) uint32_t NU_Get_Node_By_Id(char* id);
 __declspec(dllimport) NU_Nodelist NU_Get_Nodes_By_Class(char* class_name);
-__declspec(dllimport) NU_Nodelist NU_Get_Nodes_By_Tag(enum Tag tag);
-__declspec(dllimport) uint32_t NU_Create_Node(uint32_t parent_handle, enum Tag tag);
-__declspec(dllimport) void NU_Delete_Node(uint32_t handle);
-__declspec(dllimport) void NU_Set_Class(uint32_t handle, char* class_name);
-__declspec(dllimport) void NU_Show(uint32_t handle);
-__declspec(dllimport) void NU_Hide(uint32_t handle);
+__declspec(dllimport) NU_Nodelist NU_Get_Nodes_By_Tag(NodeType type);
+__declspec(dllimport) void NU_Set_Class(uint32_t nodeHandle, char* class_name);
+__declspec(dllimport) void NU_Show(uint32_t nodeHandle);
+__declspec(dllimport) void NU_Hide(uint32_t nodeHandle);
 
 // Event functions
 __declspec(dllimport) void NU_Register_Event(

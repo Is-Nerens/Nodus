@@ -20,13 +20,13 @@ static int AssertRootGrammar(struct Vector* tokens)
         {
             return 0; // Success
         }
-        else // Closing tag is not window
+        else // Closing type is not window
         {
             printf("%s\n", "[Generate_Tree] Error! XML tree root not closed.");
             return -1;
         }
     }
-    else // Root is not a window tag
+    else // Root is not a window type
     {
         printf("%s\n", "[Generate_Tree] Error! XML tree has no root. XML documents must begin with a <window> tag.");
         return -1;
@@ -37,7 +37,7 @@ static int AssertNewTagGrammar(struct Vector* tokens, int i)
 {
     // ENFORCE RULE: NEXT TOKEN SHOULD BE TAG NAME 
     // ENFORCE RULE: THIRD TOKEN MUST BE CLOSE CLOSE_END OR PROPERTY
-    if (i < tokens->size - 2 && NU_Token_To_Tag(*((enum NU_XML_TOKEN*) Vector_Get(tokens, i+1))) != NAT)
+    if (i < tokens->size - 2 && NU_TokenToNodeType(*((enum NU_XML_TOKEN*) Vector_Get(tokens, i+1))) != NAT)
     {
         enum NU_XML_TOKEN third_token = *((enum NU_XML_TOKEN*) Vector_Get(tokens, i+2));
         if (third_token == CLOSE_TAG || third_token == CLOSE_END_TAG || NU_Is_Token_Property(third_token)) return 1; // Success
@@ -63,16 +63,16 @@ static int AssertPropertyGrammar(struct Vector* tokens, int i)
     return -1; // Failure
 }
 
-static int AssertTagCloseStartGrammar(struct Vector* tokens, int i, enum Tag openTag)
+static int AssertTagCloseStartGrammar(struct Vector* tokens, int i, NodeType openType)
 {
     // ENFORCE RULE: NEXT TOKEN SHOULD BE TAG AND MUST MATCH OPENING TAG
     // ENDORCE RULE: THIRD TOKEN MUST BE A TAG END
     if (i < tokens->size - 2 && 
-        NU_Token_To_Tag(*((enum NU_XML_TOKEN*) Vector_Get(tokens, i+1))) == openTag && 
+        NU_TokenToNodeType(*((enum NU_XML_TOKEN*) Vector_Get(tokens, i+1))) == openType && 
         *((enum NU_XML_TOKEN*) Vector_Get(tokens, i+2)) == CLOSE_TAG) return 0; // Success
     else {
         printf("%s", "[Generate Tree] Error! close tag does not match opening tag. ");
-        printf("%s %d %s %d", "close tag:", NU_Token_To_Tag(*((enum NU_XML_TOKEN*) Vector_Get(tokens, i+1))), "open tag:", openTag);
+        printf("%s %d %s %d", "close tag:", NU_TokenToNodeType(*((enum NU_XML_TOKEN*) Vector_Get(tokens, i+1))), "open tag:", openType);
     }
     return -1; // Failure
 }

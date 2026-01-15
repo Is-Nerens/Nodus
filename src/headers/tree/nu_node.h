@@ -65,8 +65,8 @@ typedef struct NodeP
     u32 parentHandle;
     u32 clippingRootHandle;
     u32 firstChildIndex;
-    u16 childCapacity;
-    u16 childCount;
+    u32 childCapacity;
+    u32 childCount;
     u8 layer;
     u8 state;
 } NodeP;
@@ -97,6 +97,8 @@ void NU_ApplyNodeDefaults(NodeP* node)
     node->node.inlineStyleFlags = 0;
     node->node.positionAbsolute = 0;
     node->node.glImageHandle = 0;
+    node->node.x = 0.0f;
+    node->node.y = 0.0f;
     node->node.preferred_width = 0.0f;
     node->node.preferred_width = 0.0f;
     node->node.minWidth = 0.0f;

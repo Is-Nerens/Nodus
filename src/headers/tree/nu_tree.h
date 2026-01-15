@@ -56,6 +56,7 @@ NodeP* TreeCreate(Tree* tree, u32 reserveNodesPerLayer, NodeType rootType)
 
     // set root layer size = 1
     tree->layers[0].size = 1;
+    tree->layers[0].count = 1;
 
     // create root node
     NodeP* root = &tree->layers[0].nodeArray[0];
@@ -137,6 +138,7 @@ NodeP* TreeAppendNode(Tree* tree, u32 layer, NodeType type)
     node->childCapacity = 0;
     node->childCount = 0;
     node->layer = layer;
+    node->state = 1;
     NodeTableAdd(&tree->table, node);
     return node;
 }
@@ -235,6 +237,7 @@ u32 TreeCreateNode(Tree* tree, u32 parentHandle, NodeType type)
     createdNode->childCapacity = 0;
     createdNode->childCount = 0;
     createdNode->layer = parent->layer + 1;
+    createdNode->state = 1;
     NodeTableAdd(&tree->table, createdNode);
     return createdNode->handle;
 }

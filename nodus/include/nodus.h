@@ -167,7 +167,7 @@ __declspec(dllimport) inline uint32_t NU_PARENT(uint32_t nodeHandle);
 __declspec(dllimport) inline uint32_t NU_CHILD(uint32_t nodeHandle, uint32_t childIndex);
 __declspec(dllimport) inline uint32_t* NU_CHILD_COUNT(uint32_t nodeHandle);
 __declspec(dllimport) inline uint32_t NU_DEPTH(uint32_t nodeHandle);
-__declspec(dllimport) inline uint32_t NU_CREATE_NODE(uint32_t nodeHandle);
+__declspec(dllimport) inline uint32_t NU_CREATE_NODE(uint32_t parentHandle, NodeType type);
 __declspec(dllimport) inline void NU_DELETE_NODE(uint32_t nodeHandle);
 __declspec(dllimport) uint32_t NU_Get_Node_By_Id(char* id);
 __declspec(dllimport) NU_Nodelist NU_Get_Nodes_By_Class(char* class_name);

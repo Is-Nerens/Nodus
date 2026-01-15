@@ -73,8 +73,6 @@ NU_Nodelist NU_Internal_Get_Nodes_By_Tag(NodeType type)
 
 void NU_DissociateNode(NodeP* node)
 {
-    printf("dissociating node: %p\n", node);
-
     if (node->type == WINDOW) {
         SDL_DestroyWindow(node->node.window);
     }

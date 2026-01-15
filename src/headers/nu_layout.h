@@ -31,8 +31,6 @@ static void NU_Prepass()
         Layer* parentlayer = &__NGUI.tree.layers[l];
         Layer* childlayer = &__NGUI.tree.layers[l+1];
 
-        if (parentlayer->nodeArray == NULL) printf("massive issue\n");
-
         // Iterate over parent layer
         for (int p=0; p<parentlayer->size; p++)
         {       

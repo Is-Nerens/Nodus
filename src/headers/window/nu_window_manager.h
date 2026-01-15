@@ -50,12 +50,28 @@ void NU_WindowManagerFree(NU_WindowManager* winManager)
     winManager->hoveredWindow = NULL;
 }
 
+inline void GetWindowSize(SDL_Window* window, float* wOut, float* hOut)
+{
+    int w, h;
+    SDL_GetWindowSize(window, &w, &h);
+    *wOut = (float)w; *hOut = (float)h;
+}
+
 void AssignRootWindow(NU_WindowManager* winManager, NodeP* rootNode)
 {
     SDL_Window* window = *(SDL_Window**)Vector_Get(&winManager->windows, 0);
     SDL_ShowWindow(window);
     Vector_Push(&winManager->windowNodes, &rootNode->handle);
     rootNode->node.window = window;
+
+    float windowWidth, windowHeight;
+    GetWindowSize(window, &windowWidth, &windowHeight);
+    rootNode->node.width = windowWidth;
+    rootNode->node.height = windowHeight;
+    rootNode->node.minWidth = windowWidth;
+    rootNode->node.maxWidth = windowWidth;
+    rootNode->node.minHeight = windowHeight;
+    rootNode->node.maxHeight = windowHeight;
 
     // create drawlist
     NU_WindowDrawlist* list = Vector_Create_Uninitialised(&winManager->windowDrawLists);
@@ -94,13 +110,6 @@ void GetLocalMouseCoords(NU_WindowManager* winManager, float* outX, float* outY)
     SDL_GetWindowPosition(winManager->hoveredWindow, &windowX, &windowY);
     *outX = globalX - windowX;
     *outY = globalY - windowY;
-}
-
-inline void GetWindowSize(SDL_Window* window, float* wOut, float* hOut)
-{
-    int w, h;
-    SDL_GetWindowSize(window, &w, &h);
-    *wOut = (float)w; *hOut = (float)h;
 }
 
 inline int InHoverredWindow(NU_WindowManager* winManager, NodeP* node)

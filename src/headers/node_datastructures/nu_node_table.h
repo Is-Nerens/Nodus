@@ -21,7 +21,7 @@ typedef struct NU_NodeTable
 
 void NU_Node_Table_Reserve(NU_NodeTable* table, uint32_t capacity)
 {
-    capacity = MAX(capacity, 32);
+    if (capacity < 32) capacity = 32;
     table->capacity = capacity;
     table->used = 0;
     table->data = malloc(sizeof(Node*) * capacity);

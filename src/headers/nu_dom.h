@@ -150,8 +150,6 @@ uint32_t NU_Internal_Create_Node(uint32_t parent_handle, enum Tag tag)
 
         // If need to expand layer
         if (create_node_layer->size + 5 > create_node_layer->capacity) {
-            Node* old_node_array = create_node_layer->node_array;
-            size_t old_size = create_node_layer->size;
             NU_Tree_Layer_Grow(&__NGUI.tree, create_node_layer);
         }
 
@@ -181,7 +179,11 @@ uint32_t NU_Internal_Create_Node(uint32_t parent_handle, enum Tag tag)
 
         // Update node self indices and node child parent indices for proceeding layer nodes
         uint32_t shift_count = create_node_layer->size - create_node_index;
-        memmove(&create_node_layer->node_array[create_node_index+5], &create_node_layer->node_array[create_node_index], shift_count * sizeof(Node));
+        memmove(
+            &create_node_layer->node_array[create_node_index+5], 
+            &create_node_layer->node_array[create_node_index], 
+            shift_count * sizeof(Node)
+        );
         create_node_layer->size += 5;
         for (uint16_t i=create_node_index+5; i<create_node_layer->size; i++) {
             Node* node = NU_Layer_Get(create_node_layer, i);
@@ -493,10 +495,8 @@ static void NU_Delete_Node_Branch(Node* node)
         next_group_parent->firstChildIndex = range.start;
         next_group_parent->childCapacity += range.capacity;
         for (uint32_t s = 0; s < next_group_parent->childCount; s++) {
-            uint32_t src_idx = next_group_first_idx + s;
-            uint32_t dst_idx = range.start + s;
-            Node* sib = NU_Layer_Get(layer, src_idx);
-            Node* dest = NU_Layer_Get(layer, dst_idx);
+            Node* sib = NU_Layer_Get(layer, next_group_first_idx + s);
+            Node* dest = NU_Layer_Get(layer, range.start + s);
             *dest = *sib;                   // Copy the struct
             dest->index = dst_idx;          // Fix index (FIX: use dst_idx, not range.start + s)
             dest->nodeState = true;
@@ -565,7 +565,7 @@ void NU_Internal_Delete_Node(uint32_t handle)
     }
 
     // ----------------------------------------------
-    // --- Case 2: Deleting node with children ---
+    // --- Case 3: Deleting node with children ---
     // ----------------------------------------------
     NU_Delete_Node_Branch(node);
     return;

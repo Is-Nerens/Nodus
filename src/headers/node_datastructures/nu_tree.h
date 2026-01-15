@@ -29,7 +29,7 @@ void NU_Layer_Init(NU_Layer* layer, uint32_t capacity)
     layer->size = 0;
 }
 
-Node* NU_Layer_Get(NU_Layer* layer, uint32_t index)
+inline Node* NU_Layer_Get(NU_Layer* layer, uint32_t index)
 {
     return &layer->node_array[index];
 }

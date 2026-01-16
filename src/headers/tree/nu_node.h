@@ -15,7 +15,7 @@ typedef uint64_t u64;
 
 typedef enum NodeType
 {
-    WINDOW, BOX, BUTTON, TEXTINPUT, CANVAS, IMAGE, TABLE, THEAD, ROW, NAT,
+    WINDOW, BOX, BUTTON, INPUT, CANVAS, IMAGE, TABLE, THEAD, ROW, NAT,
 } NodeType;
 
 

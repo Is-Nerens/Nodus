@@ -19,7 +19,7 @@ typedef struct NU_Stylesheet NU_Stylesheet;
 // Visible structs
 typedef enum NodeType
 {
-    WINDOW, BOX, BUTTON, TEXTINPUT, CANVAS, IMAGE, TABLE, THEAD, ROW, NAT,
+    WINDOW, BOX, BUTTON, INPUT, CANVAS, IMAGE, TABLE, THEAD, ROW, NAT,
 } NodeType;
 
 typedef struct Node

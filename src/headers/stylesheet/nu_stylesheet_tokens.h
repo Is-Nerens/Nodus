@@ -16,7 +16,7 @@ static const char* style_keywords[] = {
     "border-radius", "border-radius-top-left", "border-radius-top-right", "border-radius-bottom-left", "border-radius-bottom-right",
     "padding", "padding-top", "padding-bottom", "padding-left", "padding-right", 
     "image-src", "font", "src", "size", "weight",
-    "window", "box", "button", "grid", "canvas", "image", "table", "thead", "row", "@font",
+    "window", "box", "button", "input", "canvas", "image", "table", "thead", "row", "@font",
     "hover", "press", "focus",
 };
 
@@ -75,7 +75,7 @@ enum NU_Style_Token
     STYLE_WINDOW_SELECTOR,
     STYLE_BOX_SELECTOR,
     STYLE_BUTTON_SELECTOR,
-    STYLE_GRID_SELECTOR,
+    STYLE_INPUT_SELECTOR,
     STYLE_CANVAS_SELECTOR,
     STYLE_IMAGE_SELECTOR,
     STYLE_TABLE_SELECTOR,
@@ -118,7 +118,7 @@ enum NU_Pseudo_Class
     PSEUDO_UNDEFINED
 };
 
-static uint32_t Property_Token_To_Flag(enum NU_Style_Token token)
+static inline uint32_t Property_Token_To_Flag(enum NU_Style_Token token)
 {
     return (1u << token);
 }
@@ -189,13 +189,12 @@ static enum NU_Pseudo_Class Token_To_Pseudo_Class(enum NU_Style_Token token)
     return token - (STYLE_PROPERTY_COUNT + STYLE_TAG_SELECTOR_COUNT + STYLE_SPECIAL_SELECTOR_COUNT);
 }
 
-static int NU_Is_Property_Identifier_Token(enum NU_Style_Token token)
+static inline int NU_Is_Property_Identifier_Token(enum NU_Style_Token token)
 {
-    if (token < STYLE_PROPERTY_COUNT) return 1;
-    return 0;
+    return token < STYLE_PROPERTY_COUNT;
 }
 
-static int NU_Is_Tag_Selector_Token(enum NU_Style_Token token)
+static inline int NU_Is_Tag_Selector_Token(enum NU_Style_Token token)
 {
     return token > (STYLE_PROPERTY_COUNT - 1) && token < STYLE_PROPERTY_COUNT + STYLE_TAG_SELECTOR_COUNT;
 }

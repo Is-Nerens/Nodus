@@ -16,7 +16,7 @@ const char* nu_xml_keywords[] = {
     "window",
     "box",
     "button",
-    "textinput",
+    "input",
     "canvas",
     "image",
     "table",

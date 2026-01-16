@@ -71,58 +71,12 @@ struct NU_GUI
 // global gui instance
 struct NU_GUI __NGUI;
 
-void NU_Add_Canvas_Context(u32 canvas_node_handle)
-{
-    NU_Canvas_Context ctx;
-    Vertex_RGB_List_Init(&ctx.vertices, 512);
-    Index_List_Init(&ctx.indices, 1024);
-    HashmapSet(&__NGUI.canvas_contexts, &canvas_node_handle, &ctx);
-}
-
 inline NodeP* NODE_P(u32 nodeHandle)
 {
     NodeP* nodeP = NodeTableGet(&__NGUI.tree.table, nodeHandle);
     if (nodeP == NULL) return NULL;
     return nodeP; 
 }
-
-inline Node* NODE(u32 nodeHandle)
-{
-    NodeP* nodeP = NodeTableGet(&__NGUI.tree.table, nodeHandle);
-    if (nodeP == NULL) return NULL;
-    return &nodeP->node; 
-}
-
-inline u32 PARENT(u32 nodeHandle)
-{
-    NodeP* nodeP = NodeTableGet(&__NGUI.tree.table, nodeHandle);
-    if (nodeP == NULL) return UINT32_MAX;
-    return nodeP->parentHandle;
-}
-
-inline u32 CHILD(u32 nodeHandle, u32 childIndex)
-{
-    NodeP* nodeP = NodeTableGet(&__NGUI.tree.table, nodeHandle);
-    if (nodeP == NULL || childIndex >= nodeP->childCount) return UINT32_MAX;
-    NodeP* child = &__NGUI.tree.layers[nodeP->layer+1].nodeArray[nodeP->firstChildIndex + childIndex];
-    return child->handle;
-}
-
-inline u32 CHILD_COUNT(u32 nodeHandle)
-{
-    NodeP* nodeP = NodeTableGet(&__NGUI.tree.table, nodeHandle);
-    if (nodeP == NULL) return UINT32_MAX;
-    return nodeP->childCount;
-}
-
-inline u32 DEPTH(u32 nodeHandle)
-{
-    NodeP* nodeP = NodeTableGet(&__NGUI.tree.table, nodeHandle);
-    if (nodeP == NULL) return UINT32_MAX;
-    return nodeP->layer;
-}
-
-
 
 #include <rendering/nu_renderer.h>
 #include <rendering/canvas/nu_canvas_api.h>
@@ -132,24 +86,38 @@ inline u32 DEPTH(u32 nodeHandle)
 #include <xml/nu_xml_parser.h>
 #include "nu_layout.h"
 #include "nu_draw.h"
-#include "nu_events.h"
+#include "nu_event_defs.h"
 #include "nu_dom.h"
+#include "nu_events.h"
 
-inline u32 CREATE_NODE(u32 parentHandle, NodeType type)
+void NU_Internal_Set_Class(uint32_t handle, char* class)
 {
-    if (type == WINDOW) return UINT32_MAX; // Nodus doesn't yet support window creation
-    u32 nodeHandle = TreeCreateNode(&__NGUI.tree, parentHandle, type);
-    NodeP* node = NodeTableGet(&__NGUI.tree.table, nodeHandle);
-    NU_ApplyNodeDefaults(node);
+    NodeP* node = NODE_P(handle);
+    node->node.class = NULL;
+
+    // Look for class in gui class string set
+    char* gui_class_get = StringsetGet(&__NGUI.class_string_set, class);
+    if (gui_class_get == NULL) { // Not found? Look in the stylesheet
+        char* style_class_get = LinearStringsetGet(&__NGUI.stylesheet->class_string_set, class);
+
+        // If found in the stylesheet -> add it to the gui class set
+        if (style_class_get) {
+            node->node.class = StringsetAdd(&__NGUI.class_string_set, class);
+        }
+    } 
+    else {
+        node->node.class = gui_class_get; 
+    }
+
+    // Update styling
     NU_Apply_Stylesheet_To_Node(node, __NGUI.stylesheet);
-    return nodeHandle;
-}
+    if (node->handle == __NGUI.scroll_mouse_down_node) {
+        NU_Apply_Pseudo_Style_To_Node(node, __NGUI.stylesheet, PSEUDO_PRESS);
+    } else if (node->handle == __NGUI.hovered_node) {
+        NU_Apply_Pseudo_Style_To_Node(node, __NGUI.stylesheet, PSEUDO_HOVER);
+    }
 
-inline void DELETE_NODE(u32 nodeHandle)
-{
-    NodeP* nodeP = NodeTableGet(&__NGUI.tree.table, nodeHandle);
-    if (nodeP == NULL) return;
-    return TreeDeleteNode(&__NGUI.tree, nodeHandle, NU_DissociateNode);
+    __NGUI.awaiting_redraw = true;
 }
 
 int NU_Internal_Create_Gui(char* xml_filepath, char* css_filepath)

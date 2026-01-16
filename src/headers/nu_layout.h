@@ -6,19 +6,13 @@
 #include <math.h>
 #include <rendering/text/nu_text_layout.h>
 
-static void NU_Apply_Min_Max_Size_Constraint(NodeP* node)
-{   
-    node->node.width = min(max(node->node.width, node->node.minWidth), node->node.maxWidth);
-    node->node.height = min(max(node->node.height, node->node.minHeight), node->node.maxHeight);
-}
-
-static void NU_Apply_Min_Max_Width_Constraint(NodeP* node)
+static void NU_ApplyMinMaxWidthConstraint(NodeP* node)
 {
     node->node.width = min(max(node->node.width, node->node.minWidth), node->node.maxWidth);
     node->node.width = max(node->node.width, node->node.preferred_width);
 }
 
-static void NU_Apply_Min_Max_Height_Constraint(NodeP* node)
+static void NU_ApplyMinMaxHeightConstraint(NodeP* node)
 {
     node->node.height = min(max(node->node.height, node->node.minHeight), node->node.maxHeight);
     node->node.height = max(node->node.height, node->node.preferred_height);
@@ -85,7 +79,7 @@ static void NU_Prepass()
     }
 }
 
-static void NU_Calculate_Text_Fit_Widths()
+static void NU_CalculateTextFitWidths()
 {
     // For each layer
     for (uint32_t l=0; l<=__NGUI.tree.depth-1; l++)
@@ -108,7 +102,7 @@ static void NU_Calculate_Text_Fit_Widths()
                 // Calculate minimum text wrap width (longest unbreakable word)
                 float min_wrap_width = NU_Calculate_Text_Min_Wrap_Width(node_font, node->node.textContent);
 
-                // Increase width to account for text (text height will be accounted for later in NU_Calculate_Text_Heights())
+                // Increase width to account for text (text height will be accounted for later in NU_CalculateTextHeights())
                 float natural_width = node->node.padLeft + node->node.padRight + node->node.borderLeft + node->node.borderRight;
                 node->node.width = max(text_width + natural_width, node->node.preferred_width);
 
@@ -119,7 +113,7 @@ static void NU_Calculate_Text_Fit_Widths()
     }
 }
 
-static void NU_Calculate_Fit_Size_Widths()
+static void NU_CalculateFitSizeWidths()
 {
     // Traverse the tree bottom-up
     for (int l=__NGUI.tree.depth-2; l>=0; l--)
@@ -167,13 +161,13 @@ static void NU_Calculate_Fit_Size_Widths()
             if (is_layout_horizontal && visible_children > 0) parent->node.contentWidth += (visible_children - 1) * parent->node.gap;
             if (parent->type != WINDOW && parent->node.contentWidth > parent->node.width) {
                 parent->node.width = parent->node.contentWidth + parent->node.borderLeft + parent->node.borderRight + parent->node.padLeft + parent->node.padRight;
-                NU_Apply_Min_Max_Width_Constraint(parent);
+                NU_ApplyMinMaxWidthConstraint(parent);
             }
         }
     }
 }
 
-static void NU_Calculate_Fit_Size_Heights()
+static void NU_CalculateFitSizeHeights()
 {
     // Traverse the tree bottom-up
     for (int l=__NGUI.tree.depth-2; l>= 0; l--)
@@ -213,13 +207,13 @@ static void NU_Calculate_Fit_Size_Heights()
             if (!is_layout_horizontal && visible_children > 0) parent->node.contentHeight += (visible_children - 1) * parent->node.gap;
             if (parent->type != WINDOW) {
                 if (!(parent->node.layoutFlags & OVERFLOW_VERTICAL_SCROLL)) parent->node.height = parent->node.contentHeight + parent->node.borderTop + parent->node.borderBottom + parent->node.padTop + parent->node.padBottom;
-                NU_Apply_Min_Max_Height_Constraint(parent);
+                NU_ApplyMinMaxHeightConstraint(parent);
             }
         }
     }
 }
 
-static void NU_Grow_Shrink_Child_Node_Widths(NodeP* parent, Layer* childlayer)
+static void NU_GrowShrinkChildWidths(NodeP* parent, Layer* childlayer)
 {
     float remaining_width = parent->node.width - parent->node.padLeft - parent->node.padRight - parent->node.borderLeft - parent->node.borderRight;
 
@@ -232,7 +226,7 @@ static void NU_Grow_Shrink_Child_Node_Widths(NodeP* parent, Layer* childlayer)
         if (child->node.left > 0.0f && child->node.right > 0.0f) {
             float expanded_width = remaining_width - child->node.left - child->node.right;
             if (expanded_width > child->node.width) child->node.width = expanded_width;
-            NU_Apply_Min_Max_Width_Constraint(child);
+            NU_ApplyMinMaxWidthConstraint(child);
         }
     }
 
@@ -250,7 +244,7 @@ static void NU_Grow_Shrink_Child_Node_Widths(NodeP* parent, Layer* childlayer)
             {
                 float pad_and_border = child->node.padLeft + child->node.padRight + child->node.borderLeft + child->node.borderRight;
                 child->node.width = remaining_width; 
-                NU_Apply_Min_Max_Width_Constraint(child);
+                NU_ApplyMinMaxWidthConstraint(child);
                 parent->node.contentWidth = max(parent->node.contentWidth, child->node.width);
             }
         }
@@ -386,7 +380,7 @@ static void NU_Grow_Shrink_Child_Node_Widths(NodeP* parent, Layer* childlayer)
     }
 }
 
-static void NU_Grow_Shrink_Child_Node_Heights(NodeP* parent, Layer* childlayer)
+static void NU_GrowShrinkChildHeights(NodeP* parent, Layer* childlayer)
 {
     float remaining_height = parent->node.height - parent->node.padTop - parent->node.padBottom - parent->node.borderTop - parent->node.borderBottom;
     
@@ -399,7 +393,7 @@ static void NU_Grow_Shrink_Child_Node_Heights(NodeP* parent, Layer* childlayer)
         if (child->node.top > 0.0f && child->node.bottom > 0.0f) {
             float expanded_height = remaining_height - child->node.top - child->node.bottom;
             if (expanded_height > child->node.height) child->node.height = expanded_height;
-            NU_Apply_Min_Max_Height_Constraint(child);
+            NU_ApplyMinMaxHeightConstraint(child);
         }
     }
 
@@ -414,7 +408,7 @@ static void NU_Grow_Shrink_Child_Node_Heights(NodeP* parent, Layer* childlayer)
             {  
                 float pad_and_border = child->node.padTop + child->node.padBottom + child->node.borderTop + child->node.borderBottom;
                 child->node.height = remaining_height; 
-                NU_Apply_Min_Max_Height_Constraint(child);
+                NU_ApplyMinMaxHeightConstraint(child);
                 parent->node.contentHeight = max(parent->node.contentHeight, child->node.height);
             }
         }
@@ -547,7 +541,7 @@ static void NU_Grow_Shrink_Child_Node_Heights(NodeP* parent, Layer* childlayer)
     }
 }
 
-static void NU_Grow_Shrink_Widths()
+static void NU_GrowShrinkWidths()
 {
     for (uint32_t l=0; l<=__NGUI.tree.depth-1; l++)
     {
@@ -559,12 +553,12 @@ static void NU_Grow_Shrink_Widths()
             NodeP* parent = LayerGet(parentlayer, p);
             if (parent->state == 0 || parent->state == 2 || parent->type == ROW || parent->type == TABLE) continue;
 
-            NU_Grow_Shrink_Child_Node_Widths(parent, childlayer);
+            NU_GrowShrinkChildWidths(parent, childlayer);
         }
     }
 }
 
-static void NU_Grow_Shrink_Heights()
+static void NU_GrowShrinkHeights()
 {
     for (uint32_t l=0; l<=__NGUI.tree.depth-1; l++)
     {
@@ -576,12 +570,12 @@ static void NU_Grow_Shrink_Heights()
             NodeP* parent = LayerGet(parentlayer, p);
             if (parent->state == 0 || parent->state == 2 || parent->type == TABLE) continue;
 
-            NU_Grow_Shrink_Child_Node_Heights(parent, childlayer);
+            NU_GrowShrinkChildHeights(parent, childlayer);
         }
     }
 }
 
-static void NU_Calculate_Table_Column_Widths()
+static void NU_CalculateTableColumnWidths()
 {
     for (uint32_t l=0; l<=__NGUI.tree.depth-1; l++)
     {
@@ -675,7 +669,7 @@ static void NU_Calculate_Table_Column_Widths()
     }
 }
 
-static void NU_Calculate_Text_Heights()
+static void NU_CalculateTextHeights()
 {
     #pragma omp parallel for
     for (uint32_t l=0; l<=__NGUI.tree.depth-1; l++)
@@ -870,7 +864,7 @@ static void NU_PositionChildrenVertically(NodeP* parent, Layer* childlayer)
     }
 }
 
-static void NU_Calculate_Positions()
+static void NU_CalculatePositions()
 {
     for (uint32_t l=0; l<=__NGUI.tree.depth-1; l++) 
     {
@@ -898,198 +892,12 @@ static void NU_Calculate_Positions()
 void NU_Layout()
 {
     NU_Prepass();
-    NU_Calculate_Text_Fit_Widths();
-    NU_Calculate_Fit_Size_Widths();  
-    NU_Grow_Shrink_Widths();
-    NU_Calculate_Table_Column_Widths();
-    NU_Calculate_Text_Heights();
-    NU_Calculate_Fit_Size_Heights();
-    NU_Grow_Shrink_Heights();
-    NU_Calculate_Positions();
-}
-
-
-
-
-
-
-
-static bool NU_Mouse_Over_Node(NodeP* node, float mouse_x, float mouse_y)
-{
-    // --- Get clipping info
-    float left_wall = node->node.x;
-    float right_wall = node->node.x + node->node.width;
-    float top_wall = node->node.y;
-    float bottom_wall = node->node.y + node->node.height; 
-    if (node->clippingRootHandle != UINT32_MAX)
-    {
-        NU_ClipBounds* clip = HashmapGet(&__NGUI.winManager.clipMap, &node->clippingRootHandle);
-        left_wall = max(clip->clip_left, node->node.x);
-        right_wall = min(clip->clip_right, node->node.x + node->node.width);
-        top_wall = max(clip->clip_top, node->node.y);
-        bottom_wall = min(clip->clip_bottom, node->node.y + node->node.height);
-    }
-
-    // --- Check if mouse is within clipped bounding box
-    bool within_x_bound = mouse_x >= left_wall && mouse_x <= right_wall;
-    bool within_y_bound = mouse_y >= top_wall && mouse_y <= bottom_wall;
-    if (!(within_x_bound && within_y_bound)) return false; // Not in bounding rect
-
-    // --- Constrain border radii ---
-    float borderRadiusBl = node->node.borderRadiusBl;
-    float borderRadiusBr = node->node.borderRadiusBr;
-    float borderRadiusTl = node->node.borderRadiusTl;
-    float borderRadiusTr = node->node.borderRadiusTr;
-    float left_radii_sum   = borderRadiusTl + borderRadiusBl;
-    float right_radii_sum  = borderRadiusTr + borderRadiusBr;
-    float top_radii_sum    = borderRadiusTl + borderRadiusTr;
-    float bottom_radii_sum = borderRadiusBl + borderRadiusBr;
-    if (left_radii_sum   > node->node.height)  { float scale = node->node.height / left_radii_sum;   borderRadiusTl *= scale; borderRadiusBl *= scale; }
-    if (right_radii_sum  > node->node.height)  { float scale = node->node.height / right_radii_sum;  borderRadiusTr *= scale; borderRadiusBr *= scale; }
-    if (top_radii_sum    > node->node.width )  { float scale = node->node.width  / top_radii_sum;    borderRadiusTl *= scale; borderRadiusTr *= scale; }
-    if (bottom_radii_sum > node->node.width )  { float scale = node->node.width  / bottom_radii_sum; borderRadiusBl *= scale; borderRadiusBr *= scale; }
-
-    // --- Rounded border anchors ---
-    vec2 tl_a = { floorf(node->node.x + borderRadiusTl),               floorf(node->node.y + borderRadiusTl) };
-    vec2 tr_a = { floorf(node->node.x + node->node.width - borderRadiusTr), floorf(node->node.y + borderRadiusTr) };
-    vec2 bl_a = { floorf(node->node.x + borderRadiusBl),               floorf(node->node.y + node->node.height - borderRadiusBl) };
-    vec2 br_a = { floorf(node->node.x + node->node.width - borderRadiusBr), floorf(node->node.y + node->node.height - borderRadiusBr) };
-
-
-    // --- Ensure mouse is not in top left rounded deadzone
-    if (mouse_x < tl_a.x && mouse_y < tl_a.y)
-    {
-        float dist = sqrtf((mouse_x - tl_a.x) * (mouse_x - tl_a.x) + (mouse_y - tl_a.y) * (mouse_y - tl_a.y)); 
-        if (dist > borderRadiusTl) return false;
-    }
-
-    // --- Ensure mouse is not in top right rounded deadzone
-    if (mouse_x > tr_a.x && mouse_y < tr_a.y)
-    {
-        float dist = sqrtf((mouse_x - tr_a.x) * (mouse_x - tr_a.x) + (mouse_y - tr_a.y) * (mouse_y - tr_a.y)); 
-        if (dist > borderRadiusTr) return false;
-    }
-
-    // --- Ensure mouse is not in bottom left rounded deadzone
-    if (mouse_x < bl_a.x && mouse_y > bl_a.y)
-    {
-        float dist = sqrtf((mouse_x - bl_a.x) * (mouse_x - bl_a.x) + (mouse_y - bl_a.y) * (mouse_y - bl_a.y)); 
-        if (dist > borderRadiusBl) return false;
-    }
-
-    // --- Ensure mouse is not in bottom right rounded deadzone
-    if (mouse_x > br_a.x && mouse_y > br_a.y)
-    {
-        float dist = sqrtf((mouse_x - br_a.x) * (mouse_x - br_a.x) + (mouse_y - br_a.y) * (mouse_y - br_a.y)); 
-        if (dist > borderRadiusBr) return false;
-    }
-
-    return true;
-}
-
-static bool NU_Mouse_Over_Node_V_Scrollbar(NodeP* node, float mouse_x, float mouse_y) {
-    float track_height = node->node.height - node->node.borderTop - node->node.borderBottom;
-    float thumb_height = (track_height / node->node.contentHeight) * track_height;
-    float scroll_thumb_left_wall = node->node.x + node->node.width - node->node.borderRight - 8.0f;
-    float scroll_thumb_top_wall = node->node.y + node->node.borderTop + (node->node.scrollV * (track_height - thumb_height));
-    bool within_x_bound = mouse_x >= scroll_thumb_left_wall && mouse_x <= scroll_thumb_left_wall + 8.0f;
-    bool within_y_bound = mouse_y >= scroll_thumb_top_wall && mouse_y <= scroll_thumb_top_wall + thumb_height;
-    return within_x_bound && within_y_bound;
-}
-
-void NU_Mouse_Hover()
-{   
-    // -----------------------------------------------------------
-    // --- Remove potential pseudo style from current hovered node
-    // -----------------------------------------------------------
-    if (__NGUI.hovered_node != UINT32_MAX && __NGUI.hovered_node != __NGUI.mouse_down_node) {
-        NU_Apply_Stylesheet_To_Node(NODE_P(__NGUI.hovered_node), __NGUI.stylesheet);
-    }
-    uint32_t prev_hovered_node = __NGUI.hovered_node;
-    __NGUI.hovered_node = UINT32_MAX;
-    __NGUI.scroll_hovered_node = UINT32_MAX;
-
-    if (__NGUI.winManager.hoveredWindow == NULL) return;
-
-    // -----------------------------
-    // --- Get local mouse position
-    // -----------------------------
-    float mouseX, mouseY; GetLocalMouseCoords(&__NGUI.winManager, &mouseX, &mouseY);
-
-    // ----------------------------
-    // --- Create a traversal stack
-    // ----------------------------
-    struct Vector stack;
-    Vector_Reserve(&stack, sizeof(NodeP*), 32);
-    
-    // -----------------------------------------------
-    // --- Push all the nodes to start traversing from
-    // -----------------------------------------------
-    for (uint32_t i=0; i<__NGUI.winManager.absoluteRootNodes.size; i++) {
-        NodeP* absolute_node = *(NodeP**)Vector_Get(&__NGUI.winManager.absoluteRootNodes, i);
-        if (absolute_node->node.window == __NGUI.winManager.hoveredWindow && NU_Mouse_Over_Node(absolute_node, mouseX, mouseY)) {
-            Vector_Push(&stack, &absolute_node);
-        }
-    }
-
-    for (uint32_t i=0; i<__NGUI.winManager.windowNodes.size; i++) {
-        uint32_t handle = *(uint32_t*)Vector_Get(&__NGUI.winManager.windowNodes, i);
-        NodeP* node = NODE_P(handle);
-        if (node->node.window == __NGUI.winManager.hoveredWindow){
-            Vector_Push(&stack, &node);
-            break;
-        }
-    }
-
-    // -------------------------
-    // --- Traverse the tree ---
-    // -------------------------
-    bool break_loop = false;
-    while (stack.size > 0 && !break_loop) 
-    {
-        // -----------------
-        // --- Pop the stack
-        // -----------------
-        NodeP* current_node = *(NodeP**)Vector_Get(&stack, stack.size - 1);
-        __NGUI.hovered_node = current_node->handle;
-        stack.size -= 1;
-
-        if (current_node->type == BUTTON) continue; // Skip children
-
-        // ------------------------------
-        // --- Iterate over children
-        // ------------------------------
-        Layer* childlayer = &__NGUI.tree.layers[current_node->layer+1];
-        for (uint32_t i=current_node->firstChildIndex; i<current_node->firstChildIndex + current_node->childCount; i++)
-        {
-            NodeP* child = LayerGet(childlayer, i);
-            if (child->state == 2 || 
-                child->node.layoutFlags & POSITION_ABSOLUTE || 
-                child->type == WINDOW ||
-                !NU_Mouse_Over_Node(child, mouseX, mouseY)) continue; // Skip
-
-            // Check for scroll hover
-            if (child->node.layoutFlags & OVERFLOW_V_PROPERTY) {
-                bool overflow_v = child->node.contentHeight > child->node.height - child->node.borderTop - child->node.borderBottom;
-                if (overflow_v) {
-                    __NGUI.scroll_hovered_node = child->handle;
-                }
-            }
-            Vector_Push(&stack, &child);
-        }
-    }
-
-
-    // ----------------------------------------
-    // Apply hover pseudo style to hovered node
-    // ----------------------------------------
-    if (__NGUI.hovered_node != UINT32_MAX && __NGUI.hovered_node != __NGUI.mouse_down_node) {
-        NU_Apply_Pseudo_Style_To_Node(NODE_P(__NGUI.hovered_node), __NGUI.stylesheet, PSEUDO_HOVER);
-    } 
-    Vector_Free(&stack);
-
-    // If hovered node change -> must redraw later
-    if (prev_hovered_node != __NGUI.hovered_node) {
-        __NGUI.awaiting_redraw = true;
-    }
+    NU_CalculateTextFitWidths();
+    NU_CalculateFitSizeWidths();  
+    NU_GrowShrinkWidths();
+    NU_CalculateTableColumnWidths();
+    NU_CalculateTextHeights();
+    NU_CalculateFitSizeHeights();
+    NU_GrowShrinkHeights();
+    NU_CalculatePositions();
 }

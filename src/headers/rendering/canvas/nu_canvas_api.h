@@ -2,6 +2,14 @@
 #include <rendering/nu_renderer_structures.h>
 #include <math.h>
 
+void NU_Add_Canvas_Context(u32 canvas_node_handle)
+{
+    NU_Canvas_Context ctx;
+    Vertex_RGB_List_Init(&ctx.vertices, 512);
+    Index_List_Init(&ctx.indices, 1024);
+    HashmapSet(&__NGUI.canvas_contexts, &canvas_node_handle, &ctx);
+}
+
 void NU_Internal_Clear_Canvas(uint32_t canvas_handle)
 {
     NU_Canvas_Context* canvas_context = HashmapGet(&__NGUI.canvas_contexts, &canvas_handle);

@@ -54,6 +54,12 @@ __declspec(dllexport) uint32_t NU_CREATE_NODE(uint32_t parentHandle, NodeType ty
 __declspec(dllexport) void NU_DELETE_NODE(uint32_t nodeHandle) {
     DELETE_NODE(nodeHandle);
 }
+__declspec(dllexport) inline void NU_HIDE(uint32_t nodeHandle) {
+    HIDE(nodeHandle);
+}
+__declspec(dllexport) inline void NU_SHOW(uint32_t nodeHandle) {
+    SHOW(nodeHandle);
+}
 __declspec(dllexport) uint32_t NU_Get_Node_By_Id(char* id) {
     return NU_Internal_Get_Node_By_Id(id);
 }
@@ -66,13 +72,6 @@ __declspec(dllexport) NU_Nodelist NU_Get_Nodes_By_Tag(NodeType type) {
 __declspec(dllexport) void NU_Set_Class(uint32_t nodeHandle, char* class_name) {
     NU_Internal_Set_Class(nodeHandle, class_name);
 }
-__declspec(dllexport) void NU_Hide(uint32_t nodeHandle) {
-    NU_Internal_Hide(nodeHandle);
-}
-__declspec(dllexport) void NU_Show(uint32_t nodeHandle) {
-    NU_Internal_Show(nodeHandle);
-}
-
 // -----------------------
 // --- Event functions ---
 // -----------------------

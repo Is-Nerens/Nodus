@@ -15,56 +15,6 @@ extern "C" {
 // Opaque structs
 typedef struct NU_Nodelist NU_Nodelist;
 typedef struct NU_Stylesheet NU_Stylesheet;
-typedef struct Vector
-{
-    uint32_t capacity;
-    uint32_t size;
-    void* data;
-    uint32_t element_size;
-} Vector;
-typedef struct {
-    struct Vector freelist;
-    char** strings_map;        // sparse hash vector of char*
-    char** buffer_chunks;      // array of char arrays
-    uint32_t chunk_size;       // chars in each chunk
-    uint16_t chunks_used;      // number of chunks
-    uint16_t chunks_available; // number of chunks
-    uint32_t NU_String_Map_capacity;
-    uint32_t total_buffer_capacity;
-    uint32_t string_count;
-    uint32_t max_probes;
-} String_Set; 
-typedef struct {
-    uint32_t chunk;
-    uint32_t index;
-    uint32_t size;
-} NU_String_Map_Free_Element;
-typedef struct {
-    char** strings_map;        // sparse hash vector of char*
-    char** buffer_chunks;      // array of char arrays (stores keys)
-    void* item_data;           // sparse array of items
-    NU_String_Map_Free_Element* freelist;
-    uint32_t first_chunk_size; // chars in first chunk
-    uint16_t chunks_used;      // number of chunks
-    uint16_t chunks_available; // number of chunks
-    uint32_t NU_String_Map_capacity;
-    uint32_t total_buffer_capacity;
-    uint32_t string_count;
-    uint32_t item_size;
-    uint32_t freelist_capacity;
-    uint32_t freelist_size;
-    uint32_t max_probes;
-} NU_String_Map;
-struct NU_Hashmap
-{
-    uint8_t* occupancy;
-    void* data;
-    uint32_t key_size;
-    uint32_t item_size;
-    uint32_t item_count;
-    uint32_t capacity;
-    uint32_t max_probes;
-};
 
 // Visible structs
 typedef enum NodeType
@@ -168,13 +118,13 @@ __declspec(dllimport) inline uint32_t NU_CHILD(uint32_t nodeHandle, uint32_t chi
 __declspec(dllimport) inline uint32_t* NU_CHILD_COUNT(uint32_t nodeHandle);
 __declspec(dllimport) inline uint32_t NU_DEPTH(uint32_t nodeHandle);
 __declspec(dllimport) inline uint32_t NU_CREATE_NODE(uint32_t parentHandle, NodeType type);
+__declspec(dllimport) inline void NU_SHOW(uint32_t nodeHandle);
+__declspec(dllimport) inline void NU_HIDE(uint32_t nodeHandle);
 __declspec(dllimport) inline void NU_DELETE_NODE(uint32_t nodeHandle);
 __declspec(dllimport) uint32_t NU_Get_Node_By_Id(char* id);
 __declspec(dllimport) NU_Nodelist NU_Get_Nodes_By_Class(char* class_name);
 __declspec(dllimport) NU_Nodelist NU_Get_Nodes_By_Tag(NodeType type);
 __declspec(dllimport) void NU_Set_Class(uint32_t nodeHandle, char* class_name);
-__declspec(dllimport) void NU_Show(uint32_t nodeHandle);
-__declspec(dllimport) void NU_Hide(uint32_t nodeHandle);
 
 // Event functions
 __declspec(dllimport) void NU_Register_Event(

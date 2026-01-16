@@ -25,15 +25,10 @@ typedef struct Node
     char* class;
     char* id;
     char* textContent;
-
-    // --- Tracks which styles were applied in xml ---
-    u64 inlineStyleFlags;
-
-    // --- Event Information
-    u16 eventFlags;
-
-    // --- Tree information ---
-    u8 positionAbsolute;
+    
+    u64 inlineStyleFlags; // --- Tracks which styles were applied in xml ---
+    u16 eventFlags; // --- Event Information
+    u8 positionAbsolute; // --- Tree information ---
 
     // --- Styling ---
     GLuint glImageHandle;

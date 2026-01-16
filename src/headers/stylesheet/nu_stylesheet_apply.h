@@ -87,7 +87,7 @@ static void NU_Apply_Style_Item_To_Node(NodeP* node, NU_Stylesheet_Item* item)
     if (item->propertyFlags & (1ULL << 34) && !(node->node.inlineStyleFlags & (1ULL << 34))) node->node.padBottom = item->padBottom;
     if (item->propertyFlags & (1ULL << 35) && !(node->node.inlineStyleFlags & (1ULL << 35))) node->node.padLeft = item->padLeft;
     if (item->propertyFlags & (1ULL << 36) && !(node->node.inlineStyleFlags & (1ULL << 36))) node->node.padRight = item->padRight;
-    if (item->propertyFlags & (1ULL << 37) && !(node->node.inlineStyleFlags & (1ULL << 37))) node->node.glImageHandle = item->glImageHandle;
+    if (item->propertyFlags & (1ULL << 37) && !(node->node.inlineStyleFlags & (1ULL << 37))) node->typeData.image.glImageHandle = item->glImageHandle;
     node->node.fontId = item->fontId; // set font 
 }
 

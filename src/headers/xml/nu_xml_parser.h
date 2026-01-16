@@ -601,11 +601,11 @@ int NU_Generate_Tree(char* src, struct Vector* tokens, struct Vector* textRefs)
                         if (found == NULL) {
                             GLuint image_handle = Image_Load(ptext);
                             if (image_handle) {
-                                currentNode->node.glImageHandle = image_handle;
+                                currentNode->typeData.image.glImageHandle = image_handle;
                                 LinearStringmapSet(&imageFilepathToHandleMap, ptext, &image_handle);
                             }
                         } 
-                        else { currentNode->node.glImageHandle = *(GLuint*)found; }
+                        else { currentNode->typeData.image.glImageHandle = *(GLuint*)found; }
                         currentNode->node.inlineStyleFlags |= ((uint64_t)1ULL << 37);
                         break;
 

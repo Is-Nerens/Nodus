@@ -5,6 +5,7 @@
 *.ttf
 *.png
 test.c
+String.h
 releases
 build
 documentation

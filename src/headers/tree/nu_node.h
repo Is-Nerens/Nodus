@@ -1,5 +1,6 @@
 #pragma once
 #include <stdint.h>
+#include "nu_input_text.h"
 typedef uint8_t u8;
 typedef uint16_t u16;
 typedef uint32_t u32;
@@ -18,6 +19,18 @@ typedef enum NodeType
     WINDOW, BOX, BUTTON, INPUT, CANVAS, IMAGE, TABLE, THEAD, ROW, NAT,
 } NodeType;
 
+typedef struct InputTypeData {
+    InputText inputText;
+} InputTypeData;
+
+typedef struct ImageTypeData {
+    GLuint glImageHandle;
+} ImageTypeData;
+
+typedef union NodeTypeData {
+    InputTypeData input;
+    ImageTypeData image;
+} NodeTypeData;
 
 typedef struct Node
 {
@@ -31,7 +44,6 @@ typedef struct Node
     u8 positionAbsolute; // --- Tree information ---
 
     // --- Styling ---
-    GLuint glImageHandle;
     float x, y, width, height, preferred_width, preferred_height;
     float minWidth, maxWidth, minHeight, maxHeight;
     float gap, contentWidth, contentHeight, scrollX, scrollV;
@@ -55,6 +67,7 @@ typedef struct NodeP
 {
     Node node;
     NodeType type;
+    NodeTypeData typeData;
     u32 handle;
     u32 index;
     u32 parentHandle;
@@ -91,7 +104,7 @@ void NU_ApplyNodeDefaults(NodeP* node)
     node->node.textContent = NULL;
     node->node.inlineStyleFlags = 0;
     node->node.positionAbsolute = 0;
-    node->node.glImageHandle = 0;
+    node->typeData.image.glImageHandle = 0;
     node->node.x = 0.0f;
     node->node.y = 0.0f;
     node->node.preferred_width = 0.0f;

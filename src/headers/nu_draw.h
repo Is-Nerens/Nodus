@@ -289,7 +289,7 @@ void NU_Draw()
                 NU_Add_Text_Mesh(text_vertices, text_indices, node);
             }
 
-            if (node->node.glImageHandle) // Draw image
+            if (node->typeData.image.glImageHandle) // Draw image
             {
                 float inner_width  = node->node.width - node->node.borderLeft - node->node.borderRight - node->node.padLeft - node->node.padRight;
                 float inner_height = node->node.height - node->node.borderTop - node->node.borderBottom - node->node.padTop - node->node.padBottom;
@@ -300,7 +300,7 @@ void NU_Draw()
                     inner_width, inner_height, 
                     winW, winH, 
                     -1.0f, 100000.0f, -1.0f, 100000.0f,
-                    node->node.glImageHandle);
+                    node->typeData.image.glImageHandle);
             }
         }
         for (uint32_t t=0; t<__NGUI.stylesheet->fonts.size; t++) // Draw text
@@ -344,7 +344,7 @@ void NU_Draw()
             }
 
             // Draw image
-            if (node->node.glImageHandle) 
+            if (node->typeData.image.glImageHandle) 
             {
                 float inner_width  = node->node.width - node->node.borderLeft - node->node.borderRight - node->node.padLeft - node->node.padRight;
                 float inner_height = node->node.height - node->node.borderTop - node->node.borderBottom - node->node.padTop - node->node.padBottom;
@@ -354,7 +354,7 @@ void NU_Draw()
                     inner_width, inner_height, 
                     winW, winH, 
                     clip->clip_top, clip->clip_bottom, clip->clip_left, clip->clip_right,
-                    node->node.glImageHandle);
+                    node->typeData.image.glImageHandle);
             }
         }
         // --------------------------------------------------------------------------------------------------------
@@ -406,7 +406,7 @@ void NU_Draw()
                 NU_Add_Text_Mesh(text_vertices, text_indices, node);
             }
 
-            if (node->node.glImageHandle) // Draw image
+            if (node->typeData.image.glImageHandle) // Draw image
             {
                 float inner_width  = node->node.width - node->node.borderLeft - node->node.borderRight - node->node.padLeft - node->node.padRight;
                 float inner_height = node->node.height - node->node.borderTop - node->node.borderBottom - node->node.padTop - node->node.padBottom;
@@ -417,7 +417,7 @@ void NU_Draw()
                     inner_width, inner_height, 
                     winW, winH, 
                     -1.0f, 100000.0f, -1.0f, 100000.0f,
-                    node->node.glImageHandle);
+                    node->typeData.image.glImageHandle);
             }
         }
         for (uint32_t t=0; t<__NGUI.stylesheet->fonts.size; t++) // Draw text
@@ -460,7 +460,7 @@ void NU_Draw()
             }
 
             // Draw image
-            if (node->node.glImageHandle) 
+            if (node->typeData.image.glImageHandle) 
             {
                 float inner_width  = node->node.width - node->node.borderLeft - node->node.borderRight - node->node.padLeft - node->node.padRight;
                 float inner_height = node->node.height - node->node.borderTop - node->node.borderBottom - node->node.padTop - node->node.padBottom;
@@ -470,7 +470,7 @@ void NU_Draw()
                     inner_width, inner_height, 
                     winW, winH, 
                     clip->clip_top, clip->clip_bottom, clip->clip_left, clip->clip_right,
-                    node->node.glImageHandle);
+                    node->typeData.image.glImageHandle);
             }
         }
         // --------------------------------------------------------------------------------------------------------

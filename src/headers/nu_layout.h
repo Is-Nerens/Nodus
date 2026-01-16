@@ -130,10 +130,10 @@ static void NU_CalculateFitSizeWidths()
 
             // If parent is a window -> set dimensions equal to window
             if (parent->type == WINDOW) {
-                int window_width, window_height;
-                SDL_GetWindowSize(parent->node.window, &window_width, &window_height);
-                parent->node.width = (float) window_width;
-                parent->node.height = (float) window_height;
+                int winWidth, winHeight;
+                SDL_GetWindowSize(parent->node.window, &winWidth, &winHeight);
+                parent->node.width = (float)winWidth;
+                parent->node.height = (float)winHeight;
             }
 
             // Skip (no children)
@@ -170,7 +170,7 @@ static void NU_CalculateFitSizeWidths()
 static void NU_CalculateFitSizeHeights()
 {
     // Traverse the tree bottom-up
-    for (int l=__NGUI.tree.depth-2; l>= 0; l--)
+    for (int l=__NGUI.tree.depth-2; l>=0; l--)
     {
         Layer* parentlayer = &__NGUI.tree.layers[l];
         Layer* childlayer = &__NGUI.tree.layers[l+1];

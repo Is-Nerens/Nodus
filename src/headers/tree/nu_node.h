@@ -95,7 +95,7 @@ void NU_ApplyNodeDefaults(NodeP* node)
     node->node.x = 0.0f;
     node->node.y = 0.0f;
     node->node.preferred_width = 0.0f;
-    node->node.preferred_width = 0.0f;
+    node->node.preferred_height = 0.0f;
     node->node.minWidth = 0.0f;
     node->node.maxWidth = 10e20f;
     node->node.minHeight = 0.0f;

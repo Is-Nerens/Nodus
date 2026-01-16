@@ -1,20 +1,8 @@
 #pragma once
 #define MAX(a, b) ((a) > (b) ? (a) : (b))
-#include <SDL3/SDL.h>
-#include <GL/glew.h>
-#include <stdint.h>
-#include <stdio.h>
-#include <errno.h>
-#include <string.h>
 #include <ctype.h>
-#include <datastructures/string.h>
-#include <datastructures/linear_stringmap.h>
 #include <filesystem/nu_file.h>
 #include <utils/nu_convert.h>
-#include "stylesheet/nu_stylesheet.h"
-#include "nodus.h"
-
-
 #include "nu_xml_tokens.h"
 #include "nu_xml_grammar_assertions.h"
 #include "nu_xml_tokeniser.h"
@@ -633,7 +621,7 @@ int NU_Generate_Tree(char* src, struct Vector* tokens, struct Vector* textRefs)
         i+=1;
     }
     LinearStringmapFree(&imageFilepathToHandleMap);
-    return 1; // Success
+    return 1;
 }
 
 int NU_Internal_Load_XML(char* filepath)
@@ -661,6 +649,5 @@ int NU_Internal_Load_XML(char* filepath)
     Vector_Free(&tokens);
     Vector_Free(&textRefs);
     StringFree(src);
-
-    return 1; // Success
+    return 1;
 }

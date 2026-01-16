@@ -7,10 +7,16 @@ typedef struct NU_Event_Info_Mouse
     float delta_x, delta_y;
 } NU_Event_Info_Mouse;
 
+typedef struct NU_Event_Info_Input
+{
+    char text[5];
+} NU_Event_Info_Input;
+
 typedef struct NU_Event
 {
     uint32_t nodeHandle;
     NU_Event_Info_Mouse mouse;
+    NU_Event_Info_Input input;
 } NU_Event;
 
 typedef void (*NU_Callback)(NU_Event event, void* args);
@@ -33,9 +39,9 @@ void NU_Internal_Register_Event(uint32_t node_handle, void* args, NU_Callback ca
             node->node.eventFlags |= NU_EVENT_FLAG_ON_CLICK;
             HashmapSet(&__NGUI.on_click_events, &node_handle, &cb_info);
             break;
-        case NU_EVENT_ON_CHANGED:
-            node->node.eventFlags |= NU_EVENT_FLAG_ON_CHANGED;
-            HashmapSet(&__NGUI.on_changed_events, &node_handle, &cb_info);
+        case NU_EVENT_ON_INPUT_CHANGED:
+            node->node.eventFlags |= NU_EVENT_FLAG_ON_INPUT_CHANGED;
+            HashmapSet(&__NGUI.on_input_changed_events, &node_handle, &cb_info);
             break;
         case NU_EVENT_ON_DRAG:
             node->node.eventFlags |= NU_EVENT_FLAG_ON_DRAG;
@@ -162,6 +168,21 @@ bool EventWatcher(void* data, SDL_Event* event)
     // --- Render -> redraw --------------------------------------------------------------
     // -----------------------------------------------------------------------------------
     else if (event->type == __NGUI.SDL_CUSTOM_RENDER_EVENT) {
+        __NGUI.awaiting_redraw = true;
+    }
+    // -----------------------------------------------------------------------------------
+    // --- Keypress ----------------------------------------------------------------------
+    // -----------------------------------------------------------------------------------
+    else if (event->type == SDL_EVENT_TEXT_INPUT) {
+        NodeP* focusedNode = NODE_P(__NGUI.focused_node);
+        if (focusedNode->type == INPUT && focusedNode->node.eventFlags & NU_EVENT_FLAG_ON_INPUT_CHANGED) {
+            void* found_cb = HashmapGet(&__NGUI.on_input_changed_events, &__NGUI.focused_node);
+            if (found_cb != NULL) {
+                struct NU_Callback_Info* cb_info = (struct NU_Callback_Info*)found_cb;
+                strcpy(cb_info->event.input.text, event->text.text);
+                cb_info->callback(cb_info->event, cb_info->args);
+            }
+        }
         __NGUI.awaiting_redraw = true;
     }
     // -----------------------------------------------------------------------------------
@@ -310,6 +331,16 @@ bool EventWatcher(void* data, SDL_Event* event)
                 }
             }
         } 
+
+        // Set focused node
+        __NGUI.focused_node = __NGUI.hovered_node;
+
+        // toggle SDL_TextInput based on focus node type
+        if (NODE_P(__NGUI.focused_node)->type == INPUT) {
+            SDL_StartTextInput(NODE(__NGUI.focused_node)->window);
+        } else {
+            SDL_StopTextInput(NODE(__NGUI.hovered_node)->window);
+        }
 
         __NGUI.awaiting_redraw = true;
     }

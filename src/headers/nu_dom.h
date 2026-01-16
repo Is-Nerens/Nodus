@@ -8,38 +8,38 @@ void NU_DissociateNode(NodeP* node)
         SDL_DestroyWindow(node->node.window);
     }
     if (node->node.textContent != NULL) {
-        StringArena_Delete(&__NGUI.node_text_arena, node->node.textContent); // Delete text content
+        StringArena_Delete(&__NGUI.node_text_arena, node->node.textContent);
     }
     if (node->node.id != NULL) {
-        StringmapDelete(&__NGUI.id_node_map, node->node.id);  // Delete node from id -> handle map
+        StringmapDelete(&__NGUI.id_node_map, node->node.id);
     }
     if (node->node.eventFlags & NU_EVENT_FLAG_ON_CLICK) {
-        HashmapDelete(&__NGUI.on_click_events, &node->handle);    // Delete on_click event
+        HashmapDelete(&__NGUI.on_click_events, &node->handle);
     }
-    if (node->node.eventFlags & NU_EVENT_FLAG_ON_CHANGED) {
-        HashmapDelete(&__NGUI.on_changed_events, &node->handle);  // Delete on_changed event
+    if (node->node.eventFlags & NU_EVENT_FLAG_ON_INPUT_CHANGED) {
+        HashmapDelete(&__NGUI.on_input_changed_events, &node->handle);
     }
     if (node->node.eventFlags & NU_EVENT_FLAG_ON_DRAG) {
-        HashmapDelete(&__NGUI.on_drag_events, &node->handle);     // Delete on_drag event
+        HashmapDelete(&__NGUI.on_drag_events, &node->handle);
     }
     if (node->node.eventFlags & NU_EVENT_FLAG_ON_RELEASED) {
-        HashmapDelete(&__NGUI.on_released_events, &node->handle); // Delete on_released event
+        HashmapDelete(&__NGUI.on_released_events, &node->handle);
     }
     if (node->node.eventFlags & NU_EVENT_FLAG_ON_RESIZE) {
-        HashmapDelete(&__NGUI.on_resize_events, &node->handle); // Delete on_resize event
+        HashmapDelete(&__NGUI.on_resize_events, &node->handle);
         HashmapDelete(&__NGUI.node_resize_tracking, &node->handle); 
     }
     if (node->node.eventFlags & NU_EVENT_FLAG_ON_MOUSE_DOWN) {
-        HashmapDelete(&__NGUI.on_mouse_down_events, &node->handle); // Delete on_mouse_down event
+        HashmapDelete(&__NGUI.on_mouse_down_events, &node->handle);
     }
     if (node->node.eventFlags & NU_EVENT_FLAG_ON_MOUSE_UP) {
-        HashmapDelete(&__NGUI.on_mouse_up_events, &node->handle); // Delete on_mouse_up event
+        HashmapDelete(&__NGUI.on_mouse_up_events, &node->handle);
     }
     if (node->node.eventFlags & NU_EVENT_FLAG_ON_MOUSE_MOVED) {
-        HashmapDelete(&__NGUI.on_mouse_move_events, &node->handle); // Delete on_mouse_move event
+        HashmapDelete(&__NGUI.on_mouse_move_events, &node->handle);
     }
     if (node->node.eventFlags & NU_EVENT_FLAG_ON_MOUSE_OUT) {
-        HashmapDelete(&__NGUI.on_mouse_out_events, &node->handle); // Delete on_mouse_out event
+        HashmapDelete(&__NGUI.on_mouse_out_events, &node->handle);
     }
     if (node->handle == __NGUI.hovered_node) {
         __NGUI.hovered_node = UINT32_MAX;
@@ -47,16 +47,14 @@ void NU_DissociateNode(NodeP* node)
     if (node->handle == __NGUI.mouse_down_node) {
         __NGUI.mouse_down_node = UINT32_MAX;
     }
-    if (node->handle == __NGUI.scroll_hovered_node)
-    {
+    if (node->handle == __NGUI.scroll_hovered_node) {
         __NGUI.scroll_hovered_node = UINT32_MAX;
     }
-    if (node->handle == __NGUI.scroll_mouse_down_node)
-    {
+    if (node->handle == __NGUI.scroll_mouse_down_node) {
         __NGUI.scroll_mouse_down_node = UINT32_MAX;
     }
     if (node->type == CANVAS) {
-        HashmapDelete(&__NGUI.canvas_contexts, &node->handle); // Delete canvas context
+        HashmapDelete(&__NGUI.canvas_contexts, &node->handle);
     }
 }
 

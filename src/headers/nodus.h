@@ -10,6 +10,7 @@ typedef uint64_t u64;
 
 // === NODUS INCLUDES ===
 #include <datastructures/vector.h>
+#include <datastructures/string.h>
 #include <datastructures/stringset.h>
 #include <datastructures/hashmap.h>
 #include <datastructures/stringmap.h>
@@ -34,10 +35,12 @@ struct NU_GUI
     Hashmap canvas_contexts; 
 
     // state
+    SDL_Window* hovered_window;
     u32 hovered_node;
     u32 mouse_down_node;
     u32 scroll_hovered_node;
     u32 scroll_mouse_down_node;
+    u32 focused_node;
     float mouse_down_global_x;
     float mouse_down_global_y;
     float v_scroll_thumb_grab_offset;
@@ -48,11 +51,10 @@ struct NU_GUI
     Vector stylesheets;
     struct NU_Stylesheet* stylesheet;
     SDL_GLContext gl_ctx;
-    SDL_Window* hovered_window;
 
     // events
     Hashmap on_click_events;
-    Hashmap on_changed_events;
+    Hashmap on_input_changed_events;
     Hashmap on_drag_events;
     Hashmap on_released_events;
     Hashmap on_resize_events;
@@ -137,7 +139,7 @@ int NU_Internal_Create_Gui(char* xml_filepath, char* css_filepath)
 
     // Events
     HashmapInit(&__NGUI.on_click_events,      sizeof(u32), sizeof(struct NU_Callback_Info), 50);
-    HashmapInit(&__NGUI.on_changed_events,    sizeof(u32), sizeof(struct NU_Callback_Info), 10);
+    HashmapInit(&__NGUI.on_input_changed_events,    sizeof(u32), sizeof(struct NU_Callback_Info), 10);
     HashmapInit(&__NGUI.on_drag_events,       sizeof(u32), sizeof(struct NU_Callback_Info), 10);
     HashmapInit(&__NGUI.on_released_events,   sizeof(u32), sizeof(struct NU_Callback_Info), 10);
     HashmapInit(&__NGUI.on_resize_events,     sizeof(u32), sizeof(struct NU_Callback_Info), 10);
@@ -153,6 +155,7 @@ int NU_Internal_Create_Gui(char* xml_filepath, char* css_filepath)
     __NGUI.mouse_down_node = UINT32_MAX;
     __NGUI.scroll_hovered_node = UINT32_MAX;
     __NGUI.scroll_mouse_down_node = UINT32_MAX;
+    __NGUI.focused_node = UINT32_MAX;
     __NGUI.stylesheet = NULL;
     __NGUI.hovered_window = NULL;
     __NGUI.running = false;
@@ -185,27 +188,37 @@ int NU_Internal_Create_Gui(char* xml_filepath, char* css_filepath)
 
 int NU_Internal_Running()
 {
-    if (__NGUI.running)
-    {
-        SDL_Event event;
-        while(__NGUI.running) {
-            SDL_LockMutex(__NGUI.unblock_mutex);
-            if (__NGUI.unblock) {
-                __NGUI.unblock = false;
-                SDL_UnlockMutex(__NGUI.unblock_mutex);
-                break;
+    if (!__NGUI.running) return 0;
+
+    SDL_Event event;
+
+    while (__NGUI.running) {
+
+        SDL_LockMutex(__NGUI.unblock_mutex);
+        bool unblock = __NGUI.unblock;
+        __NGUI.unblock = false;
+        SDL_UnlockMutex(__NGUI.unblock_mutex);
+
+        // If unblock is requested, break after draining events
+        if (unblock) {
+            while (SDL_PollEvent(&event)) {
+                EventWatcher(NULL, &event);
             }
-            SDL_UnlockMutex(__NGUI.unblock_mutex);
-            if (SDL_WaitEventTimeout(&event, 5)) { 
+            break;
+        }
+
+        // Wait for next event, with timeout to save CPU
+        if (SDL_WaitEventTimeout(&event, 5)) {
+            EventWatcher(NULL, &event);
+
+            // Drain any remaining events immediately
+            while (SDL_PollEvent(&event)) {
                 EventWatcher(NULL, &event);
             }
         }
-        return 1;
     }
-    else
-    {
-        return 0;
-    }
+
+    return 1;
 }
 
 void NU_Internal_Unblock()
@@ -238,7 +251,7 @@ void NU_Internal_Quit()
     }
     Vector_Free(&__NGUI.stylesheets);
     HashmapFree(&__NGUI.on_click_events);
-    HashmapFree(&__NGUI.on_changed_events);
+    HashmapFree(&__NGUI.on_input_changed_events);
     HashmapFree(&__NGUI.on_drag_events);
     HashmapFree(&__NGUI.on_released_events);
     HashmapFree(&__NGUI.on_resize_events);

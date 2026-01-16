@@ -66,7 +66,7 @@ typedef struct {
 enum NU_Event_Type
 {
     NU_EVENT_ON_CLICK,
-    NU_EVENT_ON_CHANGED,
+    NU_EVENT_ON_INPUT_CHANGED,
     NU_EVENT_ON_DRAG,
     NU_EVENT_ON_RELEASED,
     NU_EVENT_ON_RESIZE,
@@ -84,10 +84,16 @@ typedef struct NU_Event_Info_Mouse
     float delta_x, delta_y;
 } NU_Event_Info_Mouse;
 
+typedef struct NU_Event_Info_Input
+{
+    char text[5];
+} NU_Event_Info_Input;
+
 typedef struct NU_Event
 {
     uint32_t nodeHandle;
     NU_Event_Info_Mouse mouse;
+    NU_Event_Info_Input input;
 } NU_Event;
 
 typedef void (*NU_Callback)(NU_Event event, void* args);

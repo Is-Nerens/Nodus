@@ -203,14 +203,20 @@ int NU_Generate_Tree(char* src, struct Vector* tokens, struct Vector* textRefs)
         // ------------
         if (token == TEXT_CONTENT)
         {
-            current_text_ref = Vector_Get(textRefs, text_ref_index++);
-            char c = src[current_text_ref->src_index];
-            char* text = &src[current_text_ref->src_index];
-            src[current_text_ref->src_index + current_text_ref->char_count] = '\0';
-            currentNode->node.textContent = StringArena_Add(&__NGUI.node_text_arena, text);
+            if (currentNode->type == WINDOW || 
+                currentNode->type == BOX    ||
+                currentNode->type == BUTTON ||
+                currentNode->type == IMAGE) 
+            {
+                current_text_ref = Vector_Get(textRefs, text_ref_index);
+                char c = src[current_text_ref->src_index];
+                char* text = &src[current_text_ref->src_index];
+                src[current_text_ref->src_index + current_text_ref->char_count] = '\0';
+                currentNode->node.textContent = StringArena_Add(&__NGUI.node_text_arena, text);
+            }
 
             // Continue ^
-            i+=1; continue;
+            text_ref_index+=1; i+=1; continue;
         }
 
         // ---------------------------------------

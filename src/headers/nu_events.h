@@ -173,9 +173,45 @@ bool EventWatcher(void* data, SDL_Event* event)
     // -----------------------------------------------------------------------------------
     // --- Keypress ----------------------------------------------------------------------
     // -----------------------------------------------------------------------------------
+    else if (event->type == SDL_EVENT_KEY_DOWN) {
+
+        // if in text edit mode
+        if (__NGUI.focused_node != UINT32_MAX && SDL_TextInputActive(NODE(__NGUI.focused_node)->window)) {
+
+            NodeP* focusedNode = NODE_P(__NGUI.focused_node);
+            InputText* inputText = &focusedNode->typeData.input.inputText;
+
+            // backspace pressed
+            if (event->key.key == SDLK_BACKSPACE) 
+            {
+                if (inputText->cursor > 0) __NGUI.awaiting_redraw = true;
+                InputText_Backspace(inputText);
+            }
+
+            // left arrow pressed
+            else if (event->key.key == SDLK_LEFT) 
+            {
+                if (inputText->cursor > 0) __NGUI.awaiting_redraw = true;
+                InputText_MoveCursorLeft(inputText);
+            }
+
+            // right arrow pressed
+            else if (event->key.key == SDLK_RIGHT) 
+            {
+                if (inputText->cursor < inputText->length) __NGUI.awaiting_redraw = true;
+                InputText_MoveCursorRight(inputText);
+            }
+        }
+    }
+    // -----------------------------------------------------------------------------------
+    // --- Type text ---------------------------------------------------------------------
+    // -----------------------------------------------------------------------------------
     else if (event->type == SDL_EVENT_TEXT_INPUT) {
         NodeP* focusedNode = NODE_P(__NGUI.focused_node);
         if (focusedNode->type == INPUT && focusedNode->node.eventFlags & NU_EVENT_FLAG_ON_INPUT_CHANGED) {
+
+            InputText_Write(&focusedNode->typeData.input.inputText, event->text.text);
+
             void* found_cb = HashmapGet(&__NGUI.on_input_changed_events, &__NGUI.focused_node);
             if (found_cb != NULL) {
                 struct NU_Callback_Info* cb_info = (struct NU_Callback_Info*)found_cb;

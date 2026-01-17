@@ -120,6 +120,9 @@ int NU_Generate_Tree(char* src, struct Vector* tokens, struct Vector* textRefs)
                 else if (currentNode->type == CANVAS) { // Create canvas context
                     NU_Add_Canvas_Context(currentNode->handle);
                 }
+                else if (currentNode->type == INPUT) {
+                    InputText_Init(&currentNode->typeData.input.inputText);
+                }
 
                 // -------------------------------
                 // Add node to parent's child list

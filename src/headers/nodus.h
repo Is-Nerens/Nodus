@@ -159,7 +159,7 @@ int NU_Internal_Create_Gui(char* xml_filepath, char* css_filepath)
     __NGUI.stylesheet = NULL;
     __NGUI.hovered_window = NULL;
     __NGUI.running = false;
-    __NGUI.awaiting_redraw = false;
+    __NGUI.awaiting_redraw = true;
     __NGUI.unblock_mutex = NULL;
     __NGUI.unblock = false;
 
@@ -208,14 +208,7 @@ int NU_Internal_Running()
         }
 
         // Wait for next event, with timeout to save CPU
-        if (SDL_WaitEventTimeout(&event, 5)) {
-            EventWatcher(NULL, &event);
-
-            // Drain any remaining events immediately
-            while (SDL_PollEvent(&event)) {
-                EventWatcher(NULL, &event);
-            }
-        }
+        SDL_WaitEventTimeout(&event, 2);
     }
 
     return 1;

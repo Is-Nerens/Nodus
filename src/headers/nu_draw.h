@@ -2,7 +2,7 @@
 #include <SDL3/SDL.h>
 #include <GL/glew.h>
 
-void NU_Add_Text_Mesh(Vertex_RGB_UV_List* vertices, Index_List* indices, NodeP* node)
+void NU_Add_Text_Mesh(Vertex_RGB_UV_List* vertices, Index_List* indices, NodeP* node, char* textBuffer)
 {
     // Compute inner dimensions (content area)
     float inner_width  = node->node.width  - node->node.borderLeft - node->node.borderRight - node->node.padLeft - node->node.padRight;
@@ -21,7 +21,7 @@ void NU_Add_Text_Mesh(Vertex_RGB_UV_List* vertices, Index_List* indices, NodeP* 
     float g = (float)node->node.textG / 255.0f;
     float b = (float)node->node.textB / 255.0f;
     NU_Font* node_font = Vector_Get(&__NGUI.stylesheet->fonts, node->node.fontId);
-    NU_Generate_Text_Mesh(vertices, indices, node_font, node->node.textContent, floorf(textPosX), floorf(textPosY), r, g, b, inner_width);
+    NU_Generate_Text_Mesh(vertices, indices, node_font, textBuffer, floorf(textPosX), floorf(textPosY), r, g, b, inner_width);
 }
 
 static bool Is_Node_Visible_In_Bounds(NodeP* node, float x, float y, float w, float h)
@@ -281,15 +281,22 @@ void NU_Draw()
         for (uint32_t n=0; n<drawList->relativeNodes.size; n++) 
         {
 
-            // Construct text mesh for node
+            // Construct text mesh for node's textContent
             NodeP* node = *(NodeP**)Vector_Get(&drawList->relativeNodes, n);
             if (node->node.textContent != NULL) {
                 Vertex_RGB_UV_List* text_vertices = &text_relative_vertex_buffers[node->node.fontId];
                 Index_List* text_indices = &text_relative_index_buffers[node->node.fontId];
-                NU_Add_Text_Mesh(text_vertices, text_indices, node);
+                NU_Add_Text_Mesh(text_vertices, text_indices, node, node->node.textContent);
             }
 
-            if (node->typeData.image.glImageHandle) // Draw image
+            // Construct text mesh for input node
+            else if (node->type == INPUT && node->typeData.input.inputText.length > 0) {
+                Vertex_RGB_UV_List* text_vertices = &text_relative_vertex_buffers[node->node.fontId];
+                Index_List* text_indices = &text_relative_index_buffers[node->node.fontId];
+                NU_Add_Text_Mesh(text_vertices, text_indices, node, node->typeData.input.inputText.buffer);
+            }    
+
+            if (node->typeData.image.glImageHandle && node->type != INPUT) // Draw image
             {
                 float inner_width  = node->node.width - node->node.borderLeft - node->node.borderRight - node->node.padLeft - node->node.padRight;
                 float inner_height = node->node.height - node->node.borderTop - node->node.borderBottom - node->node.padTop - node->node.padBottom;
@@ -329,7 +336,7 @@ void NU_Draw()
             Vertex_RGB_List_Free(&vertices);
             Index_List_Free(&indices);
 
-            // Draw text
+            // Draw node's textContent
             if (node->node.textContent != NULL) 
             {
                 Vertex_RGB_UV_List clipped_text_vertices;
@@ -337,14 +344,25 @@ void NU_Draw()
                 Vertex_RGB_UV_List_Init(&clipped_text_vertices, 1000);
                 Index_List_Init(&clipped_text_indices, 600);
                 NU_Font* node_font = Vector_Get(&__NGUI.stylesheet->fonts, node->node.fontId);
-                NU_Add_Text_Mesh(&clipped_text_vertices, &clipped_text_indices, node);
+                NU_Add_Text_Mesh(&clipped_text_vertices, &clipped_text_indices, node, node->node.textContent);
                 NU_Render_Text(&clipped_text_vertices, &clipped_text_indices, node_font, winW, winH, clip->clip_top, clip->clip_bottom, clip->clip_left, clip->clip_right);
+                Vertex_RGB_UV_List_Free(&clipped_text_vertices);
+                Index_List_Free(&clipped_text_indices);
+            }
+            
+            else if (node->type == INPUT && node->typeData.input.inputText.length > 0) {
+                Vertex_RGB_UV_List clipped_text_vertices;
+                Index_List clipped_text_indices;
+                Vertex_RGB_UV_List_Init(&clipped_text_vertices, 1000);
+                Index_List_Init(&clipped_text_indices, 600);
+                NU_Font* node_font = Vector_Get(&__NGUI.stylesheet->fonts, node->node.fontId);
+                NU_Add_Text_Mesh(&clipped_text_vertices, &clipped_text_indices, node, node->typeData.input.inputText.buffer);
                 Vertex_RGB_UV_List_Free(&clipped_text_vertices);
                 Index_List_Free(&clipped_text_indices);
             }
 
             // Draw image
-            if (node->typeData.image.glImageHandle) 
+            if (node->typeData.image.glImageHandle && node->type != INPUT) 
             {
                 float inner_width  = node->node.width - node->node.borderLeft - node->node.borderRight - node->node.padLeft - node->node.padRight;
                 float inner_height = node->node.height - node->node.borderTop - node->node.borderBottom - node->node.padTop - node->node.padBottom;
@@ -398,15 +416,22 @@ void NU_Draw()
         for (uint32_t n=0; n<drawList->absoluteNodes.size; n++) 
         {
 
-            // Construct text mesh for node
+            // Construct text mesh for node's textContent
             NodeP* node = *(NodeP**)Vector_Get(&drawList->absoluteNodes, n);
             if (node->node.textContent != NULL) {
                 Vertex_RGB_UV_List* text_vertices = &text_absolute_vertex_buffers[node->node.fontId];
                 Index_List* text_indices = &text_absolute_index_buffers[node->node.fontId];
-                NU_Add_Text_Mesh(text_vertices, text_indices, node);
+                NU_Add_Text_Mesh(text_vertices, text_indices, node, node->node.textContent);
             }
 
-            if (node->typeData.image.glImageHandle) // Draw image
+            // Construct text mesh for input node's text input
+            else if (node->type == INPUT && node->typeData.input.inputText.length > 0) {
+                Vertex_RGB_UV_List* text_vertices = &text_absolute_vertex_buffers[node->node.fontId];
+                Index_List* text_indices = &text_absolute_index_buffers[node->node.fontId];
+                NU_Add_Text_Mesh(text_vertices, text_indices, node, node->typeData.input.inputText.buffer);
+            }
+
+            if (node->typeData.image.glImageHandle && node->type != INPUT) // Draw image
             {
                 float inner_width  = node->node.width - node->node.borderLeft - node->node.borderRight - node->node.padLeft - node->node.padRight;
                 float inner_height = node->node.height - node->node.borderTop - node->node.borderBottom - node->node.padTop - node->node.padBottom;
@@ -445,7 +470,7 @@ void NU_Draw()
             Vertex_RGB_List_Free(&vertices);
             Index_List_Free(&indices);
 
-            // Draw text
+            // Draw node's textContent
             if (node->node.textContent != NULL) 
             {
                 Vertex_RGB_UV_List clipped_text_vertices;
@@ -453,14 +478,28 @@ void NU_Draw()
                 Vertex_RGB_UV_List_Init(&clipped_text_vertices, 1000);
                 Index_List_Init(&clipped_text_indices, 600);
                 NU_Font* node_font = Vector_Get(&__NGUI.stylesheet->fonts, node->node.fontId);
-                NU_Add_Text_Mesh(&clipped_text_vertices, &clipped_text_indices, node);
+                NU_Add_Text_Mesh(&clipped_text_vertices, &clipped_text_indices, node, node->node.textContent);
+                NU_Render_Text(&clipped_text_vertices, &clipped_text_indices, node_font, winW, winH, clip->clip_top, clip->clip_bottom, clip->clip_left, clip->clip_right);
+                Vertex_RGB_UV_List_Free(&clipped_text_vertices);
+                Index_List_Free(&clipped_text_indices);
+            }
+
+            // Draw input node's input text
+            else if (node->type == INPUT && node->typeData.input.inputText.length > 0) 
+            {
+                Vertex_RGB_UV_List clipped_text_vertices;
+                Index_List clipped_text_indices;
+                Vertex_RGB_UV_List_Init(&clipped_text_vertices, 1000);
+                Index_List_Init(&clipped_text_indices, 600);
+                NU_Font* node_font = Vector_Get(&__NGUI.stylesheet->fonts, node->node.fontId);
+                NU_Add_Text_Mesh(&clipped_text_vertices, &clipped_text_indices, node, node->typeData.input.inputText.buffer);
                 NU_Render_Text(&clipped_text_vertices, &clipped_text_indices, node_font, winW, winH, clip->clip_top, clip->clip_bottom, clip->clip_left, clip->clip_right);
                 Vertex_RGB_UV_List_Free(&clipped_text_vertices);
                 Index_List_Free(&clipped_text_indices);
             }
 
             // Draw image
-            if (node->typeData.image.glImageHandle) 
+            if (node->typeData.image.glImageHandle && node->type != INPUT) 
             {
                 float inner_width  = node->node.width - node->node.borderLeft - node->node.borderRight - node->node.padLeft - node->node.padRight;
                 float inner_height = node->node.height - node->node.borderTop - node->node.borderBottom - node->node.padTop - node->node.padBottom;

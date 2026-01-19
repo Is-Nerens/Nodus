@@ -10,7 +10,8 @@ typedef struct InputText {
     u32 length;
     u32 capacity;
     u32 cursor;
-    u32 xOffset;
+    float cursorOffset;
+    float textOffset;
 } InputText;
 
 void InputText_Init(InputText* text)
@@ -20,7 +21,8 @@ void InputText_Init(InputText* text)
     text->buffer[0] = '\0';
     text->length = 0;
     text->cursor = 0;
-    text->xOffset = 0;
+    text->cursorOffset = 0.0f;
+    text->textOffset = 0.0f;
 }
 
 void InputText_Free(InputText* text)
@@ -30,7 +32,8 @@ void InputText_Free(InputText* text)
     text->length = 0;
     text->capacity = 0;
     text->cursor = 0;
-    text->xOffset = 0;
+    text->cursorOffset = 0.0f;
+    text->textOffset = 0.0f;
 }
 
 // writes to text at cursor position

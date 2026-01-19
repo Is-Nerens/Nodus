@@ -4,6 +4,48 @@
 #include "nu_font.h"
 #include <rendering/nu_renderer_structures.h>
 
+u32 NU_GetNextCodepoint(const char* string, int* byteIndex)
+{
+    unsigned char* p = (unsigned char*)string + *byteIndex;
+    u32 cp;
+
+    if (*p == 0) return 0; // end of string
+
+    if ((*p & 0x80) == 0) {
+        cp = *p++;
+    }
+    else if ((*p & 0xE0) == 0xC0 &&
+            (p[1] & 0xC0) == 0x80) {
+        cp = (*p & 0x1F) << 6 |
+            (p[1] & 0x3F);
+        p += 2;
+    }
+    else if ((*p & 0xF0) == 0xE0 &&
+            (p[1] & 0xC0) == 0x80 &&
+            (p[2] & 0xC0) == 0x80) {
+        cp = (*p & 0x0F) << 12 |
+            (p[1] & 0x3F) << 6 |
+            (p[2] & 0x3F);
+        p += 3;
+    }
+    else if ((*p & 0xF8) == 0xF0 &&
+            (p[1] & 0xC0) == 0x80 &&
+            (p[2] & 0xC0) == 0x80 &&
+            (p[3] & 0xC0) == 0x80) {
+        cp = (*p & 0x07) << 18  |
+            (p[1] & 0x3F) << 12 |
+            (p[2] & 0x3F) << 6  |
+            (p[3] & 0x3F);
+        p += 4;
+    }
+    else { // invalid byte
+        cp = 0xFFFD;
+        p += 1;
+    }
+    *byteIndex = (int)(p - (unsigned char*)string);
+    return cp;
+}
+
 float NU_Calculate_Text_Min_Wrap_Width(NU_Font* font, const char* string)
 {
     size_t string_len = strlen(string);
@@ -228,5 +270,37 @@ void NU_Generate_Text_Mesh(Vertex_RGB_UV_List* vertices, Index_List* indices, NU
             NU_Add_Glyph_Mesh(vertices, indices, glyph, pen_x, pen_y, r, g, b);
             pen_x += glyph->advance;
         }
+    }
+}
+
+void NU_GenerateFlatTextMesh(
+    Vertex_RGB_UV_List* vertices, 
+    Index_List* indices, 
+    NU_Font* font, 
+    const char* string,
+    float x, float y,
+    float r, float g, float b
+)
+{
+    int stringLen = strlen(string);
+    if (stringLen == 0) return;
+
+    // allocate extra space in vertex and index lists
+    uint32_t additionalVertices = 4 * stringLen;   
+    uint32_t additionalIndices = 6 * stringLen;
+    if (vertices->size + additionalVertices > vertices->capacity) Vertex_RGB_UV_List_Grow(vertices, additionalVertices);
+    if (indices->size + additionalIndices > indices->capacity) Index_List_Grow(indices, additionalIndices);
+
+    // get first codepoint
+    NU_Glyph* firstGlyph = (NU_Glyph*)Vector_Get(&font->glyphs, string[0] - 32);
+
+    float penX = x - firstGlyph->bearingX;
+    float penY = y + font->ascent;
+    for (int i=0; i<stringLen; i++)
+    {
+        NU_Glyph* glyph = (NU_Glyph*)Vector_Get(&font->glyphs, string[i] - 32);
+        penX += (font->kerning_table[string[i-1] - 32][string[i] - 32]) * (float)i > 0; // Kerning
+        NU_Add_Glyph_Mesh(vertices, indices, glyph, penX, penY, r, g, b);
+        penX += glyph->advance;
     }
 }

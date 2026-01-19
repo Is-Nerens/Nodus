@@ -332,30 +332,30 @@ void Construct_Scroll_Thumb(NodeP* node,
     // Background Rect TL
     vertices->array[vertOffset + 0].x = x;
     vertices->array[vertOffset + 0].y = y;
-    vertices->array[vertOffset + 0].r = 0.1f;
-    vertices->array[vertOffset + 0].g = 0.1f;
-    vertices->array[vertOffset + 0].b = 0.1f;
+    vertices->array[vertOffset + 0].r = 1.0f;
+    vertices->array[vertOffset + 0].g = 1.0f;
+    vertices->array[vertOffset + 0].b = 1.0f;
 
     // Background Rect TR
     vertices->array[vertOffset + 1].x = x + w;
     vertices->array[vertOffset + 1].y = y;
-    vertices->array[vertOffset + 1].r = 0.1f;
-    vertices->array[vertOffset + 1].g = 0.1f;
-    vertices->array[vertOffset + 1].b = 0.1f;
+    vertices->array[vertOffset + 1].r = 1.0f;
+    vertices->array[vertOffset + 1].g = 1.0f;
+    vertices->array[vertOffset + 1].b = 1.0f;
 
     // Background Rect BL
     vertices->array[vertOffset + 2].x = x;
     vertices->array[vertOffset + 2].y = y + track_height;
-    vertices->array[vertOffset + 2].r = 0.1f;
-    vertices->array[vertOffset + 2].g = 0.1f;
-    vertices->array[vertOffset + 2].b = 0.1f;
+    vertices->array[vertOffset + 2].r = 1.0f;
+    vertices->array[vertOffset + 2].g = 1.0f;
+    vertices->array[vertOffset + 2].b = 1.0f;
 
     // Background Rect BR
     vertices->array[vertOffset + 3].x = x + w;
     vertices->array[vertOffset + 3].y = y + track_height;
-    vertices->array[vertOffset + 3].r = 0.1f;
-    vertices->array[vertOffset + 3].g = 0.1f;
-    vertices->array[vertOffset + 3].b = 0.1f;
+    vertices->array[vertOffset + 3].r = 1.0f;
+    vertices->array[vertOffset + 3].g = 1.0f;
+    vertices->array[vertOffset + 3].b = 1.0f;
 
     // Background Thumb TL
     vertices->array[vertOffset + 4].x = x;
@@ -402,4 +402,54 @@ void Construct_Scroll_Thumb(NodeP* node,
 
     vertices->size += additional_vertices;
     indices->size += additional_indices;
+}
+
+void NU_ConstructInputCursorMesh(
+    NodeP* node,
+    Vertex_RGB_List* vertices, 
+    Index_List* indices)
+{
+    float x = node->node.x + node->node.borderLeft + node->node.padLeft + node->typeData.input.inputText.cursorOffset;
+    float y = node->node.y + node->node.borderTop + node->node.padTop;
+    float innerHeight = node->node.height - node->node.borderTop  - node->node.borderBottom - node->node.padTop - node->node.padBottom;
+
+    // top left
+    vertices->array[0].x = x;
+    vertices->array[0].y = y;
+    vertices->array[0].r = 1.0f;
+    vertices->array[0].g = 1.0f;
+    vertices->array[0].b = 1.0f;
+
+    // top right
+    vertices->array[1].x = x + 1;
+    vertices->array[1].y = y;
+    vertices->array[1].r = 1.0f;
+    vertices->array[1].g = 1.0f;
+    vertices->array[1].b = 1.0f;
+
+    // bottom left
+    vertices->array[2].x = x;
+    vertices->array[2].y = y + innerHeight -1;
+    vertices->array[2].r = 1.0f;
+    vertices->array[2].g = 1.0f;
+    vertices->array[2].b = 1.0f;
+
+    // bottom right
+    vertices->array[3].x = x + 1;
+    vertices->array[3].y = y + innerHeight - 1;
+    vertices->array[3].r = 1.0f;
+    vertices->array[3].g = 1.0f;
+    vertices->array[3].b = 1.0f;
+
+    // indices
+    uint32_t* indices_write = indices->array;
+    *indices_write++ = 0;
+    *indices_write++ = 1;
+    *indices_write++ = 2;
+    *indices_write++ = 1;
+    *indices_write++ = 2;
+    *indices_write++ = 3;
+
+    vertices->size = 4;
+    indices->size = 6;
 }

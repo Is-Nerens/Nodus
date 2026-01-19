@@ -102,7 +102,7 @@ static void NU_CalculateTextFitWidths()
                 // Calculate minimum text wrap width (longest unbreakable word)
                 float min_wrap_width = NU_Calculate_Text_Min_Wrap_Width(node_font, node->node.textContent);
 
-                // Increase width to account for text (text height will be accounted for later in NU_CalculateTextHeights())
+                // Increase width to account for text (text height will be accounted for later in NU_CalculateTextContentAndInputTextHeights())
                 float natural_width = node->node.padLeft + node->node.padRight + node->node.borderLeft + node->node.borderRight;
                 node->node.width = max(text_width + natural_width, node->node.preferred_width);
 
@@ -669,7 +669,7 @@ static void NU_CalculateTableColumnWidths()
     }
 }
 
-static void NU_CalculateTextHeights()
+static void NU_CalculateTextContentAndInputTextHeights()
 {
     #pragma omp parallel for
     for (uint32_t l=0; l<=__NGUI.tree.depth-1; l++)
@@ -698,6 +698,15 @@ static void NU_CalculateTextHeights()
                 
                 // Update content height
                 node->node.contentHeight = text_height;
+            }
+            else if (node->type == INPUT)
+            {
+                NU_Font* node_font = Vector_Get(&__NGUI.stylesheet->fonts, node->node.fontId);
+
+                // Set input height equal to line height
+                node->node.height = node_font->line_height + 
+                node->node.padTop + node->node.padBottom + 
+                node->node.borderTop + node->node.borderBottom;
             }
         }
     }
@@ -896,7 +905,7 @@ void NU_Layout()
     NU_CalculateFitSizeWidths();  
     NU_GrowShrinkWidths();
     NU_CalculateTableColumnWidths();
-    NU_CalculateTextHeights();
+    NU_CalculateTextContentAndInputTextHeights();
     NU_CalculateFitSizeHeights();
     NU_GrowShrinkHeights();
     NU_CalculatePositions();

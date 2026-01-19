@@ -81,40 +81,49 @@ inline uint32_t StringLen(String string)
            ((uint32_t)(unsigned char)string[2]);
 }
 
-uint32_t NextUTF8Codepoint(String string, int* byteOffset)
+uint32_t NextUTF8Codepoint(String string, int* i)
 {
-    char* cstr = StringCstr(string);
-    uint32_t stringLen = StringLen(string);
-    uint32_t codepoint = 0;
-    unsigned char firstByte = (unsigned char)cstr[*byteOffset];
+    char* cStr = StringCstr(string);
+    unsigned char* p = (unsigned char*)cStr + *i;
+    uint32_t cp;
 
-    if ((firstByte & 0x80) == 0) {
-        codepoint = firstByte;
-        *byteOffset += 1;
+    if (*p == 0) return 0;  // end of string
+
+    if ((*p & 0x80) == 0) {
+        cp = *p++;
     }
-    else if (*byteOffset + 1 < stringLen && (firstByte & 0xE0) == 0xC0) {
-        codepoint = (firstByte & 0x1F) << 6;
-        codepoint |= (unsigned char)(cstr[*byteOffset + 1] & 0x3F);
-        *byteOffset += 2;
+    else if ((*p & 0xE0) == 0xC0 &&
+            (p[1] & 0xC0) == 0x80) {
+        cp = (*p & 0x1F) << 6 |
+            (p[1] & 0x3F);
+        p += 2;
     }
-    else if (*byteOffset + 2 < stringLen && (firstByte & 0xF0) == 0xE0) {
-        codepoint = (firstByte & 0x0F) << 12;
-        codepoint |= (unsigned char)(cstr[*byteOffset + 1] & 0x3F) << 6;
-        codepoint |= (unsigned char)(cstr[*byteOffset + 2] & 0x3F);
-        *byteOffset += 3;
+    else if ((*p & 0xF0) == 0xE0 &&
+            (p[1] & 0xC0) == 0x80 &&
+            (p[2] & 0xC0) == 0x80) {
+        cp = (*p & 0x0F) << 12 |
+            (p[1] & 0x3F) << 6 |
+            (p[2] & 0x3F);
+        p += 3;
     }
-    else if (*byteOffset + 3 < stringLen && (firstByte & 0xF8) == 0xF0) {
-        codepoint = (firstByte & 0x07) << 18;
-        codepoint |= (unsigned char)(cstr[*byteOffset + 1] & 0x3F) << 12;
-        codepoint |= (unsigned char)(cstr[*byteOffset + 2] & 0x3F) << 6;
-        codepoint |= (unsigned char)(cstr[*byteOffset + 3] & 0x3F);
-        *byteOffset += 4;
+    else if ((*p & 0xF8) == 0xF0 &&
+            (p[1] & 0xC0) == 0x80 &&
+            (p[2] & 0xC0) == 0x80 &&
+            (p[3] & 0xC0) == 0x80) {
+        cp = (*p & 0x07) << 18  |
+            (p[1] & 0x3F) << 12 |
+            (p[2] & 0x3F) << 6  |
+            (p[3] & 0x3F);
+        p += 4;
     }
-    else { // Invalid UTF-8 byte — skip it
-        *byteOffset += 1;
+    else { // invalid byte
+        cp = 0xFFFD;
+        p += 1;
     }
-    return codepoint;
-} 
+    *i = (int)(p - (unsigned char*)cStr);
+    return cp;
+}
+
 
 inline uint32_t GetUTF32Codepoint(String string, int index) 
 {

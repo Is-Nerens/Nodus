@@ -2,7 +2,7 @@
 #include <SDL3/SDL.h>
 #include <GL/glew.h>
 
-void NU_Add_Text_Mesh(Vertex_RGB_UV_List* vertices, Index_List* indices, NodeP* node, char* textBuffer)
+void NU_AddTextMesh(Vertex_RGB_UV_List* vertices, Index_List* indices, NodeP* node, char* textBuffer)
 {
     // Compute inner dimensions (content area)
     float inner_width  = node->node.width  - node->node.borderLeft - node->node.borderRight - node->node.padLeft - node->node.padRight;
@@ -22,25 +22,6 @@ void NU_Add_Text_Mesh(Vertex_RGB_UV_List* vertices, Index_List* indices, NodeP* 
     float b = (float)node->node.textB / 255.0f;
     NU_Font* node_font = Vector_Get(&__NGUI.stylesheet->fonts, node->node.fontId);
     NU_Generate_Text_Mesh(vertices, indices, node_font, textBuffer, floorf(textPosX), floorf(textPosY), r, g, b, inner_width);
-}
-
-static bool Is_Node_Visible_In_Bounds(NodeP* node, float x, float y, float w, float h)
-{
-    // Compute the node's content rectangle
-    float left   = node->node.x;
-    float top    = node->node.y;
-    float right  = left + node->node.width;
-    float bottom = top + node->node.height;
-
-    // Compute the bounds rectangle
-    float bounds_left   = x;
-    float bounds_top    = y;
-    float bounds_right  = x + w;
-    float bounds_bottom = y + h;
-
-    // Check for any overlap between node and bounds
-    bool visible = !(right < bounds_left || bottom < bounds_top || left > bounds_right || top > bounds_bottom);
-    return visible;
 }
 
 static int NodeVerticalOverlapState(NodeP* node, float y, float h)
@@ -206,6 +187,58 @@ void NU_GenerateDrawlists()
     }
 }
 
+void NU_DrawNodeImage(NodeP* node, float winWidth, float winHeight)
+{
+    float inner_width  = node->node.width - node->node.borderLeft - node->node.borderRight - node->node.padLeft - node->node.padRight;
+    float inner_height = node->node.height - node->node.borderTop - node->node.borderBottom - node->node.padTop - node->node.padBottom;
+    float x = node->node.x + node->node.borderLeft + (float)node->node.padLeft;
+    float y = node->node.y + node->node.borderTop + (float)node->node.padTop;
+    NU_Draw_Image(
+        x, y, 
+        inner_width, inner_height, 
+        winWidth, winHeight, 
+        -1.0f, 100000.0f, -1.0f, 100000.0f,
+        node->typeData.image.glImageHandle);
+}
+
+void NU_DrawClippedNodeTextContent(NodeP* node, float winWidth, float winHeight, NU_ClipBounds* clip)
+{
+    Vertex_RGB_UV_List clipped_text_vertices;
+    Index_List clipped_text_indices;
+    Vertex_RGB_UV_List_Init(&clipped_text_vertices, 1000);
+    Index_List_Init(&clipped_text_indices, 600);
+    NU_Font* node_font = Vector_Get(&__NGUI.stylesheet->fonts, node->node.fontId);
+    NU_AddTextMesh(&clipped_text_vertices, &clipped_text_indices, node, node->node.textContent);
+    NU_Render_Text(&clipped_text_vertices, &clipped_text_indices, node_font, winWidth, winHeight, clip->clip_top, clip->clip_bottom, clip->clip_left, clip->clip_right);
+    Vertex_RGB_UV_List_Free(&clipped_text_vertices);
+    Index_List_Free(&clipped_text_indices);
+}
+
+void NU_DrawClippedNodeInputTextContent(NodeP* node, float winWidth, float winHeight, NU_ClipBounds* clip)
+{
+    Vertex_RGB_UV_List clipped_text_vertices;
+    Index_List clipped_text_indices;
+    Vertex_RGB_UV_List_Init(&clipped_text_vertices, 1000);
+    Index_List_Init(&clipped_text_indices, 600);
+    NU_Font* node_font = Vector_Get(&__NGUI.stylesheet->fonts, node->node.fontId);
+    NU_AddTextMesh(&clipped_text_vertices, &clipped_text_indices, node, node->typeData.input.inputText.buffer);
+    NU_Render_Text(&clipped_text_vertices, &clipped_text_indices, node_font, winWidth, winHeight, clip->clip_top, clip->clip_bottom, clip->clip_left, clip->clip_right);
+    Vertex_RGB_UV_List_Free(&clipped_text_vertices);
+    Index_List_Free(&clipped_text_indices);
+}
+
+void NU_DrawClippedNodeBorderRect(NodeP* node, float winWidth, float winHeight, NU_ClipBounds* clip)
+{
+    Vertex_RGB_List vertices;
+    Index_List indices;
+    Vertex_RGB_List_Init(&vertices, 100);
+    Index_List_Init(&indices, 100);
+    Construct_Border_Rect(node, winWidth, winHeight, &vertices, &indices);
+    Draw_Clipped_Vertex_RGB_List(&vertices, &indices, winWidth, winHeight, 0.0f, 0.0f, clip->clip_top, clip->clip_bottom, clip->clip_left, clip->clip_right);
+    Vertex_RGB_List_Free(&vertices);
+    Index_List_Free(&indices);
+}
+
 void NU_Draw()
 {
     NU_GenerateDrawlists();
@@ -226,9 +259,9 @@ void NU_Draw()
     // For each window
     for (uint32_t i=0; i<__NGUI.winManager.windows.size; i++)
     {
-        // ---------------------------------------------
+        // ------------------------------------------------------------
         // --- Get the window and dimensions, clear and start new frame
-        // ---------------------------------------------
+        // ------------------------------------------------------------
         SDL_Window* window = *(SDL_Window**) Vector_Get(&__NGUI.winManager.windows, i);
         SDL_GL_MakeCurrent(window, __NGUI.gl_ctx);
         WindowStartNewFrame(window);
@@ -236,11 +269,12 @@ void NU_Draw()
         float winW, winH; GetWindowSize(window, &winW, &winH);
         
 
+
         // --------------------------------------------------------------------------------------------------------
         // --- Draw Relative Positioned Nodes [First Draw Pass] ===================================================
         // --------------------------------------------------------------------------------------------------------
 
-        // --- Draw Border Rects ---
+        // Draw Border Rects
         Vertex_RGB_List border_rect_vertices;              Index_List border_rect_indices;
         Vertex_RGB_List_Init(&border_rect_vertices, 5000); Index_List_Init(&border_rect_indices, 15000);
         for (uint32_t n=0; n<drawList->relativeNodes.size; n++) { // Construct border rect vertices and indices for each node
@@ -256,7 +290,7 @@ void NU_Draw()
         Index_List_Free(&border_rect_indices);
 
 
-        // --- Draw Canvas API Content ---
+        // Draw Canvas API Content
         for (uint32_t n=0; n<drawList->canvasNodes.size; n++)
         {
             NodeP* canvas_node = *(NodeP**)Vector_Get(&drawList->canvasNodes, n);
@@ -277,7 +311,7 @@ void NU_Draw()
         }
 
 
-        // --- Construct Text Meshes & Draw Images ---
+        // Construct Text Meshes & Draw Images
         for (uint32_t n=0; n<drawList->relativeNodes.size; n++) 
         {
 
@@ -286,28 +320,19 @@ void NU_Draw()
             if (node->node.textContent != NULL) {
                 Vertex_RGB_UV_List* text_vertices = &text_relative_vertex_buffers[node->node.fontId];
                 Index_List* text_indices = &text_relative_index_buffers[node->node.fontId];
-                NU_Add_Text_Mesh(text_vertices, text_indices, node, node->node.textContent);
+                NU_AddTextMesh(text_vertices, text_indices, node, node->node.textContent);
             }
 
             // Construct text mesh for input node
             else if (node->type == INPUT && node->typeData.input.inputText.length > 0) {
                 Vertex_RGB_UV_List* text_vertices = &text_relative_vertex_buffers[node->node.fontId];
                 Index_List* text_indices = &text_relative_index_buffers[node->node.fontId];
-                NU_Add_Text_Mesh(text_vertices, text_indices, node, node->typeData.input.inputText.buffer);
+                NU_AddTextMesh(text_vertices, text_indices, node, node->typeData.input.inputText.buffer);
             }    
 
-            if (node->typeData.image.glImageHandle && node->type != INPUT) // Draw image
-            {
-                float inner_width  = node->node.width - node->node.borderLeft - node->node.borderRight - node->node.padLeft - node->node.padRight;
-                float inner_height = node->node.height - node->node.borderTop - node->node.borderBottom - node->node.padTop - node->node.padBottom;
-                float x = node->node.x + node->node.borderLeft + (float)node->node.padLeft;
-                float y = node->node.y + node->node.borderTop + (float)node->node.padTop;
-                NU_Draw_Image(
-                    x, y, 
-                    inner_width, inner_height, 
-                    winW, winH, 
-                    -1.0f, 100000.0f, -1.0f, 100000.0f,
-                    node->typeData.image.glImageHandle);
+            // Draw node image
+            if (node->typeData.image.glImageHandle && node->type != INPUT) {
+                NU_DrawNodeImage(node, winW, winH);
             }
         }
         for (uint32_t t=0; t<__NGUI.stylesheet->fonts.size; t++) // Draw text
@@ -321,73 +346,23 @@ void NU_Draw()
         }
 
 
-        // --- Draw Partially Visible Nodes ---
+        // Draw Partially Visible Nodes
         for (uint32_t n=0; n<drawList->clippedRelativeNodes.size; n++) {
             NodeP* node = *(NodeP**)Vector_Get(&drawList->clippedRelativeNodes, n);
             NU_ClipBounds* clip = (NU_ClipBounds*)HashmapGet(&__NGUI.winManager.clipMap, &node->clippingRootHandle);
 
-            // Draw border rects
-            Vertex_RGB_List vertices;
-            Index_List indices;
-            Vertex_RGB_List_Init(&vertices, 100);
-            Index_List_Init(&indices, 100);
-            Construct_Border_Rect(node, winW, winH, &vertices, &indices);
-            Draw_Clipped_Vertex_RGB_List(&vertices, &indices, winW, winH, 0.0f, 0.0f, clip->clip_top, clip->clip_bottom, clip->clip_left, clip->clip_right);
-            Vertex_RGB_List_Free(&vertices);
-            Index_List_Free(&indices);
+            NU_DrawClippedNodeBorderRect(node, winW, winH, clip); // Draw border rects
 
-            // Draw node's textContent
-            if (node->node.textContent != NULL) 
-            {
-                Vertex_RGB_UV_List clipped_text_vertices;
-                Index_List clipped_text_indices;
-                Vertex_RGB_UV_List_Init(&clipped_text_vertices, 1000);
-                Index_List_Init(&clipped_text_indices, 600);
-                NU_Font* node_font = Vector_Get(&__NGUI.stylesheet->fonts, node->node.fontId);
-                NU_Add_Text_Mesh(&clipped_text_vertices, &clipped_text_indices, node, node->node.textContent);
-                NU_Render_Text(&clipped_text_vertices, &clipped_text_indices, node_font, winW, winH, clip->clip_top, clip->clip_bottom, clip->clip_left, clip->clip_right);
-                Vertex_RGB_UV_List_Free(&clipped_text_vertices);
-                Index_List_Free(&clipped_text_indices);
+            if (node->node.textContent != NULL) { // Draw node's textContent
+                NU_DrawClippedNodeTextContent(node, winW, winH, clip);
             }
-            
-            else if (node->type == INPUT && node->typeData.input.inputText.length > 0) {
-                Vertex_RGB_UV_List clipped_text_vertices;
-                Index_List clipped_text_indices;
-                Vertex_RGB_UV_List_Init(&clipped_text_vertices, 1000);
-                Index_List_Init(&clipped_text_indices, 600);
-                NU_Font* node_font = Vector_Get(&__NGUI.stylesheet->fonts, node->node.fontId);
-                NU_Add_Text_Mesh(&clipped_text_vertices, &clipped_text_indices, node, node->typeData.input.inputText.buffer);
-                Vertex_RGB_UV_List_Free(&clipped_text_vertices);
-                Index_List_Free(&clipped_text_indices);
+            else if (node->type == INPUT && node->typeData.input.inputText.length > 0) { // Draw input node's text
+                NU_DrawClippedNodeInputTextContent(node, winW, winH, clip);
             }
-
-            // Draw image
-            if (node->typeData.image.glImageHandle && node->type != INPUT) 
-            {
-                float inner_width  = node->node.width - node->node.borderLeft - node->node.borderRight - node->node.padLeft - node->node.padRight;
-                float inner_height = node->node.height - node->node.borderTop - node->node.borderBottom - node->node.padTop - node->node.padBottom;
-                NU_Draw_Image(
-                    node->node.x + node->node.borderLeft + node->node.padLeft, 
-                    node->node.y + node->node.borderTop + node->node.padTop, 
-                    inner_width, inner_height, 
-                    winW, winH, 
-                    clip->clip_top, clip->clip_bottom, clip->clip_left, clip->clip_right,
-                    node->typeData.image.glImageHandle);
+            if (node->typeData.image.glImageHandle && node->type != INPUT) { // Draw node image
+                NU_DrawNodeImage(node, winW, winH);
             }
         }
-        // --------------------------------------------------------------------------------------------------------
-        // --- Draw Relative Positioned Nodes [First Draw Pass] ===================================================
-        // --------------------------------------------------------------------------------------------------------
-
-
-
-
-
-
-
-
-
-
 
 
 
@@ -397,7 +372,7 @@ void NU_Draw()
         // --- Draw Absolute Positioned Nodes [Second Draw Pass] ==================================================
         // --------------------------------------------------------------------------------------------------------
 
-        // --- Draw Border Rects ---
+        // Draw Border Rects
         Vertex_RGB_List_Init(&border_rect_vertices, 5000); Index_List_Init(&border_rect_indices, 15000);
         for (uint32_t n=0; n<drawList->absoluteNodes.size; n++) { // Construct border rect vertices and indices for each node
             NodeP* node = *(NodeP**)Vector_Get(&drawList->absoluteNodes, n);
@@ -412,7 +387,7 @@ void NU_Draw()
         Index_List_Free(&border_rect_indices);
 
 
-        // --- Construct Text Meshes & Draw Images ---
+        // Construct Text Meshes & Draw Images
         for (uint32_t n=0; n<drawList->absoluteNodes.size; n++) 
         {
 
@@ -421,28 +396,19 @@ void NU_Draw()
             if (node->node.textContent != NULL) {
                 Vertex_RGB_UV_List* text_vertices = &text_absolute_vertex_buffers[node->node.fontId];
                 Index_List* text_indices = &text_absolute_index_buffers[node->node.fontId];
-                NU_Add_Text_Mesh(text_vertices, text_indices, node, node->node.textContent);
+                NU_AddTextMesh(text_vertices, text_indices, node, node->node.textContent);
             }
 
             // Construct text mesh for input node's text input
             else if (node->type == INPUT && node->typeData.input.inputText.length > 0) {
                 Vertex_RGB_UV_List* text_vertices = &text_absolute_vertex_buffers[node->node.fontId];
                 Index_List* text_indices = &text_absolute_index_buffers[node->node.fontId];
-                NU_Add_Text_Mesh(text_vertices, text_indices, node, node->typeData.input.inputText.buffer);
+                NU_AddTextMesh(text_vertices, text_indices, node, node->typeData.input.inputText.buffer);
             }
 
-            if (node->typeData.image.glImageHandle && node->type != INPUT) // Draw image
-            {
-                float inner_width  = node->node.width - node->node.borderLeft - node->node.borderRight - node->node.padLeft - node->node.padRight;
-                float inner_height = node->node.height - node->node.borderTop - node->node.borderBottom - node->node.padTop - node->node.padBottom;
-                float x = node->node.x + node->node.borderLeft + (float)node->node.padLeft;
-                float y = node->node.y + node->node.borderTop + (float)node->node.padTop;
-                NU_Draw_Image(
-                    x, y, 
-                    inner_width, inner_height, 
-                    winW, winH, 
-                    -1.0f, 100000.0f, -1.0f, 100000.0f,
-                    node->typeData.image.glImageHandle);
+            // Draw node image
+            if (node->typeData.image.glImageHandle && node->type != INPUT) {
+                NU_DrawNodeImage(node, winW, winH);
             }
         }
         for (uint32_t t=0; t<__NGUI.stylesheet->fonts.size; t++) // Draw text
@@ -460,63 +426,21 @@ void NU_Draw()
             NodeP* node = *(NodeP**) Vector_Get(&drawList->clippedAbsoluteNodes, n);
             NU_ClipBounds* clip = (NU_ClipBounds*)HashmapGet(&__NGUI.winManager.clipMap, &node->clippingRootHandle);
 
-            // Draw border rects
-            Vertex_RGB_List vertices;
-            Index_List indices;
-            Vertex_RGB_List_Init(&vertices, 100);
-            Index_List_Init(&indices, 100);
-            Construct_Border_Rect(node, winW, winH, &vertices, &indices);
-            Draw_Clipped_Vertex_RGB_List(&vertices, &indices, winW, winH, 0.0f, 0.0f, clip->clip_top, clip->clip_bottom, clip->clip_left, clip->clip_right);
-            Vertex_RGB_List_Free(&vertices);
-            Index_List_Free(&indices);
+            NU_DrawClippedNodeBorderRect(node, winW, winH, clip); // Draw border rect
 
-            // Draw node's textContent
-            if (node->node.textContent != NULL) 
-            {
-                Vertex_RGB_UV_List clipped_text_vertices;
-                Index_List clipped_text_indices;
-                Vertex_RGB_UV_List_Init(&clipped_text_vertices, 1000);
-                Index_List_Init(&clipped_text_indices, 600);
-                NU_Font* node_font = Vector_Get(&__NGUI.stylesheet->fonts, node->node.fontId);
-                NU_Add_Text_Mesh(&clipped_text_vertices, &clipped_text_indices, node, node->node.textContent);
-                NU_Render_Text(&clipped_text_vertices, &clipped_text_indices, node_font, winW, winH, clip->clip_top, clip->clip_bottom, clip->clip_left, clip->clip_right);
-                Vertex_RGB_UV_List_Free(&clipped_text_vertices);
-                Index_List_Free(&clipped_text_indices);
+            if (node->node.textContent != NULL) { // Draw node's textContent
+                NU_DrawClippedNodeTextContent(node, winW, winH, clip);
             }
-
-            // Draw input node's input text
-            else if (node->type == INPUT && node->typeData.input.inputText.length > 0) 
-            {
-                Vertex_RGB_UV_List clipped_text_vertices;
-                Index_List clipped_text_indices;
-                Vertex_RGB_UV_List_Init(&clipped_text_vertices, 1000);
-                Index_List_Init(&clipped_text_indices, 600);
-                NU_Font* node_font = Vector_Get(&__NGUI.stylesheet->fonts, node->node.fontId);
-                NU_Add_Text_Mesh(&clipped_text_vertices, &clipped_text_indices, node, node->typeData.input.inputText.buffer);
-                NU_Render_Text(&clipped_text_vertices, &clipped_text_indices, node_font, winW, winH, clip->clip_top, clip->clip_bottom, clip->clip_left, clip->clip_right);
-                Vertex_RGB_UV_List_Free(&clipped_text_vertices);
-                Index_List_Free(&clipped_text_indices);
+            else if (node->type == INPUT && node->typeData.input.inputText.length > 0) { // Draw input node's text
+                NU_DrawClippedNodeInputTextContent(node, winW, winH, clip);
             }
-
-            // Draw image
-            if (node->typeData.image.glImageHandle && node->type != INPUT) 
-            {
-                float inner_width  = node->node.width - node->node.borderLeft - node->node.borderRight - node->node.padLeft - node->node.padRight;
-                float inner_height = node->node.height - node->node.borderTop - node->node.borderBottom - node->node.padTop - node->node.padBottom;
-                NU_Draw_Image(
-                    node->node.x + node->node.borderLeft + node->node.padLeft, 
-                    node->node.y + node->node.borderTop + node->node.padTop, 
-                    inner_width, inner_height, 
-                    winW, winH, 
-                    clip->clip_top, clip->clip_bottom, clip->clip_left, clip->clip_right,
-                    node->typeData.image.glImageHandle);
+            if (node->typeData.image.glImageHandle && node->type != INPUT) { // Draw node image
+                NU_DrawNodeImage(node, winW, winH);
             }
         }
         // --------------------------------------------------------------------------------------------------------
         // --- Draw Absolute Positioned Nodes [Second Draw Pass] ==================================================
         // --------------------------------------------------------------------------------------------------------
-
-
 
         SDL_GL_SwapWindow(window); 
     }

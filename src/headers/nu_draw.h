@@ -227,26 +227,42 @@ void NU_DrawInputNodeContent(
     Index_List clipped_text_indices; Index_List_Init(&clipped_text_indices, 600);
     Index_List cursorIndices; Index_List_Init(&cursorIndices, 6);
     InputText* inputText = &node->typeData.input.inputText;
-    inputText->textOffset = 0;
 
     // calculate text offset and constrain cursor to input inner region
     if (__NGUI.focused_node != UINT32_MAX && node->handle == __NGUI.focused_node) {
 
-        // calculate cursor offset
+        // calculate text width from start to cursor
         char temp = inputText->buffer[inputText->cursor];
         inputText->buffer[inputText->cursor] = '\0';
-        inputText->cursorOffset = NU_Calculate_Text_Unwrapped_Width(node_font, inputText->buffer);
+        float preCursorTextWidth = NU_Calculate_Text_Unwrapped_Width(node_font, inputText->buffer);
         inputText->buffer[inputText->cursor] = temp;
 
-        // calculate cursor offset overshoot passed input right boundary
-        float innerWidth = node->node.width - node->node.borderLeft - node->node.borderRight - 
-        node->node.padLeft - node->node.padRight;
-        float cursorOvershoot = inputText->cursorOffset - innerWidth;
+        // calculate inner input width
+        float innerWidth = node->node.width
+            - node->node.borderLeft
+            - node->node.borderRight
+            - node->node.padLeft
+            - node->node.padRight;
 
-        if (cursorOvershoot > 0) {
-            inputText->cursorOffset -= cursorOvershoot;
-            inputText->textOffset -= cursorOvershoot;
-        } 
+        // set relative cursor offset
+        inputText->cursorOffset = inputText->textOffset + preCursorTextWidth;
+
+        // overflow correction
+        if (inputText->moveDelta < 0.0f) {
+            if (inputText->cursorOffset < 0.0f) {
+                float overshoot = -inputText->cursorOffset;
+                inputText->cursorOffset = 0.0f;
+                inputText->textOffset += overshoot;
+            }
+        }
+        else if (inputText->moveDelta > 0.0f) {
+            if (inputText->cursorOffset > innerWidth) {
+                float overshoot = inputText->cursorOffset - innerWidth;
+                inputText->cursorOffset = innerWidth;
+                inputText->textOffset -= overshoot;
+            }
+        }
+        inputText->moveDelta = 0.0f; // reset
 
         // construct cursor mesh
         NU_ConstructInputCursorMesh(node, &cursorVertices, &cursorIndices);

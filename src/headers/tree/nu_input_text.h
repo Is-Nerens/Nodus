@@ -12,6 +12,7 @@ typedef struct InputText {
     u32 cursor;
     float cursorOffset;
     float textOffset;
+    float moveDelta;
 } InputText;
 
 void InputText_Init(InputText* text)
@@ -23,6 +24,7 @@ void InputText_Init(InputText* text)
     text->cursor = 0;
     text->cursorOffset = 0.0f;
     text->textOffset = 0.0f;
+    text->moveDelta = 0.0f;
 }
 
 void InputText_Free(InputText* text)
@@ -34,6 +36,7 @@ void InputText_Free(InputText* text)
     text->cursor = 0;
     text->cursorOffset = 0.0f;
     text->textOffset = 0.0f;
+    text->moveDelta = 0.0f;
 }
 
 // writes to text at cursor position
@@ -55,6 +58,7 @@ void InputText_Write(InputText* text, const char* string)
     text->length += stringLen;
     text->cursor += stringLen;
     text->buffer[text->length] = '\0';
+    text->moveDelta = 1.0f;
 }
 
 // removes one char at cursor position
@@ -75,6 +79,7 @@ void InputText_Backspace(InputText* text)
     );
     text->cursor -= bytes;
     text->length -= bytes;
+    text->moveDelta = -1.0f;
 }
 
 // replaces highlighted section with a new string
@@ -95,6 +100,7 @@ inline void InputText_MoveCursorLeft(InputText* text)
         return;
 
     text->cursor--;  // step left at least once
+    text->moveDelta = -1.0f;
 
     // back over continuation bytes
     while (text->cursor > 0 && ((unsigned char)text->buffer[text->cursor] & 0xC0) == 0x80)
@@ -118,4 +124,6 @@ inline void InputText_MoveCursorRight(InputText* text)
         while (text->cursor < text->length && ((unsigned char)text->buffer[text->cursor] & 0xC0) == 0x80)
             text->cursor++;
     }
+
+    text->moveDelta = 1.0f;
 }

@@ -69,9 +69,9 @@ void NU_GenerateDrawlists()
                 parent_inner_height = parent->node.height - parent->node.borderTop - parent->node.borderBottom - parent->node.padTop - parent->node.padBottom;
 
                 // Handle case where parent is a table with a thead
-                if (parent->type == TABLE && parent->childCount > 0) {
+                if (parent->type == NU_TABLE && parent->childCount > 0) {
                     NodeP* first_child = LayerGet(childlayer, parent->firstChildIndex);
-                    if (first_child->type == THEAD) {
+                    if (first_child->type == NU_THEAD) {
                         parent_inner_y += first_child->node.height;
                         parent_inner_height -= first_child->node.height;
                     }
@@ -99,7 +99,7 @@ void NU_GenerateDrawlists()
                 }
 
                 // skip child if overflowed parent's bounds
-                if (parent->node.layoutFlags & OVERFLOW_VERTICAL_SCROLL && child->type != THEAD) 
+                if (parent->node.layoutFlags & OVERFLOW_VERTICAL_SCROLL && child->type != NU_THEAD) 
                 {   
                     int intersect_state = NodeVerticalOverlapState(child, parent_inner_y, parent_inner_height);
 
@@ -179,7 +179,7 @@ void NU_GenerateDrawlists()
                 }
 
                 // append node to canvas API drawing list
-                if (child->type == CANVAS) {
+                if (child->type == NU_CANVAS) {
                     SetNodeDrawlist_Canvas(&__NGUI.winManager, child);
                 }
             }
@@ -393,7 +393,7 @@ void NU_Draw()
             }
 
             // construct text mesh for input node
-            else if (node->type == INPUT) {
+            else if (node->type == NU_INPUT) {
                 NU_ClipBounds clip = {0};
                 clip.clip_top = node->node.y;
                 clip.clip_left = node->node.x + node->node.borderLeft + node->node.padLeft;
@@ -403,7 +403,7 @@ void NU_Draw()
             }    
 
             // draw node image
-            if (node->typeData.image.glImageHandle && node->type != INPUT) {
+            if (node->typeData.image.glImageHandle && node->type != NU_INPUT) {
                 NU_DrawNodeImage(node, winW, winH);
             }
         }
@@ -427,13 +427,13 @@ void NU_Draw()
             if (node->node.textContent != NULL) { // draw node's textContent
                 NU_DrawClippedNodeTextContent(node, winW, winH, clip);
             }
-            else if (node->type == INPUT && node->typeData.input.inputText.length > 0) { // draw input node's text
+            else if (node->type == NU_INPUT && node->typeData.input.inputText.length > 0) { // draw input node's text
                 NU_ClipBounds innerClip = *clip;
                 innerClip.clip_left += node->node.borderLeft + node->node.padLeft;
                 innerClip.clip_right -= node->node.borderRight + node->node.padRight; 
                 NU_DrawInputNodeContent(node, winW, winH, &innerClip);
             }
-            if (node->typeData.image.glImageHandle && node->type != INPUT) { // draw node image
+            if (node->typeData.image.glImageHandle && node->type != NU_INPUT) { // draw node image
                 NU_DrawNodeImage(node, winW, winH);
             }
         }
@@ -474,7 +474,7 @@ void NU_Draw()
             }
 
             // construct text mesh for input node's text input
-            else if (node->type == INPUT && node->typeData.input.inputText.length > 0) {
+            else if (node->type == NU_INPUT && node->typeData.input.inputText.length > 0) {
                 NU_ClipBounds clip = {0};
                 clip.clip_top = node->node.y;
                 clip.clip_left = node->node.x + node->node.borderLeft + node->node.padLeft;
@@ -484,7 +484,7 @@ void NU_Draw()
             }
 
             // draw node image
-            if (node->typeData.image.glImageHandle && node->type != INPUT) {
+            if (node->typeData.image.glImageHandle && node->type != NU_INPUT) {
                 NU_DrawNodeImage(node, winW, winH);
             }
         }
@@ -508,13 +508,13 @@ void NU_Draw()
             if (node->node.textContent != NULL) { // draw node's textContent
                 NU_DrawClippedNodeTextContent(node, winW, winH, clip);
             }
-            else if (node->type == INPUT && node->typeData.input.inputText.length > 0) { // draw input node's text
+            else if (node->type == NU_INPUT && node->typeData.input.inputText.length > 0) { // draw input node's text
                 NU_ClipBounds innerClip = *clip;
                 innerClip.clip_left += node->node.borderLeft + node->node.padLeft;
                 innerClip.clip_right -= node->node.borderRight + node->node.padRight; 
                 NU_DrawInputNodeContent(node, winW, winH, &innerClip);
             }
-            if (node->typeData.image.glImageHandle && node->type != INPUT) { // draw node image
+            if (node->typeData.image.glImageHandle && node->type != NU_INPUT) { // draw node image
                 NU_DrawNodeImage(node, winW, winH);
             }
         }

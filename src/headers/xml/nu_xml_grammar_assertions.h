@@ -37,7 +37,7 @@ static int AssertNewTagGrammar(struct Vector* tokens, int i)
 {
     // ENFORCE RULE: NEXT TOKEN SHOULD BE TAG NAME 
     // ENFORCE RULE: THIRD TOKEN MUST BE CLOSE CLOSE_END OR PROPERTY
-    if (i < tokens->size - 2 && NU_TokenToNodeType(*((enum NU_XML_TOKEN*) Vector_Get(tokens, i+1))) != NAT)
+    if (i < tokens->size - 2 && NU_TokenToNodeType(*((enum NU_XML_TOKEN*) Vector_Get(tokens, i+1))) != NU_NAT)
     {
         enum NU_XML_TOKEN third_token = *((enum NU_XML_TOKEN*) Vector_Get(tokens, i+2));
         if (third_token == CLOSE_TAG || third_token == CLOSE_END_TAG || NU_Is_Token_Property(third_token)) return 1; // Success

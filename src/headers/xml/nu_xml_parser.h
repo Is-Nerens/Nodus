@@ -20,7 +20,7 @@ int NU_Generate_Tree(char* src, struct Vector* tokens, struct Vector* textRefs)
     // -----------------------
     // Create root window node
     // -----------------------
-    NodeP* rootNode = TreeCreate(&__NGUI.tree, 100, WINDOW);
+    NodeP* rootNode = TreeCreate(&__NGUI.tree, 100, NU_WINDOW);
     NU_ApplyNodeDefaults(rootNode);
     AssignRootWindow(&__NGUI.winManager, rootNode);
 
@@ -69,19 +69,19 @@ int NU_Generate_Tree(char* src, struct Vector* tokens, struct Vector* textRefs)
                 // Enforce type rules
                 // -----------------
                 NodeType type = NU_TokenToNodeType(*((enum NU_XML_TOKEN*) Vector_Get(tokens, i+1)));
-                if (ctx == 1 && type != ROW && type != THEAD) {
+                if (ctx == 1 && type != NU_ROW && type != NU_THEAD) {
                     printf("%s\n", "[Generate_Tree] Error! first child of <table> must be <row> or <thead>."); return 0;
                 }
-                else if (ctx == 2 && type == THEAD) {
+                else if (ctx == 2 && type == NU_THEAD) {
                     printf("%s\n", "[Generate_Tree] Error! <table> cannot have multiple <thead>."); return 0;
                 }
-                else if ((ctx == 2 || ctx == 3) && type != ROW) {
+                else if ((ctx == 2 || ctx == 3) && type != NU_ROW) {
                     printf("%s\n", "[Generate_Tree] Error! All children of <table> must be <row> (except optional first element <thead>)."); return 0;
                 }
-                else if (!(ctx == 1 || ctx == 2 || ctx == 3) && type == ROW) {
+                else if (!(ctx == 1 || ctx == 2 || ctx == 3) && type == NU_ROW) {
                     printf("%s\n", "[Generate_Tree] Error! <row> must have parent of type <table>."); return 0;
                 }
-                else if (ctx != 1 && type == THEAD) {
+                else if (ctx != 1 && type == NU_THEAD) {
                     printf("%s\n", "[Generate_Tree] Error! <thead> can only be the first child of <table>."); return 0;
                 }
 
@@ -98,42 +98,42 @@ int NU_Generate_Tree(char* src, struct Vector* tokens, struct Vector* textRefs)
                 // ----------------------------------------
                 // --- Handle scenarios for different tags
                 // ----------------------------------------
-                if (currentNode->type == WINDOW) { // If node is a window -> create SDL window
+                if (currentNode->type == NU_WINDOW) { // If node is a window -> create SDL window
                     CreateSubwindow(&__NGUI.winManager, currentNode);
                 }
-                else if (currentNode->type == TABLE) {
+                else if (currentNode->type == NU_TABLE) {
                     currentNode->node.inlineStyleFlags |= 1ULL << 0; // Enforce vertical direction
                     currentNode->node.layoutFlags |= LAYOUT_VERTICAL;
                     ctx = 1;
                 } 
-                else if (currentNode->type == THEAD) {
+                else if (currentNode->type == NU_THEAD) {
                     currentNode->node.inlineStyleFlags |= 1ULL << 1; // Enforce horizontal growth
                     currentNode->node.layoutFlags |= GROW_HORIZONTAL;
                     ctx = 4;
                 }
-                else if (currentNode->type == ROW) {
+                else if (currentNode->type == NU_ROW) {
                     currentNode->node.inlineStyleFlags |= 1ULL << 1; // Enforce horizontal growth
                     currentNode->node.layoutFlags |= GROW_HORIZONTAL;
                     if (ctx == 1 || ctx == 3) ctx = 6;
                     else ctx = 5;
                 }
-                else if (currentNode->type == CANVAS) { // Create canvas context
+                else if (currentNode->type == NU_CANVAS) { // Create canvas context
                     NU_Add_Canvas_Context(currentNode->handle);
                 }
-                else if (currentNode->type == INPUT) {
+                else if (currentNode->type == NU_INPUT) {
                     InputText_Init(&currentNode->typeData.input.inputText);
                 }
 
                 // -------------------------------
                 // Add node to parent's child list
                 // -------------------------------
-                if (currentNode->type != WINDOW) {
+                if (currentNode->type != NU_WINDOW) {
                     currentNode->node.window = parentNode->node.window; // Inherit window from parent
                 } 
                 if (parentNode->childCount == 0) {
                     parentNode->firstChildIndex = currentNode->index; // If first child in parent
                 }
-                if (parentNode->type == ROW || parentNode->type == THEAD) {
+                if (parentNode->type == NU_ROW || parentNode->type == NU_THEAD) {
                     currentNode->node.inlineStyleFlags |= 1ULL << 1;
                     currentNode->node.layoutFlags |= GROW_VERTICAL;
                 }
@@ -170,9 +170,9 @@ int NU_Generate_Tree(char* src, struct Vector* tokens, struct Vector* textRefs)
             }
 
             // Multi node structure context switch
-            if (openNode->type == TABLE) ctx = 0;      // <table> closes
-            else if (openNode->type == THEAD) ctx = 2; // <thead> closes
-            else if (openNode->type == ROW) {          // <row> closes
+            if (openNode->type == NU_TABLE) ctx = 0;      // <table> closes
+            else if (openNode->type == NU_THEAD) ctx = 2; // <thead> closes
+            else if (openNode->type == NU_ROW) {          // <row> closes
                 if (ctx == 5) ctx = 2;
                 else ctx = 3;
             } 
@@ -188,9 +188,9 @@ int NU_Generate_Tree(char* src, struct Vector* tokens, struct Vector* textRefs)
         if (token == CLOSE_END_TAG)
         {
             // Multi node structure context switch
-            if (currentNode->type == TABLE) ctx = 0;      // <table> closes 
-            else if (currentNode->type == THEAD) ctx = 2; // <thead> closes
-            else if (currentNode->type == ROW) {          // <row> closes
+            if (currentNode->type == NU_TABLE) ctx = 0;      // <table> closes 
+            else if (currentNode->type == NU_THEAD) ctx = 2; // <thead> closes
+            else if (currentNode->type == NU_ROW) {          // <row> closes
                 if (ctx == 5) ctx = 2;
                 else ctx = 3;
             } 
@@ -206,10 +206,10 @@ int NU_Generate_Tree(char* src, struct Vector* tokens, struct Vector* textRefs)
         // ------------
         if (token == TEXT_CONTENT)
         {
-            if (currentNode->type == WINDOW || 
-                currentNode->type == BOX    ||
-                currentNode->type == BUTTON ||
-                currentNode->type == IMAGE) 
+            if (currentNode->type == NU_WINDOW || 
+                currentNode->type == NU_BOX    ||
+                currentNode->type == NU_BUTTON ||
+                currentNode->type == NU_IMAGE) 
             {
                 current_text_ref = Vector_Get(textRefs, text_ref_index);
                 char c = src[current_text_ref->src_index];

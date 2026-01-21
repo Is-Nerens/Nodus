@@ -123,7 +123,7 @@ void NU_Mouse_Hover()
         stack.size -= 1;
 
         // skip children
-        if (current_node->type == BUTTON) continue;
+        if (current_node->type == NU_BUTTON) continue;
 
         // iterate over children
         Layer* childlayer = &__NGUI.tree.layers[current_node->layer+1];
@@ -132,7 +132,7 @@ void NU_Mouse_Hover()
             NodeP* child = LayerGet(childlayer, i);
             if (child->state == 2 || 
                 child->node.layoutFlags & POSITION_ABSOLUTE || 
-                child->type == WINDOW ||
+                child->type == NU_WINDOW ||
                 !NU_MouseIsOverNode(child, mouseX, mouseY)) continue; // Skip
 
             // check for scroll hover

@@ -208,7 +208,7 @@ bool EventWatcher(void* data, SDL_Event* event)
     // -----------------------------------------------------------------------------------
     else if (event->type == SDL_EVENT_TEXT_INPUT) {
         NodeP* focusedNode = NODE_P(__NGUI.focused_node);
-        if (focusedNode->type == INPUT && focusedNode->node.eventFlags & NU_EVENT_FLAG_ON_INPUT_CHANGED) {
+        if (focusedNode->type == NU_INPUT && focusedNode->node.eventFlags & NU_EVENT_FLAG_ON_INPUT_CHANGED) {
 
             InputText_Write(&focusedNode->typeData.input.inputText, event->text.text);
 
@@ -372,7 +372,7 @@ bool EventWatcher(void* data, SDL_Event* event)
         __NGUI.focused_node = __NGUI.hovered_node;
 
         // toggle SDL_TextInput based on focus node type
-        if (NODE_P(__NGUI.focused_node)->type == INPUT) {
+        if (NODE_P(__NGUI.focused_node)->type == NU_INPUT) {
             SDL_StartTextInput(NODE(__NGUI.focused_node)->window);
         } else {
             SDL_StopTextInput(NODE(__NGUI.hovered_node)->window);

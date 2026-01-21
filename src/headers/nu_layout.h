@@ -129,7 +129,7 @@ static void NU_CalculateFitSizeWidths()
             int is_layout_horizontal = !(parent->node.layoutFlags & LAYOUT_VERTICAL);
 
             // If parent is a window -> set dimensions equal to window
-            if (parent->type == WINDOW) {
+            if (parent->type == NU_WINDOW) {
                 int winWidth, winHeight;
                 SDL_GetWindowSize(parent->node.window, &winWidth, &winHeight);
                 parent->node.width = (float)winWidth;
@@ -146,7 +146,7 @@ static void NU_CalculateFitSizeWidths()
                 NodeP* child = LayerGet(childlayer, i); 
 
                 // Ignore if child is hidden or window or absolutely positioned
-                if (child->state == 2 || child->type == WINDOW || child->node.layoutFlags & POSITION_ABSOLUTE) continue; 
+                if (child->state == 2 || child->type == NU_WINDOW || child->node.layoutFlags & POSITION_ABSOLUTE) continue; 
 
                 // Horizontal Layout
                 if (is_layout_horizontal) parent->node.contentWidth += child->node.width;
@@ -159,7 +159,7 @@ static void NU_CalculateFitSizeWidths()
 
             // Expand parent width to account for content width
             if (is_layout_horizontal && visible_children > 0) parent->node.contentWidth += (visible_children - 1) * parent->node.gap;
-            if (parent->type != WINDOW && parent->node.contentWidth > parent->node.width) {
+            if (parent->type != NU_WINDOW && parent->node.contentWidth > parent->node.width) {
                 parent->node.width = parent->node.contentWidth + parent->node.borderLeft + parent->node.borderRight + parent->node.padLeft + parent->node.padRight;
                 NU_ApplyMinMaxWidthConstraint(parent);
             }
@@ -192,7 +192,7 @@ static void NU_CalculateFitSizeHeights()
                 NodeP* child = LayerGet(childlayer, i);
 
                 // Ignore if child is hidden or window or absolutely positioned
-                if (child->state == 2 || child->type == WINDOW || child->node.layoutFlags & POSITION_ABSOLUTE) continue;
+                if (child->state == 2 || child->type == NU_WINDOW || child->node.layoutFlags & POSITION_ABSOLUTE) continue;
 
                 // Horizontal Layout
                 if (is_layout_horizontal) parent->node.contentHeight = MAX(parent->node.contentHeight, child->node.height);
@@ -205,7 +205,7 @@ static void NU_CalculateFitSizeHeights()
 
             // Expand parent height to account for content height
             if (!is_layout_horizontal && visible_children > 0) parent->node.contentHeight += (visible_children - 1) * parent->node.gap;
-            if (parent->type != WINDOW) {
+            if (parent->type != NU_WINDOW) {
                 if (!(parent->node.layoutFlags & OVERFLOW_VERTICAL_SCROLL)) parent->node.height = parent->node.contentHeight + parent->node.borderTop + parent->node.borderBottom + parent->node.padTop + parent->node.padBottom;
                 NU_ApplyMinMaxHeightConstraint(parent);
             }
@@ -222,7 +222,7 @@ static void NU_GrowShrinkChildWidths(NodeP* parent, Layer* childlayer)
     // ---------------------------------------------------------------------------------------
     for (uint32_t i=parent->firstChildIndex; i<parent->firstChildIndex + parent->childCount; i++)
     {
-        NodeP* child = LayerGet(childlayer, i); if (child->state == 2 || child->type == WINDOW || !(child->node.layoutFlags & POSITION_ABSOLUTE)) continue;
+        NodeP* child = LayerGet(childlayer, i); if (child->state == 2 || child->type == NU_WINDOW || !(child->node.layoutFlags & POSITION_ABSOLUTE)) continue;
         if (child->node.left > 0.0f && child->node.right > 0.0f) {
             float expanded_width = remaining_width - child->node.left - child->node.right;
             if (expanded_width > child->node.width) child->node.width = expanded_width;
@@ -239,7 +239,7 @@ static void NU_GrowShrinkChildWidths(NodeP* parent, Layer* childlayer)
     {   
         for (uint32_t i=parent->firstChildIndex; i<parent->firstChildIndex + parent->childCount; i++)
         {
-            NodeP* child = LayerGet(childlayer, i); if (child->state == 2 || child->type == WINDOW || child->node.layoutFlags & POSITION_ABSOLUTE) continue;
+            NodeP* child = LayerGet(childlayer, i); if (child->state == 2 || child->type == NU_WINDOW || child->node.layoutFlags & POSITION_ABSOLUTE) continue;
             if (child->node.layoutFlags & GROW_HORIZONTAL && remaining_width > child->node.width)
             {
                 float pad_and_border = child->node.padLeft + child->node.padRight + child->node.borderLeft + child->node.borderRight;
@@ -262,9 +262,9 @@ static void NU_GrowShrinkChildWidths(NodeP* parent, Layer* childlayer)
         int visible_children = 0;
         for (uint32_t i=parent->firstChildIndex; i<parent->firstChildIndex + parent->childCount; i++)
         {
-            NodeP* child = LayerGet(childlayer, i); if (child->state == 2 || child->type == WINDOW  || child->node.layoutFlags & POSITION_ABSOLUTE) continue;
+            NodeP* child = LayerGet(childlayer, i); if (child->state == 2 || child->type == NU_WINDOW  || child->node.layoutFlags & POSITION_ABSOLUTE) continue;
             else remaining_width -= child->node.width;
-            if (child->node.layoutFlags & GROW_HORIZONTAL && child->type != WINDOW) growable_count++;
+            if (child->node.layoutFlags & GROW_HORIZONTAL && child->type != NU_WINDOW) growable_count++;
             visible_children++;
         }
         remaining_width -= (visible_children - 1) * parent->node.gap;
@@ -282,7 +282,7 @@ static void NU_GrowShrinkChildWidths(NodeP* parent, Layer* childlayer)
             float second_smallest = 1e30f;
             growable_count = 0;
             for (uint32_t i=parent->firstChildIndex; i<parent->firstChildIndex + parent->childCount; i++) {
-                NodeP* child = LayerGet(childlayer, i); if (child->state == 2 || child->type == WINDOW || child->node.layoutFlags & POSITION_ABSOLUTE) continue;
+                NodeP* child = LayerGet(childlayer, i); if (child->state == 2 || child->type == NU_WINDOW || child->node.layoutFlags & POSITION_ABSOLUTE) continue;
                 if ((child->node.layoutFlags & GROW_HORIZONTAL) && child->node.width < child->node.maxWidth) {
                     growable_count++;
                     if (child->node.width < smallest) {
@@ -307,7 +307,7 @@ static void NU_GrowShrinkChildWidths(NodeP* parent, Layer* childlayer)
             // -----------------------------------------
             bool grew_any = false;
             for (uint32_t i=parent->firstChildIndex; i<parent->firstChildIndex + parent->childCount; i++) {
-                NodeP* child = LayerGet(childlayer, i); if (child->state == 2 || child->type == WINDOW || child->node.layoutFlags & POSITION_ABSOLUTE) continue;        
+                NodeP* child = LayerGet(childlayer, i); if (child->state == 2 || child->type == NU_WINDOW || child->node.layoutFlags & POSITION_ABSOLUTE) continue;        
                 if (child->node.layoutFlags & GROW_HORIZONTAL && child->node.width < child->node.maxWidth) { // if child is growable
                     if (child->node.width == smallest) {
                         float available = child->node.maxWidth - child->node.width;
@@ -336,7 +336,7 @@ static void NU_GrowShrinkChildWidths(NodeP* parent, Layer* childlayer)
             float second_largest = -1e30f;
             int shrinkable_count = 0;
             for (uint32_t i = parent->firstChildIndex; i<parent->firstChildIndex + parent->childCount; i++) {
-                NodeP* child = LayerGet(childlayer, i); if (child->state == 2 || child->type == WINDOW || child->node.layoutFlags & POSITION_ABSOLUTE) continue;
+                NodeP* child = LayerGet(childlayer, i); if (child->state == 2 || child->type == NU_WINDOW || child->node.layoutFlags & POSITION_ABSOLUTE) continue;
                 if ((child->node.layoutFlags & GROW_HORIZONTAL) && child->node.width > child->node.minWidth) {
                     shrinkable_count++;
                     if (child->node.width > largest) {
@@ -361,7 +361,7 @@ static void NU_GrowShrinkChildWidths(NodeP* parent, Layer* childlayer)
             // -------------------------------------------
             bool shrunk_any = false;
             for (uint32_t i=parent->firstChildIndex; i<parent->firstChildIndex + parent->childCount; i++) {
-                NodeP* child = LayerGet(childlayer, i); if (child->state == 2 || child->type == WINDOW || child->node.layoutFlags & POSITION_ABSOLUTE) continue;
+                NodeP* child = LayerGet(childlayer, i); if (child->state == 2 || child->type == NU_WINDOW || child->node.layoutFlags & POSITION_ABSOLUTE) continue;
                 if ((child->node.layoutFlags & GROW_HORIZONTAL) && child->node.width > child->node.minWidth) {
                     if (child->node.width == largest) {
                         float available = child->node.width - child->node.minWidth;
@@ -389,7 +389,7 @@ static void NU_GrowShrinkChildHeights(NodeP* parent, Layer* childlayer)
     // ----------------------------------------------------------------------------------------
     for (uint32_t i=parent->firstChildIndex; i<parent->firstChildIndex + parent->childCount; i++)
     {
-        NodeP* child = LayerGet(childlayer, i); if (child->state == 2 || child->type == WINDOW || !(child->node.layoutFlags & POSITION_ABSOLUTE)) continue;
+        NodeP* child = LayerGet(childlayer, i); if (child->state == 2 || child->type == NU_WINDOW || !(child->node.layoutFlags & POSITION_ABSOLUTE)) continue;
         if (child->node.top > 0.0f && child->node.bottom > 0.0f) {
             float expanded_height = remaining_height - child->node.top - child->node.bottom;
             if (expanded_height > child->node.height) child->node.height = expanded_height;
@@ -403,7 +403,7 @@ static void NU_GrowShrinkChildHeights(NodeP* parent, Layer* childlayer)
     {
         for (uint32_t i=parent->firstChildIndex; i<parent->firstChildIndex + parent->childCount; i++)
         {
-            NodeP* child = LayerGet(childlayer, i); if (child->state == 2 || child->type == WINDOW || child->node.layoutFlags & POSITION_ABSOLUTE) continue;
+            NodeP* child = LayerGet(childlayer, i); if (child->state == 2 || child->type == NU_WINDOW || child->node.layoutFlags & POSITION_ABSOLUTE) continue;
             if (child->node.layoutFlags & GROW_VERTICAL && remaining_height > child->node.height)
             {  
                 float pad_and_border = child->node.padTop + child->node.padBottom + child->node.borderTop + child->node.borderBottom;
@@ -423,9 +423,9 @@ static void NU_GrowShrinkChildHeights(NodeP* parent, Layer* childlayer)
         for (uint32_t i=parent->firstChildIndex; i<parent->firstChildIndex + parent->childCount; i++)
         {
             NodeP* child = LayerGet(childlayer, i);
-            if (child->state == 2 || child->type == WINDOW || child->node.layoutFlags & POSITION_ABSOLUTE) continue;
+            if (child->state == 2 || child->type == NU_WINDOW || child->node.layoutFlags & POSITION_ABSOLUTE) continue;
             else remaining_height -= child->node.height;
-            if (child->node.layoutFlags & GROW_VERTICAL && child->type != WINDOW) growable_count++;
+            if (child->node.layoutFlags & GROW_VERTICAL && child->type != NU_WINDOW) growable_count++;
             visible_children++;
         }
         remaining_height -= (visible_children - 1) * parent->node.gap;
@@ -443,7 +443,7 @@ static void NU_GrowShrinkChildHeights(NodeP* parent, Layer* childlayer)
             float second_smallest = 1e30f;
             growable_count = 0;
             for (uint32_t i=parent->firstChildIndex; i< parent->firstChildIndex + parent->childCount; i++) {
-                NodeP* child = LayerGet(childlayer, i); if (child->state == 2 || child->type == WINDOW || child->node.layoutFlags & POSITION_ABSOLUTE) continue;
+                NodeP* child = LayerGet(childlayer, i); if (child->state == 2 || child->type == NU_WINDOW || child->node.layoutFlags & POSITION_ABSOLUTE) continue;
                 if ((child->node.layoutFlags & GROW_VERTICAL) && child->node.height < child->node.maxHeight) {
                     growable_count++;
                     if (child->node.height < smallest) {
@@ -468,7 +468,7 @@ static void NU_GrowShrinkChildHeights(NodeP* parent, Layer* childlayer)
             // ------------------------------------------
             bool grew_any = false;
             for (uint32_t i=parent->firstChildIndex; i<parent->firstChildIndex + parent->childCount; i++) {
-                NodeP* child = LayerGet(childlayer, i); if (child->state == 2 || child->type == WINDOW || child->node.layoutFlags & POSITION_ABSOLUTE) continue;
+                NodeP* child = LayerGet(childlayer, i); if (child->state == 2 || child->type == NU_WINDOW || child->node.layoutFlags & POSITION_ABSOLUTE) continue;
                 if (child->node.layoutFlags & GROW_VERTICAL && child->node.height < child->node.maxHeight) { // if child is growable
                     if (child->node.height == smallest) {
                         float available = child->node.maxHeight - child->node.height;
@@ -497,7 +497,7 @@ static void NU_GrowShrinkChildHeights(NodeP* parent, Layer* childlayer)
             float second_largest = -1e30f;
             int shrinkable_count = 0;
             for (uint32_t i = parent->firstChildIndex; i<parent->firstChildIndex + parent->childCount; i++) {
-                NodeP* child = LayerGet(childlayer, i); if (child->state == 2 || child->type == WINDOW || child->node.layoutFlags & POSITION_ABSOLUTE) continue;
+                NodeP* child = LayerGet(childlayer, i); if (child->state == 2 || child->type == NU_WINDOW || child->node.layoutFlags & POSITION_ABSOLUTE) continue;
                 if ((child->node.layoutFlags & GROW_VERTICAL) && child->node.height > child->node.minHeight) {
                     shrinkable_count++;
                     if (child->node.height > largest) {
@@ -522,7 +522,7 @@ static void NU_GrowShrinkChildHeights(NodeP* parent, Layer* childlayer)
             // -------------------------------------------
             bool shrunk_any = false;
             for (uint32_t i=parent->firstChildIndex; i<parent->firstChildIndex + parent->childCount; i++) {
-                NodeP* child = LayerGet(childlayer, i); if (child->state == 2 || child->type == WINDOW || child->node.layoutFlags & POSITION_ABSOLUTE) continue;
+                NodeP* child = LayerGet(childlayer, i); if (child->state == 2 || child->type == NU_WINDOW || child->node.layoutFlags & POSITION_ABSOLUTE) continue;
                 if ((child->node.layoutFlags & GROW_VERTICAL) && child->node.height > child->node.minHeight) {
                     if (child->node.height == largest) {
                         float available = child->node.height - child->node.minHeight;
@@ -551,7 +551,7 @@ static void NU_GrowShrinkWidths()
         for (int p=0; p<parentlayer->size; p++)
         {       
             NodeP* parent = LayerGet(parentlayer, p);
-            if (parent->state == 0 || parent->state == 2 || parent->type == ROW || parent->type == TABLE) continue;
+            if (parent->state == 0 || parent->state == 2 || parent->type == NU_ROW || parent->type == NU_TABLE) continue;
 
             NU_GrowShrinkChildWidths(parent, childlayer);
         }
@@ -568,7 +568,7 @@ static void NU_GrowShrinkHeights()
         for (int p=0; p<parentlayer->size; p++)
         {       
             NodeP* parent = LayerGet(parentlayer, p);
-            if (parent->state == 0 || parent->state == 2 || parent->type == TABLE) continue;
+            if (parent->state == 0 || parent->state == 2 || parent->type == NU_TABLE) continue;
 
             NU_GrowShrinkChildHeights(parent, childlayer);
         }
@@ -584,7 +584,7 @@ static void NU_CalculateTableColumnWidths()
         for (int i=0; i<table_layer->size; i++)
         {       
             NodeP* table = LayerGet(table_layer, i);
-            if (table->state == 0 || table->state == 2 || table->type != TABLE || table->childCount == 0) continue;
+            if (table->state == 0 || table->state == 2 || table->type != NU_TABLE || table->childCount == 0) continue;
 
 
             struct Vector widest_cell_in_each_column;
@@ -699,7 +699,7 @@ static void NU_CalculateTextContentAndInputTextHeights()
                 // Update content height
                 node->node.contentHeight = text_height;
             }
-            else if (node->type == INPUT)
+            else if (node->type == NU_INPUT)
             {
                 NU_Font* node_font = Vector_Get(&__NGUI.stylesheet->fonts, node->node.fontId);
 
@@ -720,7 +720,7 @@ static void NU_PositionChildrenHorizontally(NodeP* parent, Layer* childlayer)
         for (uint32_t i=parent->firstChildIndex; i<parent->firstChildIndex + parent->childCount; i++)
         {
             NodeP* child = LayerGet(childlayer, i); 
-            if (child->state == 2 || child->type == WINDOW) continue;
+            if (child->state == 2 || child->type == NU_WINDOW) continue;
 
             if (!(child->node.layoutFlags & POSITION_ABSOLUTE)) { // position relative
                 float remaning_width = (parent->node.width - parent->node.padLeft - parent->node.padRight - parent->node.borderLeft - parent->node.borderRight) - child->node.width;
@@ -749,7 +749,7 @@ static void NU_PositionChildrenHorizontally(NodeP* parent, Layer* childlayer)
         int numChildrenAffectingWidth = 0;
         for (uint32_t i=parent->firstChildIndex; i<parent->firstChildIndex + parent->childCount; i++) {
             NodeP* child = LayerGet(childlayer, i);
-            if (child->state == 2 || child->type == WINDOW || child->node.layoutFlags & POSITION_ABSOLUTE) continue;
+            if (child->state == 2 || child->type == NU_WINDOW || child->node.layoutFlags & POSITION_ABSOLUTE) continue;
             remainingWidth -= child->node.width; numChildrenAffectingWidth++;
         }
         remainingWidth -= parent->node.gap * (numChildrenAffectingWidth - 1);
@@ -761,7 +761,7 @@ static void NU_PositionChildrenHorizontally(NodeP* parent, Layer* childlayer)
         for (uint32_t i=parent->firstChildIndex; i<parent->firstChildIndex + parent->childCount; i++)
         {
             NodeP* child = LayerGet(childlayer, i); 
-            if (child->state == 2 || child->type == WINDOW) continue;
+            if (child->state == 2 || child->type == NU_WINDOW) continue;
             
             if (!(child->node.layoutFlags & POSITION_ABSOLUTE)) { // position relative
                 float x_align_offset = remainingWidth * 0.5f * (float)parent->node.horizontalAlignment;
@@ -800,7 +800,7 @@ static void NU_PositionChildrenVertically(NodeP* parent, Layer* childlayer)
 
         // undo effect of scroll offset for table header row
         NodeP* first_child = LayerGet(childlayer, parent->firstChildIndex);
-        if (first_child->state != 2 && first_child->type == THEAD) {
+        if (first_child->state != 2 && first_child->type == NU_THEAD) {
             first_child->node.y -= y_scroll_offset;
         }
     }
@@ -811,7 +811,7 @@ static void NU_PositionChildrenVertically(NodeP* parent, Layer* childlayer)
         for (uint32_t i=parent->firstChildIndex; i<parent->firstChildIndex + parent->childCount; i++)
         {
             NodeP* child = LayerGet(childlayer, i); 
-            if (child->state == 2 || child->type == WINDOW) continue;
+            if (child->state == 2 || child->type == NU_WINDOW) continue;
 
             if (!(child->node.layoutFlags & POSITION_ABSOLUTE)) { // position relative
                 float remaining_height = (parent->node.height - parent->node.padTop - parent->node.padBottom - parent->node.borderTop - parent->node.borderBottom) - child->node.height;
@@ -840,7 +840,7 @@ static void NU_PositionChildrenVertically(NodeP* parent, Layer* childlayer)
         int numChildrenAffectingHeight = 0;
         for (uint32_t i=parent->firstChildIndex; i<parent->firstChildIndex + parent->childCount; i++) {
             NodeP* child = LayerGet(childlayer, i);
-            if (child->state == 2 || child->type == WINDOW || child->node.layoutFlags & POSITION_ABSOLUTE) continue;
+            if (child->state == 2 || child->type == NU_WINDOW || child->node.layoutFlags & POSITION_ABSOLUTE) continue;
             remainingHeight -= child->node.height; numChildrenAffectingHeight++;
         }
         remainingHeight -= parent->node.gap * (numChildrenAffectingHeight - 1);
@@ -852,7 +852,7 @@ static void NU_PositionChildrenVertically(NodeP* parent, Layer* childlayer)
         for (uint32_t i=parent->firstChildIndex; i<parent->firstChildIndex + parent->childCount; i++)
         {
             NodeP* child = LayerGet(childlayer, i);
-            if (child->state == 2 || child->type == WINDOW) continue;
+            if (child->state == 2 || child->type == NU_WINDOW) continue;
 
             if (!(child->node.layoutFlags & POSITION_ABSOLUTE)) { // position relative
                 float y_align_offset = remainingHeight * 0.5f * (float)parent->node.verticalAlignment;
@@ -886,7 +886,7 @@ static void NU_CalculatePositions()
             NodeP* parent = LayerGet(parentlayer, p);
             if (parent->state == 0 || parent->state == 2) continue;
 
-            if (parent->type == WINDOW)
+            if (parent->type == NU_WINDOW)
             {
                 parent->node.x = 0;
                 parent->node.y = 0;

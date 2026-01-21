@@ -25,7 +25,7 @@ void NU_Internal_Border_Rect(
     NU_RGB* fill_col)
 {
     NodeP* canvas_node = NODE_P(canvas_handle);
-    if (canvas_node->type != CANVAS) return;
+    if (canvas_node->type != NU_CANVAS) return;
 
     NU_Canvas_Context* canvas_context = HashmapGet(&__NGUI.canvas_contexts, &canvas_handle);
     Vertex_RGB_List* vertices = &canvas_context->vertices;
@@ -182,7 +182,7 @@ void NU_Internal_Line(
 )
 {
     NodeP* canvas_node = NODE_P(canvas_handle);
-    if (canvas_node->type != CANVAS) return;
+    if (canvas_node->type != NU_CANVAS) return;
 
     NU_Canvas_Context* canvas_context = HashmapGet(&__NGUI.canvas_contexts, &canvas_handle);
     Vertex_RGB_List* vertices = &canvas_context->vertices;
@@ -267,7 +267,7 @@ void NU_Internal_Dashed_Line(
 )
 {
     NodeP* canvas_node = NODE_P(canvas_handle);
-    if (canvas_node->type != CANVAS) return;
+    if (canvas_node->type != NU_CANVAS) return;
 
 
     // Calculate min number of additional vertices + indices

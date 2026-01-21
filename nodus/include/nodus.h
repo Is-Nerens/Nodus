@@ -19,7 +19,7 @@ typedef struct NU_Stylesheet NU_Stylesheet;
 // Visible structs
 typedef enum NodeType
 {
-    WINDOW, BOX, BUTTON, INPUT, CANVAS, IMAGE, TABLE, THEAD, ROW, NAT,
+    NU_WINDOW, NU_BOX, NU_BUTTON, NU_INPUT, NU_CANVAS, NU_IMAGE, NU_TABLE, NU_THEAD, NU_ROW, NU_NAT,
 } NodeType;
 
 typedef struct Node
@@ -124,6 +124,7 @@ __declspec(dllimport) inline uint32_t NU_CHILD(uint32_t nodeHandle, uint32_t chi
 __declspec(dllimport) inline uint32_t* NU_CHILD_COUNT(uint32_t nodeHandle);
 __declspec(dllimport) inline uint32_t NU_DEPTH(uint32_t nodeHandle);
 __declspec(dllimport) inline uint32_t NU_CREATE_NODE(uint32_t parentHandle, NodeType type);
+__declspec(dllimport) inline const char* NU_INPUT_TEXT_CONTENT(uint32_t nodeHandle);
 __declspec(dllimport) inline void NU_SHOW(uint32_t nodeHandle);
 __declspec(dllimport) inline void NU_HIDE(uint32_t nodeHandle);
 __declspec(dllimport) inline void NU_DELETE_NODE(uint32_t nodeHandle);

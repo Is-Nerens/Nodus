@@ -4,7 +4,7 @@
 
 void NU_DissociateNode(NodeP* node)
 {
-    if (node->type == WINDOW) {
+    if (node->type == NU_WINDOW) {
         SDL_DestroyWindow(node->node.window);
     }
     if (node->node.textContent != NULL) {
@@ -53,7 +53,7 @@ void NU_DissociateNode(NodeP* node)
     if (node->handle == __NGUI.scroll_mouse_down_node) {
         __NGUI.scroll_mouse_down_node = UINT32_MAX;
     }
-    if (node->type == CANVAS) {
+    if (node->type == NU_CANVAS) {
         HashmapDelete(&__NGUI.canvas_contexts, &node->handle);
     }
 }
@@ -163,7 +163,7 @@ inline u32 DEPTH(u32 nodeHandle)
 
 inline u32 CREATE_NODE(u32 parentHandle, NodeType type)
 {
-    if (type == WINDOW) return UINT32_MAX; // Nodus doesn't yet support window creation
+    if (type == NU_WINDOW) return UINT32_MAX; // Nodus doesn't yet support window creation
     u32 nodeHandle = TreeCreateNode(&__NGUI.tree, parentHandle, type);
     NodeP* node = NodeTableGet(&__NGUI.tree.table, nodeHandle);
     NU_ApplyNodeDefaults(node);
@@ -176,6 +176,13 @@ inline void DELETE_NODE(u32 nodeHandle)
     NodeP* nodeP = NodeTableGet(&__NGUI.tree.table, nodeHandle);
     if (nodeP == NULL) return;
     return TreeDeleteNode(&__NGUI.tree, nodeHandle, NU_DissociateNode);
+}
+
+inline const char* INPUT_TEXT_CONTENT(u32 nodeHandle)
+{
+    NodeP* nodeP = NodeTableGet(&__NGUI.tree.table, nodeHandle);
+    if (nodeP == NULL || nodeP->type != NU_INPUT) return NULL;
+    return nodeP->typeData.input.inputText.buffer;
 }
 
 inline void SHOW(u32 nodeHandle)

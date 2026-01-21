@@ -54,6 +54,9 @@ __declspec(dllexport) uint32_t NU_CREATE_NODE(uint32_t parentHandle, NodeType ty
 __declspec(dllexport) void NU_DELETE_NODE(uint32_t nodeHandle) {
     DELETE_NODE(nodeHandle);
 }
+__declspec(dllexport) inline const char* NU_INPUT_TEXT_CONTENT(uint32_t nodeHandle) {
+    return INPUT_TEXT_CONTENT(nodeHandle);
+}
 __declspec(dllexport) inline void NU_HIDE(uint32_t nodeHandle) {
     HIDE(nodeHandle);
 }

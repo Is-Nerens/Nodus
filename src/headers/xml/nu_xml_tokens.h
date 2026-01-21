@@ -186,7 +186,7 @@ enum NU_XML_TOKEN NU_Word_To_Property_Token(char* word, uint8_t wordLen)
 NodeType NU_TokenToNodeType(enum NU_XML_TOKEN NU_XML_TOKEN)
 {
     int tag_candidate = NU_XML_TOKEN - NU_XML_PROPERTY_COUNT;
-    if (tag_candidate < 0 || tag_candidate > 8) return NAT;
+    if (tag_candidate < 0 || tag_candidate > 8) return NU_NAT;
     return tag_candidate;
 }
 

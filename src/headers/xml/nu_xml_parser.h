@@ -600,6 +600,7 @@ int NU_Generate_Tree(char* src, struct Vector* tokens, struct Vector* textRefs)
 
                     // Image source
                     case IMAGE_SOURCE_PROPERTY:
+                        if (currentNode->type != NU_IMAGE) break;
                         void* found = LinearStringmapGet(&imageFilepathToHandleMap, ptext);
                         if (found == NULL) {
                             GLuint image_handle = Image_Load(ptext);
@@ -610,6 +611,26 @@ int NU_Generate_Tree(char* src, struct Vector* tokens, struct Vector* textRefs)
                         } 
                         else { currentNode->typeData.image.glImageHandle = *(GLuint*)found; }
                         currentNode->node.inlineStyleFlags |= ((uint64_t)1ULL << 37);
+                        break;
+
+                    // Input type property
+                    case INPUT_TYPE_PROPERTY:
+                        if (currentNode->type != NU_INPUT) break;
+                        currentNode->node.inlineStyleFlags |= ((uint64_t)1ULL << 38);
+                        if (strcmp(ptext, "number") == 0) {
+                            currentNode->typeData.input.inputText.type = 1;
+                        } else {
+                            currentNode->typeData.input.inputText.type = 0;
+                        }
+                        break;
+                    
+                    // Input decimals property
+                    case INPUT_DECIMALS_PROPERTY:
+                        if (currentNode->type != NU_INPUT) break;
+                        if (String_To_uint8_t(&property_uint8, ptext)) {
+                            currentNode->node.inlineStyleFlags |= ((uint64_t)1ULL << 39);
+                            currentNode->typeData.input.inputText.decimals = property_uint8;
+                        }
                         break;
 
                     default:

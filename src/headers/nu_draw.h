@@ -232,10 +232,10 @@ void NU_DrawInputNodeContent(
     if (__NGUI.focused_node != UINT32_MAX && node->handle == __NGUI.focused_node) {
 
         // calculate text width from start to cursor
-        char temp = inputText->buffer[inputText->cursor];
-        inputText->buffer[inputText->cursor] = '\0';
+        char temp = inputText->buffer[inputText->cursorBytes];
+        inputText->buffer[inputText->cursorBytes] = '\0';
         float preCursorTextWidth = NU_Calculate_Text_Unwrapped_Width(node_font, inputText->buffer);
-        inputText->buffer[inputText->cursor] = temp;
+        inputText->buffer[inputText->cursorBytes] = temp;
 
         // calculate inner input width
         float innerWidth = node->node.width
@@ -339,7 +339,6 @@ void NU_Draw()
         float winW, winH; GetWindowSize(window, &winW, &winH);
         
 
-
         // --------------------------------------------------------------------------------------------------------
         // --- Draw Relative Positioned Nodes [First Draw Pass] ===================================================
         // --------------------------------------------------------------------------------------------------------
@@ -379,7 +378,7 @@ void NU_Draw()
                 offset_x, offset_y,
                 clip_top, clip_bottom, clip_left, clip_right 
             );
-        }
+        }   
 
         // construct text meshes and draw images
         for (uint32_t n=0; n<drawList->relativeNodes.size; n++) 
@@ -416,12 +415,12 @@ void NU_Draw()
             text_vertices->size = 0;
             text_indices->size = 0;
         }
-
+    
         // draw partially visible nodes
         for (uint32_t n=0; n<drawList->clippedRelativeNodes.size; n++) {
             NodeP* node = *(NodeP**)Vector_Get(&drawList->clippedRelativeNodes, n);
-            NU_ClipBounds* clip = (NU_ClipBounds*)HashmapGet(&__NGUI.winManager.clipMap, &node->clippingRootHandle);
 
+            NU_ClipBounds* clip = (NU_ClipBounds*)HashmapGet(&__NGUI.winManager.clipMap, &node->clippingRootHandle);
             NU_DrawClippedNodeBorderRect(node, winW, winH, clip); // draw border rects
 
             if (node->node.textContent != NULL) { // draw node's textContent
@@ -437,8 +436,6 @@ void NU_Draw()
                 NU_DrawNodeImage(node, winW, winH);
             }
         }
-
-
 
 
 

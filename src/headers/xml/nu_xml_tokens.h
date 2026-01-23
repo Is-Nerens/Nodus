@@ -1,6 +1,6 @@
 #pragma once 
 
-#define NU_XML_PROPERTY_COUNT 44
+#define NU_XML_PROPERTY_COUNT 43
 const char* nu_xml_property_keywords[] = {
     "id", "class",
     "dir", "grow", "overflow-v", "overflow-h", "position", "hide", "gap",
@@ -12,7 +12,7 @@ const char* nu_xml_property_keywords[] = {
     "border-radius", "border-radius-top-left", "border-radius-top-right", "border-radius-bottom-left", "border-radius-bottom-right",
     "padding", "padding-top", "padding-bottom", "padding-left", "padding-right",
     "image-src",
-    "input-type", "decimals",
+    "input-type",
 };
 
 #define NU_XML_TYPE_COUNT 9
@@ -39,7 +39,7 @@ typedef enum NU_XML_TOKEN
     BORDER_WIDTH_PROPERTY, BORDER_TOP_WIDTH_PROPERTY, BORDER_BOTTOM_WIDTH_PROPERTY, BORDER_LEFT_WIDTH_PROPERTY, BORDER_RIGHT_WIDTH_PROPERTY,
     BORDER_RADIUS_PROPERTY, BORDER_TOP_LEFT_RADIUS_PROPERTY, BORDER_TOP_RIGHT_RADIUS_PROPERTY, BORDER_BOTTOM_LEFT_RADIUS_PROPERTY, BORDER_BOTTOM_RIGHT_RADIUS_PROPERTY,
     PADDING_PROPERTY, PADDING_TOP_PROPERTY, PADDING_BOTTOM_PROPERTY, PADDING_LEFT_PROPERTY, PADDING_RIGHT_PROPERTY,
-    IMAGE_SOURCE_PROPERTY, INPUT_TYPE_PROPERTY, INPUT_DECIMALS_PROPERTY,
+    IMAGE_SOURCE_PROPERTY, INPUT_TYPE_PROPERTY,
 
     // types
     WINDOW_TAG,
@@ -122,5 +122,5 @@ NodeType NU_TokenToNodeType(NU_XML_TOKEN token)
 
 int NU_Is_Token_Property(NU_XML_TOKEN t)
 {
-    return (t >= ID_PROPERTY && t <= INPUT_DECIMALS_PROPERTY) || t == UNDEFINED_PROPERTY; 
+    return (t >= ID_PROPERTY && t <= INPUT_TYPE_PROPERTY) || t == UNDEFINED_PROPERTY; 
 }

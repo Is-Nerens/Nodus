@@ -304,7 +304,7 @@ int NU_Generate_Tree(char* src, struct Vector* tokens, struct Vector* textRefs)
 
                     // Relative/Absolute positiong
                     case POSITION_PROPERTY:
-                        if (current_text_ref->char_count == 8 && memcmp(ptext, "absolute", 8) == 0) {
+                        if (strcmp(ptext, "absolute") == 0) {
                             currentNode->node.inlineStyleFlags |= 1ULL << 4;
                             currentNode->node.layoutFlags |= POSITION_ABSOLUTE;
                         }
@@ -312,7 +312,7 @@ int NU_Generate_Tree(char* src, struct Vector* tokens, struct Vector* textRefs)
 
                     // Show/hide
                     case HIDE_PROPERTY:
-                        if (current_text_ref->char_count == 4 && memcmp(ptext, "true", 4) == 0) {
+                        if (strcmp(ptext, "true") == 0) {
                             currentNode->node.inlineStyleFlags |= 1ULL << 5;
                             currentNode->node.layoutFlags |= HIDDEN;
                         }
@@ -377,13 +377,13 @@ int NU_Generate_Tree(char* src, struct Vector* tokens, struct Vector* textRefs)
 
                     // Set horizontal alignment
                     case ALIGN_H_PROPERTY:
-                        if (current_text_ref->char_count == 4 && memcmp(ptext, "left", 4) == 0) {
+                        if (strcmp(ptext, "left") == 0) {
                             currentNode->node.inlineStyleFlags |= 1ULL << 13;
                             currentNode->node.horizontalAlignment = 0;
-                        } else if (current_text_ref->char_count == 6 && memcmp(ptext, "center", 6) == 0) {
+                        } else if (strcmp(ptext, "center") == 0) {
                             currentNode->node.inlineStyleFlags |= 1ULL << 13;
                             currentNode->node.horizontalAlignment = 1;
-                        } else if (current_text_ref->char_count == 5 && memcmp(ptext, "right", 5) == 0) {
+                        } else if (strcmp(ptext, "right") == 0) {
                             currentNode->node.inlineStyleFlags |= 1ULL << 13;
                             currentNode->node.horizontalAlignment = 2;
                         }
@@ -391,13 +391,13 @@ int NU_Generate_Tree(char* src, struct Vector* tokens, struct Vector* textRefs)
 
                     // Set vertical alignment
                     case ALIGN_V_PROPERTY:
-                        if (current_text_ref->char_count == 3 && memcmp(ptext, "top", 3) == 0) {
+                        if (strcmp(ptext, "top") == 0) {
                             currentNode->node.inlineStyleFlags |= 1ULL << 14;
                             currentNode->node.verticalAlignment = 0;
-                        } else if (current_text_ref->char_count == 6 && memcmp(ptext, "center", 6) == 0) {
+                        } else if (strcmp(ptext, "center") == 0) {
                             currentNode->node.inlineStyleFlags |= 1ULL << 14;
                             currentNode->node.verticalAlignment = 1;
-                        } else if (current_text_ref->char_count == 6 && memcmp(ptext, "bottom", 6) == 0) {
+                        } else if (strcmp(ptext, "bottom") == 0) {
                             currentNode->node.inlineStyleFlags |= 1ULL << 14;
                             currentNode->node.verticalAlignment = 2;
                         }
@@ -405,13 +405,13 @@ int NU_Generate_Tree(char* src, struct Vector* tokens, struct Vector* textRefs)
 
                     // Set horizontal text alignment
                     case TEXT_ALIGN_H_PROPERTY:
-                        if (current_text_ref->char_count == 4 && memcmp(ptext, "left", 4) == 0) {
+                        if (strcmp(ptext, "left") == 0) {
                             currentNode->node.inlineStyleFlags |= 1ULL << 15;
                             currentNode->node.horizontalTextAlignment = 0;
-                        } else if (current_text_ref->char_count == 6 && memcmp(ptext, "center", 6) == 0) {
+                        } else if (strcmp(ptext, "center") == 0) {
                             currentNode->node.inlineStyleFlags |= 1ULL << 15;
                             currentNode->node.horizontalTextAlignment = 1;
-                        } else if (current_text_ref->char_count == 5 && memcmp(ptext, "right", 5) == 0) {
+                        } else if (strcmp(ptext, "right") == 0) {
                             currentNode->node.inlineStyleFlags |= 1ULL << 15;
                             currentNode->node.horizontalTextAlignment = 2;
                         }
@@ -419,13 +419,13 @@ int NU_Generate_Tree(char* src, struct Vector* tokens, struct Vector* textRefs)
 
                     // Set vertical text alignment
                     case TEXT_ALIGN_V_PROPERTY:
-                        if (current_text_ref->char_count == 3 && memcmp(ptext, "top", 3) == 0) {
+                        if (strcmp(ptext, "top") == 0) {
                             currentNode->node.inlineStyleFlags |= 1ULL << 16;
                             currentNode->node.verticalTextAlignment = 0;
-                        } else if (current_text_ref->char_count == 6 && memcmp(ptext, "center", 6) == 0) {
+                        } else if (strcmp(ptext, "center") == 0) {
                             currentNode->node.inlineStyleFlags |= 1ULL << 16;
                             currentNode->node.verticalTextAlignment = 1;
-                        } else if (current_text_ref->char_count == 6 && memcmp(ptext, "bottom", 6) == 0) {
+                        } else if (strcmp(ptext, "bottom") == 0) {
                             currentNode->node.inlineStyleFlags |= 1ULL << 16;
                             currentNode->node.verticalTextAlignment = 2;
                         }
@@ -466,7 +466,7 @@ int NU_Generate_Tree(char* src, struct Vector* tokens, struct Vector* textRefs)
                             currentNode->node.backgroundR = rgb.r;
                             currentNode->node.backgroundG = rgb.g;
                             currentNode->node.backgroundB = rgb.b;
-                        } else if (current_text_ref->char_count == 4 && memcmp(ptext, "none", 4) == 0) {
+                        } else if (strcmp(ptext, "none") == 0) {
                             currentNode->node.inlineStyleFlags |= 1ULL << 22;
                             currentNode->node.hideBackground = true;
                         }
@@ -600,7 +600,7 @@ int NU_Generate_Tree(char* src, struct Vector* tokens, struct Vector* textRefs)
 
                     // Image source
                     case IMAGE_SOURCE_PROPERTY:
-                        if (currentNode->type != NU_IMAGE) break;
+                        if (currentNode->type == NU_INPUT) break;
                         void* found = LinearStringmapGet(&imageFilepathToHandleMap, ptext);
                         if (found == NULL) {
                             GLuint image_handle = Image_Load(ptext);
@@ -622,16 +622,7 @@ int NU_Generate_Tree(char* src, struct Vector* tokens, struct Vector* textRefs)
                         } else {
                             currentNode->typeData.input.inputText.type = 0;
                         }
-                        break;
-                    
-                    // Input decimals property
-                    case INPUT_DECIMALS_PROPERTY:
-                        if (currentNode->type != NU_INPUT) break;
-                        if (String_To_uint8_t(&property_uint8, ptext)) {
-                            currentNode->node.inlineStyleFlags |= ((uint64_t)1ULL << 39);
-                            currentNode->typeData.input.inputText.decimals = property_uint8;
-                        }
-                        break;
+                        break;  
 
                     default:
                         break;

@@ -78,9 +78,9 @@ void AssignRootWindow(NU_WindowManager* winManager, NodeP* rootNode)
     Vector_Reserve(&list->relativeNodes, sizeof(NodeP*), 512);
     Vector_Reserve(&list->absoluteNodes, sizeof(NodeP*), 64);
     Vector_Reserve(&list->canvasNodes,   sizeof(NodeP*), 8);
-    Vector_Reserve(&list->relativeNodes, sizeof(NodeP*), 64);
-    Vector_Reserve(&list->absoluteNodes, sizeof(NodeP*), 16);
-    Vector_Reserve(&list->canvasNodes,   sizeof(NodeP*), 4);
+    Vector_Reserve(&list->clippedRelativeNodes, sizeof(NodeP*), 64);
+    Vector_Reserve(&list->clippedAbsoluteNodes, sizeof(NodeP*), 16);
+    Vector_Reserve(&list->clippedCanvasNodes,   sizeof(NodeP*), 4);
 
     NU_Draw_Init();
 }
@@ -97,9 +97,9 @@ void CreateSubwindow(NU_WindowManager* winManager, NodeP* node)
     Vector_Reserve(&list->relativeNodes, sizeof(NodeP*), 512);
     Vector_Reserve(&list->absoluteNodes, sizeof(NodeP*), 64);
     Vector_Reserve(&list->canvasNodes,   sizeof(NodeP*), 8);
-    Vector_Reserve(&list->relativeNodes, sizeof(NodeP*), 64);
-    Vector_Reserve(&list->absoluteNodes, sizeof(NodeP*), 16);
-    Vector_Reserve(&list->canvasNodes,   sizeof(NodeP*), 4);
+    Vector_Reserve(&list->clippedRelativeNodes, sizeof(NodeP*), 64);
+    Vector_Reserve(&list->clippedAbsoluteNodes, sizeof(NodeP*), 16);
+    Vector_Reserve(&list->clippedCanvasNodes,   sizeof(NodeP*), 4);
 }
 
 void GetLocalMouseCoords(NU_WindowManager* winManager, float* outX, float* outY)

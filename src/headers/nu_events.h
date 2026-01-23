@@ -87,33 +87,24 @@ void CheckForResizeEvents()
         HashmapIterateBegin(&__NGUI.on_resize_events);
         while(HashmapIterateContinue(&__NGUI.on_resize_events))
         {
-            void* key; 
-            void* val;
+            void* key; void* val;
             HashmapIterateGet(&__NGUI.on_resize_events, &key, &val);
-            if (key == NULL || val == NULL) continue; // Error (shouldn't happen ever)
             uint32_t nodeHandle = *(uint32_t*)key; 
             struct NU_Callback_Info* cb_info = (struct NU_Callback_Info*)val;
             NodeP* node = NODE_P(nodeHandle);
             void* dims_get =  HashmapGet(&__NGUI.node_resize_tracking, &nodeHandle);
-            if (dims_get == NULL) continue; // Error (shouldn't happen ever)
             NU_NodeDimensions* dims = (NU_NodeDimensions*)dims_get;
 
-            // Resize detected!
-            if (dims->width != -1.0f && (node->node.width != dims->width || node->node.height != dims->height))
-            {
-                // Upate dims 
+            // Resize detected? -> update dims and call callback
+            if (dims->width != -1.0f && (node->node.width != dims->width || node->node.height != dims->height)) {
                 dims->width = node->node.width;
                 dims->height = node->node.height;
-
-                // Call callback
                 cb_info->callback(cb_info->event, cb_info->args);
                 continue;
-
             }
 
             // Init dims
-            if (dims->width == -1.0f) 
-            {
+            if (dims->width == -1.0f) {
                 dims->width = node->node.width;
                 dims->height = node->node.height;
             }
@@ -128,10 +119,8 @@ void TriggerAllMouseupEvents(float mouse_x, float mouse_y, int mouse_btn)
         HashmapIterateBegin(&__NGUI.on_mouse_up_events);
         while(HashmapIterateContinue(&__NGUI.on_mouse_up_events))
         {
-            void* key;
-            void* val;
+            void* key; void* val;
             HashmapIterateGet(&__NGUI.on_mouse_up_events, &key, &val);
-            if (key == NULL || val == NULL) continue; // Error (shouldn't happen ever)
             uint32_t nodeHandle = *(uint32_t*)key; 
             struct NU_Callback_Info* cb_info = (struct NU_Callback_Info*)val;
             cb_info->event.mouse.mouse_btn = mouse_btn;
@@ -146,33 +135,33 @@ bool EventWatcher(void* data, SDL_Event* event)
 {
     if (!__NGUI.running) return false;
 
-    // -----------------------------------------------------------------------------------
-    // --- Window Closed -> main Window? close application : destroy sub window branch ---
-    // -----------------------------------------------------------------------------------
+    // ------------------------------------------------------------------------------------
+    // --- Window closed -> main window ? close application : destroy sub window branch ---
+    // ------------------------------------------------------------------------------------
     if (event->type == SDL_EVENT_WINDOW_CLOSE_REQUESTED) {
         __NGUI.running = false;
     }
-    // -----------------------------------------------------------------------------------
-    // --- Close application -------------------------------------------------------------
-    // -----------------------------------------------------------------------------------
+    // ------------------------------------------------------------------------------------
+    // --- Quit event -> close application ------------------------------------------------
+    // ------------------------------------------------------------------------------------
     else if (event->type == SDL_EVENT_QUIT) {
         __NGUI.running = false;
     }
-    // -----------------------------------------------------------------------------------
-    // --- Resize -> redraw --------------------------------------------------------------
-    // -----------------------------------------------------------------------------------
+    // ------------------------------------------------------------------------------------
+    // --- Resized window -> redraw -------------------------------------------------------
+    // ------------------------------------------------------------------------------------
     else if (event->type == SDL_EVENT_WINDOW_RESIZED) {
         __NGUI.awaiting_redraw = true;
     }
-    // -----------------------------------------------------------------------------------
-    // --- Render -> redraw --------------------------------------------------------------
-    // -----------------------------------------------------------------------------------
+    // ------------------------------------------------------------------------------------
+    // --- App render event called -> redraw ----------------------------------------------
+    // ------------------------------------------------------------------------------------
     else if (event->type == __NGUI.SDL_CUSTOM_RENDER_EVENT) {
         __NGUI.awaiting_redraw = true;
     }
-    // -----------------------------------------------------------------------------------
-    // --- Keypress ----------------------------------------------------------------------
-    // -----------------------------------------------------------------------------------
+    // ------------------------------------------------------------------------------------
+    // --- Keypress -----------------------------------------------------------------------
+    // ------------------------------------------------------------------------------------
     else if (event->type == SDL_EVENT_KEY_DOWN) {
 
         // if in text edit mode
@@ -182,59 +171,60 @@ bool EventWatcher(void* data, SDL_Event* event)
             InputText* inputText = &focusedNode->typeData.input.inputText;
 
             // backspace pressed
-            if (event->key.key == SDLK_BACKSPACE) 
-            {
-                if (inputText->cursor > 0) __NGUI.awaiting_redraw = true;
+            if (event->key.key == SDLK_BACKSPACE) {
+                if (inputText->cursorBytes > 0) __NGUI.awaiting_redraw = true;
                 InputText_Backspace(inputText);
             }
 
             // left arrow pressed
-            else if (event->key.key == SDLK_LEFT) 
-            {
-                if (inputText->cursor > 0) __NGUI.awaiting_redraw = true;
+            else if (event->key.key == SDLK_LEFT) {
+                if (inputText->cursorBytes > 0) __NGUI.awaiting_redraw = true;
                 InputText_MoveCursorLeft(inputText);
             }
 
             // right arrow pressed
-            else if (event->key.key == SDLK_RIGHT) 
-            {
-                if (inputText->cursor < inputText->length) __NGUI.awaiting_redraw = true;
+            else if (event->key.key == SDLK_RIGHT) {
+                if (inputText->cursorBytes < inputText->length) __NGUI.awaiting_redraw = true;
                 InputText_MoveCursorRight(inputText);
             }
         }
     }
-    // -----------------------------------------------------------------------------------
-    // --- Type text ---------------------------------------------------------------------
-    // -----------------------------------------------------------------------------------
+    // ------------------------------------------------------------------------------------
+    // --- Type text ----------------------------------------------------------------------
+    // ------------------------------------------------------------------------------------
     else if (event->type == SDL_EVENT_TEXT_INPUT) {
         NodeP* focusedNode = NODE_P(__NGUI.focused_node);
-        if (focusedNode->type == NU_INPUT && focusedNode->node.eventFlags & NU_EVENT_FLAG_ON_INPUT_CHANGED) {
-
-            InputText_Write(&focusedNode->typeData.input.inputText, event->text.text);
-
-            void* found_cb = HashmapGet(&__NGUI.on_input_changed_events, &__NGUI.focused_node);
-            if (found_cb != NULL) {
-                struct NU_Callback_Info* cb_info = (struct NU_Callback_Info*)found_cb;
-                strcpy(cb_info->event.input.text, event->text.text);
-                cb_info->callback(cb_info->event, cb_info->args);
+        if (focusedNode->type == NU_INPUT) {
+            int updated = InputText_Write(&focusedNode->typeData.input.inputText, event->text.text);
+            if (updated && focusedNode->node.eventFlags & NU_EVENT_FLAG_ON_INPUT_CHANGED) {
+                void* found_cb = HashmapGet(&__NGUI.on_input_changed_events, &__NGUI.focused_node);
+                if (found_cb != NULL) {
+                    struct NU_Callback_Info* cb_info = (struct NU_Callback_Info*)found_cb;
+                    strcpy(cb_info->event.input.text, event->text.text);
+                    cb_info->callback(cb_info->event, cb_info->args);
+                }
             }
+            __NGUI.awaiting_redraw |= updated;
         }
-        __NGUI.awaiting_redraw = true;
+
     }
-    // -----------------------------------------------------------------------------------
-    // --- Move mouse -> redraw if mouse moves off hovered node --------------------------
-    // -----------------------------------------------------------------------------------
+    // ------------------------------------------------------------------------------------
+    // --- Move mouse -> redraw if mouse moves off hovered node ---------------------------
+    // ------------------------------------------------------------------------------------
     else if (event->type == SDL_EVENT_MOUSE_MOTION)
     {
+        // update hovered window
         Uint32 id = event->motion.windowID;
         __NGUI.winManager.hoveredWindow = SDL_GetWindowFromID(id);
+
+        // get hovered node and save previous
         uint32_t prev_hovered_node = __NGUI.hovered_node;
         NU_Mouse_Hover();
 
-        // Get local mouse coordinates
+        // get local mouse coordinates
         float mouseX, mouseY; GetLocalMouseCoords(&__NGUI.winManager, &mouseX, &mouseY);
 
-        // On mouse in event triggered
+        // on mouse in event triggered
         if (__NGUI.hovered_node != UINT32_MAX &&
             prev_hovered_node != __NGUI.hovered_node && 
             NODE(__NGUI.hovered_node)->eventFlags & NU_EVENT_FLAG_ON_MOUSE_IN)
@@ -250,7 +240,7 @@ bool EventWatcher(void* data, SDL_Event* event)
             }
         }
 
-        // On mouse out event triggered
+        // on mouse out event triggered
         if (prev_hovered_node != UINT32_MAX &&
             prev_hovered_node != __NGUI.hovered_node && 
             NODE(prev_hovered_node)->eventFlags & NU_EVENT_FLAG_ON_MOUSE_OUT)
@@ -266,13 +256,13 @@ bool EventWatcher(void* data, SDL_Event* event)
             }
         }
 
-        // If dragging scrollbar -> update node->node.scrollV 
+        // if dragging scrollbar -> update node->node.scrollV 
         if (__NGUI.scroll_mouse_down_node != UINT32_MAX) 
         {
             NodeP* node = NODE_P(__NGUI.scroll_mouse_down_node);
             Layer* child_layer = &__NGUI.tree.layers[node->layer + 1];
 
-            // Calculate drag_dist track_height thumb_height
+            // calculate drag_dist track_height thumb_height
             float track_height = node->node.height - node->node.borderTop - node->node.borderBottom;
             float inner_height_w_pad = track_height - node->node.padTop - node->node.padBottom;
             float inner_proportion_of_content_height = inner_height_w_pad / node->node.contentHeight;
@@ -280,22 +270,21 @@ bool EventWatcher(void* data, SDL_Event* event)
             float track_top_y = node->node.y + node->node.borderTop;
             float drag_dist = (mouseY - __NGUI.v_scroll_thumb_grab_offset) - track_top_y;
 
-            // Apply scroll and clamp
+            // apply scroll and clamp
             node->node.scrollV = drag_dist / (track_height - thumb_height);
             node->node.scrollV = min(max(node->node.scrollV, 0.0f), 1.0f); // Clamp to range [0,1]
 
-            // Must redraw later
+            // must redraw later
             __NGUI.awaiting_redraw = true;
         }
 
-        // Check for mouse move events
+        // check for mouse move events
         if (__NGUI.on_mouse_move_events.itemCount > 0)
         {
             HashmapIterateBegin(&__NGUI.on_mouse_move_events);
             while(HashmapIterateContinue(&__NGUI.on_mouse_move_events))
             {
-                void* key; 
-                void* val;
+                void* key; void* val;
                 HashmapIterateGet(&__NGUI.on_mouse_move_events, &key, &val);
                 uint32_t nodeHandle = *(uint32_t*)key; 
                 struct NU_Callback_Info* cb_info = (struct NU_Callback_Info*)val;
@@ -309,9 +298,9 @@ bool EventWatcher(void* data, SDL_Event* event)
             }
         }
     }
-    // -----------------------------------------------------------------------------------
-    // --- Mouse button pressed down -----------------------------------------------------
-    // -----------------------------------------------------------------------------------
+    // ------------------------------------------------------------------------------------
+    // --- Mouse button pressed down ------------------------------------------------------
+    // ------------------------------------------------------------------------------------
     else if (event->type == SDL_EVENT_MOUSE_BUTTON_DOWN)
     {
         // Get mouse down coordinates
@@ -369,7 +358,13 @@ bool EventWatcher(void* data, SDL_Event* event)
         } 
 
         // Set focused node
+        u32 prevFocusedNode = __NGUI.focused_node;
         __NGUI.focused_node = __NGUI.hovered_node;
+
+        // Defocus prev focused input node
+        if (prevFocusedNode != UINT32_MAX && __NGUI.focused_node != prevFocusedNode && NODE_P(prevFocusedNode)->type == NU_INPUT) {
+            InputText_Defocus(&NODE_P(prevFocusedNode)->typeData.input.inputText);
+        }
 
         // toggle SDL_TextInput based on focus node type
         if (NODE_P(__NGUI.focused_node)->type == NU_INPUT) {
@@ -380,17 +375,17 @@ bool EventWatcher(void* data, SDL_Event* event)
 
         __NGUI.awaiting_redraw = true;
     }
-    // -----------------------------------------------------------------------------------
-    // --- Focus on window -> redraw -----------------------------------------------------
-    // -----------------------------------------------------------------------------------
+    // ------------------------------------------------------------------------------------
+    // --- Focus on window -> redraw ------------------------------------------------------
+    // ------------------------------------------------------------------------------------
     else if (event->type == SDL_EVENT_WINDOW_FOCUS_GAINED)
     {
         __NGUI.mouse_down_node = __NGUI.hovered_node;
         __NGUI.awaiting_redraw = true;
     }
-    // -----------------------------------------------------------------------------------
-    // --- Released mouse button ---------------------------------------------------------
-    // -----------------------------------------------------------------------------------
+    // ------------------------------------------------------------------------------------
+    // --- Released mouse button ----------------------------------------------------------
+    // ------------------------------------------------------------------------------------
     else if (event->type == SDL_EVENT_MOUSE_BUTTON_UP)
     {
         __NGUI.scroll_mouse_down_node = UINT32_MAX;
@@ -445,9 +440,9 @@ bool EventWatcher(void* data, SDL_Event* event)
             __NGUI.mouse_down_node = UINT32_MAX;
         }
     }
-    // -----------------------------------------------------------------------------------
-    // --- Mouse scroll wheel ------------------------------------------------------------
-    // -----------------------------------------------------------------------------------
+    // ------------------------------------------------------------------------------------
+    // --- Mouse scroll wheel -------------------------------------------------------------
+    // ------------------------------------------------------------------------------------
     else if (event->type == SDL_EVENT_MOUSE_WHEEL)
     {
         NodeP* node = NODE_P(__NGUI.scroll_hovered_node);

@@ -52,6 +52,7 @@ typedef struct NU_Stylesheet_Item
     char horizontalTextAlignment;
     char verticalTextAlignment;
     bool hideBackground;
+    u8 inputType;
 } NU_Stylesheet_Item;
 
 struct Style_Text_Ref

@@ -1,7 +1,7 @@
 #pragma once
 
-#define STYLE_PROPERTY_COUNT 46
-#define STYLE_KEYWORD_COUNT 57
+#define STYLE_PROPERTY_COUNT 45
+#define STYLE_KEYWORD_COUNT 58
 #define STYLE_TAG_SELECTOR_COUNT 9
 #define STYLE_SPECIAL_SELECTOR_COUNT 1
 #define STYLE_PSEUDO_COUNT 3
@@ -16,7 +16,7 @@ static const char* style_keywords[] = {
     "border-radius", "border-radius-top-left", "border-radius-top-right", "border-radius-bottom-left", "border-radius-bottom-right",
     "padding", "padding-top", "padding-bottom", "padding-left", "padding-right", 
     "image-src", 
-    "input-type", "decimals",
+    "input-type",
     "font", "src", "size", "weight",
     "window", "box", "button", "input", "canvas", "image", "table", "thead", "row", "@font",
     "hover", "press", "focus",
@@ -66,7 +66,6 @@ enum NU_Style_Token
     STYLE_PADDING_RIGHT_PROPERTY,
     STYLE_IMAGE_SOURCE_PROPERTY,
     STYLE_INPUT_TYPE_PROPERTY,
-    STYLE_INPUT_DECIMALS_PROPERTY,
     
 
     // --- CSS only node properties ---

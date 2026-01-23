@@ -137,6 +137,7 @@ static int NU_Stylesheet_Parse(char* src, struct Vector* tokens, NU_Stylesheet* 
                     if (item.propertyFlags & (1ULL << 35)) curr_item->padLeft = item.padLeft; 
                     if (item.propertyFlags & (1ULL << 36)) curr_item->padRight = item.padRight; 
                     if (item.propertyFlags & (1ULL << 37)) curr_item->glImageHandle = item.glImageHandle;
+                    if (item.propertyFlags & (1ULL << 38)) curr_item->glImageHandle = item.inputType;
                     curr_item->fontId = item.fontId;
                 }
                 selector_count = 0;
@@ -530,7 +531,7 @@ static int NU_Stylesheet_Parse(char* src, struct Vector* tokens, NU_Stylesheet* 
 
                     // Relative/Absolute positioning
                     case STYLE_POSITION_PROPERTY:
-                        if (text_ref->char_count == 8 && memcmp(text, "absolute", 8) == 0) {
+                        if (strcmp(text, "absolute") == 0) {
                             item.layoutFlags |= POSITION_ABSOLUTE;
                             item.propertyFlags |= 1ULL << 4;
                         }
@@ -538,7 +539,7 @@ static int NU_Stylesheet_Parse(char* src, struct Vector* tokens, NU_Stylesheet* 
 
                     // Hide/show
                     case STYLE_HIDE_PROPERTY:
-                        if (text_ref->char_count == 4 && memcmp(text, "hide", 4) == 0) {
+                        if (strcmp(text, "hide") == 0) {
                             item.layoutFlags |= HIDDEN;
                             item.propertyFlags |= 1ULL << 5;
                         }
@@ -588,15 +589,15 @@ static int NU_Stylesheet_Parse(char* src, struct Vector* tokens, NU_Stylesheet* 
 
                     // Set horizontal alignment
                     case STYLE_ALIGN_H_PROPERTY:
-                        if (text_ref->char_count == 4 && memcmp(text, "left", 4) == 0) {
+                        if (strcmp(text, "left") == 0) {
                             item.horizontalAlignment = 0;
                             item.propertyFlags |= 1ULL << 13;
                         }
-                        if (text_ref->char_count == 6 && memcmp(text, "center", 6) == 0) {
+                        if (strcmp(text, "center") == 0) {
                             item.horizontalAlignment = 1;
                             item.propertyFlags |= 1ULL << 13;
                         }
-                        if (text_ref->char_count == 5 && memcmp(text, "right", 5) == 0) {
+                        if (strcmp(text, "right") == 0) {
                             item.horizontalAlignment = 2;
                             item.propertyFlags |= 1ULL << 13;
                         }
@@ -604,15 +605,15 @@ static int NU_Stylesheet_Parse(char* src, struct Vector* tokens, NU_Stylesheet* 
 
                     // Set vertical alignment
                     case STYLE_ALIGN_V_PROPERTY:
-                        if (text_ref->char_count == 3 && memcmp(text, "top", 3) == 0) {
+                        if (strcmp(text, "top") == 0) {
                             item.verticalAlignment = 0;
                             item.propertyFlags |= 1ULL << 14;
                         }
-                        if (text_ref->char_count == 6 && memcmp(text, "center", 6) == 0) {
+                        if (strcmp(text, "center") == 0) {
                             item.verticalAlignment = 1;
                             item.propertyFlags |= 1ULL << 14;
                         }
-                        if (text_ref->char_count == 6 && memcmp(text, "bottom", 6) == 0) {
+                        if (strcmp(text, "bottom") == 0) {
                             item.verticalAlignment = 2;
                             item.propertyFlags |= 1ULL << 14;
                         }
@@ -620,15 +621,15 @@ static int NU_Stylesheet_Parse(char* src, struct Vector* tokens, NU_Stylesheet* 
 
                     // Set horizontal text alignment
                     case STYLE_TEXT_ALIGN_H_PROPERTY:
-                        if (text_ref->char_count == 4 && memcmp(text, "left", 4) == 0) {
+                        if (strcmp(text, "left") == 0) {
                             item.horizontalTextAlignment = 0;
                             item.propertyFlags |= 1ULL << 15;
                         }
-                        if (text_ref->char_count == 6 && memcmp(text, "center", 6) == 0) {
+                        if (strcmp(text, "center") == 0) {
                             item.horizontalTextAlignment = 1;
                             item.propertyFlags |= 1ULL << 15;
                         }
-                        if (text_ref->char_count == 5 && memcmp(text, "right", 5) == 0) {
+                        if (strcmp(text, "right") == 0) {
                             item.horizontalTextAlignment = 2;
                             item.propertyFlags |= 1ULL << 15;
                         }
@@ -636,15 +637,15 @@ static int NU_Stylesheet_Parse(char* src, struct Vector* tokens, NU_Stylesheet* 
 
                     // Set vertical text alignment
                     case STYLE_TEXT_ALIGN_V_PROPERTY:
-                        if (text_ref->char_count == 3 && memcmp(text, "top", 3) == 0) {
+                        if (strcmp(text, "top") == 0) {
                             item.verticalTextAlignment = 0;
                             item.propertyFlags |= 1ULL << 16;
                         }
-                        if (text_ref->char_count == 6 && memcmp(text, "center", 6) == 0) {
+                        if (strcmp(text, "center") == 0) {
                             item.verticalTextAlignment = 1;
                             item.propertyFlags |= 1ULL << 16;
                         }
-                        if (text_ref->char_count == 6 && memcmp(text, "bottom", 6) == 0) {
+                        if (strcmp(text, "bottom") == 0) {
                             item.verticalTextAlignment = 2;
                             item.propertyFlags |= 1ULL << 16;
                         }
@@ -688,7 +689,7 @@ static int NU_Stylesheet_Parse(char* src, struct Vector* tokens, NU_Stylesheet* 
                             item.backgroundG = rgb.g;
                             item.backgroundB = rgb.b;
                             item.propertyFlags |= 1ULL << 21;
-                        } else if (text_ref->char_count == 4 && memcmp(text, "none", 4) == 0) {
+                        } else if (strcmp(text, "none") == 0) {
                             item.hideBackground = true;
                             item.propertyFlags |= 1ULL << 22;
                         }
@@ -820,6 +821,7 @@ static int NU_Stylesheet_Parse(char* src, struct Vector* tokens, NU_Stylesheet* 
                         break;
                     
                     case STYLE_IMAGE_SOURCE_PROPERTY:
+                        if (item.tag == NU_INPUT) break;
                         void* found = LinearStringmapGet(&imageFilepathToHandleMap, text);
                         if (found == NULL) {
                             GLuint image_handle = Image_Load(text);
@@ -839,6 +841,15 @@ static int NU_Stylesheet_Parse(char* src, struct Vector* tokens, NU_Stylesheet* 
                         void* found_font = LinearStringmapGet(&fontNameIndexMap, text);
                         if (found_font != NULL) {
                             item.fontId = *(uint8_t*)found_font;
+                        }
+                        break;
+
+                    case STYLE_INPUT_TYPE_PROPERTY:
+                        if (item.tag != NU_INPUT) break;
+                        if (strcmp(text, "number") == 0) {
+                            item.inputType = 1;
+                        } else {
+                            item.inputType = 0;
                         }
                         break;
 

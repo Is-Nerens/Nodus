@@ -426,7 +426,7 @@ void NU_Draw()
             if (node->node.textContent != NULL) { // draw node's textContent
                 NU_DrawClippedNodeTextContent(node, winW, winH, clip);
             }
-            else if (node->type == NU_INPUT && node->typeData.input.inputText.length > 0) { // draw input node's text
+            else if (node->type == NU_INPUT && node->typeData.input.inputText.numBytes > 0) { // draw input node's text
                 NU_ClipBounds innerClip = *clip;
                 innerClip.clip_left += node->node.borderLeft + node->node.padLeft;
                 innerClip.clip_right -= node->node.borderRight + node->node.padRight; 
@@ -471,7 +471,7 @@ void NU_Draw()
             }
 
             // construct text mesh for input node's text input
-            else if (node->type == NU_INPUT && node->typeData.input.inputText.length > 0) {
+            else if (node->type == NU_INPUT && node->typeData.input.inputText.numBytes > 0) {
                 NU_ClipBounds clip = {0};
                 clip.clip_top = node->node.y;
                 clip.clip_left = node->node.x + node->node.borderLeft + node->node.padLeft;
@@ -505,7 +505,7 @@ void NU_Draw()
             if (node->node.textContent != NULL) { // draw node's textContent
                 NU_DrawClippedNodeTextContent(node, winW, winH, clip);
             }
-            else if (node->type == NU_INPUT && node->typeData.input.inputText.length > 0) { // draw input node's text
+            else if (node->type == NU_INPUT && node->typeData.input.inputText.numBytes > 0) { // draw input node's text
                 NU_ClipBounds innerClip = *clip;
                 innerClip.clip_left += node->node.borderLeft + node->node.padLeft;
                 innerClip.clip_right -= node->node.borderRight + node->node.padRight; 

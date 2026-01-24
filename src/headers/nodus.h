@@ -180,7 +180,6 @@ int NU_Internal_Create_Gui(char* xml_filepath, char* css_filepath)
     u32 stylesheetHandle = NU_Internal_Load_Stylesheet(css_filepath);
     if (stylesheetHandle == 0) return 0;
     if (!NU_Internal_Apply_Stylesheet(stylesheetHandle)) return 0;
-
     NU_Layout(); // Initial layout calculation
 
     __NGUI.running = true;

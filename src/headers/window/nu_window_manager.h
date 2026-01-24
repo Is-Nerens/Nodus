@@ -18,6 +18,8 @@ void CreateMainWindow(NU_WindowManager* winManager)
     glewInit();
     glEnable(GL_MULTISAMPLE);
     glEnable(GL_BLEND);
+
+    // if mouse is over window -> initialise hovered window
 }
 
 void NU_WindowManagerInit(NU_WindowManager* winManager)

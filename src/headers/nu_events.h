@@ -170,22 +170,45 @@ bool EventWatcher(void* data, SDL_Event* event)
             NodeP* focusedNode = NODE_P(__NGUI.focused_node);
             InputText* inputText = &focusedNode->typeData.input.inputText;
 
+            SDL_Keymod mods = SDL_GetModState();
+
             // backspace pressed
             if (event->key.key == SDLK_BACKSPACE) {
-                if (inputText->cursorBytes > 0) __NGUI.awaiting_redraw = true;
-                InputText_Backspace(inputText);
+
+                // control + backspace
+                if (mods & SDL_KMOD_CTRL) {
+                    if (InputText_BackspaceWord(inputText)) __NGUI.awaiting_redraw = true;
+                }
+                // only backspace
+                else {
+                    if (InputText_Backspace(inputText)) __NGUI.awaiting_redraw = true;
+                }
             }
 
             // left arrow pressed
             else if (event->key.key == SDLK_LEFT) {
-                if (inputText->cursorBytes > 0) __NGUI.awaiting_redraw = true;
-                InputText_MoveCursorLeft(inputText);
+
+                // control = left arrow 
+                if (mods & SDL_KMOD_CTRL) {
+                    if (InputText_MoveCursorLeftSpan(inputText)) __NGUI.awaiting_redraw = true;
+                }
+                // only backspace
+                else {
+                    if (InputText_MoveCursorLeft(inputText)) __NGUI.awaiting_redraw = true;
+                }
             }
 
             // right arrow pressed
             else if (event->key.key == SDLK_RIGHT) {
-                if (inputText->cursorBytes < inputText->length) __NGUI.awaiting_redraw = true;
-                InputText_MoveCursorRight(inputText);
+                
+                // control = right arrow 
+                if (mods & SDL_KMOD_CTRL) {
+                    if (InputText_MoveCursorRightSpan(inputText)) __NGUI.awaiting_redraw = true;
+                }
+                // only backspace
+                else {
+                    if (InputText_MoveCursorRight(inputText)) __NGUI.awaiting_redraw = true;
+                }
             }
         }
     }
@@ -214,8 +237,7 @@ bool EventWatcher(void* data, SDL_Event* event)
     else if (event->type == SDL_EVENT_MOUSE_MOTION)
     {
         // update hovered window
-        Uint32 id = event->motion.windowID;
-        __NGUI.winManager.hoveredWindow = SDL_GetWindowFromID(id);
+        __NGUI.winManager.hoveredWindow = SDL_GetWindowFromID(event->window.windowID);
 
         // get hovered node and save previous
         uint32_t prev_hovered_node = __NGUI.hovered_node;
@@ -303,6 +325,12 @@ bool EventWatcher(void* data, SDL_Event* event)
     // ------------------------------------------------------------------------------------
     else if (event->type == SDL_EVENT_MOUSE_BUTTON_DOWN)
     {
+        // If mouse hasn't moved yet the hovered window and node will not have been set -> set both of these
+        if (__NGUI.winManager.hoveredWindow == NULL) {
+            __NGUI.winManager.hoveredWindow = SDL_GetWindowFromID(event->window.windowID);
+            NU_Mouse_Hover();
+        }
+
         // Get mouse down coordinates
         SDL_GetGlobalMouseState(&__NGUI.mouse_down_global_x, &__NGUI.mouse_down_global_y);
 
@@ -367,10 +395,12 @@ bool EventWatcher(void* data, SDL_Event* event)
         }
 
         // toggle SDL_TextInput based on focus node type
-        if (NODE_P(__NGUI.focused_node)->type == NU_INPUT) {
-            SDL_StartTextInput(NODE(__NGUI.focused_node)->window);
-        } else {
-            SDL_StopTextInput(NODE(__NGUI.hovered_node)->window);
+        if (__NGUI.focused_node != UINT32_MAX) {
+            if (NODE_P(__NGUI.focused_node)->type == NU_INPUT) {
+                SDL_StartTextInput(NODE(__NGUI.focused_node)->window);
+            } else {
+                SDL_StopTextInput(NODE(__NGUI.hovered_node)->window);
+            }
         }
 
         __NGUI.awaiting_redraw = true;
@@ -467,8 +497,8 @@ bool EventWatcher(void* data, SDL_Event* event)
     if (__NGUI.awaiting_redraw) 
     {
         NU_Layout();
-        NU_Draw();
         CheckForResizeEvents();
+        NU_Draw();
     }
     return true;
 }

@@ -7,7 +7,6 @@ Special thanks to **Nick Barker** for the work he did on the [Clay](https://gith
 <br>
 
 ### Dependencies
-I dislike dependencies as much as the next person but, <br>
 Nodus requires: [stb_image](https://github.com/nothings/stb/blob/master/stb_image.h), [SDL3](https://github.com/libsdl-org/SDL), [FreeType](https://github.com/freetype), [GLEW](https://github.com/nigels-com/glew) (stb_image is included with release)
 
 <br>

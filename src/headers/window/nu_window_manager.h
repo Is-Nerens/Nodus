@@ -25,10 +25,10 @@ void CreateMainWindow(NU_WindowManager* winManager)
 void NU_WindowManagerInit(NU_WindowManager* winManager)
 {
     Vector_Reserve(&winManager->windows, sizeof(SDL_Window*), 8);
-    Vector_Reserve(&winManager->windowNodes, sizeof(uint32_t), 8);
+    Vector_Reserve(&winManager->windowNodes, sizeof(NodeP*), 8);
     Vector_Reserve(&winManager->absoluteRootNodes, sizeof(NodeP*), 8);
     Vector_Reserve(&winManager->windowDrawLists, sizeof(NU_WindowDrawlist), 8);
-    HashmapInit(&winManager->clipMap, sizeof(uint32_t), sizeof(NU_ClipBounds), 16);
+    HashmapInit(&winManager->clipMap, sizeof(NodeP*), sizeof(NU_ClipBounds), 16);
     CreateMainWindow(winManager);
     winManager->hoveredWindow = NULL;
 }
@@ -63,7 +63,7 @@ void AssignRootWindow(NU_WindowManager* winManager, NodeP* rootNode)
 {
     SDL_Window* window = *(SDL_Window**)Vector_Get(&winManager->windows, 0);
     SDL_ShowWindow(window);
-    Vector_Push(&winManager->windowNodes, &rootNode->handle);
+    Vector_Push(&winManager->windowNodes, &rootNode);
     rootNode->node.window = window;
 
     float windowWidth, windowHeight;
@@ -92,7 +92,7 @@ void CreateSubwindow(NU_WindowManager* winManager, NodeP* node)
     SDL_Window* window = SDL_CreateWindow("window", 500, 400, SDL_WINDOW_OPENGL | SDL_WINDOW_RESIZABLE);
     node->node.window = window;
     Vector_Push(&winManager->windows, &window);
-    Vector_Push(&winManager->windowNodes, &node->handle);
+    Vector_Push(&winManager->windowNodes, &node);
 
     // create drawlist
     NU_WindowDrawlist* list = Vector_Create_Uninitialised(&winManager->windowDrawLists);

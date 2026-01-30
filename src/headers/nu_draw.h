@@ -231,39 +231,6 @@ void NU_DrawInputNodeContent(
     // calculate text offset and constrain cursor to input inner region
     if (__NGUI.focused_node != UINT32_MAX && node->handle == __NGUI.focused_node) {
 
-        // calculate text width from start to cursor
-        char temp = inputText->buffer[inputText->cursorBytes];
-        inputText->buffer[inputText->cursorBytes] = '\0';
-        float preCursorTextWidth = NU_Calculate_Text_Unwrapped_Width(node_font, inputText->buffer);
-        inputText->buffer[inputText->cursorBytes] = temp;
-
-        // calculate inner input width
-        float innerWidth = node->node.width
-            - node->node.borderLeft
-            - node->node.borderRight
-            - node->node.padLeft
-            - node->node.padRight;
-
-        // set relative cursor offset
-        inputText->cursorOffset = inputText->textOffset + preCursorTextWidth;
-
-        // overflow correction
-        if (inputText->moveDelta < 0.0f) {
-            if (inputText->cursorOffset < 0.0f) {
-                float overshoot = -inputText->cursorOffset;
-                inputText->cursorOffset = 0.0f;
-                inputText->textOffset += overshoot;
-            }
-        }
-        else if (inputText->moveDelta > 0.0f) {
-            if (inputText->cursorOffset > innerWidth) {
-                float overshoot = inputText->cursorOffset - innerWidth;
-                inputText->cursorOffset = innerWidth;
-                inputText->textOffset -= overshoot;
-            }
-        }
-        inputText->moveDelta = 0.0f; // reset
-
         // construct cursor mesh
         NU_ConstructInputCursorMesh(node, &cursorVertices, &cursorIndices);
     }

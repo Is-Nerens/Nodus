@@ -2,12 +2,12 @@
 #include <rendering/nu_renderer_structures.h>
 #include <math.h>
 
-void NU_Add_Canvas_Context(u32 canvas_node_handle)
+void NU_Add_Canvas_Context(Node* node)
 {
     NU_Canvas_Context ctx;
     Vertex_RGB_List_Init(&ctx.vertices, 512);
     Index_List_Init(&ctx.indices, 1024);
-    HashmapSet(&__NGUI.canvas_contexts, &canvas_node_handle, &ctx);
+    HashmapSet(&__NGUI.canvas_contexts, &node, &ctx);
 }
 
 void NU_Internal_Clear_Canvas(uint32_t canvas_handle)
@@ -18,16 +18,15 @@ void NU_Internal_Clear_Canvas(uint32_t canvas_handle)
 }
 
 void NU_Internal_Border_Rect(
-    uint32_t canvas_handle,
+    Node* canvas,
     float x, float y, float w, float h, 
     float thickness,
     NU_RGB* border_col,
     NU_RGB* fill_col)
 {
-    NodeP* canvas_node = NODE_P(canvas_handle);
-    if (canvas_node->type != NU_CANVAS) return;
+    NU_Canvas_Context* canvas_context = HashmapGet(&__NGUI.canvas_contexts, &canvas);
+    if (canvas_context == NULL) return; // node type is not valid therefore there is no context
 
-    NU_Canvas_Context* canvas_context = HashmapGet(&__NGUI.canvas_contexts, &canvas_handle);
     Vertex_RGB_List* vertices = &canvas_context->vertices;
     Index_List* indices = &canvas_context->indices;
 
@@ -175,16 +174,15 @@ void NU_Internal_Border_Rect(
 }
 
 void NU_Internal_Line(
-    uint32_t canvas_handle,
+    Node* canvas,
     float x1, float y1, float x2, float y2,
     float thickness,
     NU_RGB* col
 )
 {
-    NodeP* canvas_node = NODE_P(canvas_handle);
-    if (canvas_node->type != NU_CANVAS) return;
+    NU_Canvas_Context* canvas_context = HashmapGet(&__NGUI.canvas_contexts, &canvas);
+    if (canvas_context == NULL) return; // node type is not valid therefore there is no context
 
-    NU_Canvas_Context* canvas_context = HashmapGet(&__NGUI.canvas_contexts, &canvas_handle);
     Vertex_RGB_List* vertices = &canvas_context->vertices;
     Index_List* indices = &canvas_context->indices;
 
@@ -258,7 +256,7 @@ void NU_Internal_Line(
 }
 
 void NU_Internal_Dashed_Line(
-    uint32_t canvas_handle,
+    Node* canvas,
     float x1, float y1, float x2, float y2,
     float thickness,
     uint8_t* dash_pattern,
@@ -266,8 +264,8 @@ void NU_Internal_Dashed_Line(
     NU_RGB* col
 )
 {
-    NodeP* canvas_node = NODE_P(canvas_handle);
-    if (canvas_node->type != NU_CANVAS) return;
+    NU_Canvas_Context* canvas_context = HashmapGet(&__NGUI.canvas_contexts, &canvas);
+    if (canvas_context == NULL) return; // node type is not valid therefore there is no context
 
 
     // Calculate min number of additional vertices + indices
@@ -294,7 +292,6 @@ void NU_Internal_Dashed_Line(
 
 
     // Allocate extra space in vertex and index lists (if needed)
-    NU_Canvas_Context* canvas_context = HashmapGet(&__NGUI.canvas_contexts, &canvas_handle);
     Vertex_RGB_List* vertices = &canvas_context->vertices;
     Index_List* indices = &canvas_context->indices;
     if (vertices->size + min_additional_vertices > vertices->capacity) Vertex_RGB_List_Grow(vertices, min_additional_vertices);

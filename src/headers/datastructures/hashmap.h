@@ -15,8 +15,13 @@ typedef struct Hashmap
     uint32_t itemCount;
     uint32_t capacity;
     uint32_t maxProbes;
-    uint32_t iterateIndex;
 } Hashmap;
+
+typedef struct HashmapIterator
+{
+    Hashmap* hmap;
+    uint32_t index;
+} HashmapIterator;
 
 void HashmapInit(Hashmap* hmap, uint32_t keySize, uint32_t itemSize, uint32_t capacity)
 {
@@ -173,7 +178,7 @@ void* HashmapGet(Hashmap* hmap, void* key)
 void HashmapSet(Hashmap* hmap, void* key, void* value)
 {
     // Resize if surpassed max load factor 
-    if (hmap->itemCount * 10 > hmap->capacity * 7) {
+    if ((float)hmap->itemCount / (float)hmap->capacity > 0.5f) {
         HashmapResize(hmap);
     }
 
@@ -267,45 +272,42 @@ void HashmapDelete(Hashmap* hmap, void* key)
     hmap->itemCount--;
 }
 
-inline void HashmapIterateBegin(Hashmap* hmap)
+
+HashmapIterator HashmapCreateIterator(Hashmap* hmap)
 {
-    hmap->iterateIndex = 0;
+    HashmapIterator iterator;
+    iterator.hmap = hmap;
+    iterator.index = 0;
+    return iterator;
 }
 
-inline int HashmapIterateContinue(Hashmap* hmap)
-{   
-    return hmap->iterateIndex < hmap->capacity;
-}
-
-void HashmapIterateGet(Hashmap* hmap, void** returnKey, void** returnVal)
+int HashmapIteratorNext(HashmapIterator* it, void** keyOut, void** valOut)
 {
-    if (hmap->itemCount == 0) 
-    {
-        *returnKey = NULL;
-        *returnVal = NULL;
+    Hashmap* hmap = it->hmap; 
+
+    // no items -> done
+    if (hmap->itemCount == 0) {
+        return 0;
     }
 
-    // Probe until next item is found
-    while(hmap->iterateIndex < hmap->capacity)
-    {
+    while (it->index < hmap->capacity) {
 
-        // Found item -> return pointer
-        if (HashmapSlotPresent(hmap, hmap->iterateIndex)) { 
-            char* base = (char*)hmap->data + hmap->iterateIndex * (hmap->keySize + hmap->itemSize);
-            hmap->iterateIndex++;
-            *returnKey = base;
-            *returnVal = base + hmap->keySize;
-            return;
+        // found item -> set key, value
+        if (HashmapSlotPresent(hmap, it->index)) { 
+            char* base = (char*)hmap->data + it->index * (hmap->keySize + hmap->itemSize);
+            it->index++;
+            *keyOut = base;
+            *valOut = base + hmap->keySize;
+            return 1;
         }
-
-        hmap->iterateIndex++;
+        it->index++;
     }
 
-    // Error
-    *returnKey = NULL;
-    *returnVal = NULL;
-    return;
+    // done -> reset index
+    it->index = 0;
+    return 0;
 }
+
 
 void HashmapClear(Hashmap* hmap)
 {

@@ -137,7 +137,7 @@ static int NU_Stylesheet_Parse(char* src, struct Vector* tokens, NU_Stylesheet* 
                     if (item.propertyFlags & (1ULL << 35)) curr_item->padLeft = item.padLeft; 
                     if (item.propertyFlags & (1ULL << 36)) curr_item->padRight = item.padRight; 
                     if (item.propertyFlags & (1ULL << 37)) curr_item->glImageHandle = item.glImageHandle;
-                    if (item.propertyFlags & (1ULL << 38)) curr_item->glImageHandle = item.inputType;
+                    if (item.propertyFlags & (1ULL << 38)) curr_item->inputType = item.inputType;
                     curr_item->fontId = item.fontId;
                 }
                 selector_count = 0;
@@ -821,7 +821,6 @@ static int NU_Stylesheet_Parse(char* src, struct Vector* tokens, NU_Stylesheet* 
                         break;
                     
                     case STYLE_IMAGE_SOURCE_PROPERTY:
-                        if (item.tag == NU_INPUT) break;
                         void* found = LinearStringmapGet(&imageFilepathToHandleMap, text);
                         if (found == NULL) {
                             GLuint image_handle = Image_Load(text);
@@ -845,7 +844,7 @@ static int NU_Stylesheet_Parse(char* src, struct Vector* tokens, NU_Stylesheet* 
                         break;
 
                     case STYLE_INPUT_TYPE_PROPERTY:
-                        if (item.tag != NU_INPUT) break;
+                        item.propertyFlags |= 1ULL << 38;
                         if (strcmp(text, "number") == 0) {
                             item.inputType = 1;
                         } else {

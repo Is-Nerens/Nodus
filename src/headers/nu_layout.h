@@ -4,6 +4,7 @@
 #include <GL/glew.h>
 #include <stdbool.h>
 #include <math.h>
+#include <utils/performance.h>
 #include <rendering/text/nu_text_layout.h>
 
 static void NU_ApplyMinMaxWidthConstraint(NodeP* node)
@@ -20,61 +21,52 @@ static void NU_ApplyMinMaxHeightConstraint(NodeP* node)
 
 static void NU_Prepass()
 {
-    for (int l=0; l<=__NGUI.tree.depth-1; l++)
-    {
-        Layer* parentlayer = &__NGUI.tree.layers[l];
-        Layer* childlayer = &__NGUI.tree.layers[l+1];
 
-        // Iterate over parent layer
-        for (int p=0; p<parentlayer->size; p++)
-        {       
-            NodeP* parent = LayerGet(parentlayer, p); if (parent->state == 0) continue;
-            parent->clippingRootHandle = UINT32_MAX;
+    DFS dfs = DFS_Create(__NGUI.tree.root);
+    NodeP* node;
+    while ((node = DFS_Next(&dfs)) != NULL) {
 
-            // Iterate over children
-            for (uint32_t i=parent->firstChildIndex; i<parent->firstChildIndex + parent->childCount; i++)
+        // set node hidden
+        node->state = 1;
+        if (node->node.layoutFlags & HIDDEN || (node->parent != NULL && node->parent->node.layoutFlags & HIDDEN)) {
+            node->state = 2; // don't affect layout or draw node
+        }
+        // node affects layout
+        else {
+            node->clippedAncestor = NULL;
+
+            // set / inherit absolute positioning
+            node->node.positionAbsolute = 0;
+            if (node->node.layoutFlags & POSITION_ABSOLUTE || (node->parent != NULL && (
+                node->parent->node.positionAbsolute || 
+                node->parent->node.layoutFlags & POSITION_ABSOLUTE
+            )))
             {
-                NodeP* child = LayerGet(childlayer, i);
-
-                // Hide child if parent is hidden or child is hidden
-                child->state = 1;
-                if (parent->node.layoutFlags & HIDDEN || child->node.layoutFlags & HIDDEN) {
-                    child->state = 2; 
-                    continue;
-                }
-
-                // Set/inherit absolute positioning
-                child->node.positionAbsolute = 0;
-                if (parent->node.positionAbsolute || parent->node.layoutFlags & POSITION_ABSOLUTE || child->node.layoutFlags & POSITION_ABSOLUTE) {
-                    child->node.positionAbsolute = 1;
-                }
-
-                // Clear clipping inheritance info
-                child->clippingRootHandle = UINT32_MAX;
-
-                // Reset position
-                child->node.x = 0.0f;
-                child->node.y = 0.0f;
-
-                // Constrain preferred/min/max width/height -> These are limited by the border and padding
-                // Preferred width height bust also be constrained by min/max width/height
-                float natural_width = child->node.borderLeft + child->node.borderRight + child->node.padLeft + child->node.padRight;
-                float natural_height = child->node.borderTop + child->node.borderBottom + child->node.padTop + child->node.padBottom;
-                child->node.minWidth = max(child->node.minWidth, natural_width);
-                child->node.minHeight = max(child->node.minHeight, natural_height);
-                child->node.maxWidth = max(max(child->node.maxWidth, natural_width), child->node.minWidth);
-                child->node.maxHeight = max(max(child->node.maxHeight, natural_height), child->node.minHeight);
-                child->node.preferred_width = max(child->node.preferred_width, natural_width);
-                child->node.preferred_height = max(child->node.preferred_height, natural_height);
-                child->node.preferred_width = min(max(child->node.preferred_width, child->node.minWidth), child->node.maxWidth);
-                child->node.preferred_height = min(max(child->node.preferred_height, child->node.minHeight), child->node.maxHeight);
-
-                // Set base width/height and reset content dimensions
-                child->node.width = child->node.preferred_width;
-                child->node.height = child->node.preferred_height;
-                child->node.contentWidth = 0;
-                child->node.contentHeight = 0;
+                node->node.positionAbsolute = 1;
             }
+
+            // reset position
+            node->node.x = 0.0f;
+            node->node.y = 0.0f;
+
+            // constrain preferred/min/max width/height -> These are limited by the border and padding
+            // preferred width height bust also be constrained by min/max width/height
+            float natural_width = node->node.borderLeft + node->node.borderRight + node->node.padLeft + node->node.padRight;
+            float natural_height = node->node.borderTop + node->node.borderBottom + node->node.padTop + node->node.padBottom;
+            node->node.minWidth = max(node->node.minWidth, natural_width);
+            node->node.minHeight = max(node->node.minHeight, natural_height);
+            node->node.maxWidth = max(max(node->node.maxWidth, natural_width), node->node.minWidth);
+            node->node.maxHeight = max(max(node->node.maxHeight, natural_height), node->node.minHeight);
+            node->node.preferred_width = max(node->node.preferred_width, natural_width);
+            node->node.preferred_height = max(node->node.preferred_height, natural_height);
+            node->node.preferred_width = min(max(node->node.preferred_width, node->node.minWidth), node->node.maxWidth);
+            node->node.preferred_height = min(max(node->node.preferred_height, node->node.minHeight), node->node.maxHeight);
+
+            // Set base width/height and reset content dimensions
+            node->node.width = node->node.preferred_width;
+            node->node.height = node->node.preferred_height;
+            node->node.contentWidth = 0;
+            node->node.contentHeight = 0;
         }
     }
 }
@@ -900,6 +892,7 @@ static void NU_CalculatePositions()
 
 void NU_Layout()
 {
+    timer_start();
     NU_Prepass();
     NU_CalculateTextFitWidths();
     NU_CalculateFitSizeWidths();  
@@ -909,4 +902,5 @@ void NU_Layout()
     NU_CalculateFitSizeHeights();
     NU_GrowShrinkHeights();
     NU_CalculatePositions();
+    timer_stop();
 }

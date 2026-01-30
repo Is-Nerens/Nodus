@@ -85,15 +85,10 @@ int NU_Internal_Apply_Stylesheet(uint32_t stylesheet_handle)
     NU_Stylesheet* stylesheet = Vector_Get_Safe(&__NGUI.stylesheets, stylesheet_handle - 1);   
     if (stylesheet == NULL) return 0;
 
-    // For each layer
-    for (uint32_t l=0; l<__NGUI.tree.depth; l++)
-    {
-        Layer* layer = &__NGUI.tree.layers[l];
-        for (uint32_t i=0; i<layer->size; i++)
-        {
-            NodeP* node = &layer->nodeArray[i]; if (!node->state) continue;
-            NU_Apply_Stylesheet_To_Node(node, stylesheet);
-        }
+    DFS dfs = DFS_Create(__NGUI.tree.root);
+    NodeP* node;
+    while ((node = DFS_Next(&dfs)) != NULL) {
+        NU_Apply_Stylesheet_To_Node(node, stylesheet);
     }
 
     __NGUI.stylesheet = stylesheet;

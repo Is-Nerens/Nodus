@@ -28,30 +28,24 @@ typedef struct Node
     char* class;
     char* id;
     char* textContent;
-
-    // --- Tracks which styles were applied in xml ---
-    uint64_t inlineStyleFlags;
-
-    // --- Event Information
-    uint16_t eventFlags;
-
-    // --- Tree information ---
-    uint32_t positionAbsolute;
+    
+    uint64_t inlineStyleFlags; // --- Tracks which styles were applied in xml ---
+    uint16_t eventFlags; // --- Event Information
+    uint8_t positionAbsolute; // --- Tree information ---
 
     // --- Styling ---
-    GLuint glImageHandle;
     float x, y, width, height, preferred_width, preferred_height;
     float minWidth, maxWidth, minHeight, maxHeight;
     float gap, contentWidth, contentHeight, scrollX, scrollV;
     float left, right, top, bottom;
-    uint32_t padTop, padBottom, padLeft, padRight;
-    uint32_t borderTop, borderBottom, borderLeft, borderRight;
-    uint32_t borderRadiusTl, borderRadiusTr, borderRadiusBl, borderRadiusBr;
-    uint32_t backgroundR, backgroundG, backgroundB;
-    uint32_t borderR, borderG, borderB;
-    uint32_t textR, textG, textB;
-    uint32_t fontId;
-    uint32_t layoutFlags;
+    uint8_t padTop, padBottom, padLeft, padRight;
+    uint8_t borderTop, borderBottom, borderLeft, borderRight;
+    uint8_t borderRadiusTl, borderRadiusTr, borderRadiusBl, borderRadiusBr;
+    uint8_t backgroundR, backgroundG, backgroundB;
+    uint8_t borderR, borderG, borderB;
+    uint8_t textR, textG, textB;
+    uint8_t fontId;
+    uint8_t layoutFlags;
     char horizontalAlignment;
     char verticalAlignment;
     char horizontalTextAlignment;

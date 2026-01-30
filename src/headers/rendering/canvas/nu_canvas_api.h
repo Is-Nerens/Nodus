@@ -10,9 +10,9 @@ void NU_Add_Canvas_Context(Node* node)
     HashmapSet(&__NGUI.canvas_contexts, &node, &ctx);
 }
 
-void NU_Internal_Clear_Canvas(uint32_t canvas_handle)
+void NU_Internal_Clear_Canvas(Node* canvas)
 {
-    NU_Canvas_Context* canvas_context = HashmapGet(&__NGUI.canvas_contexts, &canvas_handle);
+    NU_Canvas_Context* canvas_context = HashmapGet(&__NGUI.canvas_contexts, &canvas);
     canvas_context->vertices.size = 0;
     canvas_context->indices.size = 0;
 }

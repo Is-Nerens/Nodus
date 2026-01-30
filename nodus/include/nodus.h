@@ -46,10 +46,10 @@ typedef struct Node
     uint8_t textR, textG, textB;
     uint8_t fontId;
     uint8_t layoutFlags;
-    char horizontalAlignment;
-    char verticalAlignment;
-    char horizontalTextAlignment;
-    char verticalTextAlignment;
+    uint8_t horizontalAlignment;
+    uint8_t verticalAlignment;
+    uint8_t horizontalTextAlignment;
+    uint8_t verticalTextAlignment;
     bool hideBackground;
 } Node;
 
@@ -85,7 +85,7 @@ typedef struct NU_Event_Info_Input
 
 typedef struct NU_Event
 {
-    uint32_t nodeHandle;
+    Node* node;
     NU_Event_Info_Mouse mouse;
     NU_Event_Info_Input input;
 } NU_Event;
@@ -112,20 +112,19 @@ __declspec(dllimport) uint32_t NU_Load_Stylesheet(char* css_filepath);
 __declspec(dllimport) int NU_Apply_Stylesheet(uint32_t stylesheet_handle);
 
 // DOM functions
-__declspec(dllimport) inline Node* NU_NODE(uint32_t nodeHandle);
-__declspec(dllimport) inline uint32_t NU_PARENT(uint32_t nodeHandle);
-__declspec(dllimport) inline uint32_t NU_CHILD(uint32_t nodeHandle, uint32_t childIndex);
-__declspec(dllimport) inline uint32_t* NU_CHILD_COUNT(uint32_t nodeHandle);
-__declspec(dllimport) inline uint32_t NU_DEPTH(uint32_t nodeHandle);
-__declspec(dllimport) inline uint32_t NU_CREATE_NODE(uint32_t parentHandle, NodeType type);
-__declspec(dllimport) inline const char* NU_INPUT_TEXT_CONTENT(uint32_t nodeHandle);
-__declspec(dllimport) inline void NU_SHOW(uint32_t nodeHandle);
-__declspec(dllimport) inline void NU_HIDE(uint32_t nodeHandle);
-__declspec(dllimport) inline void NU_DELETE_NODE(uint32_t nodeHandle);
-__declspec(dllimport) uint32_t NU_Get_Node_By_Id(char* id);
+__declspec(dllimport) inline Node* NU_PARENT(Node* node);
+__declspec(dllimport) inline Node* NU_CHILD(Node* node, uint32_t childIndex);
+__declspec(dllimport) inline uint32_t NU_CHILD_COUNT(Node* node);
+__declspec(dllimport) inline uint32_t NU_DEPTH(Node* node);
+__declspec(dllimport) inline Node* NU_CREATE_NODE(uint32_t parentHandle, NodeType type);
+__declspec(dllimport) inline const char* NU_INPUT_TEXT_CONTENT(Node* node);
+__declspec(dllimport) inline void NU_SHOW(Node* node);
+__declspec(dllimport) inline void NU_HIDE(Node* node);
+__declspec(dllimport) inline void NU_DELETE_NODE(Node* node);
+__declspec(dllimport) Node* NU_Get_Node_By_Id(char* id);
 __declspec(dllimport) NU_Nodelist NU_Get_Nodes_By_Class(char* class_name);
 __declspec(dllimport) NU_Nodelist NU_Get_Nodes_By_Tag(NodeType type);
-__declspec(dllimport) void NU_Set_Class(uint32_t nodeHandle, char* class_name);
+__declspec(dllimport) void NU_Set_Class(Node* node, char* class_name);
 
 // Event functions
 __declspec(dllimport) void NU_Register_Event(
@@ -136,12 +135,12 @@ __declspec(dllimport) void NU_Register_Event(
 ); 
 
 // Canvas functions
-__declspec(dllimport) void NU_Clear_Canvas(uint32_t canvas_handle);
+__declspec(dllimport) void NU_Clear_Canvas(Node* canvas);
 
 __declspec(dllimport) void NU_Render();
 
 __declspec(dllimport) void NU_Border_Rect(
-    uint32_t canvas_handle,
+    Node* canvas,
     float x, float y, float w, float h,
     float thickness,
     NU_RGB* border_col,
@@ -149,14 +148,14 @@ __declspec(dllimport) void NU_Border_Rect(
 );
 
 __declspec(dllimport) void NU_Line(
-    uint32_t canvas_handle,
+    Node* canvas,
     float x1, float y1, float x2, float y2,
     float thickness,
     NU_RGB* col
 );
 
 __declspec(dllimport) void NU_Dashed_Line(
-    uint32_t canvas_handle,
+    Node* canvas,
     float x1, float y1, float x2, float y2,
     float thickness,
     uint8_t* dash_pattern,

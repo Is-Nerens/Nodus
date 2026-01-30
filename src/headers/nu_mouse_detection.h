@@ -7,8 +7,8 @@ static bool NU_MouseIsOverNode(NodeP* node, float mouseX, float mouseY)
     float right_wall = node->node.x + node->node.width;
     float top_wall = node->node.y;
     float bottom_wall = node->node.y + node->node.height; 
-    if (node->clippingRootHandle != UINT32_MAX) {
-        NU_ClipBounds* clip = HashmapGet(&__NGUI.winManager.clipMap, &node->clippingRootHandle);
+    if (node->clippedAncestor != NULL) {
+        NU_ClipBounds* clip = HashmapGet(&__NGUI.winManager.clipMap, &node->clippedAncestor);
         left_wall = max(clip->clip_left, node->node.x);
         right_wall = min(clip->clip_right, node->node.x + node->node.width);
         top_wall = max(clip->clip_top, node->node.y);
@@ -80,12 +80,12 @@ static bool NU_Mouse_Over_Node_V_Scrollbar(NodeP* node, float mouse_x, float mou
 void NU_Mouse_Hover()
 {   
     // remove potential pseudo style from current hovered node
-    if (__NGUI.hovered_node != UINT32_MAX && __NGUI.hovered_node != __NGUI.mouse_down_node) {
-        NU_Apply_Stylesheet_To_Node(NODE_P(__NGUI.hovered_node), __NGUI.stylesheet);
+    if (__NGUI.hovered_node != NULL && __NGUI.hovered_node != __NGUI.mouse_down_node) {
+        NU_Apply_Stylesheet_To_Node(__NGUI.hovered_node, __NGUI.stylesheet);
     }
-    uint32_t prev_hovered_node = __NGUI.hovered_node;
-    __NGUI.hovered_node = UINT32_MAX;
-    __NGUI.scroll_hovered_node = UINT32_MAX;
+    NodeP* prev_hovered_node = __NGUI.hovered_node;
+    __NGUI.hovered_node = NULL;
+    __NGUI.scroll_hovered_node = NULL;
     if (__NGUI.winManager.hoveredWindow == NULL) return;
 
     // get local mouse coords
@@ -105,8 +105,7 @@ void NU_Mouse_Hover()
 
     // add window root nodes to stack
     for (uint32_t i=0; i<__NGUI.winManager.windowNodes.size; i++) {
-        uint32_t handle = *(uint32_t*)Vector_Get(&__NGUI.winManager.windowNodes, i);
-        NodeP* node = NODE_P(handle);
+        NodeP* node = *(NodeP**)Vector_Get(&__NGUI.winManager.windowNodes, i);
         if (node->node.window == __NGUI.winManager.hoveredWindow){
             Vector_Push(&stack, &node);
             break;
@@ -119,36 +118,39 @@ void NU_Mouse_Hover()
     {
         // pop the stack
         NodeP* current_node = *(NodeP**)Vector_Get(&stack, stack.size - 1);
-        __NGUI.hovered_node = current_node->handle;
+        __NGUI.hovered_node = current_node;
         stack.size -= 1;
 
         // skip children
         if (current_node->type == NU_BUTTON) continue;
 
         // iterate over children
-        Layer* childlayer = &__NGUI.tree.layers[current_node->layer+1];
-        for (uint32_t i=current_node->firstChildIndex; i<current_node->firstChildIndex + current_node->childCount; i++)
-        {
-            NodeP* child = LayerGet(childlayer, i);
+        NodeP* child = current_node->firstChild;
+        while(child != NULL) {
+
             if (child->state == 2 || 
                 child->node.layoutFlags & POSITION_ABSOLUTE || 
                 child->type == NU_WINDOW ||
-                !NU_MouseIsOverNode(child, mouseX, mouseY)) continue; // Skip
+                !NU_MouseIsOverNode(child, mouseX, mouseY))
+            {
+                child = child->nextSibling; continue;
+            }
 
             // check for scroll hover
             if (child->node.layoutFlags & OVERFLOW_V_PROPERTY) {
                 bool overflow_v = child->node.contentHeight > child->node.height - child->node.borderTop - child->node.borderBottom;
-                if (overflow_v) {
-                    __NGUI.scroll_hovered_node = child->handle;
-                }
+                if (overflow_v) __NGUI.scroll_hovered_node = child;
             }
             Vector_Push(&stack, &child);
+
+            // move to the next child
+            child = child->nextSibling;
         }
     }
 
     // apply pseudo style to hovered node
-    if (__NGUI.hovered_node != UINT32_MAX && __NGUI.hovered_node != __NGUI.mouse_down_node) {
-        NU_Apply_Pseudo_Style_To_Node(NODE_P(__NGUI.hovered_node), __NGUI.stylesheet, PSEUDO_HOVER);
+    if (__NGUI.hovered_node != NULL && __NGUI.hovered_node != __NGUI.mouse_down_node) {
+        NU_Apply_Pseudo_Style_To_Node(__NGUI.hovered_node, __NGUI.stylesheet, PSEUDO_HOVER);
     } 
     Vector_Free(&stack);
 

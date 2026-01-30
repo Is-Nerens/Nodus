@@ -16,7 +16,6 @@ int NU_Generate_Tree(char* src, struct Vector* tokens, struct Vector* textRefs)
         return 0; // Failure 
     }
 
-
     // -----------------------
     // Create root window node
     // -----------------------
@@ -37,7 +36,6 @@ int NU_Generate_Tree(char* src, struct Vector* tokens, struct Vector* textRefs)
     // ---------------
     LinearStringmap imageFilepathToHandleMap;
     LinearStringmapInit(&imageFilepathToHandleMap, sizeof(GLuint), 20, 512);
-
 
     // -----------------------
     // Iterate over all tokens
@@ -87,7 +85,6 @@ int NU_Generate_Tree(char* src, struct Vector* tokens, struct Vector* textRefs)
                 // Create a new node and add it to the tree
                 // ----------------------------------------
                 currentNode = TreeCreateNode(&__NGUI.tree, currentNode, type);
-
                 // ----------------------------------------
                 // --- Handle scenarios for different tags
                 // ----------------------------------------

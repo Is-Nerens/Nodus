@@ -14,79 +14,72 @@ void NU_DissociateNode(NodeP* node)
         StringmapDelete(&__NGUI.id_node_map, node->node.id);
     }
     if (node->node.eventFlags & NU_EVENT_FLAG_ON_CLICK) {
-        HashmapDelete(&__NGUI.on_click_events, &node->handle);
+        HashmapDelete(&__NGUI.on_click_events, &node);
     }
     if (node->node.eventFlags & NU_EVENT_FLAG_ON_INPUT_CHANGED) {
-        HashmapDelete(&__NGUI.on_input_changed_events, &node->handle);
+        HashmapDelete(&__NGUI.on_input_changed_events, &node);
     }
     if (node->node.eventFlags & NU_EVENT_FLAG_ON_DRAG) {
-        HashmapDelete(&__NGUI.on_drag_events, &node->handle);
+        HashmapDelete(&__NGUI.on_drag_events, &node);
     }
     if (node->node.eventFlags & NU_EVENT_FLAG_ON_RELEASED) {
-        HashmapDelete(&__NGUI.on_released_events, &node->handle);
+        HashmapDelete(&__NGUI.on_released_events, &node);
     }
     if (node->node.eventFlags & NU_EVENT_FLAG_ON_RESIZE) {
-        HashmapDelete(&__NGUI.on_resize_events, &node->handle);
-        HashmapDelete(&__NGUI.node_resize_tracking, &node->handle); 
+        HashmapDelete(&__NGUI.on_resize_events, &node);
+        HashmapDelete(&__NGUI.node_resize_tracking, &node); 
     }
     if (node->node.eventFlags & NU_EVENT_FLAG_ON_MOUSE_DOWN) {
-        HashmapDelete(&__NGUI.on_mouse_down_events, &node->handle);
+        HashmapDelete(&__NGUI.on_mouse_down_events, &node);
     }
     if (node->node.eventFlags & NU_EVENT_FLAG_ON_MOUSE_UP) {
-        HashmapDelete(&__NGUI.on_mouse_up_events, &node->handle);
+        HashmapDelete(&__NGUI.on_mouse_up_events, &node);
     }
     if (node->node.eventFlags & NU_EVENT_FLAG_ON_MOUSE_MOVED) {
-        HashmapDelete(&__NGUI.on_mouse_move_events, &node->handle);
+        HashmapDelete(&__NGUI.on_mouse_move_events, &node);
     }
     if (node->node.eventFlags & NU_EVENT_FLAG_ON_MOUSE_OUT) {
-        HashmapDelete(&__NGUI.on_mouse_out_events, &node->handle);
+        HashmapDelete(&__NGUI.on_mouse_out_events, &node);
     }
-    if (node->handle == __NGUI.hovered_node) {
-        __NGUI.hovered_node = UINT32_MAX;
+    if (node == __NGUI.hovered_node) {
+        __NGUI.hovered_node = NULL;
     } 
-    if (node->handle == __NGUI.mouse_down_node) {
-        __NGUI.mouse_down_node = UINT32_MAX;
+    if (node == __NGUI.mouse_down_node) {
+        __NGUI.mouse_down_node = NULL;
     }
-    if (node->handle == __NGUI.scroll_hovered_node) {
-        __NGUI.scroll_hovered_node = UINT32_MAX;
+    if (node == __NGUI.scroll_hovered_node) {
+        __NGUI.scroll_hovered_node = NULL;
     }
-    if (node->handle == __NGUI.scroll_mouse_down_node) {
-        __NGUI.scroll_mouse_down_node = UINT32_MAX;
+    if (node == __NGUI.scroll_mouse_down_node) {
+        __NGUI.scroll_mouse_down_node = NULL;
+    }
+    if (node == __NGUI.focused_node) {
+        __NGUI.focused_node = NULL;
     }
     if (node->type == NU_CANVAS) {
-        HashmapDelete(&__NGUI.canvas_contexts, &node->handle);
+        HashmapDelete(&__NGUI.canvas_contexts, &node->node);
     }
 }
 
-uint32_t NU_Internal_Get_Node_By_Id(char* id)
+Node* NU_Internal_Get_Node_By_Id(char* id)
 {
-    uint32_t* handle = StringmapGet(&__NGUI.id_node_map, id);
-    if (handle == NULL) return UINT16_MAX;
-    return *handle;
+    void* found = StringmapGet(&__NGUI.id_node_map, id);
+    if (found == NULL) return NULL;
+    NodeP* node = *(NodeP**)found;
+    return &node->node;
 }
 
 NU_Nodelist NU_Internal_Get_Nodes_By_Class(char* class)
 {
     NU_Nodelist result;
     NU_Nodelist_Init(&result, 8);
-
-    // For each layer
-    for (uint32_t l=0; l<=__NGUI.tree.depth-1; l++)
-    {
-        Layer* layer = &__NGUI.tree.layers[l];
-
-        // Iterate over layer
-        for (uint32_t n=0; n<layer->size; n++)
-        {   
-            NodeP* node = LayerGet(layer, n);
-            if (!node->state) continue;
-
-            if (node->node.class != NULL && strcmp(class, node->node.class) == 0) {
-                NU_Nodelist_Push(&result, node->handle);
-            }
+    DepthFirstSearch dfs = DepthFirstSearch_Create(__NGUI.tree.root);
+    NodeP* node;
+    while(DepthFirstSearch_Next(&dfs, &node)) {
+        if (node->node.class != NULL && strcmp(class, node->node.class) == 0) {
+            NU_Nodelist_Push(&result, &node->node);
         }
     }
-
     return result;
 }
 
@@ -94,24 +87,13 @@ NU_Nodelist NU_Internal_Get_Nodes_By_Tag(NodeType type)
 {
     NU_Nodelist result;
     NU_Nodelist_Init(&result, 8);
-
-    // For each layer
-    for (uint32_t l=0; l<=__NGUI.tree.depth-1; l++)
-    {
-        Layer* layer = &__NGUI.tree.layers[l];
-        
-        // Iterate over layer
-        for (uint32_t n=0; n<layer->size; n++)
-        {   
-            NodeP* node = LayerGet(layer, n);
-            if (!node->state) continue;
-
-            if (node->type == type) {
-                NU_Nodelist_Push(&result, node->handle);
-            }
+    DepthFirstSearch dfs = DepthFirstSearch_Create(__NGUI.tree.root);
+    NodeP* node;
+    while(DepthFirstSearch_Next(&dfs, &node)) {
+        if (node->type == type) {
+            NU_Nodelist_Push(&result, &node->node);
         }
     }
-
     return result;
 }
 
@@ -125,72 +107,67 @@ void NU_Reorder_In_Parent(NodeP* node, uint32_t index)
 
 }
 
-inline Node* NODE(u32 nodeHandle)
+inline Node* PARENT(Node* node)
 {
-    NodeP* nodeP = NodeTableGet(&__NGUI.tree.table, nodeHandle);
-    if (nodeP == NULL) return NULL;
-    return &nodeP->node; 
+    NodeP* nodeP = NODEP_OF(node, NodeP, node); // clever macro stuff
+    if (nodeP->parent == NULL) return NULL;
+    return &nodeP->parent->node;
 }
 
-inline u32 PARENT(u32 nodeHandle)
+inline Node* CHILD(Node* node, u32 childIndex)
 {
-    NodeP* nodeP = NodeTableGet(&__NGUI.tree.table, nodeHandle);
-    if (nodeP == NULL) return UINT32_MAX;
-    return nodeP->parentHandle;
+    NodeP* nodeP = NODEP_OF(node, NodeP, node); // clever macro stuff
+    if (nodeP == NULL || childIndex >= nodeP->childCount) return NULL;
+    NodeP* child = nodeP->firstChild;
+    u32 i = 0;
+    while(child != NULL) {
+        if (i == childIndex) return &child->node;
+        i++;
+        child = child->nextSibling;
+    }
+    return NULL;
 }
 
-inline u32 CHILD(u32 nodeHandle, u32 childIndex)
+inline u32 CHILD_COUNT(Node* node)
 {
-    NodeP* nodeP = NodeTableGet(&__NGUI.tree.table, nodeHandle);
-    if (nodeP == NULL || childIndex >= nodeP->childCount) return UINT32_MAX;
-    NodeP* child = &__NGUI.tree.layers[nodeP->layer+1].nodeArray[nodeP->firstChildIndex + childIndex];
-    return child->handle;
-}
-
-inline u32 CHILD_COUNT(u32 nodeHandle)
-{
-    NodeP* nodeP = NodeTableGet(&__NGUI.tree.table, nodeHandle);
-    if (nodeP == NULL) return UINT32_MAX;
+    NodeP* nodeP = NODEP_OF(node, NodeP, node); // clever macro stuff
     return nodeP->childCount;
 }
 
-inline u32 DEPTH(u32 nodeHandle)
+inline int DEPTH(Node* node)
 {
-    NodeP* nodeP = NodeTableGet(&__NGUI.tree.table, nodeHandle);
-    if (nodeP == NULL) return UINT32_MAX;
-    return nodeP->layer;
+    NodeP* nodeP = NODEP_OF(node, NodeP, node); // clever macro stuff
+    return (int)(nodeP->layer);
 }
 
-inline u32 CREATE_NODE(u32 parentHandle, NodeType type)
-{
-    if (type == NU_WINDOW) return UINT32_MAX; // Nodus doesn't yet support window creation
-    u32 nodeHandle = TreeCreateNode(&__NGUI.tree, parentHandle, type);
-    NodeP* node = NodeTableGet(&__NGUI.tree.table, nodeHandle);
-    NU_ApplyNodeDefaults(node);
+inline Node* CREATE_NODE(Node* parent, NodeType type)
+{ 
+    if (parent == NULL || type == NU_WINDOW) return NULL; // Nodus doesn't yet support window creation
+    NodeP* parentP = NODEP_OF(parent, NodeP, node); // clever macro stuff
+    NodeP* node = TreeCreateNode(&__NGUI.tree, parentP, type);
     NU_Apply_Stylesheet_To_Node(node, __NGUI.stylesheet);
-    return nodeHandle;
+    return &node->node;
 }
 
-inline void DELETE_NODE(u32 nodeHandle)
+inline void DELETE_NODE(Node* node)
 {
-    NodeP* nodeP = NodeTableGet(&__NGUI.tree.table, nodeHandle);
-    if (nodeP == NULL) return;
-    return TreeDeleteNode(&__NGUI.tree, nodeHandle, NU_DissociateNode);
+    NodeP* nodeP = NODEP_OF(node, NodeP, node); // clever macro stuff
+    return TreeDeleteNode(&__NGUI.tree, nodeP, NU_DissociateNode);
 }
 
-inline const char* INPUT_TEXT_CONTENT(u32 nodeHandle)
+inline const char* INPUT_TEXT_CONTENT(Node* node)
 {
-    NodeP* nodeP = NodeTableGet(&__NGUI.tree.table, nodeHandle);
-    if (nodeP == NULL || nodeP->type != NU_INPUT) return NULL;
+    NodeP* nodeP = NODEP_OF(node, NodeP, node); // clever macro stuff
+    if (nodeP->type != NU_INPUT) return NULL;
     return nodeP->typeData.input.inputText.buffer;
 }
 
-inline void SHOW(u32 nodeHandle)
+inline void SHOW(Node* node)
 {
-    NODE(nodeHandle)->layoutFlags &= ~HIDDEN;
+    node->layoutFlags &= ~HIDDEN;
 }
 
-inline void HIDE(u32 nodeHandle)
+inline void HIDE(Node* node)
 {
-    NODE(nodeHandle)->layoutFlags |= HIDDEN;
+    node->layoutFlags |= HIDDEN;
 }

@@ -18,7 +18,6 @@ typedef struct Tree
     Nalloc* layerAllocs;
     NodeP* root;
     u32 layerAllocsCapacity;
-    u32 layerAllocsSize;
     u32 depth;
     u32 nodeCount;
 } Tree;
@@ -29,9 +28,8 @@ NodeP* TreeCreate(Tree* tree, NodeType rootType)
 {
     // create layer allocators
     tree->layerAllocsCapacity = 4;
-    tree->layerAllocsSize = 4;
     tree->layerAllocs = malloc(sizeof(Nalloc) * tree->layerAllocsCapacity);
-    for (int i=0; i<tree->layerAllocsSize; i++)
+    for (int i=0; i<tree->layerAllocsCapacity; i++)
     {
         if (i == 0) Nalloc_Init(&tree->layerAllocs[i], 1);
         else Nalloc_Init(&tree->layerAllocs[i], 100);
@@ -57,7 +55,7 @@ NodeP* TreeCreate(Tree* tree, NodeType rootType)
 
 void TreeFree(Tree* tree)
 {
-    for (int i=0; i<tree->layerAllocsSize; i++) {
+    for (int i=0; i<tree->layerAllocsCapacity; i++) {
         Nalloc_Destroy(&tree->layerAllocs[i]);
     }
     free(tree->layerAllocs);
@@ -68,17 +66,17 @@ void TreeFree(Tree* tree)
 void TreeAddLayer(Tree* tree)
 {
     u32 newCapacity = tree->layerAllocsCapacity * 2;
-    tree->layerAllocsCapacity = newCapacity;
-    tree->layerAllocs = realloc(tree->layerAllocs, sizeof(Nalloc) * tree->layerAllocsCapacity);
-    for (u32 i=tree->layerAllocsSize; i<newCapacity; i++) {
+    tree->layerAllocs = realloc(tree->layerAllocs, sizeof(Nalloc) * newCapacity);
+    for (u32 i=tree->layerAllocsCapacity; i<newCapacity; i++) {
         Nalloc_Init(&tree->layerAllocs[i], 100);
     }
+    tree->layerAllocsCapacity = newCapacity;
 }
 
 NodeP* TreeCreateNode(Tree* tree, NodeP* parent, NodeType type)
 {
     // add additional layer allocator if necessary
-    if (parent->layer + 1 == tree->layerAllocsSize) {
+    if (parent->layer + 1 == tree->layerAllocsCapacity) {
         TreeAddLayer(tree);
     }
 

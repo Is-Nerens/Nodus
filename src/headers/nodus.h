@@ -35,11 +35,11 @@ struct NU_GUI
     Hashmap canvas_contexts; 
 
     // state
-    u32 hovered_node;
-    u32 mouse_down_node;
-    u32 scroll_hovered_node;
-    u32 scroll_mouse_down_node;
-    u32 focused_node;
+    NodeP* hovered_node;
+    NodeP* mouse_down_node;
+    NodeP* scroll_hovered_node;
+    NodeP* scroll_mouse_down_node;
+    NodeP* focused_node;
     float mouse_down_global_x;
     float mouse_down_global_y;
     float v_scroll_thumb_grab_offset;
@@ -84,10 +84,10 @@ struct NU_GUI __NGUI;
 #include "nu_dom.h"
 #include "nu_events.h"
 
-void NU_Internal_Set_Class(uint32_t handle, char* class)
+void NU_Internal_Set_Class(Node* node, char* class)
 {
-    NodeP* node = NODE_P(handle);
-    node->node.class = NULL;
+    node->class = NULL;
+    NodeP* nodeP = NODEP_OF(node, NodeP, node);
 
     // Look for class in gui class string set
     char* gui_class_get = StringsetGet(&__NGUI.class_string_set, class);
@@ -96,19 +96,19 @@ void NU_Internal_Set_Class(uint32_t handle, char* class)
 
         // If found in the stylesheet -> add it to the gui class set
         if (style_class_get) {
-            node->node.class = StringsetAdd(&__NGUI.class_string_set, class);
+            node->class = StringsetAdd(&__NGUI.class_string_set, class);
         }
     } 
     else {
-        node->node.class = gui_class_get; 
+        node->class = gui_class_get; 
     }
 
     // Update styling
-    NU_Apply_Stylesheet_To_Node(node, __NGUI.stylesheet);
-    if (node->handle == __NGUI.scroll_mouse_down_node) {
-        NU_Apply_Pseudo_Style_To_Node(node, __NGUI.stylesheet, PSEUDO_PRESS);
-    } else if (node->handle == __NGUI.hovered_node) {
-        NU_Apply_Pseudo_Style_To_Node(node, __NGUI.stylesheet, PSEUDO_HOVER);
+    NU_Apply_Stylesheet_To_Node(nodeP, __NGUI.stylesheet);
+    if (nodeP == __NGUI.scroll_mouse_down_node) {
+        NU_Apply_Pseudo_Style_To_Node(nodeP, __NGUI.stylesheet, PSEUDO_PRESS);
+    } else if (nodeP == __NGUI.hovered_node) {
+        NU_Apply_Pseudo_Style_To_Node(nodeP, __NGUI.stylesheet, PSEUDO_HOVER);
     }
 
     __NGUI.awaiting_redraw = true;
@@ -130,29 +130,30 @@ int NU_Internal_Create_Gui(char* xml_filepath, char* css_filepath)
     Vector_Reserve(&__NGUI.stylesheets, sizeof(NU_Stylesheet), 2);
 
     // Events
-    HashmapInit(&__NGUI.on_click_events,         sizeof(u32), sizeof(struct NU_Callback_Info), 50);
-    HashmapInit(&__NGUI.on_input_changed_events, sizeof(u32), sizeof(struct NU_Callback_Info), 10);
-    HashmapInit(&__NGUI.on_drag_events,          sizeof(u32), sizeof(struct NU_Callback_Info), 10);
-    HashmapInit(&__NGUI.on_released_events,      sizeof(u32), sizeof(struct NU_Callback_Info), 10);
-    HashmapInit(&__NGUI.on_resize_events,        sizeof(u32), sizeof(struct NU_Callback_Info), 10);
-    HashmapInit(&__NGUI.node_resize_tracking,    sizeof(u32), sizeof(NU_NodeDimensions)     , 10);
-    HashmapInit(&__NGUI.on_mouse_down_events,    sizeof(u32), sizeof(struct NU_Callback_Info), 10);
-    HashmapInit(&__NGUI.on_mouse_up_events,      sizeof(u32), sizeof(struct NU_Callback_Info), 10);
-    HashmapInit(&__NGUI.on_mouse_move_events,    sizeof(u32), sizeof(struct NU_Callback_Info), 10);
-    HashmapInit(&__NGUI.on_mouse_in_events,      sizeof(u32), sizeof(struct NU_Callback_Info), 10);
-    HashmapInit(&__NGUI.on_mouse_out_events,     sizeof(u32), sizeof(struct NU_Callback_Info), 10);
+    HashmapInit(&__NGUI.on_click_events,         sizeof(Node*), sizeof(struct NU_Callback_Info), 50);
+    HashmapInit(&__NGUI.on_input_changed_events, sizeof(Node*), sizeof(struct NU_Callback_Info), 10);
+    HashmapInit(&__NGUI.on_drag_events,          sizeof(Node*), sizeof(struct NU_Callback_Info), 10);
+    HashmapInit(&__NGUI.on_released_events,      sizeof(Node*), sizeof(struct NU_Callback_Info), 10);
+    HashmapInit(&__NGUI.on_resize_events,        sizeof(Node*), sizeof(struct NU_Callback_Info), 10);
+    HashmapInit(&__NGUI.node_resize_tracking,    sizeof(Node*), sizeof(NU_NodeDimensions)     , 10);
+    HashmapInit(&__NGUI.on_mouse_down_events,    sizeof(Node*), sizeof(struct NU_Callback_Info), 10);
+    HashmapInit(&__NGUI.on_mouse_up_events,      sizeof(Node*), sizeof(struct NU_Callback_Info), 10);
+    HashmapInit(&__NGUI.on_mouse_move_events,    sizeof(Node*), sizeof(struct NU_Callback_Info), 10);
+    HashmapInit(&__NGUI.on_mouse_in_events,      sizeof(Node*), sizeof(struct NU_Callback_Info), 10);
+    HashmapInit(&__NGUI.on_mouse_out_events,     sizeof(Node*), sizeof(struct NU_Callback_Info), 10);
 
     // State
-    __NGUI.hovered_node = UINT32_MAX;
-    __NGUI.mouse_down_node = UINT32_MAX;
-    __NGUI.scroll_hovered_node = UINT32_MAX;
-    __NGUI.scroll_mouse_down_node = UINT32_MAX;
-    __NGUI.focused_node = UINT32_MAX;
+    __NGUI.hovered_node = NULL;
+    __NGUI.mouse_down_node = NULL;
+    __NGUI.scroll_hovered_node = NULL;
+    __NGUI.scroll_mouse_down_node = NULL;
+    __NGUI.focused_node = NULL;
     __NGUI.stylesheet = NULL;
     __NGUI.running = false;
     __NGUI.awaiting_redraw = true;
     __NGUI.unblock_mutex = NULL;
     __NGUI.unblock = false;
+
 
     // Register custom render event type
     __NGUI.SDL_CUSTOM_RENDER_EVENT = SDL_RegisterEvents(1);
@@ -172,7 +173,6 @@ int NU_Internal_Create_Gui(char* xml_filepath, char* css_filepath)
     if (stylesheetHandle == 0) return 0;
     if (!NU_Internal_Apply_Stylesheet(stylesheetHandle)) return 0;
     NU_Layout(); // Initial layout calculation
-
     __NGUI.running = true;
 
     return 1; // Success

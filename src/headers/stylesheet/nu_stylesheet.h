@@ -85,11 +85,12 @@ int NU_Internal_Apply_Stylesheet(uint32_t stylesheet_handle)
     NU_Stylesheet* stylesheet = Vector_Get_Safe(&__NGUI.stylesheets, stylesheet_handle - 1);   
     if (stylesheet == NULL) return 0;
 
-    DFS dfs = DFS_Create(__NGUI.tree.root);
+    DepthFirstSearch dfs = DepthFirstSearch_Create(__NGUI.tree.root);
     NodeP* node;
-    while ((node = DFS_Next(&dfs)) != NULL) {
+    while (DepthFirstSearch_Next(&dfs, &node)) {
         NU_Apply_Stylesheet_To_Node(node, stylesheet);
     }
+    DepthFirstSearch_Free(&dfs);
 
     __NGUI.stylesheet = stylesheet;
     return 1; // success

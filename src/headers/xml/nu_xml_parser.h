@@ -16,12 +16,10 @@ int NU_Generate_Tree(char* src, struct Vector* tokens, struct Vector* textRefs)
         return 0; // Failure 
     }
 
-
     // -----------------------
     // Create root window node
     // -----------------------
-    NodeP* rootNode = TreeCreate(&__NGUI.tree, 100, NU_WINDOW);
-    NU_ApplyNodeDefaults(rootNode);
+    NodeP* rootNode = TreeCreate(&__NGUI.tree, NU_WINDOW);
     AssignRootWindow(&__NGUI.winManager, rootNode);
 
     // ---------------------------------
@@ -39,7 +37,6 @@ int NU_Generate_Tree(char* src, struct Vector* tokens, struct Vector* textRefs)
     LinearStringmap imageFilepathToHandleMap;
     LinearStringmapInit(&imageFilepathToHandleMap, sizeof(GLuint), 20, 512);
 
-
     // -----------------------
     // Iterate over all tokens
     // -----------------------
@@ -51,7 +48,6 @@ int NU_Generate_Tree(char* src, struct Vector* tokens, struct Vector* textRefs)
     // 4 = in <thead>
     // 5 = in <row> in <table> with <thead>
     // 6 = in <row> in <table> without <thead>
-    uint8_t currentLayer = 0; 
     NodeP* currentNode = rootNode;
     int i = 2; 
     while (i < tokens->size - 3)
@@ -88,13 +84,7 @@ int NU_Generate_Tree(char* src, struct Vector* tokens, struct Vector* textRefs)
                 // ----------------------------------------
                 // Create a new node and add it to the tree
                 // ----------------------------------------
-                currentNode = TreeAppendNode(&__NGUI.tree, currentLayer+1, type);
-                Layer* parentLayer = &__NGUI.tree.layers[currentLayer];
-                uint32_t parentIndex = parentLayer->size - 1;
-                NodeP* parentNode = &parentLayer->nodeArray[parentIndex];
-                currentNode->parentHandle = parentNode->handle;
-                NU_ApplyNodeDefaults(currentNode);
-
+                currentNode = TreeCreateNode(&__NGUI.tree, currentNode, type);
                 // ----------------------------------------
                 // --- Handle scenarios for different tags
                 // ----------------------------------------
@@ -102,47 +92,23 @@ int NU_Generate_Tree(char* src, struct Vector* tokens, struct Vector* textRefs)
                     CreateSubwindow(&__NGUI.winManager, currentNode);
                 }
                 else if (currentNode->type == NU_TABLE) {
-                    currentNode->node.inlineStyleFlags |= 1ULL << 0; // Enforce vertical direction
-                    currentNode->node.layoutFlags |= LAYOUT_VERTICAL;
                     ctx = 1;
                 } 
                 else if (currentNode->type == NU_THEAD) {
-                    currentNode->node.inlineStyleFlags |= 1ULL << 1; // Enforce horizontal growth
-                    currentNode->node.layoutFlags |= GROW_HORIZONTAL;
                     ctx = 4;
                 }
                 else if (currentNode->type == NU_ROW) {
-                    currentNode->node.inlineStyleFlags |= 1ULL << 1; // Enforce horizontal growth
-                    currentNode->node.layoutFlags |= GROW_HORIZONTAL;
                     if (ctx == 1 || ctx == 3) ctx = 6;
                     else ctx = 5;
                 }
                 else if (currentNode->type == NU_CANVAS) { // Create canvas context
-                    NU_Add_Canvas_Context(currentNode->handle);
-                }
-                else if (currentNode->type == NU_INPUT) {
-                    InputText_Init(&currentNode->typeData.input.inputText);
+                    NU_Add_Canvas_Context(&currentNode->node);
                 }
 
-                // -------------------------------
-                // Add node to parent's child list
-                // -------------------------------
+                // Inherit window from parent
                 if (currentNode->type != NU_WINDOW) {
-                    currentNode->node.window = parentNode->node.window; // Inherit window from parent
+                    currentNode->node.window = currentNode->parent->node.window;
                 } 
-                if (parentNode->childCount == 0) {
-                    parentNode->firstChildIndex = currentNode->index; // If first child in parent
-                }
-                if (parentNode->type == NU_ROW || parentNode->type == NU_THEAD) {
-                    currentNode->node.inlineStyleFlags |= 1ULL << 1;
-                    currentNode->node.layoutFlags |= GROW_VERTICAL;
-                }
-                parentNode->childCount += 1;
-                parentNode->childCapacity += 1;
-
-
-                // Move one layer deeper
-                currentLayer++;
 
                 // Continue ^
                 i+=2; continue;
@@ -162,22 +128,20 @@ int NU_Generate_Tree(char* src, struct Vector* tokens, struct Vector* textRefs)
             // ---------------------------
             // Enforce close grammar rules
             //----------------------------
-            Layer* currLayer = &__NGUI.tree.layers[currentLayer];
-            NodeP* openNode = &currLayer->nodeArray[currLayer->size - 1];
-            if (AssertTagCloseStartGrammar(tokens, i, openNode->type) != 0) {
+            if (AssertTagCloseStartGrammar(tokens, i, currentNode->type) != 0) {
                 LinearStringmapFree(&imageFilepathToHandleMap);
                 return 0;
             }
 
             // Multi node structure context switch
-            if (openNode->type == NU_TABLE) ctx = 0;      // <table> closes
-            else if (openNode->type == NU_THEAD) ctx = 2; // <thead> closes
-            else if (openNode->type == NU_ROW) {          // <row> closes
+            if (currentNode->type == NU_TABLE) ctx = 0;      // <table> closes
+            else if (currentNode->type == NU_THEAD) ctx = 2; // <thead> closes
+            else if (currentNode->type == NU_ROW) {          // <row> closes
                 if (ctx == 5) ctx = 2;
                 else ctx = 3;
             } 
 
-            currentLayer--; // Move one layer up (towards root)
+            currentNode = currentNode->parent;
             i+=3;            // Increment token index
             continue;
         }
@@ -195,7 +159,7 @@ int NU_Generate_Tree(char* src, struct Vector* tokens, struct Vector* textRefs)
                 else ctx = 3;
             } 
 
-            currentLayer--; // Move one layer up (towards root)
+            currentNode = currentNode->parent;
             
             // Continue ^
             i+=1; continue;
@@ -248,7 +212,7 @@ int NU_Generate_Tree(char* src, struct Vector* tokens, struct Vector* textRefs)
                         char* id_get = StringsetGet(&__NGUI.id_string_set, ptext);
                         if (id_get == NULL) {
                             currentNode->node.id = StringsetAdd(&__NGUI.id_string_set, ptext);
-                            StringmapSet(&__NGUI.id_node_map, ptext, &currentNode->handle);
+                            StringmapSet(&__NGUI.id_node_map, ptext, &currentNode);
                         }
                         break;
 
@@ -607,10 +571,13 @@ int NU_Generate_Tree(char* src, struct Vector* tokens, struct Vector* textRefs)
                             if (image_handle) {
                                 currentNode->typeData.image.glImageHandle = image_handle;
                                 LinearStringmapSet(&imageFilepathToHandleMap, ptext, &image_handle);
+                                currentNode->node.inlineStyleFlags |= ((uint64_t)1ULL << 37);
                             }
                         } 
-                        else { currentNode->typeData.image.glImageHandle = *(GLuint*)found; }
-                        currentNode->node.inlineStyleFlags |= ((uint64_t)1ULL << 37);
+                        else { 
+                            currentNode->node.inlineStyleFlags |= ((uint64_t)1ULL << 37);
+                            currentNode->typeData.image.glImageHandle = *(GLuint*)found; 
+                        }
                         break;
 
                     // Input type property

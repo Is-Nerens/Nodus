@@ -41,148 +41,148 @@ void NU_GenerateDrawlists()
     PrepareDrawlists(&__NGUI.winManager);
 
     // add root to drawlist 
-    NodeP* root = &__NGUI.tree.layers[0].nodeArray[0];
+    NodeP* root = __NGUI.tree.root;
     SetNodeDrawlist_Relative(&__NGUI.winManager, root);
 
     // traverse the tree
-    for (int l=0; l<=__NGUI.tree.depth-1; l++)
-    {
-        Layer* parentlayer = &__NGUI.tree.layers[l];
-        Layer* childlayer = &__NGUI.tree.layers[l+1];
+    BreadthFirstSearch bfs = BreadthFirstSearch_Create(root);
+    NodeP* node;
+    while(BreadthFirstSearch_Next(&bfs, &node)) {
 
-        // iterate over parent layer
-        for (int p=0; p<parentlayer->size; p++) 
-        {       
-            NodeP* parent = LayerGet(parentlayer, p);
-            if (parent->state == 0) continue;
-            if (parent->state == 2) { // Parent not visible -> children must inherit this
-                for (uint32_t i=parent->firstChildIndex; i<parent->firstChildIndex + parent->childCount; i++) {
-                    NodeP* child = LayerGet(childlayer, i); child->state = 2;
-                }
-                continue;
+        // node not visible? children must inherit this
+        if (node->state == 2) {
+            NodeP* child = node->firstChild;
+            while(child != NULL) {
+                child->state = 2;
+                child = child->nextSibling;
             }
+            continue;
+        }
 
-            // precompute parent inner rect
-            float parent_inner_x, parent_inner_y, parent_inner_width, parent_inner_height = 0;
-            if (parent->node.layoutFlags & OVERFLOW_VERTICAL_SCROLL) {
-                parent_inner_y = parent->node.y + parent->node.borderTop + parent->node.padTop;
-                parent_inner_height = parent->node.height - parent->node.borderTop - parent->node.borderBottom - parent->node.padTop - parent->node.padBottom;
+        // precompute node inner rect
+        float nodeInnerX, nodeInnerY, nodeInnerWidth, nodeInnerHeight = 0;
+        if (node->node.layoutFlags & OVERFLOW_VERTICAL_SCROLL) {
+            nodeInnerY = node->node.y + node->node.borderTop + node->node.padTop;
+            nodeInnerHeight = node->node.height - node->node.borderTop - node->node.borderBottom - node->node.padTop - node->node.padBottom;
 
-                // Handle case where parent is a table with a thead
-                if (parent->type == NU_TABLE && parent->childCount > 0) {
-                    NodeP* first_child = LayerGet(childlayer, parent->firstChildIndex);
-                    if (first_child->type == NU_THEAD) {
-                        parent_inner_y += first_child->node.height;
-                        parent_inner_height -= first_child->node.height;
-                    }
+            // Handle case where node is a table with a thead
+            if (node->type == NU_TABLE && node->childCount > 0) {
+                if (node->firstChild->type == NU_THEAD) {
+                    nodeInnerY += node->firstChild->node.height;
+                    nodeInnerHeight -= node->firstChild->node.height;
                 }
             }
-            if (parent->node.layoutFlags & OVERFLOW_HORIZONTAL_SCROLL) {
-                parent_inner_x = parent->node.x + parent->node.borderLeft + parent->node.padLeft;
-                parent_inner_width = parent->node.width - parent->node.borderLeft - parent->node.borderRight - parent->node.padLeft - parent->node.padRight;
+        }
+        if (node->node.layoutFlags & OVERFLOW_HORIZONTAL_SCROLL) {
+            nodeInnerX = node->node.x + node->node.borderLeft + node->node.padLeft;
+            nodeInnerWidth = node->node.width - node->node.borderLeft - node->node.borderRight - node->node.padLeft - node->node.padRight;
+        }
+
+        // iterate over children
+        NodeP* child = node->firstChild;
+        while(child != NULL) {
+            if (child->state == 2) {
+                child = child->nextSibling; continue;
             }
 
-            // iterate over children
-            for (uint32_t i=parent->firstChildIndex; i<parent->firstChildIndex + parent->childCount; i++)
-            {
-                NodeP* child = LayerGet(childlayer, i); if (child->state == 2) continue;
+            // if child not visible in window bounds -> mark as hidden
+            if (!NodeVisibleInWindow(&__NGUI.winManager, child)) {
+                child->state = 2; 
+                child = child->nextSibling; continue;
+            }
 
-                // if child not visible in window bounds -> mark as hidden
-                if (!NodeVisibleInWindow(&__NGUI.winManager, child)) {
+            // add child to list of root absolute nodes
+            if (child->node.layoutFlags & POSITION_ABSOLUTE) {
+                Vector_Push(&__NGUI.winManager.absoluteRootNodes, &child);
+            }
+
+            // skip child if overflowed parent's bounds
+            if (node->node.layoutFlags & OVERFLOW_VERTICAL_SCROLL && child->type != NU_THEAD) {
+                int intersect_state = NodeVerticalOverlapState(child, nodeInnerY, nodeInnerHeight);
+
+                // child not inside parent -> hide in this draw pass
+                if (intersect_state == 0) { 
                     child->state = 2; 
-                    continue;
+                    child = child->nextSibling; 
+                    continue; 
                 }
 
-                // add child to list of root absolute nodes
-                if (child->node.layoutFlags & POSITION_ABSOLUTE) {
-                    Vector_Push(&__NGUI.winManager.absoluteRootNodes, &child);
-                }
+                // child overlaps parent boundary
+                else if (intersect_state == 1) {
+                    // determine clipping
+                    NU_ClipBounds clip;
+                    clip.clip_top = fmaxf(child->node.y - 1, nodeInnerY);
+                    clip.clip_bottom = fminf(child->node.y + child->node.height, nodeInnerY + nodeInnerHeight);
+                    clip.clip_left = -1.0f;
+                    clip.clip_right = 1000000.0f;
 
-                // skip child if overflowed parent's bounds
-                if (parent->node.layoutFlags & OVERFLOW_VERTICAL_SCROLL && child->type != NU_THEAD) 
-                {   
-                    int intersect_state = NodeVerticalOverlapState(child, parent_inner_y, parent_inner_height);
-
-                    // child not inside parent -> hide in this draw pass
-                    if (intersect_state == 0) { child->state = 2; continue; }
-
-                    // child overlaps parent boundary
-                    else if (intersect_state == 1) 
-                    {
-                        // determine clipping
-                        NU_ClipBounds clip;
-                        clip.clip_top = fmaxf(child->node.y - 1, parent_inner_y);
-                        clip.clip_bottom = fminf(child->node.y + child->node.height, parent_inner_y + parent_inner_height);
-                        clip.clip_left = -1.0f;
-                        clip.clip_right = 1000000.0f;
-
-                        // position absolute -> secondary drawing list
-                        if (child->node.positionAbsolute)
-                        {
-                            // if parent is also clipped -> merge clips (stack clipping behaviour)
-                            if (parent->clippingRootHandle != UINT32_MAX) {
-                                NU_ClipBounds* parent_clip = HashmapGet(&__NGUI.winManager.clipMap, &parent->clippingRootHandle);
-                                clip.clip_top = fmaxf(clip.clip_top, parent_clip->clip_top);
-                                clip.clip_bottom = fminf(clip.clip_bottom, parent_clip->clip_bottom);
-                            }
-                            
-                            // add clipping to hashmap
-                            HashmapSet(&__NGUI.winManager.clipMap, &child->handle, &clip);
-                            child->clippingRootHandle = child->handle; // Set clip root to self
-
-                            // append node to correct window clipped node list
-                            SetNodeDrawlist_ClippedAbsolute(&__NGUI.winManager, child);
-                            continue;
-                        }
-                        // position relative -> main drawing list
-                        else
-                        {
-                            // if parent is also clipped -> merge clips (stack clipping behaviour)
-                            if (parent->clippingRootHandle != UINT32_MAX) {
-                                NU_ClipBounds* parent_clip = HashmapGet(&__NGUI.winManager.clipMap, &parent->clippingRootHandle);
-                                clip.clip_top = fmaxf(clip.clip_top, parent_clip->clip_top);
-                                clip.clip_bottom = fminf(clip.clip_bottom, parent_clip->clip_bottom);
-                            }
-                            
-                            // add clipping to hashmap
-                            HashmapSet(&__NGUI.winManager.clipMap, &child->handle, &clip);
-                            child->clippingRootHandle = child->handle; // Set clip root to self
-
-                            // append node to correct window clipped node list
-                            SetNodeDrawlist_ClippedRelative(&__NGUI.winManager, child);
-                            continue;
-                        }
-                    }
-                }
-
-                // if parent is clipped -> child inherits clip from parent
-                if (parent->clippingRootHandle != UINT32_MAX) {
-                    child->clippingRootHandle = parent->clippingRootHandle;
-
-                    // position absolute -> secondary drawing list
+                    // position absolute -> secondary drawwing list
                     if (child->node.positionAbsolute) {
+                        // if node is also clipped -> merge clips (stack clipping behaviour)
+                        if (node->clippedAncestor != NULL) {
+                            NU_ClipBounds* node_clip = HashmapGet(&__NGUI.winManager.clipMap, &node->clippedAncestor);
+                            clip.clip_top = fmaxf(clip.clip_top, node_clip->clip_top);
+                            clip.clip_bottom = fminf(clip.clip_bottom, node_clip->clip_bottom);
+                        }
+
+                        // add clipping to hashmap
+                        HashmapSet(&__NGUI.winManager.clipMap, &child, &clip);
+                        child->clippedAncestor = child; // Set clip root to self
+
+                        // append node to correct window clipped node list
                         SetNodeDrawlist_ClippedAbsolute(&__NGUI.winManager, child);
+                        child = child->nextSibling; continue;
                     }
                     // position relative -> main drawing list
                     else {
+                        // if parent is also clipped -> merge clips (stack clipping behaviour)
+                        if (node->clippedAncestor != NULL) {
+                            NU_ClipBounds* parent_clip = HashmapGet(&__NGUI.winManager.clipMap, &node->clippedAncestor);
+                            clip.clip_top = fmaxf(clip.clip_top, parent_clip->clip_top);
+                            clip.clip_bottom = fminf(clip.clip_bottom, parent_clip->clip_bottom);
+                        }
+                        
+                        // add clipping to hashmap
+                        HashmapSet(&__NGUI.winManager.clipMap, &child, &clip);
+                        child->clippedAncestor = child; // Set clip root to self
+
+                        // append node to correct window clipped node list
                         SetNodeDrawlist_ClippedRelative(&__NGUI.winManager, child);
+                        child = child->nextSibling; continue;
                     }
-                    continue;
-                }
-
-                // neither child nor parent is clipped -> append node to correct window node list
-                if (child->node.positionAbsolute) { // Position Absolute -> secondary drawing list
-                    SetNodeDrawlist_Absolute(&__NGUI.winManager, child);
-                }
-                else { // position Relative -> main drawing list
-                    SetNodeDrawlist_Relative(&__NGUI.winManager, child);
-                }
-
-                // append node to canvas API drawing list
-                if (child->type == NU_CANVAS) {
-                    SetNodeDrawlist_Canvas(&__NGUI.winManager, child);
                 }
             }
+
+            // if parent is clipped -> child inherits clip from parent
+            if (node->clippedAncestor != NULL) {
+                child->clippedAncestor = node->clippedAncestor;
+
+                // position absolute -> secondary drawing list
+                if (child->node.positionAbsolute) {
+                    SetNodeDrawlist_ClippedAbsolute(&__NGUI.winManager, child);
+                }
+                // position relative -> main drawing list
+                else {
+                    SetNodeDrawlist_ClippedRelative(&__NGUI.winManager, child);
+                }
+                child = child->nextSibling; continue;
+            }
+
+            // neither child nor parent is clipped -> append node to correct window node list
+            if (child->node.positionAbsolute) { // Position Absolute -> secondary drawing list
+                SetNodeDrawlist_Absolute(&__NGUI.winManager, child);
+            }
+            else { // position Relative -> main drawing list
+                SetNodeDrawlist_Relative(&__NGUI.winManager, child);
+            }
+
+            // append node to canvas API drawing list
+            if (child->type == NU_CANVAS) {
+                SetNodeDrawlist_Canvas(&__NGUI.winManager, child);
+            }
+
+            // move to the next child
+            child = child->nextSibling;
         }
     }
 }
@@ -229,40 +229,7 @@ void NU_DrawInputNodeContent(
     InputText* inputText = &node->typeData.input.inputText;
 
     // calculate text offset and constrain cursor to input inner region
-    if (__NGUI.focused_node != UINT32_MAX && node->handle == __NGUI.focused_node) {
-
-        // calculate text width from start to cursor
-        char temp = inputText->buffer[inputText->cursorBytes];
-        inputText->buffer[inputText->cursorBytes] = '\0';
-        float preCursorTextWidth = NU_Calculate_Text_Unwrapped_Width(node_font, inputText->buffer);
-        inputText->buffer[inputText->cursorBytes] = temp;
-
-        // calculate inner input width
-        float innerWidth = node->node.width
-            - node->node.borderLeft
-            - node->node.borderRight
-            - node->node.padLeft
-            - node->node.padRight;
-
-        // set relative cursor offset
-        inputText->cursorOffset = inputText->textOffset + preCursorTextWidth;
-
-        // overflow correction
-        if (inputText->moveDelta < 0.0f) {
-            if (inputText->cursorOffset < 0.0f) {
-                float overshoot = -inputText->cursorOffset;
-                inputText->cursorOffset = 0.0f;
-                inputText->textOffset += overshoot;
-            }
-        }
-        else if (inputText->moveDelta > 0.0f) {
-            if (inputText->cursorOffset > innerWidth) {
-                float overshoot = inputText->cursorOffset - innerWidth;
-                inputText->cursorOffset = innerWidth;
-                inputText->textOffset -= overshoot;
-            }
-        }
-        inputText->moveDelta = 0.0f; // reset
+    if (__NGUI.focused_node != NULL && node == __NGUI.focused_node) {
 
         // construct cursor mesh
         NU_ConstructInputCursorMesh(node, &cursorVertices, &cursorIndices);
@@ -278,7 +245,7 @@ void NU_DrawInputNodeContent(
     NU_Render_Text(&clipped_text_vertices, &clipped_text_indices, node_font, winWidth, winHeight, clip->clip_top, clip->clip_bottom, clip->clip_left, clip->clip_right);
 
     // draw cursor afterwards (if input is focused)
-    if (__NGUI.focused_node != UINT32_MAX && node->handle == __NGUI.focused_node) {
+    if (__NGUI.focused_node != NULL && node == __NGUI.focused_node) {
         Draw_Clipped_Vertex_RGB_List(
             &cursorVertices, 
             &cursorIndices,
@@ -313,7 +280,7 @@ void NU_DrawClippedNodeBorderRect(NodeP* node, float winWidth, float winHeight, 
 void NU_Draw()
 {
     NU_GenerateDrawlists();
-
+    
     // Initialise text vertex and index buffers (per font)
     Vertex_RGB_UV_List text_relative_vertex_buffers[__NGUI.stylesheet->fonts.size];
     Vertex_RGB_UV_List text_absolute_vertex_buffers[__NGUI.stylesheet->fonts.size];
@@ -327,6 +294,7 @@ void NU_Draw()
         Index_List_Init(&text_absolute_index_buffers[i], 128);
     }
     NodeP* focusedInputNode = NULL;
+    
 
     // For each window
     for (uint32_t i=0; i<__NGUI.winManager.windows.size; i++)
@@ -359,7 +327,6 @@ void NU_Draw()
         Vertex_RGB_List_Free(&border_rect_vertices);
         Index_List_Free(&border_rect_indices);
 
-
         // draw canvas api content
         for (uint32_t n=0; n<drawList->canvasNodes.size; n++)
         {
@@ -370,7 +337,8 @@ void NU_Draw()
             float clip_bottom = canvas_node->node.y + canvas_node->node.height - canvas_node->node.borderBottom - canvas_node->node.padBottom;
             float clip_left   = canvas_node->node.x + canvas_node->node.borderLeft + canvas_node->node.padLeft;
             float clip_right  = canvas_node->node.x + canvas_node->node.width - canvas_node->node.borderRight - canvas_node->node.padRight;
-            NU_Canvas_Context* ctx = HashmapGet(&__NGUI.canvas_contexts, &canvas_node->handle);
+            Node* node = &canvas_node->node;
+            NU_Canvas_Context* ctx = HashmapGet(&__NGUI.canvas_contexts, &node);
             Draw_Clipped_Vertex_RGB_List(
                 &ctx->vertices, 
                 &ctx->indices,
@@ -420,7 +388,7 @@ void NU_Draw()
         for (uint32_t n=0; n<drawList->clippedRelativeNodes.size; n++) {
             NodeP* node = *(NodeP**)Vector_Get(&drawList->clippedRelativeNodes, n);
 
-            NU_ClipBounds* clip = (NU_ClipBounds*)HashmapGet(&__NGUI.winManager.clipMap, &node->clippingRootHandle);
+            NU_ClipBounds* clip = (NU_ClipBounds*)HashmapGet(&__NGUI.winManager.clipMap, &node->clippedAncestor);
             NU_DrawClippedNodeBorderRect(node, winW, winH, clip); // draw border rects
 
             if (node->node.textContent != NULL) { // draw node's textContent
@@ -498,7 +466,7 @@ void NU_Draw()
         // draw partially visible absolute nodes
         for (uint32_t n=0; n<drawList->clippedAbsoluteNodes.size; n++) {
             NodeP* node = *(NodeP**) Vector_Get(&drawList->clippedAbsoluteNodes, n);
-            NU_ClipBounds* clip = (NU_ClipBounds*)HashmapGet(&__NGUI.winManager.clipMap, &node->clippingRootHandle);
+            NU_ClipBounds* clip = (NU_ClipBounds*)HashmapGet(&__NGUI.winManager.clipMap, &node->clippedAncestor);
 
             NU_DrawClippedNodeBorderRect(node, winW, winH, clip); // draw border rect
 

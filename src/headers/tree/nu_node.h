@@ -1,6 +1,6 @@
 #pragma once
 #include <stdint.h>
-#include "nu_input_text.h"
+#include "nu_input_text_struct.h"
 typedef uint8_t u8;
 typedef uint16_t u16;
 typedef uint32_t u32;
@@ -13,6 +13,7 @@ typedef uint64_t u64;
 #define HIDE_BACKGROUND              0x20  // 00100000
 #define POSITION_ABSOLUTE            0x40  // 01000000
 #define HIDDEN                       0x80  // 10000000
+#define NODEP_OF(ptr, type, member) ((type *)((char *)(ptr) - offsetof(type, member)))
 
 typedef enum NodeType
 {
@@ -68,12 +69,12 @@ typedef struct NodeP
     Node node;
     NodeType type;
     NodeTypeData typeData;
-    u32 handle;
-    u32 index;
-    u32 parentHandle;
-    u32 clippingRootHandle;
-    u32 firstChildIndex;
-    u32 childCapacity;
+    struct NodeP* parent;
+    struct NodeP* nextSibling;
+    struct NodeP* prevSibling;
+    struct NodeP* firstChild;
+    struct NodeP* lastChild;
+    struct NodeP* clippedAncestor;
     u32 childCount;
     u8 layer;
     u8 state;
@@ -98,39 +99,33 @@ typedef struct NU_ClipBounds
 
 void NU_ApplyNodeDefaults(NodeP* node)
 {
+    // zero init
+    memset(&node->node, 0, sizeof(node->node));
+    memset(&node->typeData, 0, sizeof(node->typeData));
+
     node->node.window = NULL;
     node->node.class = NULL;
     node->node.id = NULL;
     node->node.textContent = NULL;
-    node->node.inlineStyleFlags = 0;
-    node->node.positionAbsolute = 0;
-    node->typeData.image.glImageHandle = 0;
-    node->node.x = 0.0f;
-    node->node.y = 0.0f;
-    node->node.preferred_width = 0.0f;
-    node->node.preferred_height = 0.0f;
-    node->node.minWidth = 0.0f;
     node->node.maxWidth = 10e20f;
-    node->node.minHeight = 0.0f;
     node->node.maxHeight = 10e20f;
-    node->node.gap = 0.0f;
-    node->node.contentWidth = node->node.contentHeight = 0.0f;
-    node->node.scrollX = node->node.scrollV = 0.0f;
     node->node.left = node->node.right = node->node.top = node->node.bottom = -1.0f;
-    node->node.padLeft = node->node.padRight = node->node.padTop = node->node.padBottom = 0;
-    node->node.borderLeft = node->node.borderRight = 0;
-    node->node.borderTop = node->node.borderBottom = 0;
-    node->node.borderRadiusTl = node->node.borderRadiusTr = 0;
-    node->node.borderRadiusBl = node->node.borderRadiusBr = 0;
     node->node.backgroundR = node->node.backgroundG = node->node.backgroundB = 50;
     node->node.borderR = node->node.borderG = node->node.borderB = 100;
     node->node.textR = node->node.textG = node->node.textB = 255;
-    node->node.fontId = 0;
-    node->node.layoutFlags = 0;
-    node->node.horizontalAlignment = 0;
-    node->node.verticalAlignment = 0;
     node->node.horizontalTextAlignment = 1;
     node->node.verticalTextAlignment = 1;
-    node->node.hideBackground = 0;
-    node->node.eventFlags = 0;
+
+    // set defaults based on node type
+    if (node->type == NU_TABLE) {
+        node->node.inlineStyleFlags |= 1ULL << 0; // Enforce vertical direction
+        node->node.layoutFlags |= LAYOUT_VERTICAL;
+    }
+    else if (node->type == NU_THEAD || node->type == NU_ROW) {
+        node->node.inlineStyleFlags |= 1ULL << 1; // Enforce horizontal growth
+        node->node.layoutFlags |= GROW_HORIZONTAL;
+    }
+    else if (node->type == NU_INPUT) {
+        InputText_Init(&node->typeData.input.inputText);
+    }
 }

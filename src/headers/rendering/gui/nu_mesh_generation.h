@@ -312,15 +312,12 @@ void Construct_Scroll_Thumb(NodeP* node,
     if (vertices->size + additional_vertices > vertices->capacity) Vertex_RGB_List_Grow(vertices, additional_vertices);
     if (indices->size + additional_indices > indices->capacity) Index_List_Grow(indices, additional_indices);
 
-
-    Layer* child_layer = &__NGUI.tree.layers[node->layer + 1];
-    NodeP* first_child = LayerGet(child_layer, node->firstChildIndex);
+    NodeP* first_child = node->firstChild;
     float scroll_view_height = node->node.contentHeight;
     float track_height = node->node.height - node->node.borderTop - node->node.borderBottom;
     float inner_height_w_pad = track_height - node->node.padTop - node->node.padBottom;
     float inner_proportion_of_content_height = inner_height_w_pad / scroll_view_height;
     float thumb_height = inner_proportion_of_content_height * track_height;
-
 
     float x = node->node.x + node->node.width - node->node.borderRight - 8.0f;
     float y = node->node.y + node->node.borderTop;
@@ -332,30 +329,30 @@ void Construct_Scroll_Thumb(NodeP* node,
     // Background Rect TL
     vertices->array[vertOffset + 0].x = x;
     vertices->array[vertOffset + 0].y = y;
-    vertices->array[vertOffset + 0].r = 1.0f;
-    vertices->array[vertOffset + 0].g = 1.0f;
-    vertices->array[vertOffset + 0].b = 1.0f;
+    vertices->array[vertOffset + 0].r = 0.18039f;
+    vertices->array[vertOffset + 0].g = 0.184313f;
+    vertices->array[vertOffset + 0].b = 0.19607f;
 
     // Background Rect TR
     vertices->array[vertOffset + 1].x = x + w;
     vertices->array[vertOffset + 1].y = y;
-    vertices->array[vertOffset + 1].r = 1.0f;
-    vertices->array[vertOffset + 1].g = 1.0f;
-    vertices->array[vertOffset + 1].b = 1.0f;
+    vertices->array[vertOffset + 1].r = 0.18039f;
+    vertices->array[vertOffset + 1].g = 0.184313f;
+    vertices->array[vertOffset + 1].b = 0.19607f;
 
     // Background Rect BL
     vertices->array[vertOffset + 2].x = x;
     vertices->array[vertOffset + 2].y = y + track_height;
-    vertices->array[vertOffset + 2].r = 1.0f;
-    vertices->array[vertOffset + 2].g = 1.0f;
-    vertices->array[vertOffset + 2].b = 1.0f;
+    vertices->array[vertOffset + 2].r = 0.18039f;
+    vertices->array[vertOffset + 2].g = 0.184313f;
+    vertices->array[vertOffset + 2].b = 0.19607f;
 
     // Background Rect BR
     vertices->array[vertOffset + 3].x = x + w;
     vertices->array[vertOffset + 3].y = y + track_height;
-    vertices->array[vertOffset + 3].r = 1.0f;
-    vertices->array[vertOffset + 3].g = 1.0f;
-    vertices->array[vertOffset + 3].b = 1.0f;
+    vertices->array[vertOffset + 3].r = 0.18039f;
+    vertices->array[vertOffset + 3].g = 0.184313f;
+    vertices->array[vertOffset + 3].b = 0.19607f;
 
     // Background Thumb TL
     vertices->array[vertOffset + 4].x = x;

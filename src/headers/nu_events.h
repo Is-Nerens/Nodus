@@ -490,11 +490,9 @@ bool EventWatcher(void* data, SDL_Event* event)
             node->node.scrollV = min(max(node->node.scrollV, 0.0f), 1.0f); // Clamp to range [0,1]
 
             // Re-render and exit function
-            timer_start();
             NU_Layout();
             NU_Mouse_Hover();
             NU_Draw();
-            timer_stop();
             return true;
         }
     }
@@ -502,11 +500,9 @@ bool EventWatcher(void* data, SDL_Event* event)
 
     if (__NGUI.awaiting_redraw) 
     {
-        timer_start();
         NU_Layout();
         NU_Mouse_Hover();
         NU_Draw();
-        timer_stop();
     }
     return true;
 }

@@ -35,15 +35,13 @@ int Nalloc_Init(Nalloc* pool, uint32_t itemsPerBlock)
         return 0;
     }
 
-    for (uint32_t i = 0; i < itemsPerBlock - 1; i++) {
+    for (uint32_t i=0; i<itemsPerBlock-1; i++) {
         array[i].next = &array[i + 1];
     }
-    array[itemsPerBlock - 1].next = NULL;
-
+    array[itemsPerBlock-1].next = NULL;
     pool->freeChunk       = array;
     pool->arrayStart      = node;
     pool->chunksPerArray  = itemsPerBlock;
-
     node->array = array;
     node->next  = NULL;
     return 1;

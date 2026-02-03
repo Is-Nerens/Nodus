@@ -119,8 +119,8 @@ static void NU_CalculateFitSizeWidths()
         while(child != NULL) {
 
             if (child->state != 2 && child->type != NU_WINDOW && !(child->node.layoutFlags & POSITION_ABSOLUTE)) {
-                if (is_layout_horizontal) node->node.contentWidth += child->node.contentWidth;
-                else node->node.contentWidth = MAX(node->node.contentWidth, node->node.width);
+                if (is_layout_horizontal) node->node.contentWidth += child->node.width;
+                else node->node.contentWidth = MAX(node->node.contentWidth, child->node.width);
                 visibleChildren++;
             }
 
@@ -233,8 +233,7 @@ static void NU_GrowShrinkChildWidths(NodeP* node)
         child = node->firstChild;
         while (child != NULL) {
 
-            if (child->state != 2 && child->type != NU_WINDOW && 
-                !(child->node.layoutFlags & POSITION_ABSOLUTE))
+            if (child->state != 2 && child->type != NU_WINDOW && !(child->node.layoutFlags & POSITION_ABSOLUTE))
             {
                 remainingWidth -= child->node.width;
                 if (child->node.layoutFlags & GROW_HORIZONTAL && child->type != NU_WINDOW) growable++;
@@ -265,8 +264,8 @@ static void NU_GrowShrinkChildWidths(NodeP* node)
                 if (child->state != 2 && child->type != NU_WINDOW && 
                     !(child->node.layoutFlags & POSITION_ABSOLUTE) &&
                     (child->node.layoutFlags & GROW_HORIZONTAL) && 
-                    child->node.width < child->node.maxWidth
-                ) {
+                    child->node.width < child->node.maxWidth) 
+                {
                     growable++;
                     if (child->node.width < smallest) {
                         secondSmallest = smallest;
@@ -292,7 +291,6 @@ static void NU_GrowShrinkChildWidths(NodeP* node)
             // --- Grow width of each eligible child ---
             // -----------------------------------------
             bool grew_any = false;
-
             child = node->firstChild;
             while (child != NULL) {
 
@@ -438,10 +436,11 @@ static void NU_GrowShrinkChildHeights(NodeP* node)
         // -----------------------------------------------------
         // --- Calculate growable count and remaining height ---
         // -----------------------------------------------------
-        uint32_t growable = 0;
+        int growable = 0;
         int visible = 0;
         child = node->firstChild;
         while(child != NULL) {
+
             if (child->state != 2 && child->type != NU_WINDOW && !(child->node.layoutFlags & POSITION_ABSOLUTE))
             {
                 remainingHeight -= child->node.height;
@@ -453,7 +452,6 @@ static void NU_GrowShrinkChildHeights(NodeP* node)
             child = child->nextSibling;
         }
         remainingHeight -= (visible - 1) * node->node.gap;
-
         if (growable == 0) return;
 
         // --------------------------
@@ -470,6 +468,7 @@ static void NU_GrowShrinkChildHeights(NodeP* node)
 
             child = node->firstChild;
             while(child != NULL) {
+                
                 if (child->state != 2 && child->type != NU_WINDOW && 
                     !(child->node.layoutFlags & POSITION_ABSOLUTE) && 
                     (child->node.layoutFlags & GROW_VERTICAL) && 
@@ -502,9 +501,10 @@ static void NU_GrowShrinkChildHeights(NodeP* node)
             bool grew_any = false;
             child = node->firstChild;
             while(child != NULL) {
+
                 if (child->state != 2 && child->type != NU_WINDOW && 
-                    child->node.layoutFlags & POSITION_ABSOLUTE && 
-                    child->node.layoutFlags & GROW_VERTICAL && 
+                    !(child->node.layoutFlags & POSITION_ABSOLUTE) && 
+                    (child->node.layoutFlags & GROW_VERTICAL) && 
                     child->node.height < child->node.maxHeight &&
                     child->node.height == smallest)
                 {
@@ -528,126 +528,132 @@ static void NU_GrowShrinkChildHeights(NodeP* node)
 
 static void NU_GrowShrinkWidths()
 {
-    ReverseBreadthFirstSearch rbfs = ReverseBreadthFirstSearch_Create(__NGUI.tree.root);
+    BreadthFirstSearch rbfs = BreadthFirstSearch_Create(__NGUI.tree.root);
     NodeP* node;
-    while (ReverseBreadthFirstSearch_Next(&rbfs, &node)) {
-        if (node->state == 2 || node->state == 2 || node->type == NU_ROW || node->type == NU_TABLE) continue;
+    while (BreadthFirstSearch_Next(&rbfs, &node)) {
+        if (node->state == 2 || node->type == NU_ROW || node->type == NU_TABLE) continue;
         NU_GrowShrinkChildWidths(node);
     }
-    ReverseBreadthFirstSearch_Free(&rbfs);
+    BreadthFirstSearch_Free(&rbfs);
 }
 
 static void NU_GrowShrinkHeights()
 {
-    ReverseBreadthFirstSearch rbfs = ReverseBreadthFirstSearch_Create(__NGUI.tree.root);
+    BreadthFirstSearch rbfs = BreadthFirstSearch_Create(__NGUI.tree.root);
     NodeP* node;
-    while (ReverseBreadthFirstSearch_Next(&rbfs, &node)) {
-        if (node->state == 2 || node->state == 2 || node->type == NU_TABLE) continue;
+    while (BreadthFirstSearch_Next(&rbfs, &node)) {
+        if (node->state == 2 || node->type == NU_TABLE) continue;
         NU_GrowShrinkChildHeights(node);
     }
-    ReverseBreadthFirstSearch_Free(&rbfs);
+    BreadthFirstSearch_Free(&rbfs);
 }
 
-// static void NU_CalculateTableColumnWidths()
-// {
-//     for (uint32_t l=0; l<=__NGUI.tree.depth-1; l++)
-//     {
-//         Layer* table_layer = &__NGUI.tree.layers[l];
+static void NU_CalculateTableColumnWidths()
+{
+    DepthFirstSearch bfs = DepthFirstSearch_Create(__NGUI.tree.root);
+    NodeP* node;
+    while(DepthFirstSearch_Next(&bfs, &node)) {
+        if (node->state == 2 || node->type != NU_TABLE || node->childCount == 0) continue;
 
-//         for (int i=0; i<table_layer->size; i++)
-//         {       
-//             NodeP* table = LayerGet(table_layer, i);
-//             if (table->state == 0 || table->state == 2 || table->type != NU_TABLE || table->childCount == 0) continue;
+        struct Vector widest_cell_in_each_column;
+        Vector_Reserve(&widest_cell_in_each_column, sizeof(float), 25);
 
+        // ------------------------------------------------------------
+        // --- Calculate the widest cell width in each table column ---
+        // ------------------------------------------------------------
+        NodeP* row = node->firstChild;
+        while(row != NULL) {
 
-//             struct Vector widest_cell_in_each_column;
-//             Vector_Reserve(&widest_cell_in_each_column, sizeof(float), 25);
-//             Layer* row_layer = &__NGUI.tree.layers[l+1];
+            if (row->state == 2) {
+                row = row->nextSibling; continue;
+            }
+            int cellIndex = 0;
+            NodeP* cell = row->firstChild;
+            while(cell != NULL) {
 
-//             // ------------------------------------------------------------
-//             // --- Calculate the widest cell width in each table column ---
-//             // ------------------------------------------------------------
-//             for (uint32_t r=table->firstChildIndex; r<table->firstChildIndex + table->childCount; r++)
-//             {
-//                 NodeP* row = LayerGet(row_layer, r);
-//                 if (row->state == 2 || row->childCount == 0) break;
+                if (cell->state == 2) {
+                    cell = cell->nextSibling; continue;
+                }
 
-//                 // Iterate over cells in row
-//                 int cell_index = 0;
-//                 Layer* cell_layer = &__NGUI.tree.layers[l+2];
-//                 for (uint32_t c=row->firstChildIndex; c<row->firstChildIndex + row->childCount; c++)
-//                 {
-//                     // Expand the vector if there are more columns that the vector has capacity for
-//                     if (cell_index == widest_cell_in_each_column.size) {
-//                         float val = 0;
-//                         Vector_Push(&widest_cell_in_each_column, &val);
-//                     }
+                // Expand the vector if there are more columns that the vector has capacity for
+                if (cellIndex == widest_cell_in_each_column.size) {
+                    float val = 0;
+                    Vector_Push(&widest_cell_in_each_column, &val);
+                }
 
-//                     // Get current column width and update if cell is wider
-//                     float* val = Vector_Get(&widest_cell_in_each_column, cell_index);
-//                     NodeP* cell = LayerGet(cell_layer, c);
-//                     if (cell->state == 2) continue;
-//                     if (cell->node.width > *val) {
-//                         *val = cell->node.width;
-//                     }
-//                     cell_index++;
-//                 }
-//             }
+                // Get current column width and update if cell is wider
+                float* val = Vector_Get(&widest_cell_in_each_column, cellIndex);
+                if (cell->node.width > *val) {
+                    *val = cell->node.width;
+                }
+                cellIndex++;
+                cell = cell->nextSibling;
+            }
 
-//             // -----------------------------------------------
-//             // --- Apply widest column widths to all cells ---
-//             // -----------------------------------------------
-//             float table_inner_width = table->node.width - table->node.borderLeft - table->node.borderRight - table->node.padLeft - table->node.padRight - (!!(table->node.layoutFlags & OVERFLOW_VERTICAL_SCROLL)) * 8.0f;
-//             float remaining_table_inner_width = table_inner_width;
-//             for (int k=0; k<widest_cell_in_each_column.size; k++) {
-//                 remaining_table_inner_width -= *(float*)Vector_Get(&widest_cell_in_each_column, k);
-//             }
-//             float used_table_width = table_inner_width - remaining_table_inner_width;
+            row = row->nextSibling;
+        }
 
-//             // Interate over all the rows in the table
-//             for (uint32_t r=table->firstChildIndex; r<table->firstChildIndex + table->childCount; r++)
-//             {
-//                 NodeP* row = LayerGet(row_layer, r);
-//                 if (row->state == 2) continue;
-//                 Layer* cell_layer = &__NGUI.tree.layers[l+2];
+        // -----------------------------------------------
+        // --- Apply widest column widths to all cells ---
+        // -----------------------------------------------
+        float table_inner_width = node->node.width - node->node.borderLeft - node->node.borderRight - node->node.padLeft - node->node.padRight - (!!(node->node.layoutFlags & OVERFLOW_VERTICAL_SCROLL)) * 8.0f;
+        float remaining_table_inner_width = table_inner_width;
+        for (int k=0; k<widest_cell_in_each_column.size; k++) {
+            remaining_table_inner_width -= *(float*)Vector_Get(&widest_cell_in_each_column, k);
+        }
+        float used_table_width = table_inner_width - remaining_table_inner_width;
 
-//                 row->node.width = table_inner_width;
+        // Interate over all the rows in the table
+        row = node->firstChild;
+        while(row != NULL) {
 
-//                 // Reduce available growth space by acounting for row pad, border and child gaps
-//                 float row_border_pad_gap = row->node.borderLeft + row->node.borderRight + row->node.padLeft + row->node.padRight;
-//                 if (row->node.gap != 0.0f) {
-//                     int visible_cells = 0;
-//                     for (uint32_t c=row->firstChildIndex; c<row->firstChildIndex + row->childCount; c++) {
-//                         NodeP* cell = LayerGet(cell_layer, c);
-//                         if (cell->state == 2) continue;
-//                         visible_cells++;
-//                     }
-//                     row_border_pad_gap += row->node.gap * (visible_cells - 1);
-//                 }
+            if (row->state == 2) {
+                row = row->nextSibling; continue;
+            }
 
-//                 // Grow the width of all cells 
-//                 int cell_index = 0;
-//                 for (uint32_t c=row->firstChildIndex; c<row->firstChildIndex + row->childCount; c++)
-//                 {
-//                     NodeP* cell = LayerGet(cell_layer, c);
-//                     if (cell->state == 2) continue;
-//                     float column_width = *(float*)Vector_Get(&widest_cell_in_each_column, cell_index);
-//                     float proportion = column_width / (used_table_width);
-//                     cell->node.width = column_width + (remaining_table_inner_width - row_border_pad_gap) * proportion;
-//                     cell_index++;
-//                 }
-//             }
-//             Vector_Free(&widest_cell_in_each_column);
-//         }
-//     }
-// }
+            row->node.width = table_inner_width;
+
+            // Reduce available growth space by acounting for row pad, border and child gaps
+            float row_border_pad_gap = row->node.borderLeft + row->node.borderRight + row->node.padLeft + row->node.padRight;
+            if (row->node.gap != 0.0f) {
+                int visible_cells = 0;
+
+                // iterate over cells in row
+                NodeP* cell = row->firstChild;
+                while(cell != NULL) {
+                    if (cell->state != 2) visible_cells++;
+                    cell = cell->nextSibling;
+                }
+                row_border_pad_gap += row->node.gap * (visible_cells - 1);
+            }
+
+            // Grow the width of all cells 
+            int cellIndex = 0;
+            NodeP* cell = row->firstChild;
+            while(cell != NULL) {
+                if (cell->state == 2) {
+                    cell = cell->nextSibling; continue;
+                }
+                float column_width = *(float*)Vector_Get(&widest_cell_in_each_column, cellIndex);
+                float proportion = column_width / (used_table_width);
+                cell->node.width = column_width + (remaining_table_inner_width - row_border_pad_gap) * proportion;
+                cellIndex++;
+                cell = cell->nextSibling;
+            }
+
+            row = row->nextSibling;
+        }
+        Vector_Free(&widest_cell_in_each_column);
+    }
+    DepthFirstSearch_Free(&bfs);
+}
 
 static void NU_CalculateTextHeights()
 {
     DepthFirstSearch dfs = DepthFirstSearch_Create(__NGUI.tree.root);
     NodeP* node;
     while (DepthFirstSearch_Next(&dfs, &node)) {
-        if (node->state == 0 || node->state == 2) continue;
+        if (node->state == 2) continue;
 
         if (node->node.textContent != NULL) {
             NU_Font* node_font = Vector_Get(&__NGUI.stylesheet->fonts, node->node.fontId);
@@ -672,6 +678,7 @@ static void NU_CalculateTextHeights()
             node->node.height = node_font->line_height + 
             node->node.padTop + node->node.padBottom + 
             node->node.borderTop + node->node.borderBottom;
+            node->node.contentHeight = node_font->line_height;
         }
     }
     DepthFirstSearch_Free(&dfs);
@@ -738,7 +745,7 @@ static void NU_PositionChildrenHorizontally(NodeP* node)
             
             if (!(child->node.layoutFlags & POSITION_ABSOLUTE)) { // position relative
                 float x_align_offset = remainingWidth * 0.5f * (float)node->node.horizontalAlignment;
-                child->node.x = node->node.x + node->node.padLeft + node->node.borderLeft + cursorX + x_align_offset;
+                child->node.x += node->node.x + node->node.padLeft + node->node.borderLeft + cursorX + x_align_offset;
                 cursorX += child->node.width + node->node.gap;
             }
             else { // position absolute 
@@ -785,6 +792,7 @@ static void NU_PositionChildrenVertically(NodeP* node)
     {   
         NodeP* child = node->firstChild;
         while(child != NULL) {
+
             if (child->state == 2 || child->type == NU_WINDOW) {
                 child = child->nextSibling; continue;
             }
@@ -862,11 +870,11 @@ static void NU_PositionChildrenVertically(NodeP* node)
 
 static void NU_CalculatePositions()
 {
-    DepthFirstSearch dfs = DepthFirstSearch_Create(__NGUI.tree.root);
+    BreadthFirstSearch dfs = BreadthFirstSearch_Create(__NGUI.tree.root);
     NodeP* node;
-    while (DepthFirstSearch_Next(&dfs, &node)) {
+    while (BreadthFirstSearch_Next(&dfs, &node)) {
 
-        if (node->state == 0 || node->state == 2) continue;
+        if (node->state == 2) continue;
 
         if (node->type == NU_WINDOW) {
             node->node.x = 0;
@@ -876,6 +884,7 @@ static void NU_CalculatePositions()
         NU_PositionChildrenHorizontally(node);
         NU_PositionChildrenVertically(node);
     }
+    BreadthFirstSearch_Free(&dfs);
 }
 
 void NU_Layout()
@@ -884,7 +893,7 @@ void NU_Layout()
     NU_CalculateTextFitWidths();
     NU_CalculateFitSizeWidths();  
     NU_GrowShrinkWidths();
-    // NU_CalculateTableColumnWidths();
+    NU_CalculateTableColumnWidths();
     NU_CalculateTextHeights();
     NU_CalculateFitSizeHeights();
     NU_GrowShrinkHeights();

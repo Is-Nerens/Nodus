@@ -101,7 +101,11 @@ void NU_GenerateDrawlists()
                 int intersect_state = NodeVerticalOverlapState(child, nodeInnerY, nodeInnerHeight);
 
                 // child not inside parent -> hide in this draw pass
-                if (intersect_state == 0) { child->state = 2; child = child->nextSibling; continue; }
+                if (intersect_state == 0) { 
+                    child->state = 2; 
+                    child = child->nextSibling; 
+                    continue; 
+                }
 
                 // child overlaps parent boundary
                 else if (intersect_state == 1) {
@@ -161,7 +165,7 @@ void NU_GenerateDrawlists()
                 else {
                     SetNodeDrawlist_ClippedRelative(&__NGUI.winManager, child);
                 }
-                continue;
+                child = child->nextSibling; continue;
             }
 
             // neither child nor parent is clipped -> append node to correct window node list

@@ -101,7 +101,6 @@ NodeP* TreeCreateNode(Tree* tree, NodeP* parent, NodeType type)
     if (parent->firstChild == NULL) {
         parent->firstChild = newNode;
         parent->lastChild = newNode;
-        parent->childCount++;
     }
     else {
         // add new node to the sibling chain
@@ -109,6 +108,7 @@ NodeP* TreeCreateNode(Tree* tree, NodeP* parent, NodeType type)
         newNode->prevSibling->nextSibling = newNode;
         parent->lastChild = newNode;
     }
+    parent->childCount++;
 
     return newNode;
 }

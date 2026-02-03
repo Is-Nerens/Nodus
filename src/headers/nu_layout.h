@@ -19,11 +19,10 @@ static void NU_ApplyMinMaxHeightConstraint(NodeP* node)
     node->node.height = max(node->node.height, node->node.preferred_height);
 }
 
-static void NU_Prepass()
+static void NU_Prepass(BreadthFirstSearch* bfs)
 {
-    DepthFirstSearch dfs = DepthFirstSearch_Create(__NGUI.tree.root);
     NodeP* node;
-    while (DepthFirstSearch_Next(&dfs, &node)) {
+    while (BreadthFirstSearch_Next(bfs, &node)) {
 
         // set node hidden
         node->state = 1;
@@ -68,14 +67,12 @@ static void NU_Prepass()
             node->node.contentHeight = 0;
         }
     }
-    DepthFirstSearch_Free(&dfs);
 }
 
-static void NU_CalculateTextFitWidths()
+static void NU_CalculateTextFitWidths(BreadthFirstSearch* bfs)
 {
-    DepthFirstSearch dfs = DepthFirstSearch_Create(__NGUI.tree.root);
     NodeP* node;
-    while (DepthFirstSearch_Next(&dfs, &node)) {
+    while (BreadthFirstSearch_Next(bfs, &node)) {
         if (node->state == 2 || node->node.textContent == NULL) continue;
 
         NU_Font* node_font = Vector_Get(&__NGUI.stylesheet->fonts, node->node.fontId);
@@ -93,14 +90,12 @@ static void NU_CalculateTextFitWidths()
         // Update content width
         node->node.contentWidth = text_width; 
     }
-    DepthFirstSearch_Free(&dfs);
 }
 
-static void NU_CalculateFitSizeWidths()
+static void NU_CalculateFitSizeWidths(ReverseBreadthFirstSearch* rbfs)
 {
-    ReverseBreadthFirstSearch rbfs = ReverseBreadthFirstSearch_Create(__NGUI.tree.root);
     NodeP* node;
-    while (ReverseBreadthFirstSearch_Next(&rbfs, &node)) {
+    while (ReverseBreadthFirstSearch_Next(rbfs, &node)) {
         if (node->state == 2) continue;
 
         int is_layout_horizontal = !(node->node.layoutFlags & LAYOUT_VERTICAL);
@@ -135,14 +130,12 @@ static void NU_CalculateFitSizeWidths()
             NU_ApplyMinMaxWidthConstraint(node);
         }
     }
-    ReverseBreadthFirstSearch_Free(&rbfs);
 }
 
-static void NU_CalculateFitSizeHeights()
+static void NU_CalculateFitSizeHeights(ReverseBreadthFirstSearch* rbfs)
 {
-    ReverseBreadthFirstSearch rbfs = ReverseBreadthFirstSearch_Create(__NGUI.tree.root);
     NodeP* node;
-    while (ReverseBreadthFirstSearch_Next(&rbfs, &node)) {
+    while (ReverseBreadthFirstSearch_Next(rbfs, &node)) {
         if (node->state == 2) continue;
 
         int is_layout_horizontal = !(node->node.layoutFlags & LAYOUT_VERTICAL);
@@ -169,7 +162,6 @@ static void NU_CalculateFitSizeHeights()
             NU_ApplyMinMaxHeightConstraint(node);
         }
     }
-    ReverseBreadthFirstSearch_Free(&rbfs);
 }
 
 static void NU_GrowShrinkChildWidths(NodeP* node)
@@ -526,33 +518,28 @@ static void NU_GrowShrinkChildHeights(NodeP* node)
     }
 }
 
-static void NU_GrowShrinkWidths()
+static void NU_GrowShrinkWidths(BreadthFirstSearch* bfs)
 {
-    BreadthFirstSearch rbfs = BreadthFirstSearch_Create(__NGUI.tree.root);
     NodeP* node;
-    while (BreadthFirstSearch_Next(&rbfs, &node)) {
+    while (BreadthFirstSearch_Next(bfs, &node)) {
         if (node->state == 2 || node->type == NU_ROW || node->type == NU_TABLE) continue;
         NU_GrowShrinkChildWidths(node);
     }
-    BreadthFirstSearch_Free(&rbfs);
 }
 
-static void NU_GrowShrinkHeights()
+static void NU_GrowShrinkHeights(BreadthFirstSearch* bfs)
 {
-    BreadthFirstSearch rbfs = BreadthFirstSearch_Create(__NGUI.tree.root);
     NodeP* node;
-    while (BreadthFirstSearch_Next(&rbfs, &node)) {
+    while (BreadthFirstSearch_Next(bfs, &node)) {
         if (node->state == 2 || node->type == NU_TABLE) continue;
         NU_GrowShrinkChildHeights(node);
     }
-    BreadthFirstSearch_Free(&rbfs);
 }
 
-static void NU_CalculateTableColumnWidths()
+static void NU_CalculateTableColumnWidths(BreadthFirstSearch* bfs)
 {
-    DepthFirstSearch bfs = DepthFirstSearch_Create(__NGUI.tree.root);
     NodeP* node;
-    while(DepthFirstSearch_Next(&bfs, &node)) {
+    while(BreadthFirstSearch_Next(bfs, &node)) {
         if (node->state == 2 || node->type != NU_TABLE || node->childCount == 0) continue;
 
         struct Vector widest_cell_in_each_column;
@@ -645,14 +632,12 @@ static void NU_CalculateTableColumnWidths()
         }
         Vector_Free(&widest_cell_in_each_column);
     }
-    DepthFirstSearch_Free(&bfs);
 }
 
-static void NU_CalculateTextHeights()
+static void NU_CalculateTextHeights(BreadthFirstSearch* bfs)
 {
-    DepthFirstSearch dfs = DepthFirstSearch_Create(__NGUI.tree.root);
     NodeP* node;
-    while (DepthFirstSearch_Next(&dfs, &node)) {
+    while (BreadthFirstSearch_Next(bfs, &node)) {
         if (node->state == 2) continue;
 
         if (node->node.textContent != NULL) {
@@ -681,7 +666,6 @@ static void NU_CalculateTextHeights()
             node->node.contentHeight = node_font->line_height;
         }
     }
-    DepthFirstSearch_Free(&dfs);
 }
 
 static void NU_PositionChildrenHorizontally(NodeP* node)
@@ -868,11 +852,10 @@ static void NU_PositionChildrenVertically(NodeP* node)
     }
 }
 
-static void NU_CalculatePositions()
+static void NU_CalculatePositions(BreadthFirstSearch* bfs)
 {
-    BreadthFirstSearch dfs = BreadthFirstSearch_Create(__NGUI.tree.root);
     NodeP* node;
-    while (BreadthFirstSearch_Next(&dfs, &node)) {
+    while (BreadthFirstSearch_Next(bfs, &node)) {
 
         if (node->state == 2) continue;
 
@@ -884,18 +867,21 @@ static void NU_CalculatePositions()
         NU_PositionChildrenHorizontally(node);
         NU_PositionChildrenVertically(node);
     }
-    BreadthFirstSearch_Free(&dfs);
 }
 
 void NU_Layout()
 {
-    NU_Prepass();
-    NU_CalculateTextFitWidths();
-    NU_CalculateFitSizeWidths();  
-    NU_GrowShrinkWidths();
-    NU_CalculateTableColumnWidths();
-    NU_CalculateTextHeights();
-    NU_CalculateFitSizeHeights();
-    NU_GrowShrinkHeights();
-    NU_CalculatePositions();
+    BreadthFirstSearch bfs = BreadthFirstSearch_Create(__NGUI.tree.root);
+    ReverseBreadthFirstSearch rbfs = ReverseBreadthFirstSearch_Create(__NGUI.tree.root);
+    NU_Prepass(&bfs);
+    NU_CalculateTextFitWidths(&bfs);
+    NU_CalculateFitSizeWidths(&rbfs);  
+    NU_GrowShrinkWidths(&bfs);
+    NU_CalculateTableColumnWidths(&bfs);
+    NU_CalculateTextHeights(&bfs);
+    NU_CalculateFitSizeHeights(&rbfs);
+    NU_GrowShrinkHeights(&bfs);
+    NU_CalculatePositions(&bfs);
+    BreadthFirstSearch_Free(&bfs);
+    ReverseBreadthFirstSearch_Free(&rbfs);
 }

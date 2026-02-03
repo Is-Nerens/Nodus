@@ -88,6 +88,7 @@ typedef struct BFSQueue {
 
 typedef struct BreadthFirstSearch {
     BFSQueue queue;
+    NodeP* root;
 } BreadthFirstSearch;
 
 static void BFSQueue_Init(BFSQueue* q, uint32_t cap) {
@@ -119,13 +120,25 @@ static NodeP* BFSQueue_Pop(BFSQueue* q) {
 BreadthFirstSearch BreadthFirstSearch_Create(NodeP* root) {
     BreadthFirstSearch bfs;
     BFSQueue_Init(&bfs.queue, 64);
-    if (root) BFSQueue_Push(&bfs.queue, root);
+    if (root) {
+        BFSQueue_Push(&bfs.queue, root);
+        bfs.root = root;
+    }
     return bfs;
+}
+
+void BreadthFirstSearch_Reset(BreadthFirstSearch* bfs) {
+    bfs->queue.front = 0;
+    bfs->queue.size = 0;
+    if (bfs->root) BFSQueue_Push(&bfs->queue, bfs->root);
 }
 
 int BreadthFirstSearch_Next(BreadthFirstSearch* bfs, NodeP** nodeOut) {
     NodeP* node = BFSQueue_Pop(&bfs->queue);
-    if (!node) return 0;
+    if (!node) {
+        BreadthFirstSearch_Reset(bfs);
+        return 0;
+    }
     *nodeOut = node;
 
     NodeP* child = node->firstChild;

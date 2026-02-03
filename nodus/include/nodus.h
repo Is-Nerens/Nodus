@@ -116,7 +116,7 @@ __declspec(dllimport) inline Node* NU_PARENT(Node* node);
 __declspec(dllimport) inline Node* NU_CHILD(Node* node, uint32_t childIndex);
 __declspec(dllimport) inline uint32_t NU_CHILD_COUNT(Node* node);
 __declspec(dllimport) inline uint32_t NU_DEPTH(Node* node);
-__declspec(dllimport) inline Node* NU_CREATE_NODE(uint32_t parentHandle, NodeType type);
+__declspec(dllimport) inline Node* NU_CREATE_NODE(Node* parent, NodeType type);
 __declspec(dllimport) inline const char* NU_INPUT_TEXT_CONTENT(Node* node);
 __declspec(dllimport) inline void NU_SHOW(Node* node);
 __declspec(dllimport) inline void NU_HIDE(Node* node);
@@ -128,7 +128,7 @@ __declspec(dllimport) void NU_Set_Class(Node* node, char* class_name);
 
 // Event functions
 __declspec(dllimport) void NU_Register_Event(
-  uint32_t node_handle, 
+  Node* node, 
   void* args,
   NU_Callback callback, 
   enum NU_Event_Type event

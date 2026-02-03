@@ -126,7 +126,6 @@ void TriggerAllMouseupEvents(float mouse_x, float mouse_y, int mouse_btn)
         while(HashmapIteratorNext(&it, &key, &val))
         {
             // cast key, value to correct types
-            uint32_t nodeHandle = *(uint32_t*)key; 
             struct NU_Callback_Info* cb_info = (struct NU_Callback_Info*)val;
 
             // set calback event values and trigger
@@ -213,7 +212,8 @@ bool EventWatcher(void* data, SDL_Event* event)
             NU_Font* font = Vector_Get(&__NGUI.stylesheet->fonts, focusedNode->node.fontId);
             int updated = InputText_Write(&focusedNode->typeData.input.inputText, focusedNode, font, event->text.text);
             if (updated && focusedNode->node.eventFlags & NU_EVENT_FLAG_ON_INPUT_CHANGED) {
-                void* found_cb = HashmapGet(&__NGUI.on_input_changed_events, &__NGUI.focused_node->node);
+                Node* node = &__NGUI.focused_node->node;
+                void* found_cb = HashmapGet(&__NGUI.on_input_changed_events, &node);
                 if (found_cb != NULL) {
                     struct NU_Callback_Info* cb_info = (struct NU_Callback_Info*)found_cb;
                     strcpy(cb_info->event.input.text, event->text.text);
@@ -244,7 +244,8 @@ bool EventWatcher(void* data, SDL_Event* event)
             prev_hovered_node != __NGUI.hovered_node && 
             __NGUI.hovered_node->node.eventFlags & NU_EVENT_FLAG_ON_MOUSE_IN)
         {
-            void* found_cb = HashmapGet(&__NGUI.on_mouse_in_events, &__NGUI.hovered_node->node);
+            Node* node = &__NGUI.hovered_node->node;
+            void* found_cb = HashmapGet(&__NGUI.on_mouse_in_events, &node);
             if (found_cb != NULL) {
                 struct NU_Callback_Info* cb_info = (struct NU_Callback_Info*)found_cb;
                 cb_info->event.mouse.mouse_x = mouseX;
@@ -260,7 +261,8 @@ bool EventWatcher(void* data, SDL_Event* event)
             prev_hovered_node != __NGUI.hovered_node && 
             prev_hovered_node->node.eventFlags & NU_EVENT_FLAG_ON_MOUSE_OUT)
         {
-            void* found_cb = HashmapGet(&__NGUI.on_mouse_out_events, &prev_hovered_node);
+            Node* node = &prev_hovered_node->node;
+            void* found_cb = HashmapGet(&__NGUI.on_mouse_out_events, &node);
             if (found_cb != NULL) {
                 struct NU_Callback_Info* cb_info = (struct NU_Callback_Info*)found_cb;
                 cb_info->event.mouse.mouse_x = mouseX;
@@ -302,7 +304,6 @@ bool EventWatcher(void* data, SDL_Event* event)
             while(HashmapIteratorNext(&it, &key, &val))
             {
                 // cast key, val to correct types
-                uint32_t nodeHandle = *(uint32_t*)key; 
                 struct NU_Callback_Info* cb_info = (struct NU_Callback_Info*)val;
 
                 // set callback event values and trigger
@@ -370,7 +371,8 @@ bool EventWatcher(void* data, SDL_Event* event)
             // If node has a mouse down event
             if (__NGUI.mouse_down_node->node.eventFlags & NU_EVENT_FLAG_ON_MOUSE_DOWN)
             {
-                void* found_cb = HashmapGet(&__NGUI.on_mouse_down_events, &__NGUI.mouse_down_node->node);
+                Node* node = &__NGUI.mouse_down_node->node;
+                void* found_cb = HashmapGet(&__NGUI.on_mouse_down_events, &node);
                 if (found_cb != NULL) {
                     int win_x, win_y; 
                     SDL_GetWindowPosition(__NGUI.mouse_down_node->node.window, &win_x, &win_y);
@@ -456,7 +458,8 @@ bool EventWatcher(void* data, SDL_Event* event)
                 // If there is a click event assigned to the pressed node
                 if (__NGUI.hovered_node->node.eventFlags & NU_EVENT_FLAG_ON_CLICK) 
                 {
-                    void* found_cb = HashmapGet(&__NGUI.on_click_events, &__NGUI.hovered_node->node);
+                    Node* node = &__NGUI.hovered_node->node;
+                    void* found_cb = HashmapGet(&__NGUI.on_click_events, &node);
                     if (found_cb != NULL) {
                         struct NU_Callback_Info* cb_info = (struct NU_Callback_Info*)found_cb;
                         cb_info->callback(cb_info->event, cb_info->args);
@@ -501,6 +504,7 @@ bool EventWatcher(void* data, SDL_Event* event)
     if (__NGUI.awaiting_redraw) 
     {
         NU_Layout();
+        CheckForResizeEvents();
         NU_Mouse_Hover();
         NU_Draw();
     }

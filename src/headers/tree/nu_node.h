@@ -128,4 +128,7 @@ void NU_ApplyNodeDefaults(NodeP* node)
     else if (node->type == NU_INPUT) {
         InputText_Init(&node->typeData.input.inputText);
     }
+    if (node->type != NU_WINDOW) {
+        node->node.window = node->parent->node.window;
+    }
 }

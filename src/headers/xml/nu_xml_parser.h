@@ -105,11 +105,6 @@ int NU_Generate_Tree(char* src, struct Vector* tokens, struct Vector* textRefs)
                     NU_Add_Canvas_Context(&currentNode->node);
                 }
 
-                // Inherit window from parent
-                if (currentNode->type != NU_WINDOW) {
-                    currentNode->node.window = currentNode->parent->node.window;
-                } 
-
                 // Continue ^
                 i+=2; continue;
             }

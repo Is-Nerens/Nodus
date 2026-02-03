@@ -185,6 +185,7 @@ void NU_GenerateDrawlists()
             child = child->nextSibling;
         }
     }
+    BreadthFirstSearch_Free(&bfs);
 }
 
 void NU_DrawNodeImage(NodeP* node, float winWidth, float winHeight)

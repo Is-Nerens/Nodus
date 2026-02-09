@@ -176,7 +176,7 @@ static void NU_GrowShrinkChildWidths(NodeP* node)
 
         if (child->state != 2 && child->type != NU_WINDOW && 
             child->node.layoutFlags & POSITION_ABSOLUTE &&
-            child->node.left > 0.0f && child->node.right > 0.0f) 
+            child->node.left >= 0.0f && child->node.right >= 0.0f) 
         {
             float expandedWidth = remainingWidth - child->node.left - child->node.right;
             if (expandedWidth > child->node.width) child->node.width = expandedWidth;
@@ -391,7 +391,7 @@ static void NU_GrowShrinkChildHeights(NodeP* node)
 
         if (child->state != 2 && child->type != NU_WINDOW && 
             child->node.layoutFlags & POSITION_ABSOLUTE &&
-            child->node.top > 0.0f && child->node.bottom > 0.0f)
+            child->node.top >= 0.0f && child->node.bottom >= 0.0f)
         {
             float expandedHeight = remainingHeight - child->node.top - child->node.bottom;
             if (expandedHeight > child->node.height) child->node.height = expandedHeight;
@@ -572,6 +572,7 @@ static void NU_CalculateTableColumnWidths(BreadthFirstSearch* bfs)
                 float* val = Vector_Get(&widest_cell_in_each_column, cellIndex);
                 if (cell->node.width > *val) {
                     *val = cell->node.width;
+                    float w = cell->node.padLeft + cell->node.padRight + cell->node.borderLeft + cell->node.borderRight + cell->node.contentWidth;
                 }
                 cellIndex++;
                 cell = cell->nextSibling;
@@ -873,6 +874,8 @@ void NU_Layout()
 {
     BreadthFirstSearch bfs = BreadthFirstSearch_Create(__NGUI.tree.root);
     ReverseBreadthFirstSearch rbfs = ReverseBreadthFirstSearch_Create(__NGUI.tree.root);
+
+    NodeP* node;
     NU_Prepass(&bfs);
     NU_CalculateTextFitWidths(&bfs);
     NU_CalculateFitSizeWidths(&rbfs);  

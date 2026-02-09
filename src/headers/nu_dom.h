@@ -7,8 +7,8 @@ void NU_DissociateNode(NodeP* node)
     if (node->type == NU_WINDOW) {
         SDL_DestroyWindow(node->node.window);
     }
-    if (node->node.textContent != NULL) {
-        StringArena_Delete(&__NGUI.node_text_arena, node->node.textContent);
+    if (node->type == NU_CANVAS) {
+        HashmapDelete(&__NGUI.canvas_contexts, &node->node);
     }
     if (node->node.id != NULL) {
         StringmapDelete(&__NGUI.id_node_map, node->node.id);
@@ -38,6 +38,9 @@ void NU_DissociateNode(NodeP* node)
     if (node->node.eventFlags & NU_EVENT_FLAG_ON_MOUSE_MOVED) {
         HashmapDelete(&__NGUI.on_mouse_move_events, &node);
     }
+    if (node->node.eventFlags & NU_EVENT_FLAG_ON_MOUSE_IN) {
+        HashmapDelete(&__NGUI.on_mouse_in_events, &node);
+    }
     if (node->node.eventFlags & NU_EVENT_FLAG_ON_MOUSE_OUT) {
         HashmapDelete(&__NGUI.on_mouse_out_events, &node);
     }
@@ -55,9 +58,6 @@ void NU_DissociateNode(NodeP* node)
     }
     if (node == __NGUI.focused_node) {
         __NGUI.focused_node = NULL;
-    }
-    if (node->type == NU_CANVAS) {
-        HashmapDelete(&__NGUI.canvas_contexts, &node->node);
     }
 }
 

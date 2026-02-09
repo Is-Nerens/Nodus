@@ -178,12 +178,20 @@ bool EventWatcher(void* data, SDL_Event* event)
             InputText* inputText = &inputNode->typeData.input.inputText;
             SDL_Keymod mods = SDL_GetModState();
 
+            bool textChanged = false;
+
             // backspace pressed
             if (event->key.key == SDLK_BACKSPACE) {
                 // control + backspace
-                if (mods & SDL_KMOD_CTRL && InputText_BackspaceWord(inputText, inputNode, font)) __NGUI.awaiting_redraw = true;
+                if (mods & SDL_KMOD_CTRL && InputText_BackspaceWord(inputText, inputNode, font)) {
+                    textChanged = true;
+                    __NGUI.awaiting_redraw = true;
+                }
                 // backspace
-                else if (InputText_Backspace(inputText, inputNode, font)) __NGUI.awaiting_redraw = true;
+                else if (InputText_Backspace(inputText, inputNode, font)) {
+                    textChanged = true;
+                    __NGUI.awaiting_redraw = true;
+                }
             }
 
             // left arrow pressed
@@ -200,6 +208,20 @@ bool EventWatcher(void* data, SDL_Event* event)
                 if (mods & SDL_KMOD_CTRL && InputText_MoveCursorRightSpan(inputText, inputNode, font)) __NGUI.awaiting_redraw = true;
                 // only backspace
                 else if (InputText_MoveCursorRight(inputText, inputNode, font)) __NGUI.awaiting_redraw = true;
+            }
+
+            if (textChanged) {
+
+                // Trigger On input changed event
+                if (inputNode->node.eventFlags & NU_EVENT_FLAG_ON_INPUT_CHANGED) {
+                    Node* node = &inputNode->node;
+                    void* found_cb = HashmapGet(&__NGUI.on_input_changed_events, &node);
+                    if (found_cb != NULL) {
+                        struct NU_Callback_Info* cb_info = (struct NU_Callback_Info*)found_cb;
+                        strcpy(cb_info->event.input.text, "");
+                        cb_info->callback(cb_info->event, cb_info->args);
+                    }
+                }
             }
         }
     }
@@ -432,7 +454,7 @@ bool EventWatcher(void* data, SDL_Event* event)
         if (__NGUI.winManager.hoveredWindow != NULL)
         {
             int win_x, win_y; 
-            SDL_GetWindowPosition(__NGUI.hovered_node->node.window, &win_x, &win_y);
+            SDL_GetWindowPosition(__NGUI.winManager.hoveredWindow, &win_x, &win_y);
             float mouse_x = __NGUI.mouse_down_global_x - win_x;
             float mouse_y = __NGUI.mouse_down_global_y - win_y;
             TriggerAllMouseupEvents(mouse_x, mouse_y, (int)event->button.button);
@@ -451,9 +473,10 @@ bool EventWatcher(void* data, SDL_Event* event)
                 // Get mouse up coordinates
                 int win_x, win_y; 
                 SDL_GetGlobalMouseState(&__NGUI.mouse_down_global_x, &__NGUI.mouse_down_global_y);
-                SDL_GetWindowPosition(__NGUI.hovered_node->node.window, &win_x, &win_y);
+                SDL_GetWindowPosition(__NGUI.winManager.hoveredWindow, &win_x, &win_y);
                 float mouse_x = __NGUI.mouse_down_global_x - win_x;
                 float mouse_y = __NGUI.mouse_down_global_y - win_y;
+
 
                 // If there is a click event assigned to the pressed node
                 if (__NGUI.hovered_node->node.eventFlags & NU_EVENT_FLAG_ON_CLICK) 

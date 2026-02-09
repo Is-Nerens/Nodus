@@ -116,11 +116,6 @@ NodeP* TreeCreateNode(Tree* tree, NodeP* parent, NodeType type)
 void TreeDeleteLeaf(Tree* tree, NodeP* leaf, TreeDeleteCallback deleteCB)
 {
     tree->nodeCount--;
-    if (leaf->layer == tree->depth - 1) {
-        tree->depth--;
-    }
-
-    Nalloc* nalloc = &tree->layerAllocs[leaf->layer];
 
     // case 1: leaf node has no siblings
     if (leaf->parent->childCount == 1) {
@@ -136,65 +131,68 @@ void TreeDeleteLeaf(Tree* tree, NodeP* leaf, TreeDeleteCallback deleteCB)
     }
     // case 3: leaf has next siblings in the chain
     else {
-
         // if leaf is first child
         if (leaf == leaf->parent->firstChild) {
             leaf->parent->firstChild = leaf->nextSibling;
+            leaf->nextSibling->prevSibling = NULL;
         }
-        // update nextSibling of leaf's previou sibling
+        // leaf is in the middle
         else {
             leaf->prevSibling->nextSibling = leaf->nextSibling;
+            leaf->nextSibling->prevSibling = leaf->prevSibling;
         }
         leaf->parent->childCount--;
     }
     
     if (deleteCB != NULL) deleteCB(leaf);
-    Nalloc_Free(nalloc, leaf);
+    Nalloc* nalloc = &tree->layerAllocs[leaf->layer];
+    //Nalloc_Free(nalloc, leaf);
 }
 
 void TreeDeleteNode(Tree* tree, NodeP* node, TreeDeleteCallback deleteCB)
 {
     if (node->firstChild == NULL) {
         TreeDeleteLeaf(tree, node, deleteCB);
+        return;
     }
-    else {
-        
-        // arrange all subnodes from left to right -> bottom to top
-        Vector stack;
-        Vector_Reserve(&stack, sizeof(NodeP*), 100);
 
-        Vector_Push(&stack, &node);
-        while(stack.size > 0) {
+    Vector stack;
+    Vector_Reserve(&stack, sizeof(NodeP*), 100);
 
-            NodeP* parent = *(NodeP**)Vector_Get(&stack, stack.size-1);
+    // push children only (NOT node itself)
+    NodeP* sib = node->firstChild;
+    while (sib != NULL) {
+        Vector_Push(&stack, &sib);
+        sib = sib->nextSibling;
+    }
 
-            // if parent is a leaf node
-            if (parent->firstChild == NULL) {
-                if (deleteCB != NULL) deleteCB(parent);
+    // detach subtree immediately
+    node->firstChild = NULL;
+    node->lastChild = NULL;
+    node->childCount = 0;
 
-                // delete leaf node
-                Nalloc* nalloc = &tree->layerAllocs[parent->layer];
-                Nalloc_Free(nalloc, parent);
-                tree->nodeCount--;
-            }
-            // add children to the stack
-            else {
-                NodeP* sib = parent->firstChild;
-                while (sib != NULL) {
-                    Vector_Push(&stack, &sib);
-                    sib = sib->nextSibling;
-                }
-                parent->firstChild = NULL;
-            }
+    while (stack.size > 0) {
 
-            // pop the stack
-            stack.size--;
+        NodeP* cur = *(NodeP**)Vector_Get(&stack, stack.size-1);
+        stack.size--;
+
+        // push children
+        NodeP* c = cur->firstChild;
+        while (c != NULL) {
+            Vector_Push(&stack, &c);
+            c = c->nextSibling;
         }
 
-        // finally delete the node
-        TreeDeleteLeaf(tree, node, deleteCB);
+        if (deleteCB != NULL) deleteCB(cur);
 
-        // free
-        Vector_Free(&stack);
+        Nalloc* nalloc = &tree->layerAllocs[cur->layer];
+        Nalloc_Free(nalloc, cur);
+
+        tree->nodeCount--;
     }
+
+    // finally unlink + delete node itself
+    TreeDeleteLeaf(tree, node, deleteCB);
+
+    Vector_Free(&stack);
 }

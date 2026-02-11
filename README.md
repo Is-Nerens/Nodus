@@ -256,7 +256,7 @@ Functions pertaining to GUI creation, control and cleanup.
 ---
 
 ## DOM functions (in C)
-Functions pertaining to qeurying, creating, destroying and manipulation nodes (Node*).
+Functions pertaining to querying, creating, destroying and manipulation nodes (Node*).
 | Function | Return | Args | Description |
 | ---- | ---- | ---- | ---- | 
 | `NU_Get_Node_By_Id` | Node* | (char* id) | Returns a Node* with the associated ID. If the node does not exist the function will return NULL | 

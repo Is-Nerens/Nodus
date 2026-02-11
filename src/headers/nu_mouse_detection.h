@@ -131,6 +131,7 @@ void NU_Mouse_Hover()
             if (child->state == 2 || 
                 child->node.layoutFlags & POSITION_ABSOLUTE || 
                 child->type == NU_WINDOW ||
+                child->node.layoutFlags & IGNORE_MOUSE ||
                 !NU_MouseIsOverNode(child, mouseX, mouseY))
             {
                 child = child->nextSibling; continue;

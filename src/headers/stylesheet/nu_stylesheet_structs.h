@@ -39,6 +39,7 @@ typedef struct NU_Stylesheet_Item
     float minWidth, maxWidth, minHeight, maxHeight;
     float gap;
     float left, right, top, bottom;
+    uint16_t layoutFlags;
     uint8_t padTop, padBottom, padLeft, padRight;
     uint8_t borderTop, borderBottom, borderLeft, borderRight;
     uint8_t borderRadiusTl, borderRadiusTr, borderRadiusBl, borderRadiusBr;
@@ -46,12 +47,10 @@ typedef struct NU_Stylesheet_Item
     uint8_t borderR, borderG, borderB;
     uint8_t textR, textG, textB;
     uint8_t fontId; // index of NU_Font in stylesheet fonts vector
-    char layoutFlags;
     char horizontalAlignment;
     char verticalAlignment;
     char horizontalTextAlignment;
     char verticalTextAlignment;
-    bool hideBackground;
     u8 inputType;
 } NU_Stylesheet_Item;
 

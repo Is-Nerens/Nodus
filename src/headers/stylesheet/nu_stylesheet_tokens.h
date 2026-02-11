@@ -1,13 +1,13 @@
 #pragma once
 
-#define STYLE_PROPERTY_COUNT 45
-#define STYLE_KEYWORD_COUNT 58
+#define STYLE_PROPERTY_COUNT 46
+#define STYLE_KEYWORD_COUNT 59
 #define STYLE_TAG_SELECTOR_COUNT 9
 #define STYLE_SPECIAL_SELECTOR_COUNT 1
 #define STYLE_PSEUDO_COUNT 3
 
 static const char* style_keywords[] = {
-    "dir", "grow", "overflow-v", "overflow-h", "position", "hide", "gap",
+    "dir", "grow", "overflow-v", "overflow-h", "position", "hide", "ignore-mouse", "gap",
     "width", "min-width", "max-width", "height",  "min-height", "max-height",
     "align-h", "align-v", "text-align-h", "text-align-v",
     "left", "right", "top", "bottom",
@@ -31,6 +31,7 @@ enum NU_Style_Token
     STYLE_OVERFLOW_H_PROPERTY,
     STYLE_POSITION_PROPERTY,
     STYLE_HIDE_PROPERTY,
+    STYLE_IGNORE_MOUSE_PROPERTY,
     STYLE_GAP_PROPERTY,
     STYLE_WIDTH_PROPERTY,
     STYLE_MIN_WIDTH_PROPERTY,

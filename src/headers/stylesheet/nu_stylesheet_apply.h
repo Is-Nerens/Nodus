@@ -33,62 +33,66 @@ static void NU_Stylesheet_Find_Match(NodeP* node, NU_Stylesheet* ss, int* match_
     }
 }
 
+#define STYLE_APPLY_LAYOUT_FLAG(mask) node->node.layoutFlags = (node->node.layoutFlags & ~mask) | (item->layoutFlags & mask)
+#define STYLE_SHOULD_APPLY_TO_NODE(mask) (item->propertyFlags & mask) && !(node->node.inlineStyleFlags & mask)
+
 static void NU_Apply_Style_Item_To_Node(NodeP* node, NU_Stylesheet_Item* item)
 {
-    if (item->propertyFlags & (1ULL << 0) && !(node->node.inlineStyleFlags & (1ULL << 0))) node->node.layoutFlags = (node->node.layoutFlags & ~(1ULL << 0)) | (item->layoutFlags & (1ULL << 0)); // Layout direction
-    if (item->propertyFlags & (1ULL << 1) && !(node->node.inlineStyleFlags & (1ULL << 1))) {
-        node->node.layoutFlags = (node->node.layoutFlags & ~(1ULL << 1)) | (item->layoutFlags & (1ULL << 1)); // Grow horizontal
-        node->node.layoutFlags = (node->node.layoutFlags & ~(1ULL << 2)) | (item->layoutFlags & (1ULL << 2)); // Grow vertical
+    if (STYLE_SHOULD_APPLY_TO_NODE(PROPERTY_FLAG_LAYOUT_VERTICAL)) STYLE_APPLY_LAYOUT_FLAG(LAYOUT_VERTICAL); 
+    if (STYLE_SHOULD_APPLY_TO_NODE(PROPERTY_FLAG_GROW)) {
+        STYLE_APPLY_LAYOUT_FLAG(GROW_HORIZONTAL); // Grow horizontal WHY DOES THIS OVERWRITE THE NODE's VERTICAL LAYOUT DIRECTION?
+        STYLE_APPLY_LAYOUT_FLAG(GROW_VERTICAL); // Grow vertical
     }
-    if (item->propertyFlags & (1ULL << 2) && !(node->node.inlineStyleFlags & (1ULL << 2))) node->node.layoutFlags = (node->node.layoutFlags & ~(1ULL << 3)) | (item->layoutFlags & (1ULL << 3)); // Overflow vertical scroll (or not)
-    if (item->propertyFlags & (1ULL << 3) && !(node->node.inlineStyleFlags & (1ULL << 3))) node->node.layoutFlags = (node->node.layoutFlags & ~(1ULL << 4)) | (item->layoutFlags & (1ULL << 4)); // Overflow horizontal scroll (or not)
-    if (item->propertyFlags & (1ULL << 4) && !(node->node.inlineStyleFlags & (1ULL << 4))) node->node.layoutFlags = (node->node.layoutFlags & ~(1ULL << 5)) | (item->layoutFlags & (1ULL << 5)); // Absolute positioning (or not)
-    if (item->propertyFlags & (1ULL << 5) && !(node->node.inlineStyleFlags & (1ULL << 5))) node->node.layoutFlags = (node->node.layoutFlags & ~(1ULL << 6)) | (item->layoutFlags & (1ULL << 6)); // Hidden or not
-    if (item->propertyFlags & (1ULL << 6) && !(node->node.inlineStyleFlags & (1ULL << 6))) node->node.gap = item->gap;
-    if (item->propertyFlags & (1ULL << 7) && !(node->node.inlineStyleFlags & (1ULL << 7))) node->node.preferred_width = item->preferred_width;
-    if (item->propertyFlags & (1ULL << 8) && !(node->node.inlineStyleFlags & (1ULL << 8))) node->node.minWidth = item->minWidth;
-    if (item->propertyFlags & (1ULL << 9) && !(node->node.inlineStyleFlags & (1ULL << 9))) node->node.maxWidth = item->maxWidth;
-    if (item->propertyFlags & (1ULL << 10) && !(node->node.inlineStyleFlags & (1ULL << 10))) node->node.preferred_height = item->preferred_height;
-    if (item->propertyFlags & (1ULL << 11) && !(node->node.inlineStyleFlags & (1ULL << 11))) node->node.minHeight = item->minHeight;
-    if (item->propertyFlags & (1ULL << 12) && !(node->node.inlineStyleFlags & (1ULL << 12))) node->node.maxHeight = item->maxHeight;
-    if (item->propertyFlags & (1ULL << 13) && !(node->node.inlineStyleFlags & (1ULL << 13))) node->node.horizontalAlignment = item->horizontalAlignment;
-    if (item->propertyFlags & (1ULL << 14) && !(node->node.inlineStyleFlags & (1ULL << 14))) node->node.verticalAlignment = item->verticalAlignment;
-    if (item->propertyFlags & (1ULL << 15) && !(node->node.inlineStyleFlags & (1ULL << 15))) node->node.horizontalTextAlignment = item->horizontalTextAlignment;
-    if (item->propertyFlags & (1ULL << 16) && !(node->node.inlineStyleFlags & (1ULL << 16))) node->node.verticalTextAlignment = item->verticalTextAlignment;
-    if (item->propertyFlags & (1ULL << 17) && !(node->node.inlineStyleFlags & (1ULL << 17))) node->node.left = item->left;
-    if (item->propertyFlags & (1ULL << 18) && !(node->node.inlineStyleFlags & (1ULL << 18))) node->node.right = item->right;
-    if (item->propertyFlags & (1ULL << 19) && !(node->node.inlineStyleFlags & (1ULL << 19))) node->node.top = item->top;
-    if (item->propertyFlags & (1ULL << 20) && !(node->node.inlineStyleFlags & (1ULL << 20))) node->node.bottom = item->bottom;
-    if (item->propertyFlags & (1ULL << 21) && !(node->node.inlineStyleFlags & (1ULL << 21))) {
+    if (STYLE_SHOULD_APPLY_TO_NODE(PROPERTY_FLAG_VERTICAL_SCROLL)) STYLE_APPLY_LAYOUT_FLAG(OVERFLOW_VERTICAL_SCROLL); // Overflow vertical scroll (or not)
+    if (STYLE_SHOULD_APPLY_TO_NODE(PROPERTY_FLAG_HORIZONTAL_SCROLL)) STYLE_APPLY_LAYOUT_FLAG(OVERFLOW_HORIZONTAL_SCROLL); // Overflow horizontal scroll (or not)
+    if (STYLE_SHOULD_APPLY_TO_NODE(PROPERTY_FLAG_POSITION_ABSOLUTE)) STYLE_APPLY_LAYOUT_FLAG(POSITION_ABSOLUTE); // Absolute positioning (or not)
+    if (STYLE_SHOULD_APPLY_TO_NODE(PROPERTY_FLAG_HIDDEN)) STYLE_APPLY_LAYOUT_FLAG(HIDDEN); // Hidden or not
+    if (STYLE_SHOULD_APPLY_TO_NODE(PROPERTY_FLAG_IGNORE_MOUSE)) STYLE_APPLY_LAYOUT_FLAG(IGNORE_MOUSE); // Ignore mouse or not
+    if (STYLE_SHOULD_APPLY_TO_NODE(PROPERTY_FLAG_GAP)) node->node.gap = item->gap;
+    if (STYLE_SHOULD_APPLY_TO_NODE(PROPERTY_FLAG_PREFERRED_WIDTH)) node->node.preferred_width = item->preferred_width;
+    if (STYLE_SHOULD_APPLY_TO_NODE(PROPERTY_FLAG_MIN_WIDTH)) node->node.minWidth = item->minWidth;
+    if (STYLE_SHOULD_APPLY_TO_NODE(PROPERTY_FLAG_MAX_WIDTH)) node->node.maxWidth = item->maxWidth;
+    if (STYLE_SHOULD_APPLY_TO_NODE(PROPERTY_FLAG_PREFERRED_HEIGHT)) node->node.preferred_height = item->preferred_height;
+    if (STYLE_SHOULD_APPLY_TO_NODE(PROPERTY_FLAG_MIN_HEIGHT)) node->node.minHeight = item->minHeight;
+    if (STYLE_SHOULD_APPLY_TO_NODE(PROPERTY_FLAG_MAX_HEIGHT)) node->node.maxHeight = item->maxHeight;
+    if (STYLE_SHOULD_APPLY_TO_NODE(PROPERTY_FLAG_ALIGN_H)) node->node.horizontalAlignment = item->horizontalAlignment;
+    if (STYLE_SHOULD_APPLY_TO_NODE(PROPERTY_FLAG_ALIGN_V)) node->node.verticalAlignment = item->verticalAlignment;
+    if (STYLE_SHOULD_APPLY_TO_NODE(PROPERTY_FLAG_TEXT_ALIGN_H)) node->node.horizontalTextAlignment = item->horizontalTextAlignment;
+    if (STYLE_SHOULD_APPLY_TO_NODE(PROPERTY_FLAG_TEXT_ALIGN_V)) node->node.verticalTextAlignment = item->verticalTextAlignment;
+    if (STYLE_SHOULD_APPLY_TO_NODE(PROPERTY_FLAG_LEFT)) node->node.left = item->left;
+    if (STYLE_SHOULD_APPLY_TO_NODE(PROPERTY_FLAG_RIGHT)) node->node.right = item->right;
+    if (STYLE_SHOULD_APPLY_TO_NODE(PROPERTY_FLAG_TOP)) node->node.top = item->top;
+    if (STYLE_SHOULD_APPLY_TO_NODE(PROPERTY_FLAG_BOTTOM)) node->node.bottom = item->bottom;
+    if (STYLE_SHOULD_APPLY_TO_NODE(PROPERTY_FLAG_BACKGROUND) && !(node->node.inlineStyleFlags & PROPERTY_FLAG_HIDE_BACKGROUND)) {
         node->node.backgroundR = item->backgroundR;
         node->node.backgroundG = item->backgroundG;
         node->node.backgroundB = item->backgroundB;
     }
-    if (item->propertyFlags & (1ULL << 22) && !(node->node.inlineStyleFlags & (1ULL << 22))) node->node.hideBackground = item->hideBackground;
-    if (item->propertyFlags & (1ULL << 23) && !(node->node.inlineStyleFlags & (1ULL << 23))) {
+    if (STYLE_SHOULD_APPLY_TO_NODE(PROPERTY_FLAG_HIDE_BACKGROUND) && !(node->node.inlineStyleFlags & PROPERTY_FLAG_BACKGROUND)) STYLE_APPLY_LAYOUT_FLAG(HIDE_BACKGROUND); // Hide background (or not)
+    if (STYLE_SHOULD_APPLY_TO_NODE(PROPERTY_FLAG_BORDER_COLOUR)) {
         node->node.borderR = item->borderR;
         node->node.borderG = item->borderG;
         node->node.borderB = item->borderB;
     }
-    if (item->propertyFlags & (1ULL << 24) && !(node->node.inlineStyleFlags & (1ULL << 24))) {
+    if (STYLE_SHOULD_APPLY_TO_NODE(PROPERTY_FLAG_TEXT_COLOUR)) {
         node->node.textR = item->textR;
         node->node.textG = item->textG;
         node->node.textB = item->textB;
     }
-    if (item->propertyFlags & (1ULL << 25) && !(node->node.inlineStyleFlags & (1ULL << 25))) node->node.borderTop = item->borderTop;
-    if (item->propertyFlags & (1ULL << 26) && !(node->node.inlineStyleFlags & (1ULL << 26))) node->node.borderBottom = item->borderBottom;
-    if (item->propertyFlags & (1ULL << 27) && !(node->node.inlineStyleFlags & (1ULL << 27))) node->node.borderLeft = item->borderLeft;
-    if (item->propertyFlags & (1ULL << 28) && !(node->node.inlineStyleFlags & (1ULL << 28))) node->node.borderRight = item->borderRight;
-    if (item->propertyFlags & (1ULL << 29) && !(node->node.inlineStyleFlags & (1ULL << 29))) node->node.borderRadiusTl = item->borderRadiusTl;
-    if (item->propertyFlags & (1ULL << 30) && !(node->node.inlineStyleFlags & (1ULL << 30))) node->node.borderRadiusTr = item->borderRadiusTr;
-    if (item->propertyFlags & (1ULL << 31) && !(node->node.inlineStyleFlags & (1ULL << 31))) node->node.borderRadiusBl = item->borderRadiusBl;
-    if (item->propertyFlags & (1ULL << 32) && !(node->node.inlineStyleFlags & (1ULL << 32))) node->node.borderRadiusBr = item->borderRadiusBr;
-    if (item->propertyFlags & (1ULL << 33) && !(node->node.inlineStyleFlags & (1ULL << 33))) node->node.padTop = item->padTop;
-    if (item->propertyFlags & (1ULL << 34) && !(node->node.inlineStyleFlags & (1ULL << 34))) node->node.padBottom = item->padBottom;
-    if (item->propertyFlags & (1ULL << 35) && !(node->node.inlineStyleFlags & (1ULL << 35))) node->node.padLeft = item->padLeft;
-    if (item->propertyFlags & (1ULL << 36) && !(node->node.inlineStyleFlags & (1ULL << 36))) node->node.padRight = item->padRight;
-    if (item->propertyFlags & (1ULL << 37) && !(node->node.inlineStyleFlags & (1ULL << 37))) node->typeData.image.glImageHandle = item->glImageHandle;
-    if (item->propertyFlags & (1ULL << 38) && !(node->node.inlineStyleFlags & (1ULL << 38))) node->typeData.input.inputText.type = item->inputType;
+    if (STYLE_SHOULD_APPLY_TO_NODE(PROPERTY_FLAG_BORDER_TOP)) node->node.borderTop = item->borderTop;
+    if (STYLE_SHOULD_APPLY_TO_NODE(PROPERTY_FLAG_BORDER_BOTTOM)) node->node.borderBottom = item->borderBottom;
+    if (STYLE_SHOULD_APPLY_TO_NODE(PROPERTY_FLAG_BORDER_LEFT)) node->node.borderLeft = item->borderLeft;
+    if (STYLE_SHOULD_APPLY_TO_NODE(PROPERTY_FLAG_BORDER_RIGHT)) node->node.borderRight = item->borderRight;
+    if (STYLE_SHOULD_APPLY_TO_NODE(PROPERTY_FLAG_BORDER_RADIUS_TL)) node->node.borderRadiusTl = item->borderRadiusTl;
+    if (STYLE_SHOULD_APPLY_TO_NODE(PROPERTY_FLAG_BORDER_RADIUS_TR)) node->node.borderRadiusTr = item->borderRadiusTr;
+    if (STYLE_SHOULD_APPLY_TO_NODE(PROPERTY_FLAG_BORDER_RADIUS_BL)) node->node.borderRadiusBl = item->borderRadiusBl;
+    if (STYLE_SHOULD_APPLY_TO_NODE(PROPERTY_FLAG_BORDER_RADIUS_BR)) node->node.borderRadiusBr = item->borderRadiusBr;
+    if (STYLE_SHOULD_APPLY_TO_NODE(PROPERTY_FLAG_PAD_TOP)) node->node.padTop = item->padTop;
+    if (STYLE_SHOULD_APPLY_TO_NODE(PROPERTY_FLAG_PAD_BOTTOM)) node->node.padBottom = item->padBottom;
+    if (STYLE_SHOULD_APPLY_TO_NODE(PROPERTY_FLAG_PAD_LEFT)) node->node.padLeft = item->padLeft;
+    if (STYLE_SHOULD_APPLY_TO_NODE(PROPERTY_FLAG_PAD_RIGHT)) node->node.padRight = item->padRight;
+    if (STYLE_SHOULD_APPLY_TO_NODE(PROPERTY_FLAG_IMAGE)) node->typeData.image.glImageHandle = item->glImageHandle;
+    if (STYLE_SHOULD_APPLY_TO_NODE(PROPERTY_FLAG_INPUT_TYPE)) node->typeData.input.inputText.type = item->inputType;
     node->node.fontId = item->fontId; // set font 
 }
 

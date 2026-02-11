@@ -12,7 +12,7 @@ void Generate_Corner_Segment(
     float b_r, float b_g, float b_b,
     float bgR, float bgG, float bgB, 
     int cp, 
-    int cornerIndex, bool hideBackground)
+    int cornerIndex, int hideBackground)
 {
 
     int vertOffset = vertices->size;
@@ -212,23 +212,22 @@ void Construct_Border_Rect(
     vec2 br_a              = { floorf(node->node.x + node->node.width - borderRadiusBr), floorf(node->node.y + node->node.height - borderRadiusBr) };
 
     // --- Allocate extra space in vertex and index lists ---
-    uint32_t additional_vertices = node->node.hideBackground ? total_pts * 2 + 4 : total_pts * 3 + 4;    // each corner contributes 3*cp + 1 verts
+    uint32_t additional_vertices = (node->node.layoutFlags & HIDE_BACKGROUND) ? total_pts * 2 + 4 : total_pts * 3 + 4;    // each corner contributes 3*cp + 1 verts
     uint32_t additional_indices = (total_pts - 4) * 6                                                // curved edges
                                   + 24                                                               // straight sides
-                                  + (node->node.hideBackground ? 0 : (total_pts - 4) * 3 + 30);          // background tris
+                                  + ((node->node.layoutFlags & HIDE_BACKGROUND) ? 0 : (total_pts - 4) * 3 + 30);          // background tris
     if (vertices->size + additional_vertices > vertices->capacity) Vertex_RGB_List_Grow(vertices, additional_vertices);
     if (indices->size + additional_indices > indices->capacity) Index_List_Grow(indices, additional_indices);
 
-
     // --- Generate corner vertices and indices ---
     int TL = vertices->size;
-    Generate_Corner_Segment(vertices, indices, tl_a, PI, 1.5f * PI, borderRadiusTl, node->node.borderLeft, node->node.borderTop, node->node.width, node->node.height, border_r_fl, border_g_fl, border_b_fl, bg_r_fl, bg_g_fl, bg_b_fl, tl_pts, 0, node->node.hideBackground);
+    Generate_Corner_Segment(vertices, indices, tl_a, PI, 1.5f * PI, borderRadiusTl, node->node.borderLeft, node->node.borderTop, node->node.width, node->node.height, border_r_fl, border_g_fl, border_b_fl, bg_r_fl, bg_g_fl, bg_b_fl, tl_pts, 0, node->node.layoutFlags & HIDE_BACKGROUND);
     int TR = vertices->size;
-    Generate_Corner_Segment(vertices, indices, tr_a, 1.5f * PI, 2.0f * PI, borderRadiusTr, node->node.borderTop, node->node.borderRight, node->node.width, node->node.height, border_r_fl, border_g_fl, border_b_fl, bg_r_fl, bg_g_fl, bg_b_fl, tr_pts, 1, node->node.hideBackground);
+    Generate_Corner_Segment(vertices, indices, tr_a, 1.5f * PI, 2.0f * PI, borderRadiusTr, node->node.borderTop, node->node.borderRight, node->node.width, node->node.height, border_r_fl, border_g_fl, border_b_fl, bg_r_fl, bg_g_fl, bg_b_fl, tr_pts, 1, node->node.layoutFlags & HIDE_BACKGROUND);
     int BR = vertices->size;
-    Generate_Corner_Segment(vertices, indices, br_a, 0.0f, 0.5f * PI, borderRadiusBr, node->node.borderRight, node->node.borderBottom, node->node.width, node->node.height, border_r_fl, border_g_fl, border_b_fl, bg_r_fl, bg_g_fl, bg_b_fl, br_pts, 2, node->node.hideBackground);
+    Generate_Corner_Segment(vertices, indices, br_a, 0.0f, 0.5f * PI, borderRadiusBr, node->node.borderRight, node->node.borderBottom, node->node.width, node->node.height, border_r_fl, border_g_fl, border_b_fl, bg_r_fl, bg_g_fl, bg_b_fl, br_pts, 2, node->node.layoutFlags & HIDE_BACKGROUND);
     int BL = vertices->size;
-    Generate_Corner_Segment(vertices, indices, bl_a, 0.5f * PI, PI, borderRadiusBl, node->node.borderBottom, node->node.borderLeft, node->node.width, node->node.height, border_r_fl, border_g_fl, border_b_fl, bg_r_fl, bg_g_fl, bg_b_fl, bl_pts, 3, node->node.hideBackground);
+    Generate_Corner_Segment(vertices, indices, bl_a, 0.5f * PI, PI, borderRadiusBl, node->node.borderBottom, node->node.borderLeft, node->node.width, node->node.height, border_r_fl, border_g_fl, border_b_fl, bg_r_fl, bg_g_fl, bg_b_fl, bl_pts, 3, node->node.layoutFlags & HIDE_BACKGROUND);
 
 
 
@@ -268,7 +267,7 @@ void Construct_Border_Rect(
     *indices_write++ = TL;
 
     // --- Fill in background indices ---
-    if (!node->node.hideBackground) 
+    if (!(node->node.layoutFlags & HIDE_BACKGROUND)) 
     {
         int TL_bg_connector = TL + 3 * tl_pts; 
         int TR_bg_connector = TR + 3 * tr_pts;

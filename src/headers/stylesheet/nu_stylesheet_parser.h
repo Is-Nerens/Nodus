@@ -99,45 +99,46 @@ static int NU_Stylesheet_Parse(char* src, struct Vector* tokens, NU_Stylesheet* 
                     uint32_t item_index = selector_indexes[i];
                     NU_Stylesheet_Item* curr_item = Vector_Get(&ss->items, item_index);
                     curr_item->propertyFlags |= item.propertyFlags;
-                    if (item.propertyFlags & (1ULL << 0) ) curr_item->layoutFlags = (curr_item->layoutFlags & ~(1ULL << 0)) | (item.layoutFlags & (1ULL << 0)); // Layout direction
-                    if (item.propertyFlags & (1ULL << 1) ) curr_item->layoutFlags = (curr_item->layoutFlags & ~((1ULL << 1) | (1ULL << 2))) | (item.layoutFlags & ((1ULL << 1) | (1ULL << 2))); // Grow
-                    if (item.propertyFlags & (1ULL << 2 )) curr_item->layoutFlags = (curr_item->layoutFlags & ~(1ULL << 3)) | (item.layoutFlags & (1ULL << 3)); // Overflow vertical scroll (or not)
-                    if (item.propertyFlags & (1ULL << 3 )) curr_item->layoutFlags = (curr_item->layoutFlags & ~(1ULL << 4)) | (item.layoutFlags & (1ULL << 4)); // Overflow horizontal scroll (or not)
-                    if (item.propertyFlags & (1ULL << 4 )) curr_item->layoutFlags = (curr_item->layoutFlags & ~(1ULL << 5)) | (item.layoutFlags & (1ULL << 5)); // Position absolute or not
-                    if (item.propertyFlags & (1ULL << 5 )) curr_item->layoutFlags = (curr_item->layoutFlags & ~(1ULL << 6)) | (item.layoutFlags & (1ULL << 6)); // Hide or not
-                    if (item.propertyFlags & (1ULL << 6 )) curr_item->gap = item.gap;
-                    if (item.propertyFlags & (1ULL << 7 )) curr_item->preferred_width = item.preferred_width;
-                    if (item.propertyFlags & (1ULL << 8 )) curr_item->minWidth = item.minWidth;
-                    if (item.propertyFlags & (1ULL << 9 )) curr_item->maxWidth = item.maxWidth;
-                    if (item.propertyFlags & (1ULL << 10)) curr_item->preferred_height = item.preferred_height;
-                    if (item.propertyFlags & (1ULL << 11)) curr_item->minHeight = item.minHeight;
-                    if (item.propertyFlags & (1ULL << 12)) curr_item->maxHeight = item.maxHeight;
-                    if (item.propertyFlags & (1ULL << 13)) curr_item->horizontalAlignment = item.horizontalAlignment;
-                    if (item.propertyFlags & (1ULL << 14)) curr_item->verticalAlignment = item.verticalAlignment;
-                    if (item.propertyFlags & (1ULL << 15)) curr_item->horizontalTextAlignment = item.horizontalTextAlignment;
-                    if (item.propertyFlags & (1ULL << 16)) curr_item->verticalTextAlignment = item.verticalTextAlignment;
-                    if (item.propertyFlags & (1ULL << 17)) curr_item->left = item.left;
-                    if (item.propertyFlags & (1ULL << 18)) curr_item->right = item.right;
-                    if (item.propertyFlags & (1ULL << 19)) curr_item->top = item.top;
-                    if (item.propertyFlags & (1ULL << 20)) curr_item->bottom = item.bottom;
-                    if (item.propertyFlags & (1ULL << 21)) memcpy(&curr_item->backgroundR, &item.backgroundR, 3); // Copy rgb
-                    if (item.propertyFlags & (1ULL << 22)) curr_item->hideBackground = item.hideBackground; // Copy rgb
-                    if (item.propertyFlags & (1ULL << 23)) memcpy(&curr_item->borderR, &item.borderR, 3); // Copy rgb
-                    if (item.propertyFlags & (1ULL << 24)) memcpy(&curr_item->textR, &item.textR, 3); // Copy rgb
-                    if (item.propertyFlags & (1ULL << 25)) curr_item->borderTop = item.borderTop; 
-                    if (item.propertyFlags & (1ULL << 26)) curr_item->borderBottom = item.borderBottom; 
-                    if (item.propertyFlags & (1ULL << 27)) curr_item->borderLeft = item.borderLeft; 
-                    if (item.propertyFlags & (1ULL << 28)) curr_item->borderRight = item.borderRight; 
-                    if (item.propertyFlags & (1ULL << 29)) curr_item->borderRadiusTl = item.borderRadiusTl; 
-                    if (item.propertyFlags & (1ULL << 30)) curr_item->borderRadiusTr = item.borderRadiusTr; 
-                    if (item.propertyFlags & (1ULL << 31)) curr_item->borderRadiusBl = item.borderRadiusBl; 
-                    if (item.propertyFlags & (1ULL << 32)) curr_item->borderRadiusBr = item.borderRadiusBr; 
-                    if (item.propertyFlags & (1ULL << 33)) curr_item->padTop = item.padTop; 
-                    if (item.propertyFlags & (1ULL << 34)) curr_item->padBottom = item.padBottom; 
-                    if (item.propertyFlags & (1ULL << 35)) curr_item->padLeft = item.padLeft; 
-                    if (item.propertyFlags & (1ULL << 36)) curr_item->padRight = item.padRight; 
-                    if (item.propertyFlags & (1ULL << 37)) curr_item->glImageHandle = item.glImageHandle;
-                    if (item.propertyFlags & (1ULL << 38)) curr_item->inputType = item.inputType;
+                    if (item.propertyFlags & PROPERTY_FLAG_LAYOUT_VERTICAL  ) curr_item->layoutFlags = (curr_item->layoutFlags & ~LAYOUT_VERTICAL) | (item.layoutFlags & LAYOUT_VERTICAL); // Layout direction
+                    if (item.propertyFlags & PROPERTY_FLAG_GROW             ) curr_item->layoutFlags = (curr_item->layoutFlags & ~(GROW_HORIZONTAL | GROW_VERTICAL)) | (item.layoutFlags & (GROW_HORIZONTAL | GROW_VERTICAL)); // Grow
+                    if (item.propertyFlags & PROPERTY_FLAG_VERTICAL_SCROLL  ) curr_item->layoutFlags = (curr_item->layoutFlags & ~OVERFLOW_VERTICAL_SCROLL) | (item.layoutFlags & OVERFLOW_VERTICAL_SCROLL); // Overflow vertical scroll (or not)
+                    if (item.propertyFlags & PROPERTY_FLAG_HORIZONTAL_SCROLL) curr_item->layoutFlags = (curr_item->layoutFlags & ~OVERFLOW_HORIZONTAL_SCROLL) | (item.layoutFlags & OVERFLOW_HORIZONTAL_SCROLL); // Overflow horizontal scroll (or not)
+                    if (item.propertyFlags & PROPERTY_FLAG_POSITION_ABSOLUTE) curr_item->layoutFlags = (curr_item->layoutFlags & ~POSITION_ABSOLUTE) | (item.layoutFlags & POSITION_ABSOLUTE); // Position absolute or not
+                    if (item.propertyFlags & PROPERTY_FLAG_HIDDEN           ) curr_item->layoutFlags = (curr_item->layoutFlags & ~HIDDEN) | (item.layoutFlags & HIDDEN); // Hide or not
+                    if (item.propertyFlags & PROPERTY_FLAG_IGNORE_MOUSE     ) curr_item->layoutFlags = (curr_item->layoutFlags & ~IGNORE_MOUSE) | (item.layoutFlags & IGNORE_MOUSE); // Ignore mouse or not
+                    if (item.propertyFlags & PROPERTY_FLAG_GAP              ) curr_item->gap = item.gap;
+                    if (item.propertyFlags & PROPERTY_FLAG_PREFERRED_WIDTH  ) curr_item->preferred_width = item.preferred_width;
+                    if (item.propertyFlags & PROPERTY_FLAG_MIN_WIDTH        ) curr_item->minWidth = item.minWidth;
+                    if (item.propertyFlags & PROPERTY_FLAG_MAX_WIDTH        ) curr_item->maxWidth = item.maxWidth;
+                    if (item.propertyFlags & PROPERTY_FLAG_PREFERRED_HEIGHT ) curr_item->preferred_height = item.preferred_height;
+                    if (item.propertyFlags & PROPERTY_FLAG_MIN_HEIGHT       ) curr_item->minHeight = item.minHeight;
+                    if (item.propertyFlags & PROPERTY_FLAG_MAX_HEIGHT       ) curr_item->maxHeight = item.maxHeight;
+                    if (item.propertyFlags & PROPERTY_FLAG_ALIGN_H          ) curr_item->horizontalAlignment = item.horizontalAlignment;
+                    if (item.propertyFlags & PROPERTY_FLAG_ALIGN_V          ) curr_item->verticalAlignment = item.verticalAlignment;
+                    if (item.propertyFlags & PROPERTY_FLAG_TEXT_ALIGN_H     ) curr_item->horizontalTextAlignment = item.horizontalTextAlignment;
+                    if (item.propertyFlags & PROPERTY_FLAG_TEXT_ALIGN_V     ) curr_item->verticalTextAlignment = item.verticalTextAlignment;
+                    if (item.propertyFlags & PROPERTY_FLAG_LEFT             ) curr_item->left = item.left;
+                    if (item.propertyFlags & PROPERTY_FLAG_RIGHT            ) curr_item->right = item.right;
+                    if (item.propertyFlags & PROPERTY_FLAG_TOP              ) curr_item->top = item.top;
+                    if (item.propertyFlags & PROPERTY_FLAG_BOTTOM           ) curr_item->bottom = item.bottom;
+                    if (item.propertyFlags & PROPERTY_FLAG_BACKGROUND       ) memcpy(&curr_item->backgroundR, &item.backgroundR, 3); // Copy rgb
+                    if (item.propertyFlags & PROPERTY_FLAG_HIDE_BACKGROUND  ) curr_item->layoutFlags = (curr_item->layoutFlags & ~HIDE_BACKGROUND) | (item.layoutFlags & HIDE_BACKGROUND); // Hide background or not
+                    if (item.propertyFlags & PROPERTY_FLAG_BORDER_COLOUR    ) memcpy(&curr_item->borderR, &item.borderR, 3); // Copy rgb
+                    if (item.propertyFlags & PROPERTY_FLAG_TEXT_COLOUR      ) memcpy(&curr_item->textR, &item.textR, 3); // Copy rgb
+                    if (item.propertyFlags & PROPERTY_FLAG_BORDER_TOP       ) curr_item->borderTop = item.borderTop; 
+                    if (item.propertyFlags & PROPERTY_FLAG_BORDER_BOTTOM    ) curr_item->borderBottom = item.borderBottom; 
+                    if (item.propertyFlags & PROPERTY_FLAG_BORDER_LEFT      ) curr_item->borderLeft = item.borderLeft; 
+                    if (item.propertyFlags & PROPERTY_FLAG_BORDER_RIGHT     ) curr_item->borderRight = item.borderRight; 
+                    if (item.propertyFlags & PROPERTY_FLAG_BORDER_RADIUS_TL ) curr_item->borderRadiusTl = item.borderRadiusTl; 
+                    if (item.propertyFlags & PROPERTY_FLAG_BORDER_RADIUS_TR ) curr_item->borderRadiusTr = item.borderRadiusTr; 
+                    if (item.propertyFlags & PROPERTY_FLAG_BORDER_RADIUS_BL ) curr_item->borderRadiusBl = item.borderRadiusBl; 
+                    if (item.propertyFlags & PROPERTY_FLAG_BORDER_RADIUS_BR ) curr_item->borderRadiusBr = item.borderRadiusBr; 
+                    if (item.propertyFlags & PROPERTY_FLAG_PAD_TOP          ) curr_item->padTop = item.padTop; 
+                    if (item.propertyFlags & PROPERTY_FLAG_PAD_BOTTOM       ) curr_item->padBottom = item.padBottom; 
+                    if (item.propertyFlags & PROPERTY_FLAG_PAD_LEFT         ) curr_item->padLeft = item.padLeft; 
+                    if (item.propertyFlags & PROPERTY_FLAG_PAD_RIGHT        ) curr_item->padRight = item.padRight; 
+                    if (item.propertyFlags & PROPERTY_FLAG_IMAGE            ) curr_item->glImageHandle = item.glImageHandle;
+                    if (item.propertyFlags & PROPERTY_FLAG_INPUT_TYPE       ) curr_item->inputType = item.inputType;
                     curr_item->fontId = item.fontId;
                 }
                 selector_count = 0;
@@ -493,8 +494,13 @@ static int NU_Stylesheet_Parse(char* src, struct Vector* tokens, NU_Stylesheet* 
                 {
                     // Set layout direction
                     case STYLE_LAYOUT_DIRECTION_PROPERTY:
-                        if (c == 'v') item.layoutFlags |= LAYOUT_VERTICAL;
-                        item.propertyFlags |= 1ULL << 0;
+                        if (c == 'v') {
+                            item.layoutFlags |= LAYOUT_VERTICAL;
+                            item.propertyFlags |= PROPERTY_FLAG_LAYOUT_VERTICAL;
+                        }
+                        else if (c == 'h') { 
+                            item.propertyFlags |= PROPERTY_FLAG_LAYOUT_VERTICAL;
+                        }
                         break;
 
                     // Set growth 
@@ -511,21 +517,21 @@ static int NU_Stylesheet_Parse(char* src, struct Vector* tokens, NU_Stylesheet* 
                                 item.layoutFlags |= (GROW_HORIZONTAL | GROW_VERTICAL);
                                 break;
                         }
-                        item.propertyFlags |= 1ULL << 1;
+                        item.propertyFlags |= PROPERTY_FLAG_GROW;
                         break;
                     
                     // Set overflow behaviour
                     case STYLE_OVERFLOW_V_PROPERTY:
                         if (c == 's') {
                             item.layoutFlags |= OVERFLOW_VERTICAL_SCROLL;
-                            item.propertyFlags |= 1ULL << 2;
+                            item.propertyFlags |= PROPERTY_FLAG_VERTICAL_SCROLL;
                         }
                         break;
                     
                     case STYLE_OVERFLOW_H_PROPERTY:
                         if (c == 's') {
                             item.layoutFlags |= OVERFLOW_HORIZONTAL_SCROLL;
-                            item.propertyFlags |= 1ULL << 3;
+                            item.propertyFlags |= PROPERTY_FLAG_HORIZONTAL_SCROLL;
                         }
                         break;
 
@@ -533,7 +539,7 @@ static int NU_Stylesheet_Parse(char* src, struct Vector* tokens, NU_Stylesheet* 
                     case STYLE_POSITION_PROPERTY:
                         if (strcmp(text, "absolute") == 0) {
                             item.layoutFlags |= POSITION_ABSOLUTE;
-                            item.propertyFlags |= 1ULL << 4;
+                            item.propertyFlags |= PROPERTY_FLAG_POSITION_ABSOLUTE;
                         }
                         break;
 
@@ -541,65 +547,73 @@ static int NU_Stylesheet_Parse(char* src, struct Vector* tokens, NU_Stylesheet* 
                     case STYLE_HIDE_PROPERTY:
                         if (strcmp(text, "hide") == 0) {
                             item.layoutFlags |= HIDDEN;
-                            item.propertyFlags |= 1ULL << 5;
+                            item.propertyFlags |= PROPERTY_FLAG_HIDDEN;
+                        }
+                        break;
+
+                    // Ignore mouse
+                    case STYLE_IGNORE_MOUSE_PROPERTY:
+                        if (strcmp(text, "true") == 0) {
+                            item.layoutFlags |= IGNORE_MOUSE;
+                            item.propertyFlags |= PROPERTY_FLAG_IGNORE_MOUSE;
                         }
                         break;
                     
                     // Set gap
                     case STYLE_GAP_PROPERTY:
                         if (String_To_Float(&item.gap, text)) 
-                            item.propertyFlags |= 1ULL << 6;
+                            item.propertyFlags |= PROPERTY_FLAG_GAP;
                         break;
 
                     // Set preferred width
                     case STYLE_WIDTH_PROPERTY:
                         if (String_To_Float(&item.preferred_width, text))
-                            item.propertyFlags |= 1ULL << 7;
+                            item.propertyFlags |= PROPERTY_FLAG_PREFERRED_WIDTH;
                         break;
 
                     // Set min width
                     case STYLE_MIN_WIDTH_PROPERTY:
                         if (String_To_Float(&item.minWidth, text))
-                            item.propertyFlags |= 1ULL << 8;
+                            item.propertyFlags |= PROPERTY_FLAG_MIN_WIDTH;
                         break;
                     
                     // Set max width
                     case STYLE_MAX_WIDTH_PROPERTY:
                         if (String_To_Float(&item.maxWidth, text))
-                            item.propertyFlags |= 1ULL << 9;
+                            item.propertyFlags |= PROPERTY_FLAG_MAX_WIDTH;
                         break;
 
                     // Set preferred height
                     case STYLE_HEIGHT_PROPERTY:
                         if (String_To_Float(&item.preferred_height, text)) 
-                            item.propertyFlags |= 1ULL << 10;
+                            item.propertyFlags |= PROPERTY_FLAG_PREFERRED_HEIGHT;
                         break;
 
                     // Set min height
                     case STYLE_MIN_HEIGHT_PROPERTY:
                         if (String_To_Float(&item.minHeight, text)) 
-                            item.propertyFlags |= 1ULL << 11;
+                            item.propertyFlags |= PROPERTY_FLAG_MIN_HEIGHT;
                         break;
 
                     // Set max height
                     case STYLE_MAX_HEIGHT_PROPERTY:
                         if (String_To_Float(&item.maxHeight, text)) 
-                            item.propertyFlags |= 1ULL << 12;
+                            item.propertyFlags |= PROPERTY_FLAG_MAX_HEIGHT;
                         break;
 
                     // Set horizontal alignment
                     case STYLE_ALIGN_H_PROPERTY:
                         if (strcmp(text, "left") == 0) {
                             item.horizontalAlignment = 0;
-                            item.propertyFlags |= 1ULL << 13;
+                            item.propertyFlags |= PROPERTY_FLAG_ALIGN_H;
                         }
                         if (strcmp(text, "center") == 0) {
                             item.horizontalAlignment = 1;
-                            item.propertyFlags |= 1ULL << 13;
+                            item.propertyFlags |= PROPERTY_FLAG_ALIGN_H;
                         }
                         if (strcmp(text, "right") == 0) {
                             item.horizontalAlignment = 2;
-                            item.propertyFlags |= 1ULL << 13;
+                            item.propertyFlags |= PROPERTY_FLAG_ALIGN_H;
                         }
                         break;
 
@@ -607,15 +621,15 @@ static int NU_Stylesheet_Parse(char* src, struct Vector* tokens, NU_Stylesheet* 
                     case STYLE_ALIGN_V_PROPERTY:
                         if (strcmp(text, "top") == 0) {
                             item.verticalAlignment = 0;
-                            item.propertyFlags |= 1ULL << 14;
+                            item.propertyFlags |= PROPERTY_FLAG_ALIGN_V;
                         }
                         if (strcmp(text, "center") == 0) {
                             item.verticalAlignment = 1;
-                            item.propertyFlags |= 1ULL << 14;
+                            item.propertyFlags |= PROPERTY_FLAG_ALIGN_V;
                         }
                         if (strcmp(text, "bottom") == 0) {
                             item.verticalAlignment = 2;
-                            item.propertyFlags |= 1ULL << 14;
+                            item.propertyFlags |= PROPERTY_FLAG_ALIGN_V;
                         }
                         break;
 
@@ -623,15 +637,15 @@ static int NU_Stylesheet_Parse(char* src, struct Vector* tokens, NU_Stylesheet* 
                     case STYLE_TEXT_ALIGN_H_PROPERTY:
                         if (strcmp(text, "left") == 0) {
                             item.horizontalTextAlignment = 0;
-                            item.propertyFlags |= 1ULL << 15;
+                            item.propertyFlags |= PROPERTY_FLAG_TEXT_ALIGN_H;
                         }
                         if (strcmp(text, "center") == 0) {
                             item.horizontalTextAlignment = 1;
-                            item.propertyFlags |= 1ULL << 15;
+                            item.propertyFlags |= PROPERTY_FLAG_TEXT_ALIGN_H;
                         }
                         if (strcmp(text, "right") == 0) {
                             item.horizontalTextAlignment = 2;
-                            item.propertyFlags |= 1ULL << 15;
+                            item.propertyFlags |= PROPERTY_FLAG_TEXT_ALIGN_H;
                         }
                         break;
 
@@ -639,15 +653,15 @@ static int NU_Stylesheet_Parse(char* src, struct Vector* tokens, NU_Stylesheet* 
                     case STYLE_TEXT_ALIGN_V_PROPERTY:
                         if (strcmp(text, "top") == 0) {
                             item.verticalTextAlignment = 0;
-                            item.propertyFlags |= 1ULL << 16;
+                            item.propertyFlags |= PROPERTY_FLAG_TEXT_ALIGN_V;
                         }
                         if (strcmp(text, "center") == 0) {
                             item.verticalTextAlignment = 1;
-                            item.propertyFlags |= 1ULL << 16;
+                            item.propertyFlags |= PROPERTY_FLAG_TEXT_ALIGN_V;
                         }
                         if (strcmp(text, "bottom") == 0) {
                             item.verticalTextAlignment = 2;
-                            item.propertyFlags |= 1ULL << 16;
+                            item.propertyFlags |= PROPERTY_FLAG_TEXT_ALIGN_V;
                         }
                         break;
 
@@ -656,28 +670,28 @@ static int NU_Stylesheet_Parse(char* src, struct Vector* tokens, NU_Stylesheet* 
                         float abs_position; 
                         if (String_To_Float(&abs_position, text)) {
                             item.left = abs_position;
-                            item.propertyFlags |= 1ULL << 17;
+                            item.propertyFlags |= PROPERTY_FLAG_LEFT;
                         }
                         break;
 
                     case STYLE_RIGHT_PROPERTY:
                         if (String_To_Float(&abs_position, text)) {
                             item.right = abs_position;
-                            item.propertyFlags |= 1ULL << 18;
+                            item.propertyFlags |= PROPERTY_FLAG_RIGHT;
                         }
                         break;
 
                     case STYLE_TOP_PROPERTY:
                         if (String_To_Float(&abs_position, text)) {
                             item.top = abs_position;
-                            item.propertyFlags |= 1ULL << 19;
+                            item.propertyFlags |= PROPERTY_FLAG_TOP;
                         }
                         break;
 
                     case STYLE_BOTTOM_PROPERTY:
                         if (String_To_Float(&abs_position, text)) {
                             item.bottom = abs_position;
-                            item.propertyFlags |= 1ULL << 20;
+                            item.propertyFlags |= PROPERTY_FLAG_BOTTOM;
                         }
                         break;
 
@@ -688,10 +702,10 @@ static int NU_Stylesheet_Parse(char* src, struct Vector* tokens, NU_Stylesheet* 
                             item.backgroundR = rgb.r;
                             item.backgroundG = rgb.g;
                             item.backgroundB = rgb.b;
-                            item.propertyFlags |= 1ULL << 21;
+                            item.propertyFlags |= PROPERTY_FLAG_BACKGROUND;
                         } else if (strcmp(text, "none") == 0) {
-                            item.hideBackground = true;
-                            item.propertyFlags |= 1ULL << 22;
+                            item.propertyFlags |= PROPERTY_FLAG_HIDE_BACKGROUND;
+                            item.layoutFlags |= HIDE_BACKGROUND;
                         }
                         break;
 
@@ -701,7 +715,7 @@ static int NU_Stylesheet_Parse(char* src, struct Vector* tokens, NU_Stylesheet* 
                             item.borderR = rgb.r;
                             item.borderG = rgb.g;
                             item.borderB = rgb.b;
-                            item.propertyFlags |= 1ULL << 23;
+                            item.propertyFlags |= PROPERTY_FLAG_BORDER_COLOUR;
                         }
                         break;
 
@@ -711,7 +725,7 @@ static int NU_Stylesheet_Parse(char* src, struct Vector* tokens, NU_Stylesheet* 
                             item.textR = rgb.r;
                             item.textG = rgb.g;
                             item.textB = rgb.b;
-                            item.propertyFlags |= 1ULL << 24;
+                            item.propertyFlags |= PROPERTY_FLAG_TEXT_COLOUR;
                         }
                         break;
                     
@@ -723,30 +737,30 @@ static int NU_Stylesheet_Parse(char* src, struct Vector* tokens, NU_Stylesheet* 
                             item.borderBottom = border_width;
                             item.borderLeft = border_width;
                             item.borderRight = border_width;
-                            item.propertyFlags |= 1ULL << 25;
-                            item.propertyFlags |= 1ULL << 26;
-                            item.propertyFlags |= 1ULL << 27;
-                            item.propertyFlags |= 1ULL << 28;
+                            item.propertyFlags |= PROPERTY_FLAG_BORDER_TOP;
+                            item.propertyFlags |= PROPERTY_FLAG_BORDER_BOTTOM;
+                            item.propertyFlags |= PROPERTY_FLAG_BORDER_LEFT;
+                            item.propertyFlags |= PROPERTY_FLAG_BORDER_RIGHT;
                         }
                         break;
                     case STYLE_BORDER_TOP_WIDTH_PROPERTY:
                         if (String_To_uint8_t(&item.borderTop, text)) {
-                            item.propertyFlags |= 1ULL << 25;
+                            item.propertyFlags |= PROPERTY_FLAG_BORDER_TOP;
                         }
                         break;
                     case STYLE_BORDER_BOTTOM_WIDTH_PROPERTY:
                         if (String_To_uint8_t(&item.borderBottom, text)) {
-                            item.propertyFlags |= 1ULL << 26;
+                            item.propertyFlags |= PROPERTY_FLAG_BORDER_BOTTOM;
                         }
                         break;
                     case STYLE_BORDER_LEFT_WIDTH_PROPERTY:
                         if (String_To_uint8_t(&item.borderLeft, text)) {
-                            item.propertyFlags |= 1ULL << 27;
+                            item.propertyFlags |= PROPERTY_FLAG_BORDER_LEFT;
                         }
                         break;
                     case STYLE_BORDER_RIGHT_WIDTH_PROPERTY:
                         if (String_To_uint8_t(&item.borderRight, text)) {
-                            item.propertyFlags |= 1ULL << 28;
+                            item.propertyFlags |= PROPERTY_FLAG_BORDER_RIGHT;
                         }
                         break;
 
@@ -758,30 +772,30 @@ static int NU_Stylesheet_Parse(char* src, struct Vector* tokens, NU_Stylesheet* 
                             item.borderRadiusTr = border_radius;
                             item.borderRadiusBl = border_radius;
                             item.borderRadiusBr = border_radius;
-                            item.propertyFlags |= 1ULL << 29;
-                            item.propertyFlags |= 1ULL << 30;
-                            item.propertyFlags |= 1ULL << 31;
-                            item.propertyFlags |= 1ULL << 32;
+                            item.propertyFlags |= PROPERTY_FLAG_BORDER_RADIUS_TL;
+                            item.propertyFlags |= PROPERTY_FLAG_BORDER_RADIUS_TR;
+                            item.propertyFlags |= PROPERTY_FLAG_BORDER_RADIUS_BL;
+                            item.propertyFlags |= PROPERTY_FLAG_BORDER_RADIUS_BR;
                         }
                         break;
                     case STYLE_BORDER_TOP_LEFT_RADIUS_PROPERTY:
                         if (String_To_uint8_t(&item.borderRadiusTl, text)) {
-                            item.propertyFlags |= 1ULL << 29;
+                            item.propertyFlags |= PROPERTY_FLAG_BORDER_RADIUS_TL;
                         }
                         break;
                     case STYLE_BORDER_TOP_RIGHT_RADIUS_PROPERTY:
                         if (String_To_uint8_t(&item.borderRadiusTr, text)) {
-                            item.propertyFlags |= 1ULL << 30;
+                            item.propertyFlags |= PROPERTY_FLAG_BORDER_RADIUS_TR;
                         }
                         break;
                     case STYLE_BORDER_BOTTOM_LEFT_RADIUS_PROPERTY:
                         if (String_To_uint8_t(&item.borderRadiusBl, text)) {
-                            item.propertyFlags |= 1ULL << 31;
+                            item.propertyFlags |= PROPERTY_FLAG_BORDER_RADIUS_BL;
                         }
                         break;
                     case STYLE_BORDER_BOTTOM_RIGHT_RADIUS_PROPERTY:
                         if (String_To_uint8_t(&item.borderRadiusBr, text)) {
-                            item.propertyFlags |= 1ULL << 32;
+                            item.propertyFlags |= PROPERTY_FLAG_BORDER_RADIUS_BR;
                         }
                         break;
 
@@ -793,30 +807,30 @@ static int NU_Stylesheet_Parse(char* src, struct Vector* tokens, NU_Stylesheet* 
                             item.padBottom = pad;
                             item.padLeft = pad;
                             item.padRight = pad;
-                            item.propertyFlags |= 1ULL << 33;
-                            item.propertyFlags |= 1ULL << 34;
-                            item.propertyFlags |= 1ULL << 35;
-                            item.propertyFlags |= 1ULL << 36;
+                            item.propertyFlags |= PROPERTY_FLAG_PAD_TOP;
+                            item.propertyFlags |= PROPERTY_FLAG_PAD_BOTTOM;
+                            item.propertyFlags |= PROPERTY_FLAG_PAD_LEFT;
+                            item.propertyFlags |= PROPERTY_FLAG_PAD_RIGHT;
                         }
                         break;
                     case STYLE_PADDING_TOP_PROPERTY:
                         if (String_To_uint8_t(&item.padTop, text)) {
-                            item.propertyFlags |= 1ULL << 33;
+                            item.propertyFlags |= PROPERTY_FLAG_PAD_TOP;
                         }
                         break;
                     case STYLE_PADDING_BOTTOM_PROPERTY:
                         if (String_To_uint8_t(&item.padBottom, text)) {
-                            item.propertyFlags |= 1ULL << 34;
+                            item.propertyFlags |= PROPERTY_FLAG_PAD_BOTTOM;
                         }
                         break;
                     case STYLE_PADDING_LEFT_PROPERTY:
                         if (String_To_uint8_t(&item.padLeft, text)) {
-                            item.propertyFlags |= 1ULL << 35;
+                            item.propertyFlags |= PROPERTY_FLAG_PAD_LEFT;
                         }
                         break;
                     case STYLE_PADDING_RIGHT_PROPERTY:
                         if (String_To_uint8_t(&item.padRight, text)) {
-                            item.propertyFlags |= 1ULL << 36;
+                            item.propertyFlags |= PROPERTY_FLAG_PAD_RIGHT;
                         }
                         break;
                     
@@ -827,11 +841,11 @@ static int NU_Stylesheet_Parse(char* src, struct Vector* tokens, NU_Stylesheet* 
                             if (image_handle) {
                                 item.glImageHandle = image_handle;
                                 LinearStringmapSet(&imageFilepathToHandleMap, text, &image_handle);
-                                item.propertyFlags |= 1ULL << 37;
+                                item.propertyFlags |= PROPERTY_FLAG_IMAGE;
                             }
                         } 
                         else {
-                            item.propertyFlags |= 1ULL << 37;
+                            item.propertyFlags |= PROPERTY_FLAG_IMAGE;
                             item.glImageHandle = *(GLuint*)found;
                         }
                         break;
@@ -844,7 +858,7 @@ static int NU_Stylesheet_Parse(char* src, struct Vector* tokens, NU_Stylesheet* 
                         break;
 
                     case STYLE_INPUT_TYPE_PROPERTY:
-                        item.propertyFlags |= 1ULL << 38;
+                        item.propertyFlags |= PROPERTY_FLAG_INPUT_TYPE;
                         if (strcmp(text, "number") == 0) {
                             item.inputType = 1;
                         } else {

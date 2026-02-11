@@ -30,14 +30,14 @@ typedef struct Node
     char* textContent;
     
     uint64_t inlineStyleFlags; // --- Tracks which styles were applied in xml ---
-    uint16_t eventFlags; // --- Event Information
-    uint8_t positionAbsolute; // --- Tree information ---
 
     // --- Styling ---
     float x, y, width, height, preferred_width, preferred_height;
     float minWidth, maxWidth, minHeight, maxHeight;
     float gap, contentWidth, contentHeight, scrollX, scrollV;
     float left, right, top, bottom;
+    uint16_t eventFlags; // --- Event Information
+    uint16_t layoutFlags;
     uint8_t padTop, padBottom, padLeft, padRight;
     uint8_t borderTop, borderBottom, borderLeft, borderRight;
     uint8_t borderRadiusTl, borderRadiusTr, borderRadiusBl, borderRadiusBr;
@@ -45,14 +45,12 @@ typedef struct Node
     uint8_t borderR, borderG, borderB;
     uint8_t textR, textG, textB;
     uint8_t fontId;
-    uint8_t layoutFlags;
-    uint8_t horizontalAlignment;
-    uint8_t verticalAlignment;
-    uint8_t horizontalTextAlignment;
-    uint8_t verticalTextAlignment;
-    bool hideBackground;
+    char horizontalAlignment;
+    char verticalAlignment;
+    char horizontalTextAlignment;
+    char verticalTextAlignment;
+    uint8_t positionAbsolute;
 } Node;
-
 typedef struct {
     float r, g, b;
 } NU_RGB;

@@ -73,6 +73,7 @@ static void NU_CalculateTextFitWidths(BreadthFirstSearch* bfs)
 {
     NodeP* node;
     while (BreadthFirstSearch_Next(bfs, &node)) {
+
         if (node->state == 2 || node->node.textContent == NULL) continue;
 
         NU_Font* node_font = Vector_Get(&__NGUI.stylesheet->fonts, node->node.fontId);
@@ -767,7 +768,7 @@ static void NU_PositionChildrenVertically(NodeP* node)
         y_scroll_offset += (-node->node.scrollV * (track_h - thumb_h)) * scroll_factor;
 
         // undo effect of scroll offset for table header row
-        if (node->firstChild->state != 2 && node->firstChild->type == NU_THEAD) {
+        if (node->firstChild->type == NU_THEAD) {
             node->firstChild->node.y -= y_scroll_offset;
         }
     }
@@ -820,8 +821,6 @@ static void NU_PositionChildrenVertically(NodeP* node)
             child = child->nextSibling;
         }
         remainingHeight -= node->node.gap * (numChildrenAffectingHeight - 1);
-
-
 
         // position children vertically
         float cursorY = 0.0f;

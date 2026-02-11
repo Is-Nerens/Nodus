@@ -1,9 +1,9 @@
 #pragma once 
 
-#define NU_XML_PROPERTY_COUNT 43
+#define NU_XML_PROPERTY_COUNT 44
 const char* nu_xml_property_keywords[] = {
     "id", "class",
-    "dir", "grow", "overflow-v", "overflow-h", "position", "hide", "gap",
+    "dir", "grow", "overflow-v", "overflow-h", "position", "hide", "ignore-mouse", "gap",
     "width", "min-width", "max-width", "height", "min-height", "max-height",
     "align-h", "align-v", "text-align-h", "text-align-v",
     "left", "right", "top", "bottom",
@@ -30,6 +30,7 @@ typedef enum NU_XML_TOKEN
     OVERFLOW_V_PROPERTY, OVERFLOW_H_PROPERTY,
     POSITION_PROPERTY,
     HIDE_PROPERTY,
+    IGNORE_MOUSE_PROPERTY,
     GAP_PROPERTY,
     WIDTH_PROPERTY, MIN_WIDTH_PROPERTY, MAX_WIDTH_PROPERTY,
     HEIGHT_PROPERTY, MIN_HEIGHT_PROPERTY, MAX_HEIGHT_PROPERTY,

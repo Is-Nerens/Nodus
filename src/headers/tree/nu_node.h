@@ -5,14 +5,61 @@ typedef uint8_t u8;
 typedef uint16_t u16;
 typedef uint32_t u32;
 typedef uint64_t u64;
-#define LAYOUT_VERTICAL              0x01  // 00000001
-#define GROW_HORIZONTAL              0x02  // 00000010
-#define GROW_VERTICAL                0x04  // 00000100
-#define OVERFLOW_VERTICAL_SCROLL     0x08  // 00001000
-#define OVERFLOW_HORIZONTAL_SCROLL   0x10  // 00010000
-#define HIDE_BACKGROUND              0x20  // 00100000
-#define POSITION_ABSOLUTE            0x40  // 01000000
-#define HIDDEN                       0x80  // 10000000
+
+// Layout flags
+#define LAYOUT_VERTICAL                 (1ULL << 0)
+#define GROW_HORIZONTAL                 (1ULL << 1)
+#define GROW_VERTICAL                   (1ULL << 2)
+#define OVERFLOW_VERTICAL_SCROLL        (1ULL << 3)
+#define OVERFLOW_HORIZONTAL_SCROLL      (1ULL << 4)
+#define HIDE_BACKGROUND                 (1ULL << 5)
+#define POSITION_ABSOLUTE               (1ULL << 6)
+#define HIDDEN                          (1ULL << 7)
+#define IGNORE_MOUSE                    (1ULL << 8)
+
+// Property flags
+#define PROPERTY_FLAG_LAYOUT_VERTICAL   (1ULL << 0)
+#define PROPERTY_FLAG_GROW              (1ULL << 1)
+#define PROPERTY_FLAG_VERTICAL_SCROLL   (1ULL << 2)
+#define PROPERTY_FLAG_HORIZONTAL_SCROLL (1ULL << 3)
+#define PROPERTY_FLAG_POSITION_ABSOLUTE (1ULL << 4)
+#define PROPERTY_FLAG_HIDDEN            (1ULL << 5)
+#define PROPERTY_FLAG_IGNORE_MOUSE      (1ULL << 6)
+#define PROPERTY_FLAG_GAP               (1ULL << 7)
+#define PROPERTY_FLAG_PREFERRED_WIDTH   (1ULL << 8)
+#define PROPERTY_FLAG_MIN_WIDTH         (1ULL << 9)
+#define PROPERTY_FLAG_MAX_WIDTH         (1ULL << 10)
+#define PROPERTY_FLAG_PREFERRED_HEIGHT  (1ULL << 11)
+#define PROPERTY_FLAG_MIN_HEIGHT        (1ULL << 12)
+#define PROPERTY_FLAG_MAX_HEIGHT        (1ULL << 13)
+#define PROPERTY_FLAG_ALIGN_H           (1ULL << 14)
+#define PROPERTY_FLAG_ALIGN_V           (1ULL << 15)
+#define PROPERTY_FLAG_TEXT_ALIGN_H      (1ULL << 16)
+#define PROPERTY_FLAG_TEXT_ALIGN_V      (1ULL << 17)
+#define PROPERTY_FLAG_LEFT              (1ULL << 18)
+#define PROPERTY_FLAG_RIGHT             (1ULL << 19)
+#define PROPERTY_FLAG_TOP               (1ULL << 20)
+#define PROPERTY_FLAG_BOTTOM            (1ULL << 21)
+#define PROPERTY_FLAG_BACKGROUND        (1ULL << 22)
+#define PROPERTY_FLAG_HIDE_BACKGROUND   (1ULL << 23)
+#define PROPERTY_FLAG_BORDER_COLOUR     (1ULL << 24)
+#define PROPERTY_FLAG_TEXT_COLOUR       (1ULL << 25)
+#define PROPERTY_FLAG_BORDER_TOP        (1ULL << 26)
+#define PROPERTY_FLAG_BORDER_BOTTOM     (1ULL << 27)
+#define PROPERTY_FLAG_BORDER_LEFT       (1ULL << 28)
+#define PROPERTY_FLAG_BORDER_RIGHT      (1ULL << 29)
+#define PROPERTY_FLAG_BORDER_RADIUS_TL  (1ULL << 30)
+#define PROPERTY_FLAG_BORDER_RADIUS_TR  (1ULL << 31)
+#define PROPERTY_FLAG_BORDER_RADIUS_BL  (1ULL << 32)
+#define PROPERTY_FLAG_BORDER_RADIUS_BR  (1ULL << 33)
+#define PROPERTY_FLAG_PAD_TOP           (1ULL << 34)
+#define PROPERTY_FLAG_PAD_BOTTOM        (1ULL << 35)
+#define PROPERTY_FLAG_PAD_LEFT          (1ULL << 36)
+#define PROPERTY_FLAG_PAD_RIGHT         (1ULL << 37)
+#define PROPERTY_FLAG_IMAGE             (1ULL << 38)
+#define PROPERTY_FLAG_INPUT_TYPE        (1ULL << 39)
+
+
 #define NODEP_OF(ptr, type, member) ((type *)((char *)(ptr) - offsetof(type, member)))
 
 typedef enum NodeType
@@ -41,14 +88,14 @@ typedef struct Node
     char* textContent;
     
     u64 inlineStyleFlags; // --- Tracks which styles were applied in xml ---
-    u16 eventFlags; // --- Event Information
-    u8 positionAbsolute; // --- Tree information ---
 
     // --- Styling ---
     float x, y, width, height, preferred_width, preferred_height;
     float minWidth, maxWidth, minHeight, maxHeight;
     float gap, contentWidth, contentHeight, scrollX, scrollV;
     float left, right, top, bottom;
+    u16 eventFlags; // --- Event Information
+    u16 layoutFlags;
     u8 padTop, padBottom, padLeft, padRight;
     u8 borderTop, borderBottom, borderLeft, borderRight;
     u8 borderRadiusTl, borderRadiusTr, borderRadiusBl, borderRadiusBr;
@@ -56,12 +103,11 @@ typedef struct Node
     u8 borderR, borderG, borderB;
     u8 textR, textG, textB;
     u8 fontId;
-    u8 layoutFlags;
     char horizontalAlignment;
     char verticalAlignment;
     char horizontalTextAlignment;
     char verticalTextAlignment;
-    bool hideBackground;
+    u8 positionAbsolute;
 } Node;
 
 typedef struct NodeP
@@ -115,14 +161,14 @@ void NU_ApplyNodeDefaults(NodeP* node)
     node->node.textR = node->node.textG = node->node.textB = 255;
     node->node.horizontalTextAlignment = 1;
     node->node.verticalTextAlignment = 1;
-
+    
     // set defaults based on node type
     if (node->type == NU_TABLE) {
-        node->node.inlineStyleFlags |= 1ULL << 0; // Enforce vertical direction
+        node->node.inlineStyleFlags |= PROPERTY_FLAG_LAYOUT_VERTICAL; // Enforce vertical direction
         node->node.layoutFlags |= LAYOUT_VERTICAL;
     }
     else if (node->type == NU_THEAD || node->type == NU_ROW) {
-        node->node.inlineStyleFlags |= 1ULL << 1; // Enforce horizontal growth
+        node->node.inlineStyleFlags |= PROPERTY_FLAG_GROW; // Enforce horizontal growth
         node->node.layoutFlags |= GROW_HORIZONTAL;
     }
     else if (node->type == NU_INPUT) {

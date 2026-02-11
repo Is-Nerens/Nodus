@@ -42,27 +42,27 @@ Nodus requires: [stb_image](https://github.com/nothings/stb/blob/master/stb_imag
 <window dir="v">
 
     <!-- toolbar -->
-    <rect id="toolbar"> 
+    <box id="toolbar"> 
         <button>file</button>
         <button>edit</button>
         <button>export</button>
-    </rect>
+    </box>
 
     <!-- content -->
-    <rect grow="b" dir="h">
+    <box grow="b" dir="h">
 
         <!-- sidebar -->
-        <rect id="sidebar">
-            <rect id="sidebar-label">Sidebar</rect>
-        </rect>
+        <box id="sidebar">
+            <box id="sidebar-label">Sidebar</box>
+        </box>
 
         <!-- right content -->
-        <rect id="content">
+        <box id="content">
             <canvas id="interactive-chart" grow="b"/>
             <button id="btn" grow="h">PRESS ME!</button>
-        </rect>
+        </box>
 
-    <rect>
+    <box>
 </window>
 ```
 
@@ -139,8 +139,8 @@ int main()
     if (!NU_Create_Gui("app.xml", "app.css")) return -1;
     
     // get node handles
-    uint32_t button = NU_Get_Node_By_Id("btn");
-    uint32_t chart = NU_Get_Node_By_Id("interactive-chart");
+    Node* button = NU_Get_Node_By_Id("btn");
+    Node* chart = NU_Get_Node_By_Id("interactive-chart");
 
     // register click event
     char* message = "pressed me!";
@@ -154,7 +154,7 @@ int main()
     // app loop
     while(NU_Running())
     {
-        NU_Unblock();
+
     }
 
     // free

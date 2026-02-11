@@ -242,6 +242,7 @@ int main()
 ---
 
 ## General functions (in C)
+Functions pertaining to GUI creation, control and cleanup.
 | Function | Return | Args | Description |
 | ---- | ---- | ---- | ---- |
 | `NU_Create_Gui` | int | (char* xml_filepath, char* css_filepath) | Creates the global GUI object. Returns 0 if there is an error, or incorrect xml/css format|
@@ -255,7 +256,7 @@ int main()
 ---
 
 ## DOM functions (in C)
-
+Functions pertaining to qeurying, creating, destroying and manipulation nodes (Node*).
 | Function | Return | Args | Description |
 | ---- | ---- | ---- | ---- | 
 | `NU_Get_Node_By_Id` | Node* | (char* id) | Returns a Node* with the associated ID. If the node does not exist the function will return NULL | 
@@ -278,7 +279,7 @@ int main()
 ---
 
 ## Canvas API functions (in C)
-Thhe coordinate system of a canvas starts at (0,0) top-left. The Y coordinate specifies the distance from the top.
+Functions pertaining to drawing on a canvas. The coordinate system of a canvas starts at (0,0) top-left. The Y coordinate specifies the distance from the top.
 | Function | Return | Args | Description |
 | ---- | ---- | ---- | ---- | 
 | `NU_Clear_Canvas` | void | (Node* canvas) | Clears all drawn content of a canvas (Node*) |

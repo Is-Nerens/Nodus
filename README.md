@@ -32,6 +32,7 @@ Nodus requires: [stb_image](https://github.com/nothings/stb/blob/master/stb_imag
 - Debugging tools
 - Library Documentation
 - Dependency Reduction (if possible)
+- Pseudo styles do not apply to id selectors
 
 <br>
 

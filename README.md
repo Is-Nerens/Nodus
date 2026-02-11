@@ -244,7 +244,11 @@ int main()
 ## General functions (in C)
 | Function | Description |
 | ---- | ---- | 
-| int `NU_Create_Gui`(char* xml_filepath, char* css_filepath) | Creates the global GUI object. If there is a parsing error -> returns 
+| int `NU_Create_Gui`(char* xml_filepath, char* css_filepath) | Creates the global GUI object. Returns 0 if there is an error, or incorrect xml/css format|
+| void `NU_Quit`() | Frees memory used by Nodus |
+| int `NU_Running`() | Returns true while the GUI is running |
+| void `NU_Unblock`() | Unblocks the main thread. Allows while(NU_Running) { } iteration to execute. This function is thread safe. |
+| void `NU_Render`() | Triggers a full GUI re-render. Typically used to re-render canvas content. This function is thread safe. |
 
 <br>
 
@@ -253,10 +257,11 @@ int main()
 ## DOM functions (in C)
 
 | Function | Description |
-| ---- | ---- | 
+| ----- | ---- | 
 | Node* `NU_Get_Node_By_Id`(char* id) | Returns a Node* with the associated ID. If the node does not exist the function will return NULL | 
 | NU_Nodelist `NU_Get_Nodes_By_Class`(char* class) | Returns a NU_Nodelist containing all `Node*` that have the given class |
 | NU_Nodelist `NU_Get_Nodes_By_Tag`(NodeType type) | Returns a NU_Nodelist containing all `Node*` that have the given tag |
+| void `NU_Set_Class`(Node* node, char* class_name) | Updates/Sets the class of a Node* |
 | Node* `NU_PARENT`(Node* node) | Returns the parent (Node*) of the given Node* |
 | Node* `NU_CHILD`(Node* node, uint32_t childIndex) | Returns the child (Node*) of a given Node* found at the specified childIndex |
 | uint32_t `NU_CHILD_COUNT`(Node* node) | Returns the number of children (uint32_t) that a node (Node*) has |
@@ -275,9 +280,9 @@ int main()
 ## Canvas API functions (in C)
 Thhe coordinate system of a canvas starts at (0,0) top-left. The Y coordinate specifies the distance from the top.
 | Function | Description |
-| ---- | ---- | 
+| ---------------- | ---- | 
 | void `NU_Clear_Canvas`(Node* canvas) | Clears all drawn content of a canvas (Node*) |
 | void `NU_Border_Rect`(Node* canvas, float x, y, w, h, thickness, NU_RGB* border_col, fill_col) | Draws a border rect on a canvas (Node*)|
 | void `NU_Line`(Node* canvas, float x1, y1, x2, y2, thickness, NU_RGB* col) | Draws a line on a canvas (Node*)|
-| void `NU_Dashed_Line`(Node* canvas, float x1, y1, x2, y2, uint8_t* dash_pattern <pointer to an array of [seg0, space0, seg1, space1, seg2...]> uint32_t dash_pattern_len, NU_RGB* col) | Draws a dashed line on a canvas (Node*)|
+| void `NU_Dashed_Line`(Node* canvas, float x1, y1, x2, y2, uint8_t* dash_pattern <pointer to an array of [seg0, space0, seg1, space1, seg2...]>, uint32_t dash_pattern_len, NU_RGB* col) | Draws a dashed line on a canvas (Node*)|
 

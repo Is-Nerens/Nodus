@@ -32,6 +32,7 @@ Nodus requires: [stb_image](https://github.com/nothings/stb/blob/master/stb_imag
 - Debugging tools
 - Library Documentation
 - Dependency Reduction (if possible)
+- Pseudo styles do not apply to id selectors
 
 <br>
 
@@ -41,27 +42,27 @@ Nodus requires: [stb_image](https://github.com/nothings/stb/blob/master/stb_imag
 <window dir="v">
 
     <!-- toolbar -->
-    <rect id="toolbar"> 
+    <box id="toolbar"> 
         <button>file</button>
         <button>edit</button>
         <button>export</button>
-    </rect>
+    </box>
 
     <!-- content -->
-    <rect grow="b" dir="h">
+    <box grow="b" dir="h">
 
         <!-- sidebar -->
-        <rect id="sidebar">
-            <rect id="sidebar-label">Sidebar</rect>
-        </rect>
+        <box id="sidebar">
+            <box id="sidebar-label">Sidebar</box>
+        </box>
 
         <!-- right content -->
-        <rect id="content">
+        <box id="content">
             <canvas id="interactive-chart" grow="b"/>
             <button id="btn" grow="h">PRESS ME!</button>
-        </rect>
+        </box>
 
-    <rect>
+    <box>
 </window>
 ```
 
@@ -138,8 +139,8 @@ int main()
     if (!NU_Create_Gui("app.xml", "app.css")) return -1;
     
     // get node handles
-    uint32_t button = NU_Get_Node_By_Id("btn");
-    uint32_t chart = NU_Get_Node_By_Id("interactive-chart");
+    Node* button = NU_Get_Node_By_Id("btn");
+    Node* chart = NU_Get_Node_By_Id("interactive-chart");
 
     // register click event
     char* message = "pressed me!";
@@ -153,7 +154,7 @@ int main()
     // app loop
     while(NU_Running())
     {
-        NU_Unblock();
+
     }
 
     // free
@@ -168,11 +169,12 @@ int main()
 
 #### UI Nodes:
 - window
-- rect
+- box
 - button
-- table, thead, row
-- image
+- input
 - canvas
+- image
+- table, thead, row
 
 ## Style & Layout Properties
 
@@ -190,16 +192,12 @@ int main()
 | `left` `right` `top` `bottom` | Absolute positioning offsets | Int |
 | `hide` | Visibility toggle | String `true` `false` |
 
----
-
 ### Size
 | Property | Description |
 |--------|-------------|
 | `width` `height` | Fixed size |
 | `min-width` `min-height` | Minimum size |
 | `max-width` `max-height` | Maximum size |
-
----
 
 ### Alignment
 | Property | Description | Values |
@@ -209,16 +207,12 @@ int main()
 | `text-align-h` | Horizontal text alignment | String `left` `right` `center` |
 | `text-align-v` | Vertical text alignment | String `top` `bottom` `center` |
 
----
-
 ### Colours
 | Property | Values |
 |--------|-------|
 | `background` | Hex code `#xxxxxx` |
 | `border-colour` | Hex code `#xxxxxx` |
 | `text-colour` | Hex code `#xxxxxx` |
-
----
 
 ### Border
 | Property | Description | Values |
@@ -231,10 +225,65 @@ int main()
 | `border-radius-bottom-left` | Border radius (bottom-left corner) | Int |
 | `border-radius-bottom-right` | Border radius (bottom-right corner) | Int |
 
----
-
 ### Padding
 | Property | Description | Values |
 |--------|-------|-----|
 | `padding` | All sides | Int |
 | `padding-top` `bottom` `left` `right` | Individual sides | Int |
+
+### Input
+| Property | Description | Values |
+|-----|-----|-----|
+|`input-type`|Enforces typing format| Sring `number` `text` [Default `text`]|
+
+
+<br>
+
+---
+
+## General functions (in C)
+Functions pertaining to GUI creation, control and cleanup.
+| Function | Return | Args | Description |
+| ---- | ---- | ---- | ---- |
+| `NU_Create_Gui` | int | (char* xml_filepath, char* css_filepath) | Creates the global GUI object. Returns 0 if there is an error, or incorrect xml/css format|
+| `NU_Quit` | void | void | Frees memory used by Nodus |
+| `NU_Running` | int | void | Returns true while the GUI is running |
+| `NU_Unblock` | void | void | Unblocks the main thread. Allows while(NU_Running) { } iteration to execute. This function is thread safe. |
+| `NU_Render` | void | void | Triggers a full GUI re-render. Typically used to re-render canvas content. This function is thread safe. |
+
+<br>
+
+---
+
+## DOM functions (in C)
+Functions related to querying, creating, destroying and manipulating nodes (Node*).
+| Function | Return | Args | Description |
+| ---- | ---- | ---- | ---- | 
+| `NU_Get_Node_By_Id` | Node* | (char* id) | Returns a Node* with the associated ID. If the node does not exist the function will return NULL | 
+| `NU_Get_Nodes_By_Class` | NU_Nodelist | (char* class) | Returns a NU_Nodelist containing all `Node*` that have the given class |
+| `NU_Get_Nodes_By_Tag` | NU_Nodelist | (NodeType type) | Returns a NU_Nodelist containing all `Node*` that have the given tag |
+| `NU_Set_Class` | void | (Node* node, char* class_name) | Updates/Sets the class of a Node* |
+| `NU_PARENT` | Node* | (Node* node) | Returns the parent (Node*) of the given Node* |
+| `NU_CHILD` | Node* | (Node* node, uint32_t childIndex) | Returns the child (Node*) of a given Node* found at the specified childIndex |
+| `NU_CHILD_COUNT` | uint32_t | (Node* node) | Returns the number of children (uint32_t) that a node (Node*) has |
+| `NU_DEPTH` | uint32_t | (Node* node) | Returns the nested depth (uint32_t) of a node (Node*). The depth is zero indexed: [0... n]|
+| `NU_CREATE_NODE` | Node* | (Node* parent, NodeType type) | Returns a Node* of a new created node with the given NodeType. The created Node* is appended to the `end` of it's parent |
+| `NU_DELETE_NODE` | void | (Node* node) | Deletes a Node* and all of its nested children from the DOM. `NOTE!` Do not use a Node* after deletion! This is akin to a `use-after-free` |
+| `NU_INPUT_TEXT_CONTENT` | const char* | (Node* node) | Returns a char* containing the text content of an `Input` node. `NOTE!` if a non *input* node is passed as an argument -> the function will return NULL|
+| `NU_SHOW` | void | (Node* node) | Sets the visibility of a node to `true`|
+| `NU_HIDE` | void | (Node* node) | Sets the visibility of a node to `false`|
+
+
+<br>
+
+---
+
+## Canvas API functions (in C)
+Functions pertaining to drawing on a canvas. The coordinate system of a canvas starts at (0,0) top-left. The Y coordinate specifies the distance from the top.
+| Function | Return | Args | Description |
+| ---- | ---- | ---- | ---- | 
+| `NU_Clear_Canvas` | void | (Node* canvas) | Clears all drawn content of a canvas (Node*) |
+| `NU_Border_Rect` | void | (Node* canvas, float x, y, w, h, thickness, NU_RGB* border_col, fill_col) | Draws a border rect on a canvas (Node*)|
+| `NU_Line` | void | (Node* canvas, float x1, y1, x2, y2, thickness, NU_RGB* col) | Draws a line on a canvas (Node*)|
+| `NU_Dashed_Line` | void | (Node* canvas, float x1, y1, x2, y2, uint8_t* dash_pattern <pointer to an array of [seg0, space0, seg1, space1, seg2...]>, uint32_t dash_pattern_len, NU_RGB* col) | Draws a dashed line on a canvas (Node*)|
+

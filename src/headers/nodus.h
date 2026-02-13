@@ -75,8 +75,8 @@ struct NU_GUI __NGUI;
 #include <rendering/canvas/nu_canvas_api.h>
 #include <window/nu_window_manager.h>
 #include <rendering/image/nu_image.h>
-#include <stylesheet/nu_stylesheet.h>
-#include <xml/nu_xml_parser.h>
+#include <parser/stylesheet/nu_stylesheet.h>
+#include <parser/xml/nu_xml_parser.h>
 #include "nu_layout.h"
 #include <tree/nu_input_text.h>
 #include "nu_draw.h"
@@ -119,7 +119,7 @@ int NU_Internal_Create_Gui(char* xml_filepath, char* css_filepath)
     // init SDL and GLEW
     if (!SDL_Init(SDL_INIT_VIDEO)) {
         printf("SDL could not initialize! SDL_Error: %s\n", SDL_GetError());
-        return -1;
+        return 0;
     }
     NU_WindowManagerInit(&__NGUI.winManager);
     StringArena_Init(&__NGUI.node_text_arena, 1024);
@@ -159,7 +159,7 @@ int NU_Internal_Create_Gui(char* xml_filepath, char* css_filepath)
     __NGUI.SDL_CUSTOM_RENDER_EVENT = SDL_RegisterEvents(1);
     if (__NGUI.SDL_CUSTOM_RENDER_EVENT == (Uint32)-1) {
         printf("Failed to register custom SDL render event! SDL_Error: %s\n", SDL_GetError());
-        return -1;
+        return 0;
     }
 
     // Event watcher

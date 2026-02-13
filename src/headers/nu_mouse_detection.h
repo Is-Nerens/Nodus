@@ -118,7 +118,9 @@ void NU_Mouse_Hover()
     {
         // pop the stack
         NodeP* current_node = *(NodeP**)Vector_Get(&stack, stack.size - 1);
-        __NGUI.hovered_node = current_node;
+        if (!(current_node->node.layoutFlags & IGNORE_MOUSE)) {
+            __NGUI.hovered_node = current_node;
+        }
         stack.size -= 1;
 
         // skip children
@@ -131,7 +133,6 @@ void NU_Mouse_Hover()
             if (child->state == 2 || 
                 child->node.layoutFlags & POSITION_ABSOLUTE || 
                 child->type == NU_WINDOW ||
-                child->node.layoutFlags & IGNORE_MOUSE ||
                 !NU_MouseIsOverNode(child, mouseX, mouseY))
             {
                 child = child->nextSibling; continue;

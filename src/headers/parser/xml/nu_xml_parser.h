@@ -3,11 +3,12 @@
 #include <ctype.h>
 #include <filesystem/nu_file.h>
 #include <utils/nu_convert.h>
+#include "../nu_token_array.h"
 #include "nu_xml_tokens.h"
 #include "nu_xml_grammar_assertions.h"
 #include "nu_xml_tokeniser.h"
 
-int NU_Generate_Tree(char* src, struct Vector* tokens, struct Vector* textRefs)
+int NU_Generate_Tree(char* src, TokenArray* tokens, struct Vector* textRefs)
 {
     // --------------------
     // Enforce root grammar
@@ -52,7 +53,7 @@ int NU_Generate_Tree(char* src, struct Vector* tokens, struct Vector* textRefs)
     int i = 2; 
     while (i < tokens->size - 3)
     {
-        const enum NU_XML_TOKEN token = *((enum NU_XML_TOKEN*) Vector_Get(tokens, i));
+        const enum NU_XML_TOKEN token = TokenArray_Get(tokens, i);
         
         // -------------------------
         // New type -> Add a new node
@@ -64,7 +65,7 @@ int NU_Generate_Tree(char* src, struct Vector* tokens, struct Vector* textRefs)
                 // -----------------
                 // Enforce type rules
                 // -----------------
-                NodeType type = NU_TokenToNodeType(*((enum NU_XML_TOKEN*) Vector_Get(tokens, i+1)));
+                NodeType type = NU_TokenToNodeType(TokenArray_Get(tokens, i+1));
                 if (ctx == 1 && type != NU_ROW && type != NU_THEAD) {
                     printf("%s\n", "[Generate_Tree] Error! first child of <table> must be <row> or <thead>."); return 0;
                 }
@@ -622,22 +623,20 @@ int NU_Internal_Load_XML(char* filepath)
     if (src == NULL) return 0;
     
     // Init token and text ref vectors
-    struct Vector tokens;
-    struct Vector textRefs;
-    Vector_Reserve(&tokens, sizeof(enum NU_XML_TOKEN), 8000);
-    Vector_Reserve(&textRefs, sizeof(struct Text_Ref), 2000);
+    TokenArray tokens = TokenArray_Create(8000);
+    struct Vector textRefs; Vector_Reserve(&textRefs, sizeof(struct Text_Ref), 2000);
 
     // Tokenise and generate
     NU_Tokenise(src, &tokens, &textRefs); 
     if (!NU_Generate_Tree(StringCstr(src), &tokens, &textRefs)) {
-        Vector_Free(&tokens);
+        TokenArray_Free(&tokens);
         Vector_Free(&textRefs);
         StringFree(src);
         return 0;
     }
 
     // Free memory
-    Vector_Free(&tokens);
+    TokenArray_Free(&tokens);
     Vector_Free(&textRefs);
     StringFree(src);
     return 1;

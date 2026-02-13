@@ -75,8 +75,8 @@ struct NU_GUI __NGUI;
 #include <rendering/canvas/nu_canvas_api.h>
 #include <window/nu_window_manager.h>
 #include <rendering/image/nu_image.h>
-#include <parser/stylesheet/nu_stylesheet.h>
-#include <parser/xml/nu_xml_parser.h>
+#include <parsing/stylesheet/nu_stylesheet.h>
+#include <parsing/xml/nu_xml_parser.h>
 #include "nu_layout.h"
 #include <tree/nu_input_text.h>
 #include "nu_draw.h"

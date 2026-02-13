@@ -4,32 +4,6 @@
 #include <errno.h>
 #include <datastructures/string.h>
 
-int FileRead(const char *filepath, char **bufferOut, size_t *sizeOut)
-{
-    FILE *f = fopen(filepath, "rb");
-    if (!f) {
-        fprintf(stderr, "Cannot open file '%s': %s\n", filepath, strerror(errno)); return 0;
-    }
-    if (fseek(f, 0, SEEK_END) != 0) {
-        fclose(f); return 0;
-    }
-    long size = ftell(f);
-    if (size < 0) {
-        fclose(f); return 0;
-    }
-    rewind(f);
-    char *buffer = malloc((size_t)size + 1);
-    if (!buffer) {
-        fclose(f); return 0;
-    }
-    size_t read = fread(buffer, 1, (size_t)size, f);
-    buffer[read] = '\0';
-    fclose(f);
-    *bufferOut = buffer;
-    *sizeOut   = read;
-    return 1;
-}
-
 String FileReadUTF8(const char* filepath)
 {
     FILE *f = fopen(filepath, "rb");

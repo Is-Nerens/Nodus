@@ -13,7 +13,7 @@ int NU_Generate_Tree(char* src, TokenArray* tokens, struct Vector* textRefs)
     // --------------------
     // Enforce root grammar
     // --------------------
-    if (AssertRootGrammar(tokens) != 0) {
+    if (!AssertRootGrammar(tokens)) {
         return 0; // Failure 
     }
 
@@ -124,7 +124,7 @@ int NU_Generate_Tree(char* src, TokenArray* tokens, struct Vector* textRefs)
             // ---------------------------
             // Enforce close grammar rules
             //----------------------------
-            if (AssertTagCloseStartGrammar(tokens, i, currentNode->type) != 0) {
+            if (!AssertTagCloseStartGrammar(tokens, i, currentNode->type)) {
                 LinearStringmapFree(&imageFilepathToHandleMap);
                 return 0;
             }
@@ -190,7 +190,7 @@ int NU_Generate_Tree(char* src, TokenArray* tokens, struct Vector* textRefs)
             // ---------------------------------------------
             // Enforce property grammar [property = "value"]
             // ---------------------------------------------
-            if (AssertPropertyGrammar(tokens, i) == 0)
+            if (AssertPropertyGrammar(tokens, i))
             {
                 // -----------------------
                 // Get property value text

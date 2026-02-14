@@ -4,6 +4,7 @@
 #pragma once
 #include <stdint.h>
 #include <string.h>
+#include <stdio.h>
 
 
 typedef unsigned char* String;
@@ -44,12 +45,12 @@ inline uint32_t StringLen(String string)
 }
 
 uint32_t NextUTF8Codepoint(String string, int* i)
-{
+{   
     char* cStr = StringCstr(string);
     unsigned char* p = (unsigned char*)cStr + *i;
     uint32_t cp;
 
-    if (*p == 0) return 0;  // end of string
+    if (*i >= StringLen(string)) return 0;  // end of string
 
     if ((*p & 0x80) == 0) {
         cp = *p++;
@@ -86,13 +87,6 @@ uint32_t NextUTF8Codepoint(String string, int* i)
     return cp;
 }
 
-
-inline uint32_t GetUTF32Codepoint(String string, int index) 
-{
-    uint32_t codepoint;
-    memcpy(&codepoint, StringCstr(string) + index * 4, 4);
-    return codepoint;
-}
 
 String StringConcat(String a, String b)
 {
@@ -271,7 +265,6 @@ int StringEquals(String a, String b)
 
 String StringUpdate(String str, const char* new)
 {
-    char encoding = str[3];
     StringFree(str);
     return StringCreate(new);
 }

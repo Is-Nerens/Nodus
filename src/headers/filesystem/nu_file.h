@@ -26,9 +26,8 @@ String FileReadUTF8(const char* filepath)
         fclose(f);
         return NULL;
     }
-    result[0] = (bytes >> 16) & 0xFF;
-    result[1] = (bytes >> 8) & 0xFF;
-    result[2] = bytes & 0xFF;  
+    uint32_t bytesU32 = (uint32_t)bytes;
+    memcpy(result, &bytes, sizeof(uint32_t));
     StringCstr(result)[bytes] = '\0';
     fclose(f);
     return result;

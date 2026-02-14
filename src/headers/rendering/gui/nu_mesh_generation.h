@@ -105,11 +105,15 @@ void Generate_Corner_Segment(
     vertex_rgb* outerBgPtr = hideBackground ? NULL : &vertices->array[outerBackgroundOffset];
     for (int i=0; i<cp; i++) 
     {
+        // --- Use current angle BEFORE rotating (fixes off-by-one) ---
+        float sinA = sinCurr;
+        float cosA = cosCurr;
+
         // --- Rotate angle (sine/cosine) ---
-        float sinA = sinCurr * cosStep + cosCurr * sinStep;
-        float cosA = cosCurr * cosStep - sinCurr * sinStep;
-        sinCurr = sinA;
-        cosCurr = cosA;
+        float sinNext = sinCurr * cosStep + cosCurr * sinStep;
+        float cosNext = cosCurr * cosStep - sinCurr * sinStep;
+        sinCurr = sinNext;
+        cosCurr = cosNext;
 
         // --- Compute inner vertex ---
         float innerX = anchor.x + innerRadiusX * cosA * xCurveFactor + innerXStraightTerm;
@@ -166,6 +170,17 @@ void Generate_Corner_Segment(
     }
 }
 
+int CornerPoints(float r)
+{
+    if (r < 1.0f) return 1;
+    float arc = 0.5f * 3.14159265f * r; // quarter arc length
+    float step = 2.0f;                 // pixels per segment
+    int pts = (int)(arc / step) + 1;
+    if (pts < 4) pts = 4;              // minimum smoothness
+    if (pts > 64) pts = 64;            // cap
+    return pts;
+}
+
 void Construct_Border_Rect(
     NodeP* node,
     float screen_width, 
@@ -174,60 +189,61 @@ void Construct_Border_Rect(
 )
 {
     const float PI = 3.14159265f;
+    Node* n = &node->node;
 
     // --- Constrain border radii ---
-    float borderRadiusBl = node->node.borderRadiusBl;
-    float borderRadiusBr = node->node.borderRadiusBr;
-    float borderRadiusTl = node->node.borderRadiusTl;
-    float borderRadiusTr = node->node.borderRadiusTr;
+    float borderRadiusBl = n->borderRadiusBl;
+    float borderRadiusBr = n->borderRadiusBr;
+    float borderRadiusTl = n->borderRadiusTl;
+    float borderRadiusTr = n->borderRadiusTr;
     float left_radii_sum   = borderRadiusTl + borderRadiusBl;
     float right_radii_sum  = borderRadiusTr + borderRadiusBr;
     float top_radii_sum    = borderRadiusTl + borderRadiusTr;
     float bottom_radii_sum = borderRadiusBl + borderRadiusBr;
-    if (left_radii_sum   > node->node.height)  { float scale = node->node.height / left_radii_sum;   borderRadiusTl *= scale; borderRadiusBl *= scale; }
-    if (right_radii_sum  > node->node.height)  { float scale = node->node.height / right_radii_sum;  borderRadiusTr *= scale; borderRadiusBr *= scale; }
-    if (top_radii_sum    > node->node.width )  { float scale = node->node.width  / top_radii_sum;    borderRadiusTl *= scale; borderRadiusTr *= scale; }
-    if (bottom_radii_sum > node->node.width )  { float scale = node->node.width  / bottom_radii_sum; borderRadiusBl *= scale; borderRadiusBr *= scale; }
+    if (left_radii_sum   > n->height)  { float scale = n->height / left_radii_sum;   borderRadiusTl *= scale; borderRadiusBl *= scale; }
+    if (right_radii_sum  > n->height)  { float scale = n->height / right_radii_sum;  borderRadiusTr *= scale; borderRadiusBr *= scale; }
+    if (top_radii_sum    > n->width )  { float scale = n->width  / top_radii_sum;    borderRadiusTl *= scale; borderRadiusTr *= scale; }
+    if (bottom_radii_sum > n->width )  { float scale = n->width  / bottom_radii_sum; borderRadiusBl *= scale; borderRadiusBr *= scale; }
 
     // --- Convert colors ---
-    float border_r_fl      = (float)node->node.borderR / 255.0f;
-    float border_g_fl      = (float)node->node.borderG / 255.0f;
-    float border_b_fl      = (float)node->node.borderB / 255.0f;
-    float bg_r_fl          = (float)node->node.backgroundR / 255.0f;
-    float bg_g_fl          = (float)node->node.backgroundG / 255.0f;
-    float bg_b_fl          = (float)node->node.backgroundB / 255.0f;
+    float border_r_fl      = (float)n->borderR / 255.0f;
+    float border_g_fl      = (float)n->borderG / 255.0f;
+    float border_b_fl      = (float)n->borderB / 255.0f;
+    float bg_r_fl          = (float)n->backgroundR / 255.0f;
+    float bg_g_fl          = (float)n->backgroundG / 255.0f;
+    float bg_b_fl          = (float)n->backgroundB / 255.0f;
 
     // --- Determine corner points ---
-    int max_pts            = 64;
-    int tl_pts             = borderRadiusTl < 1.0f ? 1 : min((int)borderRadiusTl + 3, max_pts);
-    int tr_pts             = borderRadiusTr < 1.0f ? 1 : min((int)borderRadiusTr + 3, max_pts);
-    int br_pts             = borderRadiusBr < 1.0f ? 1 : min((int)borderRadiusBr + 3, max_pts);
-    int bl_pts             = borderRadiusBl < 1.0f ? 1 : min((int)borderRadiusBl + 3, max_pts);
+    int max_pts            = 32;
+    int tl_pts             = borderRadiusTl < 1.0f ? 1 : min((int)borderRadiusTl + 5, max_pts);
+    int tr_pts             = borderRadiusTr < 1.0f ? 1 : min((int)borderRadiusTr + 5, max_pts);
+    int br_pts             = borderRadiusBr < 1.0f ? 1 : min((int)borderRadiusBr + 5, max_pts);
+    int bl_pts             = borderRadiusBl < 1.0f ? 1 : min((int)borderRadiusBl + 5, max_pts);
     int total_pts          = tl_pts + tr_pts + br_pts + bl_pts;
 
     // --- Corner anchors ---
-    vec2 tl_a              = { floorf(node->node.x + borderRadiusTl),               floorf(node->node.y + borderRadiusTl) };
-    vec2 tr_a              = { floorf(node->node.x + node->node.width - borderRadiusTr), floorf(node->node.y + borderRadiusTr) };
-    vec2 bl_a              = { floorf(node->node.x + borderRadiusBl),               floorf(node->node.y + node->node.height - borderRadiusBl) };
-    vec2 br_a              = { floorf(node->node.x + node->node.width - borderRadiusBr), floorf(node->node.y + node->node.height - borderRadiusBr) };
+    vec2 tl_a              = { (float)(int)(n->x + borderRadiusTl),               (float)(int)(n->y + borderRadiusTl) };
+    vec2 tr_a              = { (float)(int)(n->x + n->width - borderRadiusTr), (float)(int)(n->y + borderRadiusTr) };
+    vec2 bl_a              = { (float)(int)(n->x + borderRadiusBl),               (float)(int)(n->y + n->height - borderRadiusBl) };
+    vec2 br_a              = { (float)(int)(n->x + n->width - borderRadiusBr), (float)(int)(n->y + n->height - borderRadiusBr) };
 
     // --- Allocate extra space in vertex and index lists ---
-    uint32_t additional_vertices = (node->node.layoutFlags & HIDE_BACKGROUND) ? total_pts * 2 + 4 : total_pts * 3 + 4;    // each corner contributes 3*cp + 1 verts
+    uint32_t additional_vertices = (n->layoutFlags & HIDE_BACKGROUND) ? total_pts * 2 + 4 : total_pts * 3 + 4;    // each corner contributes 3*cp + 1 verts
     uint32_t additional_indices = (total_pts - 4) * 6                                                // curved edges
                                   + 24                                                               // straight sides
-                                  + ((node->node.layoutFlags & HIDE_BACKGROUND) ? 0 : (total_pts - 4) * 3 + 30);          // background tris
+                                  + ((n->layoutFlags & HIDE_BACKGROUND) ? 0 : (total_pts - 4) * 3 + 30);          // background tris
     if (vertices->size + additional_vertices > vertices->capacity) Vertex_RGB_List_Grow(vertices, additional_vertices);
     if (indices->size + additional_indices > indices->capacity) Index_List_Grow(indices, additional_indices);
 
     // --- Generate corner vertices and indices ---
     int TL = vertices->size;
-    Generate_Corner_Segment(vertices, indices, tl_a, PI, 1.5f * PI, borderRadiusTl, node->node.borderLeft, node->node.borderTop, node->node.width, node->node.height, border_r_fl, border_g_fl, border_b_fl, bg_r_fl, bg_g_fl, bg_b_fl, tl_pts, 0, node->node.layoutFlags & HIDE_BACKGROUND);
+    Generate_Corner_Segment(vertices, indices, tl_a, PI, 1.5f * PI, borderRadiusTl, n->borderLeft, n->borderTop, n->width, n->height, border_r_fl, border_g_fl, border_b_fl, bg_r_fl, bg_g_fl, bg_b_fl, tl_pts, 0, n->layoutFlags & HIDE_BACKGROUND);
     int TR = vertices->size;
-    Generate_Corner_Segment(vertices, indices, tr_a, 1.5f * PI, 2.0f * PI, borderRadiusTr, node->node.borderTop, node->node.borderRight, node->node.width, node->node.height, border_r_fl, border_g_fl, border_b_fl, bg_r_fl, bg_g_fl, bg_b_fl, tr_pts, 1, node->node.layoutFlags & HIDE_BACKGROUND);
+    Generate_Corner_Segment(vertices, indices, tr_a, 1.5f * PI, 2.0f * PI, borderRadiusTr, n->borderTop, n->borderRight, n->width, n->height, border_r_fl, border_g_fl, border_b_fl, bg_r_fl, bg_g_fl, bg_b_fl, tr_pts, 1, n->layoutFlags & HIDE_BACKGROUND);
     int BR = vertices->size;
-    Generate_Corner_Segment(vertices, indices, br_a, 0.0f, 0.5f * PI, borderRadiusBr, node->node.borderRight, node->node.borderBottom, node->node.width, node->node.height, border_r_fl, border_g_fl, border_b_fl, bg_r_fl, bg_g_fl, bg_b_fl, br_pts, 2, node->node.layoutFlags & HIDE_BACKGROUND);
+    Generate_Corner_Segment(vertices, indices, br_a, 0.0f, 0.5f * PI, borderRadiusBr, n->borderRight, n->borderBottom, n->width, n->height, border_r_fl, border_g_fl, border_b_fl, bg_r_fl, bg_g_fl, bg_b_fl, br_pts, 2, n->layoutFlags & HIDE_BACKGROUND);
     int BL = vertices->size;
-    Generate_Corner_Segment(vertices, indices, bl_a, 0.5f * PI, PI, borderRadiusBl, node->node.borderBottom, node->node.borderLeft, node->node.width, node->node.height, border_r_fl, border_g_fl, border_b_fl, bg_r_fl, bg_g_fl, bg_b_fl, bl_pts, 3, node->node.layoutFlags & HIDE_BACKGROUND);
+    Generate_Corner_Segment(vertices, indices, bl_a, 0.5f * PI, PI, borderRadiusBl, n->borderBottom, n->borderLeft, n->width, n->height, border_r_fl, border_g_fl, border_b_fl, bg_r_fl, bg_g_fl, bg_b_fl, bl_pts, 3, n->layoutFlags & HIDE_BACKGROUND);
 
 
 
@@ -267,7 +283,7 @@ void Construct_Border_Rect(
     *indices_write++ = TL;
 
     // --- Fill in background indices ---
-    if (!(node->node.layoutFlags & HIDE_BACKGROUND)) 
+    if (!(n->layoutFlags & HIDE_BACKGROUND)) 
     {
         int TL_bg_connector = TL + 3 * tl_pts; 
         int TR_bg_connector = TR + 3 * tr_pts;
@@ -305,6 +321,8 @@ void Construct_Scroll_Thumb(NodeP* node,
     Vertex_RGB_List* vertices, Index_List* indices
 )
 {
+    Node* n = &node->node;
+
     // --- Allocate extra space in vertex and index lists ---
     uint32_t additional_vertices = 8;    
     uint32_t additional_indices = 12;          
@@ -312,15 +330,15 @@ void Construct_Scroll_Thumb(NodeP* node,
     if (indices->size + additional_indices > indices->capacity) Index_List_Grow(indices, additional_indices);
 
     NodeP* first_child = node->firstChild;
-    float scroll_view_height = node->node.contentHeight;
-    float track_height = node->node.height - node->node.borderTop - node->node.borderBottom;
-    float inner_height_w_pad = track_height - node->node.padTop - node->node.padBottom;
+    float scroll_view_height = n->contentHeight;
+    float track_height = n->height - n->borderTop - n->borderBottom;
+    float inner_height_w_pad = track_height - n->padTop - n->padBottom;
     float inner_proportion_of_content_height = inner_height_w_pad / scroll_view_height;
     float thumb_height = inner_proportion_of_content_height * track_height;
 
-    float x = node->node.x + node->node.width - node->node.borderRight - 8.0f;
-    float y = node->node.y + node->node.borderTop;
-    float thumb_y = node->node.y + node->node.borderTop + (node->node.scrollV * (track_height - thumb_height));
+    float x = n->x + n->width - n->borderRight - 8.0f;
+    float y = n->y + n->borderTop;
+    float thumb_y = n->y + n->borderTop + (n->scrollV * (track_height - thumb_height));
     float w = 8.0f;
 
     uint32_t vertOffset = vertices->size;
@@ -405,9 +423,11 @@ void NU_ConstructInputCursorMesh(
     Vertex_RGB_List* vertices, 
     Index_List* indices)
 {
-    float x = node->node.x + node->node.borderLeft + node->node.padLeft + node->typeData.input.inputText.cursorOffset;
-    float y = node->node.y + node->node.borderTop + node->node.padTop;
-    float innerHeight = node->node.height - node->node.borderTop  - node->node.borderBottom - node->node.padTop - node->node.padBottom;
+    Node* n = &node->node;
+
+    float x = n->x + n->borderLeft + n->padLeft + node->typeData.input.inputText.cursorOffset;
+    float y = n->y + n->borderTop + n->padTop;
+    float innerHeight = n->height - n->borderTop  - n->borderBottom - n->padTop - n->padBottom;
 
     // top left
     vertices->array[0].x = x;

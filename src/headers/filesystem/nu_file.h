@@ -18,7 +18,7 @@ String FileReadUTF8(const char* filepath)
         fclose(f); return NULL;
     }
     rewind(f);
-    String result = StringCreateUTF8Buffer((uint32_t)((size_t)size));
+    String result = StringCreateBuffer((uint32_t)((size_t)size));
     if (result == NULL) return NULL;
     size_t bytes = fread(StringCstr(result), 1, (size_t)size, f);
     if (bytes != (size_t)size && ferror(f)) {

@@ -2,8 +2,9 @@
 #include "nu_stylesheet_grammar_assertions.h"
 #include <datastructures/linear_stringmap.h>
 #include <datastructures/linear_stringset.h>
+#include "../nu_token_array.h"
 
-static int NU_Stylesheet_Parse(char* src, struct Vector* tokens, NU_Stylesheet* ss, struct Vector* text_refs)
+static int NU_Stylesheet_Parse(char* src, TokenArray* tokens, NU_Stylesheet* ss, struct Vector* text_refs)
 {
     uint32_t text_index = 0;
     struct Style_Text_Ref* text_ref;
@@ -34,13 +35,13 @@ static int NU_Stylesheet_Parse(char* src, struct Vector* tokens, NU_Stylesheet* 
     int i = 0;
     while(i < tokens->size)
     {
-        const enum NU_Style_Token token = *((enum NU_Style_Token*) Vector_Get(tokens, i));
+        const enum NU_Style_Token token = TokenArray_Get(tokens, i);
 
         if (token == STYLE_FONT_CREATION_SELECTOR)
         {
             if (AssertFontCreationSelectorGrammar(tokens, i)) {
 
-                enum NU_Style_Token font_name_token = *((enum NU_Style_Token*) Vector_Get(tokens, i+1));
+                enum NU_Style_Token font_name_token = TokenArray_Get(tokens, i+1);
 
                 // Get id string
                 text_ref = (struct Style_Text_Ref*)Vector_Get(text_refs, text_index);
@@ -173,7 +174,7 @@ static int NU_Stylesheet_Parse(char* src, struct Vector* tokens, NU_Stylesheet* 
         {
             if (i < tokens->size - 1)
             {
-                enum NU_Style_Token next_token = *((enum NU_Style_Token*) Vector_Get(tokens, i+1));
+                enum NU_Style_Token next_token = TokenArray_Get(tokens, i+1);
                 if (next_token == STYLE_SELECTOR_COMMA || next_token == STYLE_SELECTOR_OPEN_BRACE)    
                 {
                     int tag = token - STYLE_PROPERTY_COUNT;
@@ -201,8 +202,8 @@ static int NU_Stylesheet_Parse(char* src, struct Vector* tokens, NU_Stylesheet* 
                 }
                 else if (next_token == STYLE_PSEUDO_COLON && i < tokens->size - 3) 
                 {
-                    enum NU_Style_Token following_token = *((enum NU_Style_Token*) Vector_Get(tokens, i+2));
-                    enum NU_Style_Token third_token = *((enum NU_Style_Token*) Vector_Get(tokens, i+3));
+                    enum NU_Style_Token following_token = TokenArray_Get(tokens, i+2);
+                    enum NU_Style_Token third_token = TokenArray_Get(tokens, i+3);
                     if (NU_Is_Pseudo_Token(following_token) && (third_token == STYLE_SELECTOR_COMMA || third_token == STYLE_SELECTOR_OPEN_BRACE)) 
                     {
                         int tag = token - STYLE_PROPERTY_COUNT;
@@ -258,7 +259,7 @@ static int NU_Stylesheet_Parse(char* src, struct Vector* tokens, NU_Stylesheet* 
         {
             if (i < tokens->size - 1)
             {
-                enum NU_Style_Token next_token = *((enum NU_Style_Token*) Vector_Get(tokens, i+1));
+                enum NU_Style_Token next_token = TokenArray_Get(tokens, i+1);
                 if (next_token == STYLE_SELECTOR_COMMA || next_token == STYLE_SELECTOR_OPEN_BRACE)  
                 {
                     // Get class string
@@ -295,8 +296,8 @@ static int NU_Stylesheet_Parse(char* src, struct Vector* tokens, NU_Stylesheet* 
                 }
                 else if (next_token == STYLE_PSEUDO_COLON && i < tokens->size-3) 
                 {
-                    enum NU_Style_Token following_token = *((enum NU_Style_Token*) Vector_Get(tokens, i+2));
-                    enum NU_Style_Token third_token = *((enum NU_Style_Token*) Vector_Get(tokens, i+3));
+                    enum NU_Style_Token following_token = TokenArray_Get(tokens, i+2);
+                    enum NU_Style_Token third_token = TokenArray_Get(tokens, i+3);
                     if (NU_Is_Pseudo_Token(following_token) && (third_token == STYLE_SELECTOR_COMMA || third_token == STYLE_SELECTOR_OPEN_BRACE)) 
                     {
                         enum NU_Pseudo_Class pseudo_class = Token_To_Pseudo_Class(following_token);
@@ -358,7 +359,7 @@ static int NU_Stylesheet_Parse(char* src, struct Vector* tokens, NU_Stylesheet* 
         {
             if (i < tokens->size - 1)
             {
-                enum NU_Style_Token next_token = *((enum NU_Style_Token*) Vector_Get(tokens, i+1));
+                enum NU_Style_Token next_token = TokenArray_Get(tokens, i+1);
                 if (next_token == STYLE_SELECTOR_COMMA || next_token == STYLE_SELECTOR_OPEN_BRACE)  
                 {
                     // Get id string
@@ -395,8 +396,8 @@ static int NU_Stylesheet_Parse(char* src, struct Vector* tokens, NU_Stylesheet* 
                 }
                 else if (next_token == STYLE_PSEUDO_COLON && i < tokens->size-3) 
                 {
-                    enum NU_Style_Token following_token = *((enum NU_Style_Token*) Vector_Get(tokens, i+2));
-                    enum NU_Style_Token third_token = *((enum NU_Style_Token*) Vector_Get(tokens, i+3));
+                    enum NU_Style_Token following_token = TokenArray_Get(tokens, i+2);
+                    enum NU_Style_Token third_token = TokenArray_Get(tokens, i+3);
                     if (NU_Is_Pseudo_Token(following_token) && (third_token == STYLE_SELECTOR_COMMA || third_token == STYLE_SELECTOR_OPEN_BRACE)) 
                     {
                         enum NU_Pseudo_Class pseudo_class = Token_To_Pseudo_Class(following_token);

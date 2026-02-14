@@ -1,9 +1,10 @@
 #pragma once
 #include <datastructures/string.h>
 #include <datastructures/utf8_parser_word.h>
+#include "../nu_token_array.h"
 
 
-static void NU_Style_Tokenise(String src, struct Vector* tokens, struct Vector* textRefs)
+static void NU_Style_Tokenise(String src, TokenArray* tokens, struct Vector* textRefs)
 {
     ParserWord word;
     ParserWordInit(&word);
@@ -68,13 +69,9 @@ static void NU_Style_Tokenise(String src, struct Vector* tokens, struct Vector* 
 
             // Add property text reference
             if (word.length > 0) {
-                struct Style_Text_Ref ref;
-                ref.NU_Token_index = tokens->size;
-                ref.src_index = i - word.length - 1;
-                ref.char_count = word.length;
+                struct Style_Text_Ref ref = { tokens->size, i - word.length - 1, word.length };
                 Vector_Push(textRefs, &ref);
-                enum NU_Style_Token token = STYLE_PROPERTY_VALUE;
-                Vector_Push(tokens, &token);
+                TokenArray_Add(tokens, STYLE_PROPERTY_VALUE);
                 ParserWordClear(&word);
             }
             ctx=2; continue; // ^
@@ -94,13 +91,9 @@ static void NU_Style_Tokenise(String src, struct Vector* tokens, struct Vector* 
         if (ctx == 8 && c == '"') {
             // Add property text reference
             if (word.length > 0) {
-                struct Style_Text_Ref ref;
-                ref.NU_Token_index = tokens->size;
-                ref.src_index = i - word.length - 1;
-                ref.char_count = word.length;
+                struct Style_Text_Ref ref = { tokens->size, i - word.length - 1, word.length };
                 Vector_Push(textRefs, &ref);
-                enum NU_Style_Token token = STYLE_PROPERTY_VALUE;
-                Vector_Push(tokens, &token);
+                TokenArray_Add(tokens, STYLE_PROPERTY_VALUE);
                 ParserWordClear(&word);
             }
             ctx=3; continue; // ^
@@ -111,53 +104,39 @@ static void NU_Style_Tokenise(String src, struct Vector* tokens, struct Vector* 
         {
             // Tag selector word completed
             if (ctx == 0 && word.length > 0) {
-                enum NU_Style_Token token = NU_Word_To_Tag_Selector_Token(word.buffer, word.length);
-                Vector_Push(tokens, &token);
+                TokenArray_Add(tokens, NU_Word_To_Tag_Selector_Token(word.buffer, word.length));
                 ParserWordClear(&word);
             }
 
             // Class selector word completed
             else if (ctx == 4 && word.length > 0) {
                 // Add text reference
-                struct Style_Text_Ref ref;
-                ref.NU_Token_index = tokens->size;
-                ref.src_index = i - word.length - 1;
-                ref.char_count = word.length;
+                struct Style_Text_Ref ref = { tokens->size, i - word.length - 1, word.length };
                 Vector_Push(textRefs, &ref);
-                enum NU_Style_Token token = STYLE_CLASS_SELECTOR;
-                Vector_Push(tokens, &token);
+                TokenArray_Add(tokens, STYLE_CLASS_SELECTOR);
                 ParserWordClear(&word);
             }
 
             // Id selector word completed
             else if (ctx == 5 && word.length > 0) {
                 // Add text reference
-                struct Style_Text_Ref ref;
-                ref.NU_Token_index = tokens->size;
-                ref.src_index = i - word.length - 1;
-                ref.char_count = word.length;
+                struct Style_Text_Ref ref = { tokens->size, i - word.length - 1, word.length };
                 Vector_Push(textRefs, &ref);
-                enum NU_Style_Token token = STYLE_ID_SELECTOR;
-                Vector_Push(tokens, &token);
+                TokenArray_Add(tokens, STYLE_ID_SELECTOR);
                 ParserWordClear(&word);
             }
 
             // Font name word completed
             else if (ctx == 7 && word.length > 0) {
                 // Add text reference
-                struct Style_Text_Ref ref;
-                ref.NU_Token_index = tokens->size;
-                ref.src_index = i - word.length - 1;
-                ref.char_count = word.length;
+                struct Style_Text_Ref ref = { tokens->size, i - word.length - 1, word.length };
                 Vector_Push(textRefs, &ref);
-                enum NU_Style_Token token = STYLE_FONT_NAME;
-                Vector_Push(tokens, &token);
+                TokenArray_Add(tokens, STYLE_FONT_NAME);
                 ParserWordClear(&word);
             }
 
             // Add open brace token
-            enum NU_Style_Token token = STYLE_SELECTOR_OPEN_BRACE;
-            Vector_Push(tokens, &token);
+            TokenArray_Add(tokens, STYLE_SELECTOR_OPEN_BRACE);
             ParserWordClear(&word); ctx=2; continue; // ^
         }
 
@@ -166,13 +145,11 @@ static void NU_Style_Tokenise(String src, struct Vector* tokens, struct Vector* 
         {   
             // If word is present -> word completed (also an error)
             if (word.length > 0) {
-                enum NU_Style_Token token = NU_Word_To_Style_Token(word.buffer, word.length);
-                Vector_Push(tokens, &token);
+                TokenArray_Add(tokens, NU_Word_To_Style_Token(word.buffer, word.length));
                 ParserWordClear(&word);
             }
 
-            enum NU_Style_Token token = STYLE_SELECTOR_CLOSE_BRACE;
-            Vector_Push(tokens, &token);
+            TokenArray_Add(tokens, STYLE_SELECTOR_CLOSE_BRACE);
             ctx=0; continue; // ^
         }
 
@@ -182,7 +159,7 @@ static void NU_Style_Tokenise(String src, struct Vector* tokens, struct Vector* 
             // Tag selector word completed
             if (ctx == 0 && word.length > 0) {
                 enum NU_Style_Token token = NU_Word_To_Any_Selector_Token(word.buffer, word.length);
-                Vector_Push(tokens, &token);
+                TokenArray_Add(tokens, token);
                 ParserWordClear(&word);
 
                 if (token == STYLE_FONT_CREATION_SELECTOR) { // Special selector context
@@ -193,51 +170,38 @@ static void NU_Style_Tokenise(String src, struct Vector* tokens, struct Vector* 
             // Class selector word completed
             else if (ctx == 4 && word.length > 0) {
                 // Add text reference
-                struct Style_Text_Ref ref;
-                ref.NU_Token_index = tokens->size;
-                ref.src_index = i - word.length - 1;
-                ref.char_count = word.length;
+                struct Style_Text_Ref ref = { tokens->size, i - word.length - 1, word.length };
                 Vector_Push(textRefs, &ref);
-                enum NU_Style_Token token = STYLE_CLASS_SELECTOR;
-                Vector_Push(tokens, &token);
+                TokenArray_Add(tokens, STYLE_CLASS_SELECTOR);
                 ctx=0;
             }
 
             // Id selector word completed
             else if (ctx == 5 && word.length > 0) {
                 // Add text reference
-                struct Style_Text_Ref ref;
-                ref.NU_Token_index = tokens->size;
-                ref.src_index = i - word.length - 1;
-                ref.char_count = word.length;
+                struct Style_Text_Ref ref = { tokens->size, i - word.length - 1, word.length };
                 Vector_Push(textRefs, &ref);
-                enum NU_Style_Token token = STYLE_ID_SELECTOR;
-                Vector_Push(tokens, &token);
+                TokenArray_Add(tokens, STYLE_ID_SELECTOR);
                 ctx=0;
             }
 
             // Property identifier word completed
             else if (ctx == 2 && word.length > 0) {
-                enum NU_Style_Token token = NU_Word_To_Style_Property_Token(word.buffer, word.length);
-                Vector_Push(tokens, &token);
+                TokenArray_Add(tokens, NU_Word_To_Style_Property_Token(word.buffer, word.length));
             }
 
             // Property value word completed
             else if (ctx == 3 && word.length > 0) {
                 // Add text reference
-                struct Style_Text_Ref ref;
-                ref.src_index = i - word.length - 1;
-                ref.char_count = word.length;
+                struct Style_Text_Ref ref = { tokens->size, i - word.length - 1, word.length };
                 Vector_Push(textRefs, &ref);
-                enum NU_Style_Token token = STYLE_PROPERTY_VALUE;
-                Vector_Push(tokens, &token);
+                TokenArray_Add(tokens, STYLE_PROPERTY_VALUE);
                 ctx=2;
             }
 
             // Pseudo class word completed
             else if (ctx == 6 && word.length > 0) {
-                enum NU_Style_Token token = NU_Word_To_Pseudo_Token(word.buffer, word.length);
-                Vector_Push(tokens, &token);
+                TokenArray_Add(tokens, NU_Word_To_Pseudo_Token(word.buffer, word.length));
                 ctx=0;
             }
 
@@ -245,30 +209,24 @@ static void NU_Style_Tokenise(String src, struct Vector* tokens, struct Vector* 
             else if (ctx == 7 && word.length > 0) {
 
                 // Add text reference
-                struct Style_Text_Ref ref;
-                ref.src_index = i - word.length;
-                ref.char_count = word.length;
+                struct Style_Text_Ref ref = { tokens->size, i - word.length - 1, word.length };
                 Vector_Push(textRefs, &ref);
-                enum NU_Style_Token token = STYLE_FONT_NAME;
-                Vector_Push(tokens, &token);
+                TokenArray_Add(tokens, STYLE_FONT_NAME);
             }
 
             if (c == ',') {
-                enum NU_Style_Token token = STYLE_SELECTOR_COMMA;
-                Vector_Push(tokens, &token);
+                TokenArray_Add(tokens, STYLE_SELECTOR_COMMA);
             }
 
             if (c == ':') {
                 // Style property assignment token
                 if (ctx == 2) {
-                    enum NU_Style_Token token = STYLE_PROPERTY_ASSIGNMENT;
-                    Vector_Push(tokens, &token);
+                    TokenArray_Add(tokens, STYLE_PROPERTY_ASSIGNMENT);
                     ctx=3;
                 }
                 // Pseudo class assignment token
                 else if (ctx == 0 || ctx == 4 || ctx == 5 ) {
-                    enum NU_Style_Token token = STYLE_PSEUDO_COLON;
-                    Vector_Push(tokens, &token);
+                    TokenArray_Add(tokens, STYLE_PSEUDO_COLON);
                     ctx=6;
                 }
             }

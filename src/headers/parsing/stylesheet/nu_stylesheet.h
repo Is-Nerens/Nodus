@@ -50,23 +50,20 @@ int NU_Stylesheet_Create(NU_Stylesheet* stylesheet, char* filepath)
     if (src == NULL) return 0;
 
     // Init token and text ref vectors and reserve
-    struct Vector tokens;
-    struct Vector textRefs;
-    Vector_Reserve(&tokens, sizeof(enum NU_Style_Token), 8000);
-    Vector_Reserve(&textRefs, sizeof(struct Style_Text_Ref), 2000);
+    TokenArray tokens = TokenArray_Create(8000);
+    struct Vector textRefs; Vector_Reserve(&textRefs, sizeof(struct Style_Text_Ref), 2000);
 
     // Tokenise and generate stylesheet
     NU_Style_Tokenise(src, &tokens, &textRefs);
     if (!NU_Stylesheet_Parse(StringCstr(src), &tokens, stylesheet, &textRefs)) {
-        Vector_Free(&tokens);
+        TokenArray_Free(&tokens);
         Vector_Free(&textRefs);
         StringFree(src);
         printf(" CSS parsing failed!"); return 0;
     }
 
-
     // Free memory
-    Vector_Free(&tokens);
+    TokenArray_Free(&tokens);
     Vector_Free(&textRefs);
     StringFree(src);
     return 1; // Success
@@ -85,9 +82,11 @@ int NU_Internal_Apply_Stylesheet(uint32_t stylesheet_handle)
     NU_Stylesheet* stylesheet = Vector_Get_Safe(&__NGUI.stylesheets, stylesheet_handle - 1);   
     if (stylesheet == NULL) return 0;
 
+    // Traverse tree using DFS
     DepthFirstSearch dfs = DepthFirstSearch_Create(__NGUI.tree.root);
     NodeP* node;
-    while (DepthFirstSearch_Next(&dfs, &node)) {
+    while (DepthFirstSearch_Next(&dfs, &node)) 
+    {
         NU_Apply_Stylesheet_To_Node(node, stylesheet);
     }
     DepthFirstSearch_Free(&dfs);

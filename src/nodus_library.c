@@ -131,3 +131,17 @@ __declspec(dllexport) void NU_Dashed_Line(
         col);
 }
 
+__declspec(dllexport) void NU_Set_Canvas_Font(
+    Node* canvas,
+    const char* font_name)
+{
+    NU_Internal_Set_Canvas_Font(canvas, font_name);
+}
+
+__declspec(dllexport) void NU_Text(
+    Node* canvas,
+    float x, float y, float wrapWidth,
+    NU_RGB col, const char* string)
+{
+    NU_Internal_Text(canvas, x, y, wrapWidth, col, string);
+}

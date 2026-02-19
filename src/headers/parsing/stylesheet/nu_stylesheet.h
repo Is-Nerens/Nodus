@@ -24,6 +24,7 @@ void NU_Stylesheet_Init(NU_Stylesheet* ss)
     HashmapInit(&ss->tag_pseudo_item_hashmap, sizeof(NU_Stylesheet_Tag_Pseudo_Pair), sizeof(uint32_t), 16);
     HashmapInit(&ss->class_pseudo_item_hashmap, sizeof(NU_Stylesheet_String_Pseudo_Pair), sizeof(uint32_t), 16);
     HashmapInit(&ss->id_pseudo_item_hashmap, sizeof(NU_Stylesheet_String_Pseudo_Pair), sizeof(uint32_t), 16);
+    LinearStringmapInit(&ss->fontNameIndexMap, sizeof(int), 12, 128);
     Vector_Reserve(&ss->fonts, sizeof(NU_Font), 4);
 }
 
@@ -38,6 +39,7 @@ void NU_Stylesheet_Free(NU_Stylesheet* ss)
     HashmapFree(&ss->tag_pseudo_item_hashmap);
     HashmapFree(&ss->class_pseudo_item_hashmap);
     HashmapFree(&ss->id_pseudo_item_hashmap);
+    LinearStringmapFree(&ss->fontNameIndexMap);
     Vector_Free(&ss->fonts);
 }
 

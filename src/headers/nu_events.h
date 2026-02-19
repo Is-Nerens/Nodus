@@ -345,6 +345,14 @@ bool EventWatcher(void* data, SDL_Event* event)
         }
     }
     // ------------------------------------------------------------------------------------
+    // --- Focus on window -> redraw ------------------------------------------------------
+    // ------------------------------------------------------------------------------------
+    else if (event->type == SDL_EVENT_WINDOW_FOCUS_GAINED)
+    {
+        __NGUI.mouse_down_node = __NGUI.hovered_node;
+        __NGUI.awaiting_redraw = true;
+    }
+    // ------------------------------------------------------------------------------------
     // --- Mouse button pressed down ------------------------------------------------------
     // ------------------------------------------------------------------------------------
     else if (event->type == SDL_EVENT_MOUSE_BUTTON_DOWN)
@@ -434,14 +442,6 @@ bool EventWatcher(void* data, SDL_Event* event)
         __NGUI.awaiting_redraw = true;
     }
     // ------------------------------------------------------------------------------------
-    // --- Focus on window -> redraw ------------------------------------------------------
-    // ------------------------------------------------------------------------------------
-    else if (event->type == SDL_EVENT_WINDOW_FOCUS_GAINED)
-    {
-        __NGUI.mouse_down_node = __NGUI.hovered_node;
-        __NGUI.awaiting_redraw = true;
-    }
-    // ------------------------------------------------------------------------------------
     // --- Released mouse button ----------------------------------------------------------
     // ------------------------------------------------------------------------------------
     else if (event->type == SDL_EVENT_MOUSE_BUTTON_UP)
@@ -485,6 +485,7 @@ bool EventWatcher(void* data, SDL_Event* event)
                     void* found_cb = HashmapGet(&__NGUI.on_click_events, &node);
                     if (found_cb != NULL) {
                         struct NU_Callback_Info* cb_info = (struct NU_Callback_Info*)found_cb;
+                        cb_info->event.mouse.mouse_btn = (int)event->button.button;
                         cb_info->callback(cb_info->event, cb_info->args);
                     }
                 }

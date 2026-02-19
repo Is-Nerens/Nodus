@@ -1,20 +1,56 @@
 #pragma once
 #include <rendering/nu_renderer_structures.h>
+#include <rendering/text/nu_text_layout.h>
 #include <math.h>
 
 void NU_Add_Canvas_Context(Node* node)
 {
     NU_Canvas_Context ctx;
-    Vertex_RGB_List_Init(&ctx.vertices, 512);
-    Index_List_Init(&ctx.indices, 1024);
+    ctx.currentLayerType = NU_CANVAS_UNDEFINED_LAYER;
+    ctx.fontID = 0;
+    Vector_Reserve(&ctx.canvasLayers, sizeof(CanvasLayer), 50);
     HashmapSet(&__NGUI.canvas_contexts, &node, &ctx);
 }
 
 void NU_Internal_Clear_Canvas(Node* canvas)
 {
-    NU_Canvas_Context* canvas_context = HashmapGet(&__NGUI.canvas_contexts, &canvas);
-    canvas_context->vertices.size = 0;
-    canvas_context->indices.size = 0;
+    NU_Canvas_Context* ctx = HashmapGet(&__NGUI.canvas_contexts, &canvas);
+
+    // Free vertices and indices of each layer
+    for (uint32_t i=0; i<ctx->canvasLayers.size; i++) {
+        CanvasLayer* layer = Vector_Get(&ctx->canvasLayers, i);
+        if (layer->type == NU_CANVAS_SHAPE_LAYER) Vertex_RGB_List_Free(&layer->vertexData.shapeVertices);
+        else Vertex_RGB_UV_List_Free(&layer->vertexData.textVertices);
+        Index_List_Free(&layer->indices);
+    }
+
+    // Clear layers
+    Vector_Clear(&ctx->canvasLayers);
+
+    // uninit ctx state
+    ctx->fontID = 0;
+    ctx->currentLayerType = NU_CANVAS_UNDEFINED_LAYER;
+}
+
+void NU_New_Canvas_Layer(NU_Canvas_Context* ctx, CanvasLayerType type)
+{
+    CanvasLayer* layer = Vector_Push_Empty(&ctx->canvasLayers);
+    layer->type = type;
+    if (type == NU_CANVAS_SHAPE_LAYER) {
+        Vertex_RGB_List_Init(&layer->vertexData.shapeVertices, 128);
+    }
+    else {
+        Vertex_RGB_UV_List_Init(&layer->vertexData.textVertices, 128);
+        layer->fontID = ctx->fontID;
+    }
+    Index_List_Init(&layer->indices, 128);
+    ctx->currentLayerType = type;
+}
+
+inline CanvasLayer* NU_Canvas_Current_Layer(NU_Canvas_Context* ctx)
+{
+    CanvasLayer* layer = Vector_Get(&ctx->canvasLayers, ctx->canvasLayers.size - 1);
+    return layer;
 }
 
 void NU_Internal_Border_Rect(
@@ -24,11 +60,18 @@ void NU_Internal_Border_Rect(
     NU_RGB* border_col,
     NU_RGB* fill_col)
 {
-    NU_Canvas_Context* canvas_context = HashmapGet(&__NGUI.canvas_contexts, &canvas);
-    if (canvas_context == NULL) return; // node type is not valid therefore there is no context
+    NU_Canvas_Context* ctx = HashmapGet(&__NGUI.canvas_contexts, &canvas);
+    if (ctx == NULL) return; // node type is not valid therefore there is no context
 
-    Vertex_RGB_List* vertices = &canvas_context->vertices;
-    Index_List* indices = &canvas_context->indices;
+    // Check if it is necessary to create a new layer
+    if (ctx->canvasLayers.size == 0 || ctx->currentLayerType == NU_CANVAS_TEXT_LAYER) {
+        NU_New_Canvas_Layer(ctx, NU_CANVAS_SHAPE_LAYER);
+    }
+
+    // Get vertex and index lists
+    CanvasLayer* layer = NU_Canvas_Current_Layer(ctx);
+    Vertex_RGB_List* vertices = &layer->vertexData.shapeVertices;
+    Index_List* indices = &layer->indices;
 
     // Constrain dimensions based on thickness
     w = fmaxf(w, thickness * 2);
@@ -180,11 +223,18 @@ void NU_Internal_Line(
     NU_RGB* col
 )
 {
-    NU_Canvas_Context* canvas_context = HashmapGet(&__NGUI.canvas_contexts, &canvas);
-    if (canvas_context == NULL) return; // node type is not valid therefore there is no context
+    NU_Canvas_Context* ctx = HashmapGet(&__NGUI.canvas_contexts, &canvas);
+    if (ctx == NULL) return; // node type is not valid therefore there is no context
 
-    Vertex_RGB_List* vertices = &canvas_context->vertices;
-    Index_List* indices = &canvas_context->indices;
+    // Check if it is necessary to create a new layer
+    if (ctx->canvasLayers.size == 0 || ctx->currentLayerType == NU_CANVAS_TEXT_LAYER) {
+        NU_New_Canvas_Layer(ctx, NU_CANVAS_SHAPE_LAYER);
+    }
+
+    // Get vertex and index lists
+    CanvasLayer* layer = NU_Canvas_Current_Layer(ctx);
+    Vertex_RGB_List* vertices = &layer->vertexData.shapeVertices;
+    Index_List* indices = &layer->indices;
 
     // --- Allocate extra space in vertex and index lists ---
     uint32_t additional_vertices = 4;    
@@ -264,9 +314,18 @@ void NU_Internal_Dashed_Line(
     NU_RGB* col
 )
 {
-    NU_Canvas_Context* canvas_context = HashmapGet(&__NGUI.canvas_contexts, &canvas);
-    if (canvas_context == NULL) return; // node type is not valid therefore there is no context
+    NU_Canvas_Context* ctx = HashmapGet(&__NGUI.canvas_contexts, &canvas);
+    if (ctx == NULL) return; // node type is not valid therefore there is no context
 
+    // Check if it is necessary to create a new layer
+    if (ctx->canvasLayers.size == 0 || ctx->currentLayerType == NU_CANVAS_TEXT_LAYER) {
+        NU_New_Canvas_Layer(ctx, NU_CANVAS_SHAPE_LAYER);
+    }
+
+    // Get vertex and index lists
+    CanvasLayer* layer = NU_Canvas_Current_Layer(ctx);
+    Vertex_RGB_List* vertices = &layer->vertexData.shapeVertices;
+    Index_List* indices = &layer->indices;
 
     // Calculate min number of additional vertices + indices
     x1 += 0.5f;
@@ -292,8 +351,6 @@ void NU_Internal_Dashed_Line(
 
 
     // Allocate extra space in vertex and index lists (if needed)
-    Vertex_RGB_List* vertices = &canvas_context->vertices;
-    Index_List* indices = &canvas_context->indices;
     if (vertices->size + min_additional_vertices > vertices->capacity) Vertex_RGB_List_Grow(vertices, min_additional_vertices);
     if (indices->size + min_additional_indices > indices->capacity) Index_List_Grow(indices, min_additional_indices);
 
@@ -359,4 +416,48 @@ void NU_Internal_Dashed_Line(
         travelled += segment_len;
         i = (i + 1) % dash_pattern_len;
     }
+}
+
+void NU_Internal_Set_Canvas_Font(Node* canvas, const char* fontName)
+{
+    NU_Canvas_Context* ctx = HashmapGet(&__NGUI.canvas_contexts, &canvas);
+    if (ctx == NULL) return; // node type is not valid therefore there is no context
+
+    // Get fontID from font name
+    void* found = LinearStringmapGet(&__NGUI.stylesheet->fontNameIndexMap, fontName);
+    int fontID = *(int*)found;
+    ctx->fontID = fontID;
+}
+
+void NU_Internal_Text(Node* canvas, 
+    float x, 
+    float y, 
+    float wrapWidth, 
+    NU_RGB col,
+    const char* string)
+{
+    NU_Canvas_Context* ctx = HashmapGet(&__NGUI.canvas_contexts, &canvas);
+    if (ctx == NULL) return; // node type is not valid therefore there is no context
+
+    // Create layer if there are no layers
+    if (ctx->canvasLayers.size == 0) {
+        NU_New_Canvas_Layer(ctx, NU_CANVAS_TEXT_LAYER);
+    }
+
+    // Get current layer
+    CanvasLayer* layer = NU_Canvas_Current_Layer(ctx);
+
+    // Check if it is necessary to create a new layer -> if the current layer is a shape layer OR the current layer's fontID is different to ctx->fontID (because the user called NU_Internal_Set_Canvas_Font())
+    if (ctx->currentLayerType == NU_CANVAS_SHAPE_LAYER || layer->fontID != ctx->fontID) {
+        NU_New_Canvas_Layer(ctx, NU_CANVAS_TEXT_LAYER);
+        layer = NU_Canvas_Current_Layer(ctx);
+    }
+
+    // Get vertex and index lists
+    Vertex_RGB_UV_List* vertices = &layer->vertexData.textVertices;
+    Index_List* indices = &layer->indices;
+
+    // Generate text mesh
+    NU_Font* font = Vector_Get(&__NGUI.stylesheet->fonts, ctx->fontID);
+    NU_Generate_Text_Mesh(vertices, indices, font, string, x, y, col.r, col.g, col.b, wrapWidth);
 }

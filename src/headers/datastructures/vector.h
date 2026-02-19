@@ -41,6 +41,17 @@ void Vector_Push(Vector* vector, const void* element)
     vector->size += 1;
 }
 
+void* Vector_Push_Empty(Vector* vector)
+{
+    if (vector->size == vector->capacity) {
+        Vector_Grow(vector);
+    }
+    void* destination = (char*)vector->data + vector->size * vector->element_size;
+    vector->size += 1;
+    return destination;
+}
+
+
 void* Vector_Create_Uninitialised(Vector* vector)
 {
     if (vector->size == vector->capacity) {

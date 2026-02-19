@@ -72,10 +72,10 @@ struct NU_GUI
 // global gui instance
 struct NU_GUI __NGUI;
 #include <rendering/nu_renderer.h>
-#include <rendering/canvas/nu_canvas_api.h>
 #include <window/nu_window_manager.h>
 #include <rendering/image/nu_image.h>
 #include <parsing/stylesheet/nu_stylesheet.h>
+#include <rendering/canvas/nu_canvas_api.h>
 #include <parsing/xml/nu_xml_parser.h>
 #include "nu_layout.h"
 #include <tree/nu_input_text.h>

@@ -161,6 +161,14 @@ __declspec(dllimport) void NU_Dashed_Line(
     NU_RGB* col
 );
 
+__declspec(dllimport) void NU_Set_Canvas_Font(Node* canvas, const char* font_name);
+
+__declspec(dllimport) void NU_Text(
+    Node* canvas,
+    float x, float y, float wrapWidth,
+    NU_RGB col, const char* string
+);
+
 #ifdef __cplusplus
 }
 #endif

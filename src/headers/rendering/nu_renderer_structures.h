@@ -57,9 +57,30 @@ typedef struct {
     uint32_t capacity;
 } Vertex_RGB_UV_List;
 
+typedef enum {
+    NU_CANVAS_UNDEFINED_LAYER,
+    NU_CANVAS_SHAPE_LAYER,
+    NU_CANVAS_TEXT_LAYER,
+} CanvasLayerType;
+
 typedef struct {
-    Vertex_RGB_List vertices;
+    Vertex_RGB_List shapeVertices;
+    Vertex_RGB_UV_List textVertices;
+} CanvasVertexData;
+
+typedef struct {
+    CanvasVertexData vertexData; // Can be Vertex_RGB_List or Vertex_RGB_UV_List depending on the type
     Index_List indices;
+    CanvasLayerType type;
+    int fontID;
+} CanvasLayer;
+
+typedef struct {
+    Vector canvasLayers; // Vector<CanvasLayer>
+
+    // State
+    int fontID;
+    CanvasLayerType currentLayerType;
 } NU_Canvas_Context;
 
 void RGB_From_Hex(const char* hexstring, NU_RGB* result)
@@ -148,6 +169,26 @@ void Vertex_UV_List_Free(Vertex_UV_List* list) {
 }
 void Vertex_RGB_UV_List_Free(Vertex_RGB_UV_List* list) {
     free(list->array);
+    list->size = 0;
+    list->capacity = 0;
+}
+
+// ----------------------
+// --- Clear Functions ---
+// ----------------------
+void Index_List_Clear(Index_List* list) {
+    list->size = 0;
+    list->capacity = 0;
+}
+void Vertex_RGB_List_Clear(Vertex_RGB_List* list) {
+    list->size = 0;
+    list->capacity = 0;
+}
+void Vertex_UV_List_Clear(Vertex_UV_List* list) {
+    list->size = 0;
+    list->capacity = 0;
+}
+void Vertex_RGB_UV_List_Clear(Vertex_RGB_UV_List* list) {
     list->size = 0;
     list->capacity = 0;
 }

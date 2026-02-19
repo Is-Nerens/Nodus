@@ -212,6 +212,8 @@ void NU_Generate_Text_Mesh(Vertex_RGB_UV_List* vertices, Index_List* indices, NU
     int string_len = strlen(string);
     if (string_len == 0) return;
 
+    if (maxWidth <= 0.0f) maxWidth = 1e20f;
+
     // --- Allocate extra space in vertex and index lists ---
     uint32_t additional_vertices = 4 * string_len;   
     uint32_t additional_indices = 6 * string_len;

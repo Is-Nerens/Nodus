@@ -84,7 +84,7 @@ int LinearStringmapInit(LinearStringmap* map, uint32_t itemSize, uint32_t mapCap
     return 1;
 }
 
-uint32_t LinearStringmapHash(char* string) {
+uint32_t LinearStringmapHash(const char* string) {
     uint32_t hash = 2166136261u;
     for (uint8_t* p = (uint8_t*)string; *p; p++) {
         hash ^= *p;
@@ -163,7 +163,7 @@ int LinearStringmapGrowRehash(LinearStringmap* map)
     return 1;
 }
 
-char* LinearStringmapAddKey(LinearStringmap* map, char* key)
+char* LinearStringmapAddKey(LinearStringmap* map, const char* key)
 {
     char* storedKey;
     uint32_t keyLen = strlen(key);
@@ -207,7 +207,7 @@ char* LinearStringmapAddKey(LinearStringmap* map, char* key)
     return storedKey;
 }
 
-int LinearStringmapSet(LinearStringmap* map, char* key, void* value)
+int LinearStringmapSet(LinearStringmap* map, const char* key, void* value)
 {
     // resize if surpassed max load factor
     if (map->itemCount * 10 > map->mapCapacity * 7) {
@@ -248,7 +248,7 @@ int LinearStringmapSet(LinearStringmap* map, char* key, void* value)
     return 1;
 }
 
-void* LinearStringmapGet(LinearStringmap* map, char* key)
+void* LinearStringmapGet(LinearStringmap* map, const char* key)
 {
     uint32_t probes = 0;
     uint32_t hash = LinearStringmapHash(key);
@@ -266,7 +266,7 @@ void* LinearStringmapGet(LinearStringmap* map, char* key)
     return NULL;
 }
 
-int LinearStringmapContains(LinearStringmap* map, char* key)
+int LinearStringmapContains(LinearStringmap* map, const char* key)
 {
     uint32_t probes = 0;
     uint32_t hash = LinearStringmapHash(key);

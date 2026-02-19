@@ -26,6 +26,8 @@ GLuint Text_Subpixel_Shader_Program;
 GLuint text_vao, text_vbo, text_ebo;
 GLint uMonoScreenWidthLoc, uMonoScreenHeightLoc, uMonoFontTextureLoc;
 GLint uSubpixelScreenWidthLoc, uSubpixelScreenHeightLoc, uSubpixelFontTextureLoc;
+GLint uSubpixelOffsetXLoc, uSubpixelOffsetYLoc;
+GLint uMonoOffsetXLoc, uMonoOffsetYLoc;
 GLint uMonoClipTopLoc, uMonoClipBottomLoc, uMonoClipLeftLoc, uMonoClipRightLoc;
 GLint uSubpixelClipTopLoc, uSubpixelClipBottomLoc, uSubpixelClipLeftLoc, uSubpixelClipRightLoc;
 GLint uMonoClipTopLoc, uMonoClipBottomLoc, uMonoClipLeftLoc, uMonoClipRightLoc;
@@ -197,13 +199,15 @@ int NU_Draw_Init()
     "out vec2 vScreenPos;\n"
     "uniform float uScreenWidth;\n"
     "uniform float uScreenHeight;\n"
+    "uniform float uOffsetX;\n"
+    "uniform float uOffsetY;\n"
     "void main() {\n"
-    "    float ndc_x = (aPos.x / uScreenWidth) * 2.0 - 1.0;\n"
-    "    float ndc_y = 1.0 - (aPos.y / uScreenHeight) * 2.0;\n"
+    "    float ndc_x = ((aPos.x + uOffsetX) / uScreenWidth) * 2.0 - 1.0;\n"
+    "    float ndc_y = 1.0 - ((aPos.y + uOffsetY) / uScreenHeight) * 2.0;\n"
     "    gl_Position = vec4(ndc_x, ndc_y, 0.0, 1.0);\n"
     "    vColor = aColor;\n"
     "    vUV = aUV;\n"
-    "    vScreenPos = aPos;\n"
+    "    vScreenPos = vec2(aPos.x + uOffsetX, aPos.y + uOffsetY);\n"
     "}\n";
 
     const char* textMonoFragmentSrc = 
@@ -265,6 +269,10 @@ int NU_Draw_Init()
     uMonoFontTextureLoc      = glGetUniformLocation(Text_Mono_Shader_Program, "uFontTexture");
     uSubpixelScreenWidthLoc  = glGetUniformLocation(Text_Subpixel_Shader_Program, "uScreenWidth");
     uSubpixelScreenHeightLoc = glGetUniformLocation(Text_Subpixel_Shader_Program, "uScreenHeight");
+    uSubpixelOffsetXLoc      = glGetUniformLocation(Text_Subpixel_Shader_Program, "uOffsetX");
+    uSubpixelOffsetYLoc      = glGetUniformLocation(Text_Subpixel_Shader_Program, "uOffsetY");
+    uMonoOffsetXLoc          = glGetUniformLocation(Text_Mono_Shader_Program, "uOffsetX");
+    uMonoOffsetYLoc          = glGetUniformLocation(Text_Mono_Shader_Program, "uOffsetY");
     uSubpixelFontTextureLoc  = glGetUniformLocation(Text_Subpixel_Shader_Program, "uFontTexture");
     uMonoClipTopLoc          = glGetUniformLocation(Text_Mono_Shader_Program, "uClipTop");
     uMonoClipBottomLoc       = glGetUniformLocation(Text_Mono_Shader_Program, "uClipBottom");
@@ -404,6 +412,8 @@ void NU_Render_Text
     NU_Font* font, 
     float screen_width, 
     float screen_height,
+    float offset_x,
+    float offset_y,
     float clip_top,
     float clip_bottom,
     float clip_left,
@@ -420,6 +430,8 @@ void NU_Render_Text
         glUniform1i(uSubpixelFontTextureLoc, 0);
         glUniform1f(uSubpixelScreenWidthLoc, screen_width);
         glUniform1f(uSubpixelScreenHeightLoc, screen_height);
+        glUniform1f(uSubpixelOffsetXLoc, offset_x);
+        glUniform1f(uSubpixelOffsetYLoc, offset_y);
         glUniform1f(uSubpixelClipTopLoc, clip_top);
         glUniform1f(uSubpixelClipBottomLoc, clip_bottom);
         glUniform1f(uSubpixelClipLeftLoc, clip_left);
@@ -431,6 +443,8 @@ void NU_Render_Text
         glUniform1i(uMonoFontTextureLoc, 0);
         glUniform1f(uMonoScreenWidthLoc, screen_width);
         glUniform1f(uMonoScreenHeightLoc, screen_height);
+        glUniform1f(uMonoOffsetXLoc, offset_x);
+        glUniform1f(uMonoOffsetYLoc, offset_y);
         glUniform1f(uMonoClipTopLoc, clip_top);
         glUniform1f(uMonoClipBottomLoc, clip_bottom);
         glUniform1f(uMonoClipLeftLoc, clip_left);

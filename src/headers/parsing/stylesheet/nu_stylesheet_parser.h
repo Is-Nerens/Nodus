@@ -17,9 +17,7 @@ static int NU_Stylesheet_Parse(char* src, TokenArray* tokens, NU_Stylesheet* ss,
     // (string -> int)
     // ---------------
     LinearStringmap imageFilepathToHandleMap;
-    LinearStringmap fontNameIndexMap;
     LinearStringmapInit(&imageFilepathToHandleMap, sizeof(GLuint), 20, 512);
-    LinearStringmapInit(&fontNameIndexMap, sizeof(GLuint), 12, 128);
 
     uint32_t selector_indexes[64];
     int selector_count = 0;
@@ -50,13 +48,13 @@ static int NU_Stylesheet_Parse(char* src, TokenArray* tokens, NU_Stylesheet* ss,
                 text_index += 1;
 
                 // Create a new font
-                void* found_font = LinearStringmapGet(&fontNameIndexMap, create_font_name);
+                void* found_font = LinearStringmapGet(&ss->fontNameIndexMap, create_font_name);
                 if (found_font == NULL) {
                     NU_Font font;
                     Vector_Push(&ss->fonts, &font);
                     create_font_index = (uint8_t)(ss->fonts.size - 1);
                     create_font = Vector_Get(&ss->fonts, create_font_index);
-                    LinearStringmapSet(&fontNameIndexMap, create_font_name, &create_font_index);
+                    LinearStringmapSet(&ss->fontNameIndexMap, create_font_name, &create_font_index);
                 } 
 
                 ctx = 1;
@@ -65,7 +63,7 @@ static int NU_Stylesheet_Parse(char* src, TokenArray* tokens, NU_Stylesheet* ss,
             }
             else {
                 LinearStringmapFree(&imageFilepathToHandleMap);
-                LinearStringmapFree(&fontNameIndexMap);
+                LinearStringmapFree(&ss->fontNameIndexMap);
                 return 0;
             }
         }
@@ -81,7 +79,7 @@ static int NU_Stylesheet_Parse(char* src, TokenArray* tokens, NU_Stylesheet* ss,
             } 
             else {
                 LinearStringmapFree(&imageFilepathToHandleMap);
-                LinearStringmapFree(&fontNameIndexMap);
+                LinearStringmapFree(&ss->fontNameIndexMap);
                 return 0;
             }
         }
@@ -90,7 +88,7 @@ static int NU_Stylesheet_Parse(char* src, TokenArray* tokens, NU_Stylesheet* ss,
         {
             if (!AssertSelectionClosingBraceGrammar(tokens, i)) {
                 LinearStringmapFree(&imageFilepathToHandleMap);
-                LinearStringmapFree(&fontNameIndexMap);
+                LinearStringmapFree(&ss->fontNameIndexMap);
                 return 0;
             }
                 
@@ -159,7 +157,7 @@ static int NU_Stylesheet_Parse(char* src, TokenArray* tokens, NU_Stylesheet* ss,
                 {
                     printf("[NU_Generate_Stylesheet] Error! created font \"%s\" must have a src!", create_font_name);
                     LinearStringmapFree(&imageFilepathToHandleMap);
-                    LinearStringmapFree(&fontNameIndexMap);
+                    LinearStringmapFree(&ss->fontNameIndexMap);
                     return 0;
                 }
 
@@ -232,7 +230,7 @@ static int NU_Stylesheet_Parse(char* src, TokenArray* tokens, NU_Stylesheet* ss,
                     else 
                     {
                         LinearStringmapFree(&imageFilepathToHandleMap);
-                        LinearStringmapFree(&fontNameIndexMap);
+                        LinearStringmapFree(&ss->fontNameIndexMap);
                         return 0;
                     }
 
@@ -243,14 +241,14 @@ static int NU_Stylesheet_Parse(char* src, TokenArray* tokens, NU_Stylesheet* ss,
                 else
                 {
                     LinearStringmapFree(&imageFilepathToHandleMap);
-                    LinearStringmapFree(&fontNameIndexMap);
+                    LinearStringmapFree(&ss->fontNameIndexMap);
                     return 0;
                 }
             }
             else
             {
                 LinearStringmapFree(&imageFilepathToHandleMap);
-                LinearStringmapFree(&fontNameIndexMap);
+                LinearStringmapFree(&ss->fontNameIndexMap);
                 return 0;
             }
         }
@@ -331,7 +329,7 @@ static int NU_Stylesheet_Parse(char* src, TokenArray* tokens, NU_Stylesheet* ss,
                     else 
                     {
                         LinearStringmapFree(&imageFilepathToHandleMap);
-                        LinearStringmapFree(&fontNameIndexMap);
+                        LinearStringmapFree(&ss->fontNameIndexMap);
                         return 0;
                     }
 
@@ -343,14 +341,14 @@ static int NU_Stylesheet_Parse(char* src, TokenArray* tokens, NU_Stylesheet* ss,
                 else
                 {
                     LinearStringmapFree(&imageFilepathToHandleMap);
-                    LinearStringmapFree(&fontNameIndexMap);
+                    LinearStringmapFree(&ss->fontNameIndexMap);
                     return 0;
                 }
             }
             else 
             {
                 LinearStringmapFree(&imageFilepathToHandleMap);
-                LinearStringmapFree(&fontNameIndexMap);
+                LinearStringmapFree(&ss->fontNameIndexMap);
                 return 0;
             }
         }
@@ -431,7 +429,7 @@ static int NU_Stylesheet_Parse(char* src, TokenArray* tokens, NU_Stylesheet* ss,
                     else 
                     {
                         LinearStringmapFree(&imageFilepathToHandleMap);
-                        LinearStringmapFree(&fontNameIndexMap);
+                        LinearStringmapFree(&ss->fontNameIndexMap);
                         return 0;
                     }
 
@@ -443,14 +441,14 @@ static int NU_Stylesheet_Parse(char* src, TokenArray* tokens, NU_Stylesheet* ss,
                 else
                 {
                     LinearStringmapFree(&imageFilepathToHandleMap);
-                    LinearStringmapFree(&fontNameIndexMap);
+                    LinearStringmapFree(&ss->fontNameIndexMap);
                     return 0;
                 }
             }
             else 
             {
                 LinearStringmapFree(&imageFilepathToHandleMap);
-                LinearStringmapFree(&fontNameIndexMap);
+                LinearStringmapFree(&ss->fontNameIndexMap);
                 return 0;
             }
         }
@@ -461,7 +459,7 @@ static int NU_Stylesheet_Parse(char* src, TokenArray* tokens, NU_Stylesheet* ss,
                 if (selector_count == 64) {
                     printf("%s", "[Generate Stylesheet] Error! Too many selectors in one list! max = 64");
                     LinearStringmapFree(&imageFilepathToHandleMap);
-                    LinearStringmapFree(&fontNameIndexMap);
+                    LinearStringmapFree(&ss->fontNameIndexMap);
                     return 0;
                 }
                 i += 1;
@@ -469,7 +467,7 @@ static int NU_Stylesheet_Parse(char* src, TokenArray* tokens, NU_Stylesheet* ss,
             }
             else {
                 LinearStringmapFree(&imageFilepathToHandleMap);
-                LinearStringmapFree(&fontNameIndexMap);
+                LinearStringmapFree(&ss->fontNameIndexMap);
                 return 0;
             }
         }
@@ -478,7 +476,7 @@ static int NU_Stylesheet_Parse(char* src, TokenArray* tokens, NU_Stylesheet* ss,
         {
             if (!AssertPropertyIdentifierGrammar(tokens, i)) {
                 LinearStringmapFree(&imageFilepathToHandleMap);
-                LinearStringmapFree(&fontNameIndexMap);
+                LinearStringmapFree(&ss->fontNameIndexMap);
                 return 0;
             }
 
@@ -852,7 +850,7 @@ static int NU_Stylesheet_Parse(char* src, TokenArray* tokens, NU_Stylesheet* ss,
                         break;
 
                     case STYLE_FONT_PROPERTY:
-                        void* found_font = LinearStringmapGet(&fontNameIndexMap, text);
+                        void* found_font = LinearStringmapGet(&ss->fontNameIndexMap, text);
                         if (found_font != NULL) {
                             item.fontId = *(uint8_t*)found_font;
                         }
@@ -906,11 +904,11 @@ static int NU_Stylesheet_Parse(char* src, TokenArray* tokens, NU_Stylesheet* ss,
     if (ss->fonts.size == 0) {
         printf("[NU_Generate_Stylesheet] Error! at least one font must be provided!\n");
         LinearStringmapFree(&imageFilepathToHandleMap);
-        LinearStringmapFree(&fontNameIndexMap);
+        LinearStringmapFree(&ss->fontNameIndexMap);
         return 0;
     }
 
     LinearStringmapFree(&imageFilepathToHandleMap);
-    LinearStringmapFree(&fontNameIndexMap);
+    LinearStringmapFree(&ss->fontNameIndexMap);
     return 1;
 }

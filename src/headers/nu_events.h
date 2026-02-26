@@ -5,6 +5,7 @@ typedef struct NU_Event_Info_Mouse
     int mouse_btn;
     int mouse_x, mouse_y;
     float delta_x, delta_y;
+    float wheel_delta;
 } NU_Event_Info_Mouse;
 
 typedef struct NU_Event_Info_Input
@@ -76,6 +77,10 @@ void NU_Internal_Register_Event(Node* node, void* args, NU_Callback callback, en
             node->eventFlags |= NU_EVENT_FLAG_ON_MOUSE_OUT;
             HashmapSet(&__NGUI.on_mouse_out_events, &node, &cb_info);
             break;
+        case NU_EVENT_ON_MOUSE_WHEEL:
+            node->eventFlags |= NU_EVENT_FLAG_ON_MOUSE_WHEEL;
+            HashmapSet(&__NGUI.on_mouse_wheel_events, &node, &cb_info);
+            break;
     }
 }
 
@@ -132,6 +137,26 @@ void TriggerAllMouseupEvents(float mouse_x, float mouse_y, int mouse_btn)
             cb_info->event.mouse.mouse_btn = mouse_btn;
             cb_info->event.mouse.mouse_x = mouse_x;
             cb_info->event.mouse.mouse_y = mouse_y;
+            cb_info->callback(cb_info->event, cb_info->args);
+        }
+    }
+}
+
+void TriggerAllMouseWheelEvents(float wheel_delta)
+{
+    if (__NGUI.on_mouse_wheel_events.itemCount > 0)
+    {
+        Hashmap* hmap = &__NGUI.on_mouse_wheel_events;
+        HashmapIterator it = HashmapCreateIterator(hmap);
+        void* key; void* val;
+
+        while(HashmapIteratorNext(&it, &key, &val))
+        {
+            // cast key, value to correct types
+            struct NU_Callback_Info* cb_info = (struct NU_Callback_Info*)val;
+
+            // set calback event values and trigger
+            cb_info->event.mouse.wheel_delta = wheel_delta;
             cb_info->callback(cb_info->event, cb_info->args);
         }
     }
@@ -522,6 +547,9 @@ bool EventWatcher(void* data, SDL_Event* event)
             NU_Draw();
             return true;
         }
+
+        // Triggger mouse wheel events
+        TriggerAllMouseWheelEvents(event->wheel.y);
     }
 
 

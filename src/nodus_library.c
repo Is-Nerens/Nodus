@@ -30,19 +30,72 @@ __declspec(dllexport) int NU_Apply_Stylesheet(uint32_t stylesheet_handle) {
     return NU_Internal_Apply_Stylesheet(stylesheet_handle);
 }
 
+// ------------------------
+// --- Cursor functions ---
+// ------------------------
+__declspec(dllexport) void NU_Set_Cursor_Default(void)
+{
+    SDL_SetCursor(__NGUI.cursorDefault);
+}
+
+__declspec(dllexport) void NU_Set_Cursor_Pointer(void)
+{
+    SDL_SetCursor(__NGUI.cursorPointer);
+}
+
+__declspec(dllexport) void NU_Set_Cursor_Text(void)
+{
+    SDL_SetCursor(__NGUI.cursorText);
+}
+
+__declspec(dllexport) void NU_Set_Cursor_Wait(void)
+{
+    SDL_SetCursor(__NGUI.cursorWait);
+}
+
+__declspec(dllexport) void NU_Set_Cursor_Crosshair(void)
+{
+    SDL_SetCursor(__NGUI.cursorCrosshair);
+}
+
+__declspec(dllexport) void NU_Set_Cursor_Move(void)
+{
+    SDL_SetCursor(__NGUI.cursorMove);
+}
+
+__declspec(dllexport) void NU_Set_Cursor_NsResize(void)
+{
+    SDL_SetCursor(__NGUI.cursorNsResize);
+}
+
+__declspec(dllexport) void NU_Set_Cursor_EwResize(void)
+{
+    SDL_SetCursor(__NGUI.cursorEwResize);
+}
+
+__declspec(dllexport) void NU_Set_Cursor_NwseResize(void)
+{
+    SDL_SetCursor(__NGUI.cursorNwseResize);
+}
+
+__declspec(dllexport) void NU_Set_Cursor_NeswResize(void)
+{
+    SDL_SetCursor(__NGUI.cursorNeswResize);
+}
+
 // ---------------------
 // --- DOM functions ---
 // ---------------------
-__declspec(dllexport) inline Node* NU_PARENT(Node* node) {
+__declspec(dllexport) Node* NU_PARENT(Node* node) {
     return PARENT(node);
 }
-__declspec(dllexport) inline Node* NU_CHILD(Node* node, uint32_t childIndex) {
+__declspec(dllexport) Node* NU_CHILD(Node* node, uint32_t childIndex) {
     return CHILD(node, childIndex);
 }
-__declspec(dllexport) inline uint32_t NU_CHILD_COUNT(Node* node) {
+__declspec(dllexport) uint32_t NU_CHILD_COUNT(Node* node) {
     return CHILD_COUNT(node);
 }
-__declspec(dllexport) inline int NU_DEPTH(Node* node) {
+__declspec(dllexport) int NU_DEPTH(Node* node) {
     return DEPTH(node);
 }
 __declspec(dllexport) Node* NU_CREATE_NODE(Node* parent, NodeType type) {
@@ -51,13 +104,13 @@ __declspec(dllexport) Node* NU_CREATE_NODE(Node* parent, NodeType type) {
 __declspec(dllexport) void NU_DELETE_NODE(Node* node) {
     DELETE_NODE(node);
 }
-__declspec(dllexport) inline const char* NU_INPUT_TEXT_CONTENT(Node* node) {
+__declspec(dllexport) const char* NU_INPUT_TEXT_CONTENT(Node* node) {
     return INPUT_TEXT_CONTENT(node);
 }
-__declspec(dllexport) inline void NU_HIDE(Node* node) {
+__declspec(dllexport) void NU_HIDE(Node* node) {
     HIDE(node);
 }
-__declspec(dllexport) inline void NU_SHOW(Node* node) {
+__declspec(dllexport) void NU_SHOW(Node* node) {
     SHOW(node);
 }
 __declspec(dllexport) Node* NU_Get_Node_By_Id(char* id) {
@@ -144,4 +197,25 @@ __declspec(dllexport) void NU_Text(
     NU_RGB col, const char* string)
 {
     NU_Internal_Text(canvas, x, y, wrapWidth, col, string);
+}
+
+__declspec(dllexport) float NU_Text_Height(
+    Node* canvas,
+    float wrapWidth,
+    const char* string)
+{
+    return NU_Internal_Text_Height(canvas, wrapWidth, string);
+}
+
+__declspec(dllexport) float NU_Text_Width(
+    Node* canvas,
+    const char* string)
+{
+    return NU_Internal_Text_Width(canvas, string);
+}
+
+__declspec(dllexport) float NU_Text_Line_Height(
+    Node* canvas)
+{
+    return NU_Internal_Text_Line_Height(canvas);
 }

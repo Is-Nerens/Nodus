@@ -67,6 +67,7 @@ enum NU_Event_Type
     NU_EVENT_ON_MOUSE_MOVED,
     NU_EVENT_ON_MOUSE_IN,
     NU_EVENT_ON_MOUSE_OUT,
+    NU_EVENT_ON_MOUSE_WHEEL
 };
 
 typedef struct NU_Event_Info_Mouse
@@ -74,6 +75,7 @@ typedef struct NU_Event_Info_Mouse
     int mouse_btn;
     int mouse_x, mouse_y;
     float delta_x, delta_y;
+    float wheel_delta;
 } NU_Event_Info_Mouse;
 
 typedef struct NU_Event_Info_Input
@@ -108,6 +110,18 @@ __declspec(dllimport) void NU_Unblock(void);
 // Stylesheet functions
 __declspec(dllimport) uint32_t NU_Load_Stylesheet(char* css_filepath);
 __declspec(dllimport) int NU_Apply_Stylesheet(uint32_t stylesheet_handle);
+
+// Cursor functions 
+__declspec(dllimport) void NU_Set_Cursor_Default(void);
+__declspec(dllimport) void NU_Set_Cursor_Pointer(void);
+__declspec(dllimport) void NU_Set_Cursor_Text(void);
+__declspec(dllimport) void NU_Set_Cursor_Wait(void);
+__declspec(dllimport) void NU_Set_Cursor_Crosshair(void);
+__declspec(dllimport) void NU_Set_Cursor_Move(void);
+__declspec(dllimport) void NU_Set_Cursor_NsResize(void);
+__declspec(dllimport) void NU_Set_Cursor_EwResize(void);
+__declspec(dllimport) void NU_Set_Cursor_NwseResize(void);
+__declspec(dllimport) void NU_Set_Cursor_NeswResize(void);
 
 // DOM functions
 __declspec(dllimport) inline Node* NU_PARENT(Node* node);
@@ -168,6 +182,19 @@ __declspec(dllimport) void NU_Text(
     float x, float y, float wrapWidth,
     NU_RGB col, const char* string
 );
+
+__declspec(dllimport) float NU_Text_Height(
+    Node* canvas,
+    float wrapWidth,
+    const char* string
+);
+
+__declspec(dllimport) float NU_Text_Width(
+    Node* canvas,
+    const char* string
+);
+
+__declspec(dllimport) float NU_Text_Line_Height(Node* canvas);
 
 #ifdef __cplusplus
 }

@@ -461,3 +461,29 @@ void NU_Internal_Text(Node* canvas,
     NU_Font* font = Vector_Get(&__NGUI.stylesheet->fonts, ctx->fontID);
     NU_Generate_Text_Mesh(vertices, indices, font, string, x, y, col.r, col.g, col.b, wrapWidth);
 }
+
+float NU_Internal_Text_Height(Node* canvas, float wrapWidth, const char* string)
+{
+    NU_Canvas_Context* ctx = HashmapGet(&__NGUI.canvas_contexts, &canvas);
+    if (ctx == NULL) return 0.0f; // node type is not valid therefore there is no context
+
+    NU_Font* font = Vector_Get(&__NGUI.stylesheet->fonts, ctx->fontID);
+    return NU_Calculate_FreeText_Height_From_Wrap_Width(font, string, wrapWidth);
+}
+
+float NU_Internal_Text_Width(Node* canvas, const char* string)
+{
+    NU_Canvas_Context* ctx = HashmapGet(&__NGUI.canvas_contexts, &canvas);
+    if (ctx == NULL) return 0.0f; // node type is not valid therefore there is no context
+
+    NU_Font* font = Vector_Get(&__NGUI.stylesheet->fonts, ctx->fontID);
+    return NU_Calculate_Text_Unwrapped_Width(font, string);
+}
+
+float NU_Internal_Text_Line_Height(Node* canvas)
+{
+    NU_Canvas_Context* ctx = HashmapGet(&__NGUI.canvas_contexts, &canvas);
+    if (ctx == NULL) return 0.0f; // node type is not valid therefore there is no context
+    NU_Font* font = Vector_Get(&__NGUI.stylesheet->fonts, ctx->fontID);
+    return font->line_height;
+}

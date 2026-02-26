@@ -63,6 +63,19 @@ struct NU_GUI
     Hashmap on_mouse_move_events;
     Hashmap on_mouse_in_events;
     Hashmap on_mouse_out_events;
+    Hashmap on_mouse_wheel_events;
+
+    // cursors
+    SDL_Cursor* cursorDefault;
+    SDL_Cursor* cursorPointer;
+    SDL_Cursor* cursorText;
+    SDL_Cursor* cursorWait;
+    SDL_Cursor* cursorCrosshair;
+    SDL_Cursor* cursorMove;
+    SDL_Cursor* cursorNsResize;
+    SDL_Cursor* cursorEwResize;
+    SDL_Cursor* cursorNwseResize;
+    SDL_Cursor* cursorNeswResize;
 
     Uint32 SDL_CUSTOM_RENDER_EVENT;
     SDL_Mutex* unblock_mutex;
@@ -83,6 +96,7 @@ struct NU_GUI __NGUI;
 #include "nu_event_defs.h"
 #include "nu_dom.h"
 #include "nu_events.h"
+#include "cursor.h"
 
 void NU_Internal_Set_Class(Node* node, char* class)
 {
@@ -141,6 +155,19 @@ int NU_Internal_Create_Gui(char* xml_filepath, char* css_filepath)
     HashmapInit(&__NGUI.on_mouse_move_events,    sizeof(Node*), sizeof(struct NU_Callback_Info), 10);
     HashmapInit(&__NGUI.on_mouse_in_events,      sizeof(Node*), sizeof(struct NU_Callback_Info), 10);
     HashmapInit(&__NGUI.on_mouse_out_events,     sizeof(Node*), sizeof(struct NU_Callback_Info), 10);
+    HashmapInit(&__NGUI.on_mouse_wheel_events,   sizeof(Node*), sizeof(struct NU_Callback_Info), 10);
+
+    // Cursors
+    __NGUI.cursorDefault    = SDL_CreateSystemCursor(SDL_SYSTEM_CURSOR_DEFAULT);
+    __NGUI.cursorPointer    = SDL_CreateSystemCursor(SDL_SYSTEM_CURSOR_POINTER);
+    __NGUI.cursorText       = SDL_CreateSystemCursor(SDL_SYSTEM_CURSOR_TEXT);
+    __NGUI.cursorWait       = SDL_CreateSystemCursor(SDL_SYSTEM_CURSOR_WAIT);
+    __NGUI.cursorCrosshair  = SDL_CreateSystemCursor(SDL_SYSTEM_CURSOR_CROSSHAIR);
+    __NGUI.cursorMove       = SDL_CreateSystemCursor(SDL_SYSTEM_CURSOR_MOVE);
+    __NGUI.cursorNsResize   = SDL_CreateSystemCursor(SDL_SYSTEM_CURSOR_NS_RESIZE);
+    __NGUI.cursorEwResize   = SDL_CreateSystemCursor(SDL_SYSTEM_CURSOR_EW_RESIZE);
+    __NGUI.cursorNwseResize = SDL_CreateSystemCursor(SDL_SYSTEM_CURSOR_NWSE_RESIZE);
+    __NGUI.cursorNeswResize = SDL_CreateSystemCursor(SDL_SYSTEM_CURSOR_NESW_RESIZE);
 
     // State
     __NGUI.hovered_node = NULL;
@@ -242,6 +269,7 @@ void NU_Internal_Quit()
     HashmapFree(&__NGUI.on_mouse_move_events);
     HashmapFree(&__NGUI.on_mouse_in_events);
     HashmapFree(&__NGUI.on_mouse_out_events);
+    HashmapFree(&__NGUI.on_mouse_wheel_events);
     HashmapFree(&__NGUI.canvas_contexts);
     SDL_Quit();
 }

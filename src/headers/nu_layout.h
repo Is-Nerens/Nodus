@@ -19,7 +19,7 @@ static void NU_ApplyMinMaxHeightConstraint(NodeP* node)
     node->node.height = max(node->node.height, node->node.preferred_height);
 }
 
-static void NU_Prepass(BreadthFirstSearch* bfs)
+static void NU_Prepass(BreadthFirstSearch* bfs, Vector* scrollAutoNodes)
 {
     NodeP* node;
     while (BreadthFirstSearch_Next(bfs, &node)) {
@@ -38,9 +38,13 @@ static void NU_Prepass(BreadthFirstSearch* bfs)
             if (node->node.layoutFlags & POSITION_ABSOLUTE || (node->parent != NULL && (
                 node->parent->node.positionAbsolute || 
                 node->parent->node.layoutFlags & POSITION_ABSOLUTE
-            )))
-            {
+            ))) { 
                 node->node.positionAbsolute = 1;
+            }
+
+            // add node to list of scroll auto nodes
+            if (node->node.layoutFlags & OVERFLOW_VERTICAL_SCROLL) {
+                Vector_Push(scrollAutoNodes, &node);
             }
 
             // reset position
@@ -165,7 +169,7 @@ static void NU_CalculateFitSizeHeights(ReverseBreadthFirstSearch* rbfs)
     }
 }
 
-static void NU_GrowShrinkChildWidths(NodeP* node)
+static void NU_GrowShrinkChildWidths(NodeP* node, bool includeNodeScrollbarThickness)
 {
     float remainingWidth = node->node.width - node->node.padLeft - node->node.padRight - node->node.borderLeft - node->node.borderRight;
 
@@ -188,7 +192,7 @@ static void NU_GrowShrinkChildWidths(NodeP* node)
         child = child->nextSibling;
     }
 
-    remainingWidth -= (!!(node->node.layoutFlags & OVERFLOW_VERTICAL_SCROLL)) * 8.0f;
+    remainingWidth -= ((node->node.layoutFlags & OVERFLOW_VERTICAL_SCROLL) && includeNodeScrollbarThickness) * 8.0f;
 
     // ------------------------------------------------
     // If node lays out children vertically ---------
@@ -380,7 +384,7 @@ static void NU_GrowShrinkChildWidths(NodeP* node)
     }
 }
 
-static void NU_GrowShrinkChildHeights(NodeP* node)
+static void NU_GrowShrinkChildHeights(NodeP* node, bool includeNodeScrollbarThickness)
 {
     float remainingHeight = node->node.height - node->node.padTop - node->node.padBottom - node->node.borderTop - node->node.borderBottom;
     
@@ -403,7 +407,7 @@ static void NU_GrowShrinkChildHeights(NodeP* node)
         child = child->nextSibling;
     }
 
-    remainingHeight -= (!!(node->node.layoutFlags & OVERFLOW_HORIZONTAL_SCROLL)) * 8.0f;
+    remainingHeight -= ((node->node.layoutFlags & OVERFLOW_HORIZONTAL_SCROLL) && includeNodeScrollbarThickness) * 8.0f;
 
     if (!(node->node.layoutFlags & LAYOUT_VERTICAL))
     {   
@@ -519,25 +523,25 @@ static void NU_GrowShrinkChildHeights(NodeP* node)
     }
 }
 
-static void NU_GrowShrinkWidths(BreadthFirstSearch* bfs)
+static void NU_GrowShrinkWidths(BreadthFirstSearch* bfs, bool includeNodeScrollbarThickness)
 {
     NodeP* node;
     while (BreadthFirstSearch_Next(bfs, &node)) {
         if (node->state == 2 || node->type == NU_ROW || node->type == NU_TABLE) continue;
-        NU_GrowShrinkChildWidths(node);
+        NU_GrowShrinkChildWidths(node, includeNodeScrollbarThickness);
     }
 }
 
-static void NU_GrowShrinkHeights(BreadthFirstSearch* bfs)
+static void NU_GrowShrinkHeights(BreadthFirstSearch* bfs, bool includeNodeScrollbarThickness)
 {
     NodeP* node;
     while (BreadthFirstSearch_Next(bfs, &node)) {
         if (node->state == 2 || node->type == NU_TABLE) continue;
-        NU_GrowShrinkChildHeights(node);
+        NU_GrowShrinkChildHeights(node, includeNodeScrollbarThickness);
     }
 }
 
-static void NU_CalculateTableColumnWidths(BreadthFirstSearch* bfs)
+static void NU_CalculateTableColumnWidths(BreadthFirstSearch* bfs, bool includeNodeScrollbarThickness)
 {
     NodeP* node;
     while(BreadthFirstSearch_Next(bfs, &node)) {
@@ -585,7 +589,8 @@ static void NU_CalculateTableColumnWidths(BreadthFirstSearch* bfs)
         // -----------------------------------------------
         // --- Apply widest column widths to all cells ---
         // -----------------------------------------------
-        float table_inner_width = node->node.width - node->node.borderLeft - node->node.borderRight - node->node.padLeft - node->node.padRight - (!!(node->node.layoutFlags & OVERFLOW_VERTICAL_SCROLL)) * 8.0f;
+        float table_inner_width = node->node.width - node->node.borderLeft - node->node.borderRight - node->node.padLeft - node->node.padRight
+        - ((node->node.layoutFlags & OVERFLOW_VERTICAL_SCROLL) && includeNodeScrollbarThickness) * 8.0f;
         float remaining_table_inner_width = table_inner_width;
         for (int k=0; k<widest_cell_in_each_column.size; k++) {
             remaining_table_inner_width -= *(float*)Vector_Get(&widest_cell_in_each_column, k);
@@ -670,7 +675,7 @@ static void NU_CalculateTextHeights(BreadthFirstSearch* bfs)
     }
 }
 
-static void NU_PositionChildrenHorizontally(NodeP* node)
+static void NU_PositionChildrenHorizontally(NodeP* node, bool includeNodeScrollbarThickness)
 {
     // layout dir -> top to bottom
     if (node->node.layoutFlags & LAYOUT_VERTICAL)
@@ -707,7 +712,7 @@ static void NU_PositionChildrenHorizontally(NodeP* node)
     {
         // calculate remaining width (optimise this by caching this value inside node's content width variable)
         float remainingWidth = (node->node.width - node->node.padLeft - node->node.padRight - node->node.borderLeft - node->node.borderRight);
-        remainingWidth -= (!!(node->node.layoutFlags & OVERFLOW_VERTICAL_SCROLL)) * 8.0f;
+        remainingWidth -= ((node->node.layoutFlags & OVERFLOW_VERTICAL_SCROLL) && includeNodeScrollbarThickness) * 8.0f;
         int numChildrenAffectingWidth = 0;
         NodeP* child = node->firstChild;
         while(child != NULL) {
@@ -751,7 +756,7 @@ static void NU_PositionChildrenHorizontally(NodeP* node)
     }
 }
 
-static void NU_PositionChildrenVertically(NodeP* node)
+static void NU_PositionChildrenVertically(NodeP* node, bool includeNodeScrollbarThickness)
 {
     float y_scroll_offset = 0.0f;
     if (node->node.layoutFlags & OVERFLOW_VERTICAL_SCROLL && 
@@ -809,7 +814,7 @@ static void NU_PositionChildrenVertically(NodeP* node)
     {
         // calculate remaining height (optimise this by caching this value inside node's content height variable)
         float remainingHeight = (node->node.height - node->node.padTop - node->node.padBottom - node->node.borderTop - node->node.borderBottom);
-        remainingHeight -= (!!(node->node.layoutFlags & OVERFLOW_HORIZONTAL_SCROLL)) * 8.0f;
+        remainingHeight -= ((node->node.layoutFlags & OVERFLOW_HORIZONTAL_SCROLL) && includeNodeScrollbarThickness) * 8.0f;
         int numChildrenAffectingHeight = 0;
         NodeP* child = node->firstChild;
         while(child != NULL) {
@@ -852,38 +857,89 @@ static void NU_PositionChildrenVertically(NodeP* node)
     }
 }
 
-static void NU_CalculatePositions(BreadthFirstSearch* bfs)
+static void NU_CalculatePositions(BreadthFirstSearch* bfs, bool includeNodeScrollbarThickness)
+{
+    NodeP* node;
+    while (BreadthFirstSearch_Next(bfs, &node)) {
+        if (node->state == 2) continue;
+        if (node->type == NU_WINDOW) {
+            node->node.x = 0;
+            node->node.y = 0;
+        }
+        NU_PositionChildrenHorizontally(node, includeNodeScrollbarThickness);
+        NU_PositionChildrenVertically(node, includeNodeScrollbarThickness);
+    }
+}
+
+void NU_Repass(BreadthFirstSearch* bfs)
 {
     NodeP* node;
     while (BreadthFirstSearch_Next(bfs, &node)) {
 
         if (node->state == 2) continue;
 
-        if (node->type == NU_WINDOW) {
-            node->node.x = 0;
-            node->node.y = 0;
-        }
+        node->node.contentWidth = 0.0f;
+        node->node.contentHeight = 0.0f;
 
-        NU_PositionChildrenHorizontally(node);
-        NU_PositionChildrenVertically(node);
+        NodeP* child = node->firstChild;
+        while(child != NULL) {
+
+            // reset position
+            child->node.x = 0.0f;
+            child->node.y = 0.0f;
+
+            // Set base width/height and reset content dimensions
+            child->node.width = child->node.preferred_width;
+            child->node.height = child->node.preferred_height;
+            child->node.contentWidth = 0;
+            child->node.contentHeight = 0;
+
+            // move to next sibling
+            child = child->nextSibling;
+        }
     }
 }
 
 void NU_Layout()
 {
+    // CREATE DATA STRUCTURES
     BreadthFirstSearch bfs = BreadthFirstSearch_Create(__NGUI.tree.root);
     ReverseBreadthFirstSearch rbfs = ReverseBreadthFirstSearch_Create(__NGUI.tree.root);
+    Vector scrollAutoNodes; Vector_Reserve(&scrollAutoNodes, sizeof(NodeP*), 20);
 
-    NodeP* node;
-    NU_Prepass(&bfs);
+    // FIRST PASS -> ASSUME SCROLLBARS TAKE UP NO SPACE
+    NU_Prepass(&bfs, &scrollAutoNodes);
     NU_CalculateTextFitWidths(&bfs);
     NU_CalculateFitSizeWidths(&rbfs);  
-    NU_GrowShrinkWidths(&bfs);
-    NU_CalculateTableColumnWidths(&bfs);
+    NU_GrowShrinkWidths(&bfs, false);
+    NU_CalculateTableColumnWidths(&bfs, false);
     NU_CalculateTextHeights(&bfs);
     NU_CalculateFitSizeHeights(&rbfs);
-    NU_GrowShrinkHeights(&bfs);
-    NU_CalculatePositions(&bfs);
+    NU_GrowShrinkHeights(&bfs, false);
+    NU_CalculatePositions(&bfs, false);
     BreadthFirstSearch_Free(&bfs);
     ReverseBreadthFirstSearch_Free(&rbfs);
+
+    // SECOND PASS -> RECOMPUTE OVERFLOWED SCROLL BRANCHES
+    for (uint32_t i=0; i<scrollAutoNodes.size; i++)
+    {
+        NodeP* node = *(NodeP**)Vector_Get(&scrollAutoNodes, i);
+        bool overflowed = node->node.contentHeight > (node->node.height - node->node.padTop - node->node.padBottom - node->node.borderTop - node->node.borderBottom);
+        if (!overflowed) continue;
+
+        // PERFORM NECESSARY COMPUTATIONS ONLY
+        BreadthFirstSearch bfs = BreadthFirstSearch_Create(node);
+        ReverseBreadthFirstSearch rbfs = ReverseBreadthFirstSearch_Create(node);
+        NU_Repass(&bfs);
+        NU_CalculateTextFitWidths(&bfs);
+        NU_CalculateFitSizeWidths(&rbfs);  
+        NU_GrowShrinkWidths(&bfs, true);
+        NU_CalculateTableColumnWidths(&bfs, true);
+        NU_CalculateTextHeights(&bfs);
+        NU_CalculateFitSizeHeights(&rbfs);
+        NU_GrowShrinkHeights(&bfs, true);
+        NU_CalculatePositions(&bfs, true);
+        BreadthFirstSearch_Free(&bfs);
+        ReverseBreadthFirstSearch_Free(&rbfs);
+    }
 }

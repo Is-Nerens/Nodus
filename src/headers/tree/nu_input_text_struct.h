@@ -9,15 +9,15 @@ typedef uint64_t u64;
 typedef struct InputText {
     char* buffer;
     float cursorOffset;
+    float highlightOffset;
     float textOffset;
-    float mouseOffset; // dist from mouseX to inner left wall of node
     int decimalByteIndex;
     u16 numBytes;
     u16 capacity;
     u16 cursorBytes;
     u16 highlightBytes;
     u8 type; // 0 -> text, 1 -> number
-    u8 state; // 0 -> defocused, 1 -> focused
+    bool dragging;
 } InputText;
 
 // Initialises an InputText struct and allocated memory for the UTF8 string
@@ -29,9 +29,11 @@ void InputText_Init(InputText* text)
     text->numBytes = 0;
     text->cursorBytes = 0;
     text->cursorOffset = 0.0f;
+    text->highlightOffset = 0.0f;
     text->textOffset = 0.0f;
     text->highlightBytes = 0; // highlighted region is from highlightBytes to cursorBytes
     text->decimalByteIndex = -1;
+    text->dragging = false;
     text->type = 0;
 }
 

@@ -469,3 +469,62 @@ void NU_ConstructInputCursorMesh(
     vertices->size = 4;
     indices->size = 6;
 }
+
+void NU_ConstructInputHighlightMesh(
+    NodeP* node,
+    Vertex_RGB_List* vertices, 
+    Index_List* indices)
+{
+    Node* n = &node->node;
+
+    float cursorX = n->x + n->borderLeft + n->padLeft + node->typeData.input.inputText.cursorOffset;
+    float highlightX = n->x + n->borderLeft + n->padLeft + node->typeData.input.inputText.highlightOffset;
+    float x = highlightX; if (cursorX < x) x = cursorX;
+    float y = n->y + n->borderTop + n->padTop;
+    float width = fabs(cursorX - highlightX);
+    float height = n->height - n->borderTop - n->borderBottom - n->padTop - n->padBottom - 1;
+
+    float highlightR = 0.26f;
+    float highlightG = 0.54f;
+    float highlightB = 0.96f;
+
+    // top left
+    vertices->array[0].x = x;
+    vertices->array[0].y = y;
+    vertices->array[0].r = highlightR;
+    vertices->array[0].g = highlightG;
+    vertices->array[0].b = highlightB;
+
+    // top right
+    vertices->array[1].x = x + width;
+    vertices->array[1].y = y;
+    vertices->array[1].r = highlightR;
+    vertices->array[1].g = highlightG;
+    vertices->array[1].b = highlightB;
+
+    // bottom left
+    vertices->array[2].x = x;
+    vertices->array[2].y = y + height;
+    vertices->array[2].r = highlightR;
+    vertices->array[2].g = highlightG;
+    vertices->array[2].b = highlightB;
+
+    // bottom right
+    vertices->array[3].x = x + width;
+    vertices->array[3].y = y + height;
+    vertices->array[3].r = highlightR;
+    vertices->array[3].g = highlightG;
+    vertices->array[3].b = highlightB;
+
+    // indices
+    uint32_t* indices_write = indices->array;
+    *indices_write++ = 0;
+    *indices_write++ = 1;
+    *indices_write++ = 2;
+    *indices_write++ = 1;
+    *indices_write++ = 2;
+    *indices_write++ = 3;
+
+    vertices->size = 4;
+    indices->size = 6;
+}

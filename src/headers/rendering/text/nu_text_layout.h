@@ -275,34 +275,48 @@ void NU_Generate_Text_Mesh(Vertex_RGB_UV_List* vertices, Index_List* indices, NU
     }
 }
 
-void NU_GenerateFlatTextMesh(
-    Vertex_RGB_UV_List* vertices, 
-    Index_List* indices, 
-    NU_Font* font, 
-    const char* string,
-    float x, float y,
-    float r, float g, float b
-)
+u32 NU_Calculate_Unwrapped_Text_Cursorbytes(NU_Font* font, const char* string, float cursorX)
 {
-    int stringLen = strlen(string);
-    if (stringLen == 0) return;
+    if (!string || !*string) return 0;
 
-    // allocate extra space in vertex and index lists
-    uint32_t additionalVertices = 4 * stringLen;   
-    uint32_t additionalIndices = 6 * stringLen;
-    if (vertices->size + additionalVertices > vertices->capacity) Vertex_RGB_UV_List_Grow(vertices, additionalVertices);
-    if (indices->size + additionalIndices > indices->capacity) Index_List_Grow(indices, additionalIndices);
+    u32 cursorBytes = 0;
+    float width = 0.0f;
+    int byteIndex = 0;
+    u32 prevCp = 0;
 
-    // get first codepoint
-    NU_Glyph* firstGlyph = (NU_Glyph*)Vector_Get(&font->glyphs, string[0] - 32);
-
-    float penX = x - firstGlyph->bearingX;
-    float penY = y + font->ascent;
-    for (int i=0; i<stringLen; i++)
+    while (1)
     {
-        NU_Glyph* glyph = (NU_Glyph*)Vector_Get(&font->glyphs, string[i] - 32);
-        penX += (font->kerning_table[string[i-1] - 32][string[i] - 32]) * (float)i > 0; // Kerning
-        NU_Add_Glyph_Mesh(vertices, indices, glyph, penX, penY, r, g, b);
-        penX += glyph->advance;
+        int currentByteIndex = byteIndex;
+        u32 cp = NU_GetNextCodepoint(string, &byteIndex);
+        if (cp == 0) break; // end of string
+
+        // Lookup glyph (assumes font->glyphs starts at ASCII 32)
+        NU_Glyph* g = (NU_Glyph*)Vector_Get(&font->glyphs, cp - 32);
+        if (!g) continue; // skip missing glyphs
+
+        // Add kerning from previous glyph
+        if (prevCp) width += font->kerning_table[prevCp - 32][cp - 32];
+
+        float glyphStart = width;
+        float glyphEnd = width + g->advance;
+        float glyphMid = glyphStart + g->advance * 0.5f;
+
+        // Snap cursor to nearest glyph boundary
+        if (cursorX < glyphMid)
+        {
+            // Cursor is closer to this glyph's left edge
+            cursorBytes = currentByteIndex;
+            break;
+        }
+        else
+        {
+            // Cursor is closer to this glyph's right edge
+            cursorBytes = byteIndex;
+        }
+
+        width = glyphEnd;
+        prevCp = cp;
     }
+
+    return cursorBytes;
 }

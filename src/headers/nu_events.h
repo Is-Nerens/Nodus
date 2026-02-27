@@ -201,21 +201,24 @@ bool EventWatcher(void* data, SDL_Event* event)
             NodeP* inputNode = __NGUI.focused_node;
             NU_Font* font = Vector_Get(&__NGUI.stylesheet->fonts, inputNode->node.fontId);
             InputText* inputText = &inputNode->typeData.input.inputText;
-            SDL_Keymod mods = SDL_GetModState();
+            SDL_Keymod mods = event->key.mod;
 
             bool textChanged = false;
 
             // backspace pressed
             if (event->key.key == SDLK_BACKSPACE) {
+                // highlight + backspace
+                if (InputText_IsHighlighting(inputText)) {
+                    InputText_RemoveHighlightedText(inputText, inputNode, font);
+                    textChanged = true; __NGUI.awaiting_redraw = true;
+                }
                 // control + backspace
-                if (mods & SDL_KMOD_CTRL && InputText_BackspaceWord(inputText, inputNode, font)) {
-                    textChanged = true;
-                    __NGUI.awaiting_redraw = true;
+                else if (mods & SDL_KMOD_CTRL && InputText_BackspaceWord(inputText, inputNode, font)) {
+                    textChanged = true; __NGUI.awaiting_redraw = true;
                 }
                 // backspace
                 else if (InputText_Backspace(inputText, inputNode, font)) {
-                    textChanged = true;
-                    __NGUI.awaiting_redraw = true;
+                    textChanged = true; __NGUI.awaiting_redraw = true;
                 }
             }
 
@@ -233,6 +236,25 @@ bool EventWatcher(void* data, SDL_Event* event)
                 if (mods & SDL_KMOD_CTRL && InputText_MoveCursorRightSpan(inputText, inputNode, font)) __NGUI.awaiting_redraw = true;
                 // only backspace
                 else if (InputText_MoveCursorRight(inputText, inputNode, font)) __NGUI.awaiting_redraw = true;
+            }
+
+            // if control|command + c AND highliting text -> copy to clipboard
+            if (InputText_IsHighlighting(inputText)) {
+                if (event->key.key == SDLK_C && (mods & (SDL_KMOD_CTRL | SDL_KMOD_GUI))) {
+                    InputText_CopyToClipboard(inputText);
+                }
+            }
+
+            // if control|command + v -> paste
+            if (event->key.key == SDLK_V && (mods & (SDL_KMOD_CTRL | SDL_KMOD_GUI))) {
+                if (InputText_IsHighlighting(inputText)) {
+                    InputText_RemoveHighlightedText(inputText, inputNode, font);
+                    InputText_PasteFromClipboard(inputText, inputNode, font);
+                } 
+                else {
+                    InputText_PasteFromClipboard(inputText, inputNode, font);
+                }
+                textChanged = true; __NGUI.awaiting_redraw = true;
             }
 
             if (textChanged) {
@@ -257,7 +279,18 @@ bool EventWatcher(void* data, SDL_Event* event)
         NodeP* focusedNode = __NGUI.focused_node;
         if (focusedNode->type == NU_INPUT) {
             NU_Font* font = Vector_Get(&__NGUI.stylesheet->fonts, focusedNode->node.fontId);
-            int updated = InputText_Write(&focusedNode->typeData.input.inputText, focusedNode, font, event->text.text);
+            InputText* inputText = &focusedNode->typeData.input.inputText;
+            
+            int updated = 0;
+            if (InputText_IsHighlighting(inputText)) {
+                InputText_RemoveHighlightedText(inputText, focusedNode, font);
+                InputText_Write(inputText, focusedNode, font, event->text.text);
+                updated = 1;
+            }
+            else {
+                updated = InputText_Write(inputText, focusedNode, font, event->text.text);
+            }
+            
             if (updated && focusedNode->node.eventFlags & NU_EVENT_FLAG_ON_INPUT_CHANGED) {
                 Node* node = &__NGUI.focused_node->node;
                 void* found_cb = HashmapGet(&__NGUI.on_input_changed_events, &node);
@@ -365,8 +398,10 @@ bool EventWatcher(void* data, SDL_Event* event)
         // if focused on text input -> update highlighting
         if (__NGUI.focused_node != NULL && __NGUI.focused_node->type == NU_INPUT) {
             NodeP* node = __NGUI.focused_node;
-            // update mouse offset
-            node->typeData.input.inputText.mouseOffset = mouseX - (node->node.x + node->node.borderLeft + node->node.padLeft);
+            NU_Font* font = Vector_Get(&__NGUI.stylesheet->fonts, node->node.fontId);
+            if (InputText_MouseDrag(&node->typeData.input.inputText, node, font, mouseX)) {
+                __NGUI.awaiting_redraw = true;
+            }
         }
     }
     // ------------------------------------------------------------------------------------
@@ -389,19 +424,18 @@ bool EventWatcher(void* data, SDL_Event* event)
         }
 
         // Get mouse down coordinates
+        int win_x, win_y; 
         SDL_GetGlobalMouseState(&__NGUI.mouse_down_global_x, &__NGUI.mouse_down_global_y);
+        SDL_GetWindowPosition(__NGUI.winManager.hoveredWindow, &win_x, &win_y);
+        float mouse_x = __NGUI.mouse_down_global_x - win_x;
+        float mouse_y = __NGUI.mouse_down_global_y - win_y;
 
         // Set mouse down node
         __NGUI.mouse_down_node = __NGUI.hovered_node;
 
         // If mouse is hovered over scroll thumb -> set scroll mouse down node
         if (__NGUI.scroll_hovered_node != NULL) 
-        {
-            int win_x, win_y; 
-            SDL_GetWindowPosition(__NGUI.scroll_hovered_node->node.window, &win_x, &win_y);
-            float mouse_x = __NGUI.mouse_down_global_x - win_x;
-            float mouse_y = __NGUI.mouse_down_global_y - win_y;
-            
+        {    
             if (NU_Mouse_Over_Node_V_Scrollbar(__NGUI.scroll_hovered_node, mouse_x, mouse_y)) 
             {
                 __NGUI.scroll_mouse_down_node = __NGUI.scroll_hovered_node;
@@ -428,12 +462,8 @@ bool EventWatcher(void* data, SDL_Event* event)
             {
                 Node* node = &__NGUI.mouse_down_node->node;
                 void* found_cb = HashmapGet(&__NGUI.on_mouse_down_events, &node);
-                if (found_cb != NULL) {
-                    int win_x, win_y; 
-                    SDL_GetWindowPosition(__NGUI.mouse_down_node->node.window, &win_x, &win_y);
-                    float mouse_x = __NGUI.mouse_down_global_x - win_x;
-                    float mouse_y = __NGUI.mouse_down_global_y - win_y;
-                    
+                if (found_cb != NULL) 
+                {                   
                     struct NU_Callback_Info* cb_info = (struct NU_Callback_Info*)found_cb;
                     cb_info->event.mouse.mouse_btn = (int)event->button.button;
                     cb_info->event.mouse.mouse_x = mouse_x;
@@ -454,10 +484,12 @@ bool EventWatcher(void* data, SDL_Event* event)
 
         // Focus on node
         if (__NGUI.focused_node != NULL) {
+            NU_Font* font = Vector_Get(&__NGUI.stylesheet->fonts, __NGUI.focused_node->node.fontId);
 
             // Focus on input node
             if (__NGUI.focused_node->type == NU_INPUT) {
-                InputText_Focus(&__NGUI.focused_node->typeData.input.inputText); 
+                InputText_Focus(&__NGUI.focused_node->typeData.input.inputText, __NGUI.focused_node, font); 
+                InputText_MousePlaceCursor(&__NGUI.focused_node->typeData.input.inputText, __NGUI.focused_node, font, mouse_x);
                 SDL_StartTextInput(__NGUI.focused_node->node.window);
             } else {
                 SDL_StopTextInput(__NGUI.hovered_node->node.window);
@@ -524,6 +556,12 @@ bool EventWatcher(void* data, SDL_Event* event)
 
             // There is no longer a pressed node
             __NGUI.mouse_down_node = NULL;
+        }
+
+        // if focused on input text node
+        if (__NGUI.focused_node != NULL && __NGUI.focused_node->type == NU_INPUT) {
+            InputText_MouseUp(&__NGUI.focused_node->typeData.input.inputText);
+            __NGUI.awaiting_redraw = true;
         }
     }
     // ------------------------------------------------------------------------------------

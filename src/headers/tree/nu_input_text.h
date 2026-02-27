@@ -445,7 +445,15 @@ int InputText_MouseDrag(InputText* text, NodeP* node, NU_Font* font, float mouse
     return prevHighlightBytes != text->highlightBytes;
 }
 
-inline void InputText_CopyToClipboard(InputText* text)
+void InputText_SelectAll(InputText* text, NU_Font* font)
+{
+    text->highlightBytes = 0;
+    text->cursorBytes = text->numBytes;
+    text->highlightOffset = 0.0f;
+    text->cursorOffset = NU_Calculate_Text_Unwrapped_Width(font, text->buffer) - text->textOffset;
+}
+
+void InputText_CopyToClipboard(InputText* text)
 {
     // Compute highlight start and end
     u16 highlightStart = text->highlightBytes;

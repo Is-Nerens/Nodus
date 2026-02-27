@@ -33,8 +33,8 @@ void InputText_Init(InputText* text)
     text->textOffset = 0.0f;
     text->highlightBytes = 0; // highlighted region is from highlightBytes to cursorBytes
     text->decimalByteIndex = -1;
-    text->dragging = false;
     text->type = 0;
+    text->dragging = false;
 }
 
 // Frees the underlying UTF8 string memory

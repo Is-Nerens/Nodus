@@ -4,11 +4,19 @@
 
 void NU_DissociateNode(NodeP* node)
 {
-    if (node->type == NU_WINDOW) {
-        SDL_DestroyWindow(node->node.window);
-    }
-    if (node->type == NU_CANVAS) {
-        HashmapDelete(&__NGUI.canvas_contexts, &node->node);
+    switch(node->type) {
+        case NU_WINDOW:
+            SDL_DestroyWindow(node->node.window);
+            break;
+        case NU_CANVAS:
+            NU_FreeCanvasContext(&node->node);
+            HashmapDelete(&__NGUI.canvas_contexts, &node->node);
+            break;
+        case NU_INPUT:
+            InputText_Free(&node->typeData.input.inputText);
+            break;
+        default:
+            break;
     }
     if (node->node.id != NULL) {
         StringmapDelete(&__NGUI.id_node_map, node->node.id);

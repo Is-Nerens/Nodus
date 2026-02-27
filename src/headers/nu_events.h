@@ -257,6 +257,12 @@ bool EventWatcher(void* data, SDL_Event* event)
                 textChanged = true; __NGUI.awaiting_redraw = true;
             }
 
+            // if control|command + a -> select all
+            if (event->key.key == SDLK_A && (mods & (SDL_KMOD_CTRL | SDL_KMOD_GUI))) {
+                InputText_SelectAll(inputText, font);
+                __NGUI.awaiting_redraw = true;
+            }
+
             if (textChanged) {
 
                 // Trigger On input changed event

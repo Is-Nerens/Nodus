@@ -12,6 +12,20 @@ void NU_Add_Canvas_Context(Node* node)
     HashmapSet(&__NGUI.canvas_contexts, &node, &ctx);
 }
 
+void NU_FreeCanvasContext(Node* canvas)
+{
+    NU_Canvas_Context* ctx = HashmapGet(&__NGUI.canvas_contexts, &canvas);
+
+    // Free vertices and indices of each layer
+    for (uint32_t i=0; i<ctx->canvasLayers.size; i++) {
+        CanvasLayer* layer = Vector_Get(&ctx->canvasLayers, i);
+        if (layer->type == NU_CANVAS_SHAPE_LAYER) Vertex_RGB_List_Free(&layer->vertexData.shapeVertices);
+        else Vertex_RGB_UV_List_Free(&layer->vertexData.textVertices);
+        Index_List_Free(&layer->indices);
+    }
+    Vector_Free(&ctx->canvasLayers);
+}
+
 void NU_Internal_Clear_Canvas(Node* canvas)
 {
     NU_Canvas_Context* ctx = HashmapGet(&__NGUI.canvas_contexts, &canvas);

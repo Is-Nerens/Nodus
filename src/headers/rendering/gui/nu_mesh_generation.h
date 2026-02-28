@@ -482,7 +482,7 @@ void NU_ConstructInputHighlightMesh(
     float x = highlightX; if (cursorX < x) x = cursorX;
     float y = n->y + n->borderTop + n->padTop;
     float width = fabs(cursorX - highlightX);
-    float height = n->height - n->borderTop - n->borderBottom - n->padTop - n->padBottom - 1;
+    float height = n->height - n->borderTop - n->borderBottom - n->padTop - n->padBottom;
 
     float highlightR = 0.26f;
     float highlightG = 0.54f;

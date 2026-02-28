@@ -142,7 +142,7 @@ float NU_Calculate_FreeText_Height_From_Wrap_Width(NU_Font* font, const char* st
         }
     }
 
-    return wraps * font->line_height + font->ascent - font->descent;
+    return (wraps + 1) * font->line_height;
 }
 
 float NU_Calculate_Text_Unwrapped_Width(NU_Font* font, const char* string)

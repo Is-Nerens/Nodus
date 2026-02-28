@@ -23,16 +23,14 @@ Nodus requires: [stb_image](https://github.com/nothings/stb/blob/master/stb_imag
 
 ### Features Still In Development
 - Text inputs
-- Auto scroll behaviour
 - Scrollbar customisation
 - DPI Scalling
-- Expanded canvas API functionality (text, and more tools)
+- Expanded canvas API functionality
 - XML components: reusable UI components constructed from xml template files
 - Linux and MacOS support
 - Debugging tools
 - Library Documentation
-- Dependency Reduction (if possible)
-- Pseudo styles do not apply to id selectors
+- Pseudo styles do not apply to id and class selectors
 
 <br>
 

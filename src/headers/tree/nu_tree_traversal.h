@@ -64,6 +64,21 @@ int DepthFirstSearch_Next(DepthFirstSearch* dfs, NodeP** nodeOut)
     return 0;
 }
 
+DepthFirstSearch DepthFirstSearch_Reserve()
+{
+    DepthFirstSearch dfs;
+    dfs.capacity = 64;
+    dfs.size = 0;
+    dfs.stack = malloc(sizeof(DFSFrame) * dfs.capacity);
+    return dfs;
+}
+
+void DepthFirstSearch_Reset(DepthFirstSearch* dfs, NodeP* root)
+{
+    dfs->stack[0] = (DFSFrame){ .node = root, .nextChild = root->firstChild };
+    dfs->size = 1;
+}
+
 void DepthFirstSearch_Free(DepthFirstSearch* dfs)
 {
     free(dfs->stack);

@@ -543,6 +543,8 @@ static void NU_GrowShrinkHeights(BreadthFirstSearch* bfs, bool includeNodeScroll
 
 static void NU_CalculateTableColumnWidths(BreadthFirstSearch* bfs, bool includeNodeScrollbarThickness)
 {
+    DepthFirstSearch flexWidthDFS = DepthFirstSearch_Reserve();
+
     NodeP* node;
     while(BreadthFirstSearch_Next(bfs, &node)) {
         if (node->state == 2 || node->type != NU_TABLE || node->childCount == 0) continue;
@@ -625,20 +627,34 @@ static void NU_CalculateTableColumnWidths(BreadthFirstSearch* bfs, bool includeN
             int cellIndex = 0;
             NodeP* cell = row->firstChild;
             while(cell != NULL) {
-                if (cell->state == 2) {
-                    cell = cell->nextSibling; continue;
-                }
+
+                // Ignore hidden cells
+                if (cell->state == 2) { cell = cell->nextSibling; continue; }
+
+                // Compute and set cell width
                 float column_width = *(float*)Vector_Get(&widest_cell_in_each_column, cellIndex);
                 float proportion = column_width / (used_table_width);
                 cell->node.width = column_width + (remaining_table_inner_width - row_border_pad_gap) * proportion;
+                
+                // Grow subtree in cell
+                NodeP* dfsNode;
+                DepthFirstSearch_Reset(&flexWidthDFS, cell);
+                while(DepthFirstSearch_Next(&flexWidthDFS, &dfsNode)) {
+                    NU_GrowShrinkChildWidths(dfsNode, includeNodeScrollbarThickness);
+                }
+
+                // Move to the next cell
                 cellIndex++;
                 cell = cell->nextSibling;
             }
 
+            // Move to the next row
             row = row->nextSibling;
         }
         Vector_Free(&widest_cell_in_each_column);
     }
+
+    DepthFirstSearch_Free(&flexWidthDFS);
 }
 
 static void NU_CalculateTextHeights(BreadthFirstSearch* bfs)

@@ -16,10 +16,6 @@ __declspec(dllexport) int NU_Running(void) {
     return NU_Internal_Running();
 }
 
-__declspec(dllexport) void NU_Unblock(void) {
-    NU_Internal_Unblock();
-}
-
 // ----------------------------
 // --- Stylesheet functions ---
 // ----------------------------

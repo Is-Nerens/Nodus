@@ -60,7 +60,7 @@ typedef uint64_t u64;
 #define PROPERTY_FLAG_INPUT_TYPE        (1ULL << 39)
 
 
-#define NODEP_OF(ptr, type, member) ((type *)((char *)(ptr) - offsetof(type, member)))
+#define NODEP_OF(ptr) ((NodeP *)((char *)(ptr) - offsetof(NodeP, node)))
 
 typedef enum NodeType
 {

@@ -958,4 +958,6 @@ void NU_Layout()
         BreadthFirstSearch_Free(&bfs);
         ReverseBreadthFirstSearch_Free(&rbfs);
     }
+
+    __NGUI.recalculate_mouse_hover = true;
 }

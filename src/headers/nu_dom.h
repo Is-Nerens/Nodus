@@ -43,6 +43,9 @@ void NU_DissociateNode(NodeP* node)
     if (node->node.eventFlags & NU_EVENT_FLAG_ON_MOUSE_UP) {
         HashmapDelete(&__NGUI.on_mouse_up_events, &node);
     }
+    if (node->node.eventFlags & NU_EVENT_FLAG_ON_MOUSE_DOWN_OUTSIDE) {
+        HashmapDelete(&__NGUI.on_mouse_down_outside_events, &node);
+    }
     if (node->node.eventFlags & NU_EVENT_FLAG_ON_MOUSE_MOVED) {
         HashmapDelete(&__NGUI.on_mouse_move_events, &node);
     }
@@ -117,14 +120,14 @@ void NU_Reorder_In_Parent(NodeP* node, uint32_t index)
 
 inline Node* PARENT(Node* node)
 {
-    NodeP* nodeP = NODEP_OF(node, NodeP, node); // clever macro stuff
+    NodeP* nodeP = NODEP_OF(node); // clever macro stuff
     if (nodeP->parent == NULL) return NULL;
     return &nodeP->parent->node;
 }
 
 inline Node* CHILD(Node* node, u32 childIndex)
 {
-    NodeP* nodeP = NODEP_OF(node, NodeP, node); // clever macro stuff
+    NodeP* nodeP = NODEP_OF(node); // clever macro stuff
     if (nodeP == NULL || childIndex >= nodeP->childCount) return NULL;
     NodeP* child = nodeP->firstChild;
     u32 i = 0;
@@ -138,20 +141,20 @@ inline Node* CHILD(Node* node, u32 childIndex)
 
 inline u32 CHILD_COUNT(Node* node)
 {
-    NodeP* nodeP = NODEP_OF(node, NodeP, node); // clever macro stuff
+    NodeP* nodeP = NODEP_OF(node); // clever macro stuff
     return nodeP->childCount;
 }
 
 inline int DEPTH(Node* node)
 {
-    NodeP* nodeP = NODEP_OF(node, NodeP, node); // clever macro stuff
+    NodeP* nodeP = NODEP_OF(node); // clever macro stuff
     return (int)(nodeP->layer);
 }
 
 inline Node* CREATE_NODE(Node* parent, NodeType type)
 { 
     if (parent == NULL || type == NU_WINDOW) return NULL; // Nodus doesn't yet support window creation
-    NodeP* parentP = NODEP_OF(parent, NodeP, node); // clever macro stuff
+    NodeP* parentP = NODEP_OF(parent); // clever macro stuff
     NodeP* node = TreeCreateNode(&__NGUI.tree, parentP, type);
     NU_Apply_Stylesheet_To_Node(node, __NGUI.stylesheet);
     return &node->node;
@@ -159,13 +162,13 @@ inline Node* CREATE_NODE(Node* parent, NodeType type)
 
 inline void DELETE_NODE(Node* node)
 {
-    NodeP* nodeP = NODEP_OF(node, NodeP, node); // clever macro stuff
+    NodeP* nodeP = NODEP_OF(node); // clever macro stuff
     return TreeDeleteNode(&__NGUI.tree, nodeP, NU_DissociateNode);
 }
 
 inline const char* INPUT_TEXT_CONTENT(Node* node)
 {
-    NodeP* nodeP = NODEP_OF(node, NodeP, node); // clever macro stuff
+    NodeP* nodeP = NODEP_OF(node); // clever macro stuff
     if (nodeP->type != NU_INPUT) return NULL;
     return nodeP->typeData.input.inputText.buffer;
 }

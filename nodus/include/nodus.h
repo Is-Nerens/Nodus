@@ -64,6 +64,7 @@ enum NU_Event_Type
     NU_EVENT_ON_RESIZE,
     NU_EVENT_ON_MOUSE_DOWN,
     NU_EVENT_ON_MOUSE_UP,
+    NU_EVENT_ON_MOUSE_DOWN_OUTSIDE,
     NU_EVENT_ON_MOUSE_MOVED,
     NU_EVENT_ON_MOUSE_IN,
     NU_EVENT_ON_MOUSE_OUT,
@@ -105,7 +106,6 @@ struct NU_Callback_Info
 __declspec(dllimport) int NU_Create_Gui(char* xml_filepath, char* css_filepath);
 __declspec(dllimport) void NU_Quit(void);
 __declspec(dllimport) int NU_Running(void);
-__declspec(dllimport) void NU_Unblock(void);
 
 // Stylesheet functions
 __declspec(dllimport) uint32_t NU_Load_Stylesheet(char* css_filepath);

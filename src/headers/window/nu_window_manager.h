@@ -59,6 +59,17 @@ inline void GetWindowSize(SDL_Window* window, float* wOut, float* hOut)
     *wOut = (float)w; *hOut = (float)h;
 }
 
+int GetFrametime()
+{
+    int frameTimeMs = 16;
+    SDL_DisplayID display = SDL_GetPrimaryDisplay();
+    const SDL_DisplayMode* mode = SDL_GetCurrentDisplayMode(display);
+    if (mode && mode->refresh_rate > 0) {
+        frameTimeMs = 1000 / mode->refresh_rate;
+    }
+    return frameTimeMs;
+}
+
 void AssignRootWindow(NU_WindowManager* winManager, NodeP* rootNode)
 {
     SDL_Window* window = *(SDL_Window**)Vector_Get(&winManager->windows, 0);

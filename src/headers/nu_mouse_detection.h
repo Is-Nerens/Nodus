@@ -77,13 +77,45 @@ static bool NU_Mouse_Over_Node_V_Scrollbar(NodeP* node, float mouse_x, float mou
     return within_x_bound && within_y_bound;
 }
 
+inline void TriggerOnMouseOutEvent(Node* node, float mouseX, float mouseY)
+{
+    // on mouse out event triggered
+    void* found_cb = HashmapGet(&__NGUI.on_mouse_out_events, &node);
+    if (found_cb != NULL) {
+        struct NU_Callback_Info* cb_info = (struct NU_Callback_Info*)found_cb;
+        cb_info->event.mouse.mouseBtn = -1;
+        cb_info->event.mouse.mouseX = mouseX;
+        cb_info->event.mouse.mouseY = mouseY;
+        cb_info->event.mouse.deltaX = 0.0f;
+        cb_info->event.mouse.deltaY = 0.0f;
+        cb_info->event.mouse.wheelDelta = 0.0f;
+        cb_info->callback(cb_info->event, cb_info->args);
+    }
+}
+
+inline void TriggerOnMouseInEvent(Node* node, float mouseX, float mouseY)
+{
+    // on mouse out event triggered'
+    void* found_cb = HashmapGet(&__NGUI.on_mouse_in_events, &node);
+    if (found_cb != NULL) {
+        struct NU_Callback_Info* cb_info = (struct NU_Callback_Info*)found_cb;
+        cb_info->event.mouse.mouseBtn = -1;
+        cb_info->event.mouse.mouseX = mouseX;
+        cb_info->event.mouse.mouseY = mouseY;
+        cb_info->event.mouse.deltaX = 0.0f;
+        cb_info->event.mouse.deltaY = 0.0f;
+        cb_info->event.mouse.wheelDelta = 0.0f;
+        cb_info->callback(cb_info->event, cb_info->args);
+    }
+}
+
 void NU_Mouse_Hover()
 {   
     // remove potential pseudo style from current hovered node
     if (__NGUI.hovered_node != NULL && __NGUI.hovered_node != __NGUI.mouse_down_node) {
         NU_Apply_Stylesheet_To_Node(__NGUI.hovered_node, __NGUI.stylesheet);
     }
-    NodeP* prev_hovered_node = __NGUI.hovered_node;
+    __NGUI.prev_hovered_node = __NGUI.hovered_node;
     __NGUI.hovered_node = NULL;
     __NGUI.scroll_hovered_node = NULL;
     if (__NGUI.winManager.hoveredWindow == NULL) return;
@@ -153,11 +185,31 @@ void NU_Mouse_Hover()
     // apply pseudo style to hovered node
     if (__NGUI.hovered_node != NULL && __NGUI.hovered_node != __NGUI.mouse_down_node) {
         NU_Apply_Pseudo_Style_To_Node(__NGUI.hovered_node, __NGUI.stylesheet, PSEUDO_HOVER);
+        __NGUI.awaiting_redraw = true;
     } 
     Vector_Free(&stack);
 
     // hovered node changed -> must redraw later
-    if (prev_hovered_node != __NGUI.hovered_node) {
+    if (__NGUI.prev_hovered_node != __NGUI.hovered_node) {
         __NGUI.awaiting_redraw = true;
     }
+
+
+    // on mouse in event triggered
+    if (__NGUI.hovered_node != NULL &&
+        __NGUI.prev_hovered_node != __NGUI.hovered_node && 
+        __NGUI.hovered_node->node.eventFlags & NU_EVENT_FLAG_ON_MOUSE_IN)
+    {
+        TriggerOnMouseInEvent(&__NGUI.hovered_node->node, mouseX, mouseY);
+    }
+
+    // on mouse out event triggered
+    if (__NGUI.prev_hovered_node != NULL && 
+        __NGUI.prev_hovered_node != __NGUI.hovered_node && 
+        __NGUI.prev_hovered_node->node.eventFlags & NU_EVENT_FLAG_ON_MOUSE_OUT)
+    {
+        TriggerOnMouseOutEvent(&__NGUI.prev_hovered_node->node, mouseX, mouseY);
+    }
+
+    __NGUI.recalculate_mouse_hover = false;
 }

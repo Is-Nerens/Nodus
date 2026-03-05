@@ -102,7 +102,10 @@ struct NU_GUI __NGUI;
 #include "cursor.h"
 
 void NU_Internal_Set_Class(Node* node, char* class)
-{
+{   
+    if (class == node->class) return;
+
+    char* prevNodeClass = node->class;
     node->class = NULL;
     NodeP* nodeP = NODEP_OF(node);
 
@@ -121,6 +124,7 @@ void NU_Internal_Set_Class(Node* node, char* class)
     }
 
     // Update styling
+    if (prevNodeClass != NULL) NU_Apply_Default_Style_To_Node(nodeP);
     NU_Apply_Stylesheet_To_Node(nodeP, __NGUI.stylesheet);
     if (nodeP == __NGUI.scroll_mouse_down_node) {
         NU_Apply_Pseudo_Style_To_Node(nodeP, __NGUI.stylesheet, PSEUDO_PRESS);
@@ -241,13 +245,6 @@ int NU_Internal_Running()
     SDL_WaitEventTimeout(&event, GetFrametime());
 
     return 1;
-}
-
-void NU_Internal_Unblock()
-{
-    SDL_LockMutex(__NGUI.unblock_mutex);
-    __NGUI.unblock = true;
-    SDL_UnlockMutex(__NGUI.unblock_mutex);
 }
 
 void NU_Internal_Render()

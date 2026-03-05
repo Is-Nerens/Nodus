@@ -100,6 +100,11 @@ __declspec(dllexport) Node* NU_CREATE_NODE(Node* parent, NodeType type) {
 __declspec(dllexport) void NU_DELETE_NODE(Node* node) {
     DELETE_NODE(node);
 }
+
+__declspec(dllexport) void NU_SHIFT_NODE_IN_PARENT(Node* node, int index) {
+    SHIFT_NODE_IN_PARENT(node, index);
+}
+
 __declspec(dllexport) const char* NU_INPUT_TEXT_CONTENT(Node* node) {
     return INPUT_TEXT_CONTENT(node);
 }

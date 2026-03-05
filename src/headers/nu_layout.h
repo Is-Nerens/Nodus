@@ -579,7 +579,6 @@ static void NU_CalculateTableColumnWidths(BreadthFirstSearch* bfs, bool includeN
                 float* val = Vector_Get(&widest_cell_in_each_column, cellIndex);
                 if (cell->node.width > *val) {
                     *val = cell->node.width;
-                    float w = cell->node.padLeft + cell->node.padRight + cell->node.borderLeft + cell->node.borderRight + cell->node.contentWidth;
                 }
                 cellIndex++;
                 cell = cell->nextSibling;

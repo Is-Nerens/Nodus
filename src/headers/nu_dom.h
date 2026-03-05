@@ -166,6 +166,12 @@ inline void DELETE_NODE(Node* node)
     return TreeDeleteNode(&__NGUI.tree, nodeP, NU_DissociateNode);
 }
 
+inline void SHIFT_NODE_IN_PARENT(Node* node, int index)
+{   
+    NodeP* nodeP = NODEP_OF(node); // clever macro stuff
+    TreeShiftNodeInParent(&__NGUI.tree, nodeP, index);
+}
+
 inline const char* INPUT_TEXT_CONTENT(Node* node)
 {
     NodeP* nodeP = NODEP_OF(node); // clever macro stuff

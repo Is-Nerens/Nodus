@@ -47,7 +47,7 @@ static void NU_Apply_Style_Item_To_Node(NodeP* node, NU_Stylesheet_Item* item)
     if (STYLE_SHOULD_APPLY_TO_NODE(PROPERTY_FLAG_HORIZONTAL_SCROLL)) STYLE_APPLY_LAYOUT_FLAG(OVERFLOW_HORIZONTAL_SCROLL); // Overflow horizontal scroll (or not)
     if (STYLE_SHOULD_APPLY_TO_NODE(PROPERTY_FLAG_POSITION_ABSOLUTE)) STYLE_APPLY_LAYOUT_FLAG(POSITION_ABSOLUTE); // Absolute positioning (or not)
     if (STYLE_SHOULD_APPLY_TO_NODE(PROPERTY_FLAG_HIDDEN)) STYLE_APPLY_LAYOUT_FLAG(HIDDEN); // Hidden or not
-    if (STYLE_SHOULD_APPLY_TO_NODE(PROPERTY_FLAG_IGNORE_MOUSE)) STYLE_APPLY_LAYOUT_FLAG(IGNORE_MOUSE); // Ignore mouse or not
+    if (STYLE_SHOULD_APPLY_TO_NODE(PROPERTY_FLAG_IGNORE_MOUSE)) STYLE_APPLY_LAYOUT_FLAG(IGNORE_MOUSE);
     if (STYLE_SHOULD_APPLY_TO_NODE(PROPERTY_FLAG_GAP)) node->node.gap = item->gap;
     if (STYLE_SHOULD_APPLY_TO_NODE(PROPERTY_FLAG_PREFERRED_WIDTH)) node->node.preferred_width = item->preferred_width;
     if (STYLE_SHOULD_APPLY_TO_NODE(PROPERTY_FLAG_MIN_WIDTH)) node->node.minWidth = item->minWidth;
@@ -63,12 +63,12 @@ static void NU_Apply_Style_Item_To_Node(NodeP* node, NU_Stylesheet_Item* item)
     if (STYLE_SHOULD_APPLY_TO_NODE(PROPERTY_FLAG_RIGHT)) node->node.right = item->right;
     if (STYLE_SHOULD_APPLY_TO_NODE(PROPERTY_FLAG_TOP)) node->node.top = item->top;
     if (STYLE_SHOULD_APPLY_TO_NODE(PROPERTY_FLAG_BOTTOM)) node->node.bottom = item->bottom;
-    if (STYLE_SHOULD_APPLY_TO_NODE(PROPERTY_FLAG_BACKGROUND) && !(node->node.inlineStyleFlags & PROPERTY_FLAG_HIDE_BACKGROUND)) {
+    if (STYLE_SHOULD_APPLY_TO_NODE(PROPERTY_FLAG_BACKGROUND)) {
         node->node.backgroundR = item->backgroundR;
         node->node.backgroundG = item->backgroundG;
         node->node.backgroundB = item->backgroundB;
     }
-    if (STYLE_SHOULD_APPLY_TO_NODE(PROPERTY_FLAG_HIDE_BACKGROUND) && !(node->node.inlineStyleFlags & PROPERTY_FLAG_BACKGROUND)) STYLE_APPLY_LAYOUT_FLAG(HIDE_BACKGROUND); // Hide background (or not)
+    if (STYLE_SHOULD_APPLY_TO_NODE(PROPERTY_FLAG_HIDE_BACKGROUND)) STYLE_APPLY_LAYOUT_FLAG(HIDE_BACKGROUND); // Hide background (or not)
     if (STYLE_SHOULD_APPLY_TO_NODE(PROPERTY_FLAG_BORDER_COLOUR)) {
         node->node.borderR = item->borderR;
         node->node.borderG = item->borderG;
@@ -94,6 +94,11 @@ static void NU_Apply_Style_Item_To_Node(NodeP* node, NU_Stylesheet_Item* item)
     if (STYLE_SHOULD_APPLY_TO_NODE(PROPERTY_FLAG_IMAGE)) node->typeData.image.glImageHandle = item->glImageHandle;
     if (STYLE_SHOULD_APPLY_TO_NODE(PROPERTY_FLAG_INPUT_TYPE)) node->typeData.input.inputText.type = item->inputType;
     node->node.fontId = item->fontId; // set font 
+}
+
+void NU_Apply_Default_Style_To_Node(NodeP* node)
+{
+    NU_Apply_Style_Item_To_Node(node, &__NGUI.stylesheet->defaultStyleItem);
 }
 
 void NU_Apply_Stylesheet_To_Node(NodeP* node, NU_Stylesheet* ss)

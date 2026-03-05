@@ -26,6 +26,20 @@ void NU_Stylesheet_Init(NU_Stylesheet* ss)
     HashmapInit(&ss->id_pseudo_item_hashmap, sizeof(NU_Stylesheet_String_Pseudo_Pair), sizeof(uint32_t), 16);
     LinearStringmapInit(&ss->fontNameIndexMap, sizeof(int), 12, 128);
     Vector_Reserve(&ss->fonts, sizeof(NU_Font), 4);
+
+    // Create default style item
+    NU_Stylesheet_Item* item = &ss->defaultStyleItem;
+    memset(item, 0, sizeof(NU_Stylesheet_Item)); // Default struct to 0
+    item->propertyFlags = ~(uint64_t)0; // Set all bits to 1
+    item->propertyFlags &= ~PROPERTY_FLAG_IMAGE; // Clear
+    item->maxWidth = 10e20f;
+    item->maxHeight = 10e20f;
+    item->left = item->right = item->top = item->bottom = -1.0f;
+    item->backgroundR = item->backgroundG = item->backgroundB = 50;
+    item->borderR = item->borderG = item->borderB = 100;
+    item->textR = item->textG = item->textB = 255;
+    item->horizontalAlignment = 1;
+    item->verticalTextAlignment = 1;
 }
 
 void NU_Stylesheet_Free(NU_Stylesheet* ss)

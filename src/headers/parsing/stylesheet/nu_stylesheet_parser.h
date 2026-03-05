@@ -525,11 +525,17 @@ static int NU_Stylesheet_Parse(char* src, TokenArray* tokens, NU_Stylesheet* ss,
                             item.layoutFlags |= OVERFLOW_VERTICAL_SCROLL;
                             item.propertyFlags |= PROPERTY_FLAG_VERTICAL_SCROLL;
                         }
+                        else if (c == 'h') {
+                            item.propertyFlags |= PROPERTY_FLAG_VERTICAL_SCROLL;
+                        }
                         break;
                     
                     case STYLE_OVERFLOW_H_PROPERTY:
                         if (c == 's') {
                             item.layoutFlags |= OVERFLOW_HORIZONTAL_SCROLL;
+                            item.propertyFlags |= PROPERTY_FLAG_HORIZONTAL_SCROLL;
+                        } 
+                        else if (c == 'h') {
                             item.propertyFlags |= PROPERTY_FLAG_HORIZONTAL_SCROLL;
                         }
                         break;
@@ -539,13 +545,18 @@ static int NU_Stylesheet_Parse(char* src, TokenArray* tokens, NU_Stylesheet* ss,
                         if (strcmp(text, "absolute") == 0) {
                             item.layoutFlags |= POSITION_ABSOLUTE;
                             item.propertyFlags |= PROPERTY_FLAG_POSITION_ABSOLUTE;
+                        } else if (strcmp(text, "relative") == 0) {
+                            item.propertyFlags |= PROPERTY_FLAG_POSITION_ABSOLUTE;
                         }
                         break;
 
                     // Hide/show
                     case STYLE_HIDE_PROPERTY:
-                        if (strcmp(text, "hide") == 0) {
+                        if (strcmp(text, "true") == 0) {
                             item.layoutFlags |= HIDDEN;
+                            item.propertyFlags |= PROPERTY_FLAG_HIDDEN;
+                        }
+                        else if (strcmp(text, "false") == 0) {
                             item.propertyFlags |= PROPERTY_FLAG_HIDDEN;
                         }
                         break;
@@ -554,6 +565,9 @@ static int NU_Stylesheet_Parse(char* src, TokenArray* tokens, NU_Stylesheet* ss,
                     case STYLE_IGNORE_MOUSE_PROPERTY:
                         if (strcmp(text, "true") == 0) {
                             item.layoutFlags |= IGNORE_MOUSE;
+                            item.propertyFlags |= PROPERTY_FLAG_IGNORE_MOUSE;
+                        }
+                        else if (strcmp(text, "false") == 0) {
                             item.propertyFlags |= PROPERTY_FLAG_IGNORE_MOUSE;
                         }
                         break;

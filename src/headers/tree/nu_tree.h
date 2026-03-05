@@ -113,6 +113,58 @@ NodeP* TreeCreateNode(Tree* tree, NodeP* parent, NodeType type)
     return newNode;
 }
 
+void TreeShiftNodeInParent(Tree* tree, NodeP* node, int index)
+{
+    if (!node || !node->parent) return;
+    NodeP* parent = node->parent;
+
+    if (parent->childCount <= 1) return;
+
+    // Clamp index
+    if (index < 0) index = 0;
+    if (index >= parent->childCount) index = parent->childCount - 1;
+
+    // Find current index
+    int currentIndex = 0;
+    NodeP* it = parent->firstChild;
+    while (it && it != node) {
+        it = it->nextSibling;
+        currentIndex++;
+    }
+
+    if (!it) return;                 // not found (shouldn't happen)
+    if (currentIndex == index) return;  // already in position
+
+    // Detach from sibling chain 
+    if (node->prevSibling) node->prevSibling->nextSibling = node->nextSibling;
+    else parent->firstChild = node->nextSibling;
+
+    if (node->nextSibling) node->nextSibling->prevSibling = node->prevSibling;
+    else parent->lastChild = node->prevSibling;
+
+    node->prevSibling = NULL;
+    node->nextSibling = NULL;
+
+    // Reinsert at new index
+    if (index == 0) {
+        node->nextSibling = parent->firstChild;
+        parent->firstChild->prevSibling = node;
+        parent->firstChild = node;
+    }
+    else {
+        NodeP* at = parent->firstChild;
+        for (int i=0; i<index; i++) { 
+            at = at->nextSibling; 
+        }
+        node->prevSibling = at->prevSibling;
+        node->nextSibling = at;
+        at->prevSibling->nextSibling = node;
+        at->prevSibling = node;
+    }
+
+    if (index == parent->childCount - 1) parent->lastChild = node;
+}
+
 void TreeDeleteLeaf(Tree* tree, NodeP* leaf, TreeDeleteCallback deleteCB)
 {
     tree->nodeCount--;

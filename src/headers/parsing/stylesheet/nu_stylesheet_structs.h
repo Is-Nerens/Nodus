@@ -12,21 +12,6 @@ typedef struct NU_Stylesheet_String_Pseudo_Pair
     int pseudo_class;
 } NU_Stylesheet_String_Pseudo_Pair;
 
-typedef struct NU_Stylesheet
-{
-    struct Vector items;
-    LinearStringset class_string_set;
-    LinearStringset id_string_set;
-    struct Hashmap class_item_hashmap;
-    struct Hashmap id_item_hashmap;
-    struct Hashmap tag_item_hashmap;
-    struct Hashmap tag_pseudo_item_hashmap; 
-    struct Hashmap class_pseudo_item_hashmap;
-    struct Hashmap id_pseudo_item_hashmap;
-    LinearStringmap fontNameIndexMap;
-    Vector fonts;
-} NU_Stylesheet;
-
 typedef struct NU_Stylesheet_Item
 {
     uint64_t propertyFlags;
@@ -53,6 +38,22 @@ typedef struct NU_Stylesheet_Item
     char verticalTextAlignment;
     u8 inputType;
 } NU_Stylesheet_Item;
+
+typedef struct NU_Stylesheet
+{
+    struct Vector items;
+    LinearStringset class_string_set;
+    LinearStringset id_string_set;
+    struct Hashmap class_item_hashmap;
+    struct Hashmap id_item_hashmap;
+    struct Hashmap tag_item_hashmap;
+    struct Hashmap tag_pseudo_item_hashmap; 
+    struct Hashmap class_pseudo_item_hashmap;
+    struct Hashmap id_pseudo_item_hashmap;
+    LinearStringmap fontNameIndexMap;
+    Vector fonts;
+    NU_Stylesheet_Item defaultStyleItem;
+} NU_Stylesheet;
 
 struct Style_Text_Ref
 {

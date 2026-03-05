@@ -153,6 +153,8 @@ void NU_ApplyNodeDefaults(NodeP* node)
     node->node.class = NULL;
     node->node.id = NULL;
     node->node.textContent = NULL;
+
+    node->node.layoutFlags = 0;
     node->node.maxWidth = 10e20f;
     node->node.maxHeight = 10e20f;
     node->node.left = node->node.right = node->node.top = node->node.bottom = -1.0f;

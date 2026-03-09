@@ -100,13 +100,15 @@ __declspec(dllexport) Node* NU_CREATE_NODE(Node* parent, NodeType type) {
 __declspec(dllexport) void NU_DELETE_NODE(Node* node) {
     DELETE_NODE(node);
 }
-
 __declspec(dllexport) void NU_SHIFT_NODE_IN_PARENT(Node* node, int index) {
     SHIFT_NODE_IN_PARENT(node, index);
 }
-
 __declspec(dllexport) const char* NU_INPUT_TEXT_CONTENT(Node* node) {
     return INPUT_TEXT_CONTENT(node);
+}
+__declspec(dllexport) Node* NU_HOVERED_NODE() {
+    if (!__NGUI.hovered_node) return NULL;
+    return &__NGUI.hovered_node->node;
 }
 __declspec(dllexport) void NU_HIDE(Node* node) {
     HIDE(node);
@@ -141,43 +143,62 @@ __declspec(dllexport) void NU_Register_Event(
 // -----------------------------
 // --- Canvas API functions ---
 // -----------------------------
-__declspec(dllexport) void NU_Clear_Canvas(Node* canvas) 
+__declspec(dllexport) int64_t NU_Get_Canvas_Ctx(Node* canvasNode)
 {
-    NU_Internal_Clear_Canvas(canvas);
+    return NU_Internal_Get_Canvas_Context(canvasNode);
+}
+
+__declspec(dllexport) void NU_Clear_Canvas(int contextID) 
+{
+    NU_Internal_Clear_Canvas(contextID);
 }
 
 __declspec(dllexport) void NU_Render() 
 {
     NU_Internal_Render();
 }
+
+__declspec(dllexport) NU_RGB NU_RGB_From_Hex(const char* hex)
+{
+    NU_RGB col = {1.0f, 1.0f, 1.0f};
+    if (hex == NULL) return col;
+    if (hex[0] == '#') hex++;
+    unsigned int r, g, b;
+    if (sscanf(hex, "%02x%02x%02x", &r, &g, &b) != 3) return col;
+    col.r = (float)r / 255.0f;
+    col.g = (float)g / 255.0f;
+    col.b = (float)b / 255.0f;
+    return col;
+}
+
 __declspec(dllexport) void NU_Border_Rect(
-    Node* canvas,
+    int contextID,
     float x, float y, float w, float h, 
     float thickness,
-    NU_RGB* border_col,
-    NU_RGB* fill_col) 
+    NU_RGB border_col,
+    NU_RGB fill_col) 
 {
-    NU_Internal_Border_Rect(canvas, x, y, w, h, thickness, border_col, fill_col);
+    NU_Internal_Border_Rect(contextID, x, y, w, h, thickness, border_col, fill_col);
 }
 __declspec(dllexport) void NU_Line(
-    Node* canvas,
+    int contextID,
     float x1, float y1, float x2, float y2,
     float thickness,
-    NU_RGB* col) 
+    NU_RGB col) 
 {
-    NU_Internal_Line(canvas, x1, y1, x2, y2, thickness, col);
+    NU_Internal_Line(contextID, x1, y1, x2, y2, thickness, col);
 }
 
 __declspec(dllexport) void NU_Dashed_Line(
-    Node* canvas,
+    int contextID,
     float x1, float y1, float x2, float y2,
     float thickness,
     uint8_t* dash_pattern,
     uint32_t dash_pattern_len,
-    NU_RGB* col) 
+    NU_RGB col) 
 {
     NU_Internal_Dashed_Line(
-        canvas, 
+        contextID, 
         x1, y1, x2, y2, 
         thickness, 
         dash_pattern,
@@ -186,37 +207,37 @@ __declspec(dllexport) void NU_Dashed_Line(
 }
 
 __declspec(dllexport) void NU_Set_Canvas_Font(
-    Node* canvas,
+    int contextID,
     const char* font_name)
 {
-    NU_Internal_Set_Canvas_Font(canvas, font_name);
+    NU_Internal_Set_Canvas_Font(contextID, font_name);
 }
 
 __declspec(dllexport) void NU_Text(
-    Node* canvas,
+    int contextID,
     float x, float y, float wrapWidth,
     NU_RGB col, const char* string)
 {
-    NU_Internal_Text(canvas, x, y, wrapWidth, col, string);
+    NU_Internal_Text(contextID, x, y, wrapWidth, col, string);
 }
 
 __declspec(dllexport) float NU_Text_Height(
-    Node* canvas,
+    int contextID,
     float wrapWidth,
     const char* string)
 {
-    return NU_Internal_Text_Height(canvas, wrapWidth, string);
+    return NU_Internal_Text_Height(contextID, wrapWidth, string);
 }
 
 __declspec(dllexport) float NU_Text_Width(
-    Node* canvas,
+    int contextID,
     const char* string)
 {
-    return NU_Internal_Text_Width(canvas, string);
+    return NU_Internal_Text_Width(contextID, string);
 }
 
 __declspec(dllexport) float NU_Text_Line_Height(
-    Node* canvas)
+    int contextID)
 {
-    return NU_Internal_Text_Line_Height(canvas);
+    return NU_Internal_Text_Line_Height(contextID);
 }

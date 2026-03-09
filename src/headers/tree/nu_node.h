@@ -75,9 +75,15 @@ typedef struct ImageTypeData {
     GLuint glImageHandle;
 } ImageTypeData;
 
+typedef struct CanvasTypeData {
+    int ctxHandle;
+} CanvasTypeData;
+
+
 typedef union NodeTypeData {
     InputTypeData input;
     ImageTypeData image;
+    CanvasTypeData canvas;
 } NodeTypeData;
 
 typedef struct Node
@@ -175,6 +181,9 @@ void NU_ApplyNodeDefaults(NodeP* node)
     }
     else if (node->type == NU_INPUT) {
         InputText_Init(&node->typeData.input.inputText);
+    }
+    else if (node->type == NU_CANVAS) {
+        node->typeData.canvas.ctxHandle = -1;
     }
     if (node->type != NU_WINDOW) {
         node->node.window = node->parent->node.window;

@@ -102,9 +102,6 @@ int NU_Generate_Tree(char* src, TokenArray* tokens, struct Vector* textRefs)
                     if (ctx == 1 || ctx == 3) ctx = 6;
                     else ctx = 5;
                 }
-                else if (currentNode->type == NU_CANVAS) { // Create canvas context
-                    NU_Add_Canvas_Context(&currentNode->node);
-                }
 
                 // Continue ^
                 i+=2; continue;

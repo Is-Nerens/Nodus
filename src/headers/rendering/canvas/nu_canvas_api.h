@@ -3,18 +3,26 @@
 #include <rendering/text/nu_text_layout.h>
 #include <math.h>
 
-void NU_Add_Canvas_Context(Node* node)
+int NU_Internal_Get_Canvas_Context(Node* node)
 {
-    NU_Canvas_Context ctx;
+    NodeP* nodeP = NODEP_OF(node);
+    if (nodeP->type != NU_CANVAS) return -1;
+    if (nodeP->typeData.canvas.ctxHandle != -1) return nodeP->typeData.canvas.ctxHandle;
+
+    // Create a new canvas ctx
+    NU_Canvas_Context ctx; 
     ctx.currentLayerType = NU_CANVAS_UNDEFINED_LAYER;
     ctx.fontID = 0;
     Vector_Reserve(&ctx.canvasLayers, sizeof(CanvasLayer), 50);
-    HashmapSet(&__NGUI.canvas_contexts, &node, &ctx);
+    int ctxId = Container_Add(&__NGUI.canvasContexts, &ctx);
+    nodeP->typeData.canvas.ctxHandle = ctxId;
+    return ctxId;
 }
 
-void NU_FreeCanvasContext(Node* canvas)
+void NU_DeleteCanvasContext(int contextID)
 {
-    NU_Canvas_Context* ctx = HashmapGet(&__NGUI.canvas_contexts, &canvas);
+    NU_Canvas_Context* ctx = Container_Get(&__NGUI.canvasContexts, contextID); 
+    if (ctx == NULL) return;
 
     // Free vertices and indices of each layer
     for (uint32_t i=0; i<ctx->canvasLayers.size; i++) {
@@ -24,11 +32,14 @@ void NU_FreeCanvasContext(Node* canvas)
         Index_List_Free(&layer->indices);
     }
     Vector_Free(&ctx->canvasLayers);
+
+    Container_Remove(&__NGUI.canvasContexts, contextID);
 }
 
-void NU_Internal_Clear_Canvas(Node* canvas)
+void NU_Internal_Clear_Canvas(int contextID)
 {
-    NU_Canvas_Context* ctx = HashmapGet(&__NGUI.canvas_contexts, &canvas);
+    NU_Canvas_Context* ctx = Container_Get(&__NGUI.canvasContexts, contextID); 
+    if (ctx == NULL) return;
 
     // Free vertices and indices of each layer
     for (uint32_t i=0; i<ctx->canvasLayers.size; i++) {
@@ -68,14 +79,14 @@ inline CanvasLayer* NU_Canvas_Current_Layer(NU_Canvas_Context* ctx)
 }
 
 void NU_Internal_Border_Rect(
-    Node* canvas,
+    int contextID,
     float x, float y, float w, float h, 
     float thickness,
-    NU_RGB* border_col,
-    NU_RGB* fill_col)
+    NU_RGB border_col,
+    NU_RGB fill_col)
 {
-    NU_Canvas_Context* ctx = HashmapGet(&__NGUI.canvas_contexts, &canvas);
-    if (ctx == NULL) return; // node type is not valid therefore there is no context
+    NU_Canvas_Context* ctx = Container_Get(&__NGUI.canvasContexts, contextID); 
+    if (ctx == NULL) return;
 
     // Check if it is necessary to create a new layer
     if (ctx->canvasLayers.size == 0 || ctx->currentLayerType == NU_CANVAS_TEXT_LAYER) {
@@ -102,86 +113,86 @@ void NU_Internal_Border_Rect(
     // Outer TL
     vertices->array[vertex_offset].x = x;
     vertices->array[vertex_offset].y = y;
-    vertices->array[vertex_offset].r = border_col->r;
-    vertices->array[vertex_offset].g = border_col->g;
-    vertices->array[vertex_offset].b = border_col->b;
+    vertices->array[vertex_offset].r = border_col.r;
+    vertices->array[vertex_offset].g = border_col.g;
+    vertices->array[vertex_offset].b = border_col.b;
 
     // Outer TR
     vertices->array[vertex_offset + 1].x = x + w;
     vertices->array[vertex_offset + 1].y = y;
-    vertices->array[vertex_offset + 1].r = border_col->r;
-    vertices->array[vertex_offset + 1].g = border_col->g;
-    vertices->array[vertex_offset + 1].b = border_col->b;
+    vertices->array[vertex_offset + 1].r = border_col.r;
+    vertices->array[vertex_offset + 1].g = border_col.g;
+    vertices->array[vertex_offset + 1].b = border_col.b;
 
     // Outer BL
     vertices->array[vertex_offset + 2].x = x;
     vertices->array[vertex_offset + 2].y = y + h;
-    vertices->array[vertex_offset + 2].r = border_col->r;
-    vertices->array[vertex_offset + 2].g = border_col->g;
-    vertices->array[vertex_offset + 2].b = border_col->b;
+    vertices->array[vertex_offset + 2].r = border_col.r;
+    vertices->array[vertex_offset + 2].g = border_col.g;
+    vertices->array[vertex_offset + 2].b = border_col.b;
 
     // Outer BR
     vertices->array[vertex_offset + 3].x = x + w;
     vertices->array[vertex_offset + 3].y = y + h;
-    vertices->array[vertex_offset + 3].r = border_col->r;
-    vertices->array[vertex_offset + 3].g = border_col->g;
-    vertices->array[vertex_offset + 3].b = border_col->b;
+    vertices->array[vertex_offset + 3].r = border_col.r;
+    vertices->array[vertex_offset + 3].g = border_col.g;
+    vertices->array[vertex_offset + 3].b = border_col.b;
 
     // Inner TL
     vertices->array[vertex_offset + 4].x = x + thickness;
     vertices->array[vertex_offset + 4].y = y + thickness;
-    vertices->array[vertex_offset + 4].r = border_col->r;
-    vertices->array[vertex_offset + 4].g = border_col->g;
-    vertices->array[vertex_offset + 4].b = border_col->b;
+    vertices->array[vertex_offset + 4].r = border_col.r;
+    vertices->array[vertex_offset + 4].g = border_col.g;
+    vertices->array[vertex_offset + 4].b = border_col.b;
 
     // Inner TR
     vertices->array[vertex_offset + 5].x = x + w - thickness;
     vertices->array[vertex_offset + 5].y = y + thickness;
-    vertices->array[vertex_offset + 5].r = border_col->r;
-    vertices->array[vertex_offset + 5].g = border_col->g;
-    vertices->array[vertex_offset + 5].b = border_col->b;
+    vertices->array[vertex_offset + 5].r = border_col.r;
+    vertices->array[vertex_offset + 5].g = border_col.g;
+    vertices->array[vertex_offset + 5].b = border_col.b;
 
     // Inner BL
     vertices->array[vertex_offset + 6].x = x + thickness;
     vertices->array[vertex_offset + 6].y = y + h - thickness;
-    vertices->array[vertex_offset + 6].r = border_col->r;
-    vertices->array[vertex_offset + 6].g = border_col->g;
-    vertices->array[vertex_offset + 6].b = border_col->b;
+    vertices->array[vertex_offset + 6].r = border_col.r;
+    vertices->array[vertex_offset + 6].g = border_col.g;
+    vertices->array[vertex_offset + 6].b = border_col.b;
 
     // Inner BR
     vertices->array[vertex_offset + 7].x = x + w - thickness;
     vertices->array[vertex_offset + 7].y = y + h - thickness;
-    vertices->array[vertex_offset + 7].r = border_col->r;
-    vertices->array[vertex_offset + 7].g = border_col->g;
-    vertices->array[vertex_offset + 7].b = border_col->b;
+    vertices->array[vertex_offset + 7].r = border_col.r;
+    vertices->array[vertex_offset + 7].g = border_col.g;
+    vertices->array[vertex_offset + 7].b = border_col.b;
 
     // Fill TL
     vertices->array[vertex_offset + 8].x = x + thickness;
     vertices->array[vertex_offset + 8].y = y + thickness;
-    vertices->array[vertex_offset + 8].r = fill_col->r;
-    vertices->array[vertex_offset + 8].g = fill_col->g;
-    vertices->array[vertex_offset + 8].b = fill_col->b;
+    vertices->array[vertex_offset + 8].r = fill_col.r;
+    vertices->array[vertex_offset + 8].g = fill_col.g;
+    vertices->array[vertex_offset + 8].b = fill_col.b;
 
     // Fill TR
     vertices->array[vertex_offset + 9].x = x + w - thickness;
     vertices->array[vertex_offset + 9].y = y + thickness;
-    vertices->array[vertex_offset + 9].r = fill_col->r;
-    vertices->array[vertex_offset + 9].g = fill_col->g;
-    vertices->array[vertex_offset + 9].b = fill_col->b;
+    vertices->array[vertex_offset + 9].r = fill_col.r;
+    vertices->array[vertex_offset + 9].g = fill_col.g;
+    vertices->array[vertex_offset + 9].b = fill_col.b;
 
     // Fill BL
     vertices->array[vertex_offset + 10].x = x + thickness;
     vertices->array[vertex_offset + 10].y = y + h - thickness;
-    vertices->array[vertex_offset + 10].r = fill_col->r;
-    vertices->array[vertex_offset + 10].g = fill_col->g;
-    vertices->array[vertex_offset + 10].b = fill_col->b;
+    vertices->array[vertex_offset + 10].r = fill_col.r;
+    vertices->array[vertex_offset + 10].g = fill_col.g;
+    vertices->array[vertex_offset + 10].b = fill_col.b;
 
     // Fill BR
     vertices->array[vertex_offset + 11].x = x + w - thickness;
     vertices->array[vertex_offset + 11].y = y + h - thickness;
-    vertices->array[vertex_offset + 11].r = fill_col->r;
-    vertices->array[vertex_offset + 11].g = fill_col->g;
-    vertices->array[vertex_offset + 11].b = fill_col->b;
+    vertices->array[vertex_offset + 11].r = fill_col.r;
+    vertices->array[vertex_offset + 11].g = fill_col.g;
+    vertices->array[vertex_offset + 11].b = fill_col.b;
 
     // Indices
     uint32_t* indices_write = indices->array + indices->size;
@@ -231,14 +242,14 @@ void NU_Internal_Border_Rect(
 }
 
 void NU_Internal_Line(
-    Node* canvas,
+    int contextID,
     float x1, float y1, float x2, float y2,
     float thickness,
-    NU_RGB* col
+    NU_RGB col
 )
 {
-    NU_Canvas_Context* ctx = HashmapGet(&__NGUI.canvas_contexts, &canvas);
-    if (ctx == NULL) return; // node type is not valid therefore there is no context
+    NU_Canvas_Context* ctx = Container_Get(&__NGUI.canvasContexts, contextID); 
+    if (ctx == NULL) return;
 
     // Check if it is necessary to create a new layer
     if (ctx->canvasLayers.size == 0 || ctx->currentLayerType == NU_CANVAS_TEXT_LAYER) {
@@ -280,30 +291,30 @@ void NU_Internal_Line(
     // V1 -> thick -
     vertices->array[vertex_offset].x = x1 - px;
     vertices->array[vertex_offset].y = y1 - py;
-    vertices->array[vertex_offset].r = col->r;
-    vertices->array[vertex_offset].g = col->g;
-    vertices->array[vertex_offset].b = col->b;
+    vertices->array[vertex_offset].r = col.r;
+    vertices->array[vertex_offset].g = col.g;
+    vertices->array[vertex_offset].b = col.b;
 
     // V1 -> thick + 
     vertices->array[vertex_offset + 1].x = x1 + px;
     vertices->array[vertex_offset + 1].y = y1 + py;
-    vertices->array[vertex_offset + 1].r = col->r;
-    vertices->array[vertex_offset + 1].g = col->g;
-    vertices->array[vertex_offset + 1].b = col->b;
+    vertices->array[vertex_offset + 1].r = col.r;
+    vertices->array[vertex_offset + 1].g = col.g;
+    vertices->array[vertex_offset + 1].b = col.b;
 
     // V2 -> thick -
     vertices->array[vertex_offset + 2].x = x2 - px;
     vertices->array[vertex_offset + 2].y = y2 - py;
-    vertices->array[vertex_offset + 2].r = col->r;
-    vertices->array[vertex_offset + 2].g = col->g;
-    vertices->array[vertex_offset + 2].b = col->b;
+    vertices->array[vertex_offset + 2].r = col.r;
+    vertices->array[vertex_offset + 2].g = col.g;
+    vertices->array[vertex_offset + 2].b = col.b;
 
     // V2 -> thick + 
     vertices->array[vertex_offset + 3].x = x2 + px;
     vertices->array[vertex_offset + 3].y = y2 + py;
-    vertices->array[vertex_offset + 3].r = col->r;
-    vertices->array[vertex_offset + 3].g = col->g;
-    vertices->array[vertex_offset + 3].b = col->b;
+    vertices->array[vertex_offset + 3].r = col.r;
+    vertices->array[vertex_offset + 3].g = col.g;
+    vertices->array[vertex_offset + 3].b = col.b;
 
 
     // Indices
@@ -320,16 +331,16 @@ void NU_Internal_Line(
 }
 
 void NU_Internal_Dashed_Line(
-    Node* canvas,
+    int contextID,
     float x1, float y1, float x2, float y2,
     float thickness,
     uint8_t* dash_pattern,
     uint32_t dash_pattern_len,
-    NU_RGB* col
+    NU_RGB col
 )
 {
-    NU_Canvas_Context* ctx = HashmapGet(&__NGUI.canvas_contexts, &canvas);
-    if (ctx == NULL) return; // node type is not valid therefore there is no context
+    NU_Canvas_Context* ctx = Container_Get(&__NGUI.canvasContexts, contextID); 
+    if (ctx == NULL) return;
 
     // Check if it is necessary to create a new layer
     if (ctx->canvasLayers.size == 0 || ctx->currentLayerType == NU_CANVAS_TEXT_LAYER) {
@@ -405,16 +416,16 @@ void NU_Internal_Dashed_Line(
                 vertex_rgb* v = vertices->array + v0;
                 // V1-
                 v[0].x = sx1 - px; v[0].y = sy1 - py;
-                v[0].r = col->r; v[0].g = col->g; v[0].b = col->b;
+                v[0].r = col.r; v[0].g = col.g; v[0].b = col.b;
                 // V1+
                 v[1].x = sx1 + px; v[1].y = sy1 + py;
-                v[1].r = col->r; v[1].g = col->g; v[1].b = col->b;
+                v[1].r = col.r; v[1].g = col.g; v[1].b = col.b;
                 // V2-
                 v[2].x = sx2 - px; v[2].y = sy2 - py;
-                v[2].r = col->r; v[2].g = col->g; v[2].b = col->b;
+                v[2].r = col.r; v[2].g = col.g; v[2].b = col.b;
                 // V2+
                 v[3].x = sx2 + px; v[3].y = sy2 + py;
-                v[3].r = col->r; v[3].g = col->g; v[3].b = col->b;
+                v[3].r = col.r; v[3].g = col.g; v[3].b = col.b;
                 uint32_t* id = indices->array + indices->size;
                 *id++ = v0;
                 *id++ = v0 + 1;
@@ -432,10 +443,10 @@ void NU_Internal_Dashed_Line(
     }
 }
 
-void NU_Internal_Set_Canvas_Font(Node* canvas, const char* fontName)
+void NU_Internal_Set_Canvas_Font(int contextID, const char* fontName)
 {
-    NU_Canvas_Context* ctx = HashmapGet(&__NGUI.canvas_contexts, &canvas);
-    if (ctx == NULL) return; // node type is not valid therefore there is no context
+    NU_Canvas_Context* ctx = Container_Get(&__NGUI.canvasContexts, contextID); 
+    if (ctx == NULL) return;
 
     // Get fontID from font name
     void* found = LinearStringmapGet(&__NGUI.stylesheet->fontNameIndexMap, fontName);
@@ -443,15 +454,16 @@ void NU_Internal_Set_Canvas_Font(Node* canvas, const char* fontName)
     ctx->fontID = fontID;
 }
 
-void NU_Internal_Text(Node* canvas, 
+void NU_Internal_Text(
+    int contextID, 
     float x, 
     float y, 
     float wrapWidth, 
     NU_RGB col,
     const char* string)
 {
-    NU_Canvas_Context* ctx = HashmapGet(&__NGUI.canvas_contexts, &canvas);
-    if (ctx == NULL) return; // node type is not valid therefore there is no context
+    NU_Canvas_Context* ctx = Container_Get(&__NGUI.canvasContexts, contextID); 
+    if (ctx == NULL) return;
 
     // Create layer if there are no layers
     if (ctx->canvasLayers.size == 0) {
@@ -476,27 +488,27 @@ void NU_Internal_Text(Node* canvas,
     NU_Generate_Text_Mesh(vertices, indices, font, string, x, y, col.r, col.g, col.b, wrapWidth);
 }
 
-float NU_Internal_Text_Height(Node* canvas, float wrapWidth, const char* string)
+float NU_Internal_Text_Height(int contextID, float wrapWidth, const char* string)
 {
-    NU_Canvas_Context* ctx = HashmapGet(&__NGUI.canvas_contexts, &canvas);
+    NU_Canvas_Context* ctx = Container_Get(&__NGUI.canvasContexts, contextID); 
     if (ctx == NULL) return 0.0f; // node type is not valid therefore there is no context
 
     NU_Font* font = Vector_Get(&__NGUI.stylesheet->fonts, ctx->fontID);
     return NU_Calculate_FreeText_Height_From_Wrap_Width(font, string, wrapWidth);
 }
 
-float NU_Internal_Text_Width(Node* canvas, const char* string)
+float NU_Internal_Text_Width(int contextID, const char* string)
 {
-    NU_Canvas_Context* ctx = HashmapGet(&__NGUI.canvas_contexts, &canvas);
+    NU_Canvas_Context* ctx = Container_Get(&__NGUI.canvasContexts, contextID); 
     if (ctx == NULL) return 0.0f; // node type is not valid therefore there is no context
 
     NU_Font* font = Vector_Get(&__NGUI.stylesheet->fonts, ctx->fontID);
     return NU_Calculate_Text_Unwrapped_Width(font, string);
 }
 
-float NU_Internal_Text_Line_Height(Node* canvas)
+float NU_Internal_Text_Line_Height(int contextID)
 {
-    NU_Canvas_Context* ctx = HashmapGet(&__NGUI.canvas_contexts, &canvas);
+    NU_Canvas_Context* ctx = Container_Get(&__NGUI.canvasContexts, contextID); 
     if (ctx == NULL) return 0.0f; // node type is not valid therefore there is no context
     NU_Font* font = Vector_Get(&__NGUI.stylesheet->fonts, ctx->fontID);
     return font->line_height;

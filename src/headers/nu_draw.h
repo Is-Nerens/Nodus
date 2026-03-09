@@ -306,8 +306,7 @@ void NU_Draw()
     Vertex_RGB_UV_List text_absolute_vertex_buffers[__NGUI.stylesheet->fonts.size];
     Index_List text_relative_index_buffers[__NGUI.stylesheet->fonts.size];
     Index_List text_absolute_index_buffers[__NGUI.stylesheet->fonts.size];
-    for (uint32_t i=0; i<__NGUI.stylesheet->fonts.size; i++)
-    {
+    for (uint32_t i=0; i<__NGUI.stylesheet->fonts.size; i++) {
         Vertex_RGB_UV_List_Init(&text_relative_vertex_buffers[i], 512);
         Index_List_Init(&text_relative_index_buffers[i], 512);
         Vertex_RGB_UV_List_Init(&text_absolute_vertex_buffers[i], 128);
@@ -342,6 +341,7 @@ void NU_Draw()
                 Construct_Scroll_Thumb(node, winW, winH, &border_rect_vertices, &border_rect_indices);
             }
         }
+        
         // draw border rects (one draw call)
         Draw_Vertex_RGB_List(&border_rect_vertices, &border_rect_indices, winW, winH, 0.0f, 0.0f);
         Vertex_RGB_List_Free(&border_rect_vertices);
@@ -357,8 +357,7 @@ void NU_Draw()
             float clip_bottom = canvas_node->node.y + canvas_node->node.height - canvas_node->node.borderBottom - canvas_node->node.padBottom;
             float clip_left   = canvas_node->node.x + canvas_node->node.borderLeft + canvas_node->node.padLeft;
             float clip_right  = canvas_node->node.x + canvas_node->node.width - canvas_node->node.borderRight - canvas_node->node.padRight;
-            Node* node = &canvas_node->node;
-            NU_Canvas_Context* ctx = HashmapGet(&__NGUI.canvas_contexts, &node);
+            NU_Canvas_Context* ctx = Container_Get(&__NGUI.canvasContexts, canvas_node->typeData.canvas.ctxHandle); 
 
             // Draw each canvas layer
             for (uint32_t l=0; l<ctx->canvasLayers.size; l++) {
@@ -410,10 +409,11 @@ void NU_Draw()
             }    
 
             // draw node image
-            if (node->typeData.image.glImageHandle && node->type != NU_INPUT) {
+            if (node->typeData.image.glImageHandle && node->type != NU_INPUT && node->type != NU_CANVAS) {
                 NU_DrawNodeImage(node, winW, winH);
             }
         }
+        
         // draw text
         for (uint32_t t=0; t<__NGUI.stylesheet->fonts.size; t++) {
             Vertex_RGB_UV_List* text_vertices = &text_relative_vertex_buffers[t];
@@ -490,10 +490,11 @@ void NU_Draw()
             }
 
             // draw node image
-            if (node->typeData.image.glImageHandle && node->type != NU_INPUT) {
+            if (node->typeData.image.glImageHandle && node->type != NU_INPUT && node->type != NU_CANVAS) {
                 NU_DrawNodeImage(node, winW, winH);
             }
         }
+        
         // draw text
         for (uint32_t t=0; t<__NGUI.stylesheet->fonts.size; t++) {
             Vertex_RGB_UV_List* text_vertices = &text_absolute_vertex_buffers[t];

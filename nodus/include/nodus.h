@@ -132,6 +132,7 @@ __declspec(dllimport) inline Node* NU_CREATE_NODE(Node* parent, NodeType type);
 __declspec(dllimport) inline void NU_DELETE_NODE(Node* node);
 __declspec(dllimport) inline void NU_SHIFT_NODE_IN_PARENT(Node* node, int index);
 __declspec(dllimport) inline const char* NU_INPUT_TEXT_CONTENT(Node* node);
+__declspec(dllimport) Node* NU_HOVERED_NODE();
 __declspec(dllimport) inline void NU_SHOW(Node* node);
 __declspec(dllimport) inline void NU_HIDE(Node* node);
 __declspec(dllimport) Node* NU_Get_Node_By_Id(char* id);
@@ -148,54 +149,58 @@ __declspec(dllimport) void NU_Register_Event(
 ); 
 
 // Canvas functions
-__declspec(dllimport) void NU_Clear_Canvas(Node* canvas);
+__declspec(dllimport) int NU_Get_Canvas_Ctx(Node* canvasNode);
+
+__declspec(dllimport) void NU_Clear_Canvas(int contextID);
 
 __declspec(dllimport) void NU_Render();
 
+__declspec(dllimport) NU_RGB NU_RGB_From_Hex(const char* hex);
+
 __declspec(dllimport) void NU_Border_Rect(
-    Node* canvas,
+    int contextID,
     float x, float y, float w, float h,
     float thickness,
-    NU_RGB* border_col,
-    NU_RGB* fill_col
+    NU_RGB border_col,
+    NU_RGB fill_col
 );
 
 __declspec(dllimport) void NU_Line(
-    Node* canvas,
+    int contextID,
     float x1, float y1, float x2, float y2,
     float thickness,
-    NU_RGB* col
+    NU_RGB col
 );
 
 __declspec(dllimport) void NU_Dashed_Line(
-    Node* canvas,
+    int contextID,
     float x1, float y1, float x2, float y2,
     float thickness,
     uint8_t* dash_pattern,
     uint32_t dash_pattern_len,
-    NU_RGB* col
+    NU_RGB col
 );
 
-__declspec(dllimport) void NU_Set_Canvas_Font(Node* canvas, const char* font_name);
+__declspec(dllimport) void NU_Set_Canvas_Font(int contextID, const char* font_name);
 
 __declspec(dllimport) void NU_Text(
-    Node* canvas,
+    int contextID,
     float x, float y, float wrapWidth,
     NU_RGB col, const char* string
 );
 
 __declspec(dllimport) float NU_Text_Height(
-    Node* canvas,
+    int contextID,
     float wrapWidth,
     const char* string
 );
 
 __declspec(dllimport) float NU_Text_Width(
-    Node* canvas,
+    int contextID,
     const char* string
 );
 
-__declspec(dllimport) float NU_Text_Line_Height(Node* canvas);
+__declspec(dllimport) float NU_Text_Line_Height(int contextID);
 
 #ifdef __cplusplus
 }

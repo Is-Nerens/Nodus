@@ -11,8 +11,10 @@ typedef uint64_t u64;
 // === NODUS INCLUDES ===
 #include <datastructures/vector.h>
 #include <datastructures/string.h>
+#include <datastructures/container.h>
 #include <datastructures/stringset.h>
 #include <datastructures/hashmap.h>
+#include <datastructures/set.h>
 #include <datastructures/stringmap.h>
 #include <datastructures/linear_stringmap.h>
 #include <datastructures/string_arena.h>
@@ -32,7 +34,7 @@ struct NU_GUI
     Stringset class_string_set;
     Stringset id_string_set;
     Stringmap id_node_map;
-    Hashmap canvas_contexts; 
+    Container canvasContexts;
 
     // state
     NodeP* prev_hovered_node;
@@ -67,6 +69,7 @@ struct NU_GUI
     Hashmap on_mouse_in_events;
     Hashmap on_mouse_out_events;
     Hashmap on_mouse_wheel_events;
+    Set deletedNodesWithRegisteredEvents;
 
     // cursors
     SDL_Cursor* cursorDefault;
@@ -147,7 +150,7 @@ int NU_Internal_Create_Gui(char* xml_filepath, char* css_filepath)
     StringsetInit(&__NGUI.class_string_set, 1024, 100);
     StringsetInit(&__NGUI.id_string_set, 1024, 100);
     StringmapInit(&__NGUI.id_node_map, sizeof(NodeP*), 100, 1024);
-    HashmapInit(&__NGUI.canvas_contexts, sizeof(Node*), sizeof(NU_Canvas_Context), 4);
+    __NGUI.canvasContexts = Container_Create(sizeof(NU_Canvas_Context));
     Vector_Reserve(&__NGUI.stylesheets, sizeof(NU_Stylesheet), 2);
 
     // Events
@@ -164,6 +167,7 @@ int NU_Internal_Create_Gui(char* xml_filepath, char* css_filepath)
     HashmapInit(&__NGUI.on_mouse_in_events,           sizeof(Node*), sizeof(struct NU_Callback_Info), 10);
     HashmapInit(&__NGUI.on_mouse_out_events,          sizeof(Node*), sizeof(struct NU_Callback_Info), 10);
     HashmapInit(&__NGUI.on_mouse_wheel_events,        sizeof(Node*), sizeof(struct NU_Callback_Info), 10);
+    SetInit(&__NGUI.deletedNodesWithRegisteredEvents, sizeof(Node*), 16);
 
     // Cursors
     __NGUI.cursorDefault    = SDL_CreateSystemCursor(SDL_SYSTEM_CURSOR_DEFAULT);
@@ -282,6 +286,7 @@ void NU_Internal_Quit()
     HashmapFree(&__NGUI.on_mouse_in_events);
     HashmapFree(&__NGUI.on_mouse_out_events);
     HashmapFree(&__NGUI.on_mouse_wheel_events);
-    HashmapFree(&__NGUI.canvas_contexts);
+    Container_Free(&__NGUI.canvasContexts);
+    SetFree(&__NGUI.deletedNodesWithRegisteredEvents);
     SDL_Quit();
 }

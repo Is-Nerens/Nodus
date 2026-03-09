@@ -74,6 +74,9 @@ void CheckForResizeEvents()
             Node* node = *(Node**)key; 
             struct NU_Callback_Info* cb_info = (struct NU_Callback_Info*)val;
 
+            // if node was deleted during this function -> skip
+            //if (SetContains(&__NGUI.deletedNodesWithRegisteredEvents, node)) continue;
+
             // get current dimensions
             void* dims_get = HashmapGet(resizeTrackingHmap, &node);
             NU_NodeDimensions* dims = (NU_NodeDimensions*)dims_get;
@@ -93,6 +96,16 @@ void CheckForResizeEvents()
             }
         }
     }
+
+    // // 
+    // if (__NGUI.deletedNodesWithRegisteredEvents.itemCount > 0) {
+    //     SetIterator iter = SetCreateIterator(&__NGUI.deletedNodesWithRegisteredEvents);
+    //     void* key;
+    //     while(SetIteratorNext(&iter, &key)) {
+    //         Node* deletedNode = (Node*)key;
+    //         NU_DeleteEventsTiedToDeletedNode(deletedNode)
+    //     }
+    // }
 }
 
 void TriggerAllMouseupEvents(float mouseX, float mouseY, int mouseBtn)
@@ -106,7 +119,11 @@ void TriggerAllMouseupEvents(float mouseX, float mouseY, int mouseBtn)
         while(HashmapIteratorNext(&it, &key, &val))
         {
             // cast key, value to correct types
+            Node* node = *(Node**)key; 
             struct NU_Callback_Info* cb_info = (struct NU_Callback_Info*)val;
+
+            // if node was deleted -> skip
+            //if (SetContains(&__NGUI.deletedNodesWithRegisteredEvents, node)) continue;
 
             // set calback event values and trigger
             cb_info->event.mouse.mouseBtn = mouseBtn;

@@ -85,7 +85,8 @@ NodeP* TreeCreateNode(Tree* tree, NodeP* parent, NodeType type)
     tree->nodeCount++;
 
     // allocate new node
-    Nalloc* nalloc = &tree->layerAllocs[parent->layer + 1];
+    //Nalloc* nalloc = &tree->layerAllocs[parent->layer + 1];
+    Nalloc* nalloc = &tree->layerAllocs[0];
     NodeP* newNode = Nalloc_Alloc(nalloc);
     newNode->type = type;
     newNode->parent = parent;
@@ -198,7 +199,7 @@ void TreeDeleteLeaf(Tree* tree, NodeP* leaf, TreeDeleteCallback deleteCB)
     
     if (deleteCB != NULL) deleteCB(leaf);
     Nalloc* nalloc = &tree->layerAllocs[leaf->layer];
-    //Nalloc_Free(nalloc, leaf);
+    Nalloc_Free(nalloc, leaf);
 }
 
 void TreeDeleteNode(Tree* tree, NodeP* node, TreeDeleteCallback deleteCB)

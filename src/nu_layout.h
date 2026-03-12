@@ -26,7 +26,7 @@ static void NU_Prepass(BreadthFirstSearch* bfs, Vector* scrollAutoNodes)
 
         // set node hidden
         node->state = 1;
-        if (node->node.layoutFlags & HIDDEN || (node->parent != NULL && node->parent->node.layoutFlags & HIDDEN)) {
+        if (node->node.layoutFlags & HIDDEN || (node->parent != NULL && (node->parent->node.layoutFlags & HIDDEN))) {
             node->state = 2; // don't affect layout or draw node
         }
         // node affects layout
@@ -181,7 +181,7 @@ static void NU_GrowShrinkChildWidths(NodeP* node, bool includeNodeScrollbarThick
 
         if (child->state != 2 && child->type != NU_WINDOW && 
             child->node.layoutFlags & POSITION_ABSOLUTE &&
-            child->node.left >= 0.0f && child->node.right >= 0.0f) 
+            child->node.left >= 0 && child->node.right >= 0) 
         {
             float expandedWidth = remainingWidth - child->node.left - child->node.right;
             if (expandedWidth > child->node.width) child->node.width = expandedWidth;
@@ -396,7 +396,7 @@ static void NU_GrowShrinkChildHeights(NodeP* node, bool includeNodeScrollbarThic
 
         if (child->state != 2 && child->type != NU_WINDOW && 
             child->node.layoutFlags & POSITION_ABSOLUTE &&
-            child->node.top >= 0.0f && child->node.bottom >= 0.0f)
+            child->node.top >= 0 && child->node.bottom >= 0)
         {
             float expandedHeight = remainingHeight - child->node.top - child->node.bottom;
             if (expandedHeight > child->node.height) child->node.height = expandedHeight;
@@ -917,23 +917,28 @@ void NU_Repass(BreadthFirstSearch* bfs)
 
 void NU_Layout()
 {
-    // CREATE DATA STRUCTURES
-    BreadthFirstSearch bfs = BreadthFirstSearch_Create(__NGUI.tree.root);
-    ReverseBreadthFirstSearch rbfs = ReverseBreadthFirstSearch_Create(__NGUI.tree.root);
+    printf("layout\n");
+    timer_start();
+
+    // RESET TRAVERSAL DATA STRUCTURES
+    BreadthFirstSearch* bfs = &__NGUI.bfs;
+    ReverseBreadthFirstSearch* rbfs = &__NGUI.rbfs;
+    BreadthFirstSearch_Reset(bfs, __NGUI.tree.root);
+    ReverseBreadthFirstSearch_Reset(rbfs, __NGUI.tree.root);
+
+    // RESERVE LIST OF AUTO SCROLL NODES
     Vector scrollAutoNodes; Vector_Reserve(&scrollAutoNodes, sizeof(NodeP*), 20);
 
     // FIRST PASS -> ASSUME SCROLLBARS TAKE UP NO SPACE
-    NU_Prepass(&bfs, &scrollAutoNodes);
-    NU_CalculateTextFitWidths(&bfs);
-    NU_CalculateFitSizeWidths(&rbfs);  
-    NU_GrowShrinkWidths(&bfs, false);
-    NU_CalculateTableColumnWidths(&bfs, false);
-    NU_CalculateTextHeights(&bfs);
-    NU_CalculateFitSizeHeights(&rbfs);
-    NU_GrowShrinkHeights(&bfs, false);
-    NU_CalculatePositions(&bfs, false);
-    BreadthFirstSearch_Free(&bfs);
-    ReverseBreadthFirstSearch_Free(&rbfs);
+    NU_Prepass(bfs, &scrollAutoNodes);
+    NU_CalculateTextFitWidths(bfs);
+    NU_CalculateFitSizeWidths(rbfs);  
+    NU_GrowShrinkWidths(bfs, false);
+    NU_CalculateTableColumnWidths(bfs, false);
+    NU_CalculateTextHeights(bfs);
+    NU_CalculateFitSizeHeights(rbfs);
+    NU_GrowShrinkHeights(bfs, false);
+    NU_CalculatePositions(bfs, false);
 
     // SECOND PASS -> RECOMPUTE OVERFLOWED SCROLL BRANCHES
     for (uint32_t i=0; i<scrollAutoNodes.size; i++)
@@ -943,20 +948,20 @@ void NU_Layout()
         if (!overflowed) continue;
 
         // PERFORM NECESSARY COMPUTATIONS ONLY
-        BreadthFirstSearch bfs = BreadthFirstSearch_Create(node);
-        ReverseBreadthFirstSearch rbfs = ReverseBreadthFirstSearch_Create(node);
-        NU_Repass(&bfs);
-        NU_CalculateTextFitWidths(&bfs);
-        NU_CalculateFitSizeWidths(&rbfs);  
-        NU_GrowShrinkWidths(&bfs, true);
-        NU_CalculateTableColumnWidths(&bfs, true);
-        NU_CalculateTextHeights(&bfs);
-        NU_CalculateFitSizeHeights(&rbfs);
-        NU_GrowShrinkHeights(&bfs, true);
-        NU_CalculatePositions(&bfs, true);
-        BreadthFirstSearch_Free(&bfs);
-        ReverseBreadthFirstSearch_Free(&rbfs);
+        BreadthFirstSearch_Reset(bfs, node);
+        ReverseBreadthFirstSearch_Reset(rbfs, node);
+        NU_Repass(bfs);
+        NU_CalculateTextFitWidths(bfs);
+        NU_CalculateFitSizeWidths(rbfs);  
+        NU_GrowShrinkWidths(bfs, true);
+        NU_CalculateTableColumnWidths(bfs, true);
+        NU_CalculateTextHeights(bfs);
+        NU_CalculateFitSizeHeights(rbfs);
+        NU_GrowShrinkHeights(bfs, true);
+        NU_CalculatePositions(bfs, true);
     }
 
     __NGUI.recalculate_mouse_hover = true;
+
+    timer_stop();
 }

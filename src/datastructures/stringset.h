@@ -43,7 +43,7 @@ int StringsetInit(Stringset* set, uint32_t capacity, uint32_t chunkCapacity)
     return 1;
 }
 
-uint32_t StringsetHash(char* string) {
+uint32_t StringsetHash(const char* string) {
     uint32_t hash = 2166136261u;
     for (uint8_t* p = (uint8_t*)string; *p; p++) {
         hash ^= *p;
@@ -120,7 +120,7 @@ int StringsetRehash(Stringset* set)
     return 1;
 }
 
-char* StringsetAdd(Stringset* set, char* string)
+char* StringsetAdd(Stringset* set, const char* string)
 {
     // resize if surpassed max load factor
     if (set->itemCount * 10 > set->capacity * 7) {
@@ -150,7 +150,7 @@ char* StringsetAdd(Stringset* set, char* string)
     return NULL;
 }
 
-char* StringsetGet(Stringset* set, char* string)
+char* StringsetGet(Stringset* set, const char* string)
 {
     uint32_t probes = 0;
     uint32_t hash = StringsetHash(string);
@@ -168,7 +168,7 @@ char* StringsetGet(Stringset* set, char* string)
     return NULL;
 }
 
-int StringsetContains(Stringset* set, char* string)
+int StringsetContains(Stringset* set, const char* string)
 {
     uint32_t probes = 0;
     uint32_t hash = StringsetHash(string);
@@ -186,7 +186,7 @@ int StringsetContains(Stringset* set, char* string)
     return 0;
 }
 
-void StringsetDelete(Stringset* set, char* string)
+void StringsetDelete(Stringset* set, const char* string)
 {
     uint32_t probes = 0;
     uint32_t hash = StringsetHash(string);

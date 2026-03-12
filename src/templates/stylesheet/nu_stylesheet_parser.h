@@ -574,7 +574,7 @@ static int NU_Stylesheet_Parse(char* src, TokenArray* tokens, NU_Stylesheet* ss,
                     
                     // Set gap
                     case STYLE_GAP_PROPERTY:
-                        if (String_To_Float(&item.gap, text)) 
+                        if (String_To_uint8_t(&item.gap, text)) 
                             item.propertyFlags |= PROPERTY_FLAG_GAP;
                         break;
 
@@ -680,29 +680,29 @@ static int NU_Stylesheet_Parse(char* src, TokenArray* tokens, NU_Stylesheet* ss,
 
                     // Set absolute position properties
                     case STYLE_LEFT_PROPERTY:
-                        float abs_position; 
-                        if (String_To_Float(&abs_position, text)) {
+                        int16_t abs_position; 
+                        if (String_To_Int16(&abs_position, text)) {
                             item.left = abs_position;
                             item.propertyFlags |= PROPERTY_FLAG_LEFT;
                         }
                         break;
 
                     case STYLE_RIGHT_PROPERTY:
-                        if (String_To_Float(&abs_position, text)) {
+                        if (String_To_Int16(&abs_position, text)) {
                             item.right = abs_position;
                             item.propertyFlags |= PROPERTY_FLAG_RIGHT;
                         }
                         break;
 
                     case STYLE_TOP_PROPERTY:
-                        if (String_To_Float(&abs_position, text)) {
+                        if (String_To_Int16(&abs_position, text)) {
                             item.top = abs_position;
                             item.propertyFlags |= PROPERTY_FLAG_TOP;
                         }
                         break;
 
                     case STYLE_BOTTOM_PROPERTY:
-                        if (String_To_Float(&abs_position, text)) {
+                        if (String_To_Int16(&abs_position, text)) {
                             item.bottom = abs_position;
                             item.propertyFlags |= PROPERTY_FLAG_BOTTOM;
                         }

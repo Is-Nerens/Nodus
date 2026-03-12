@@ -142,16 +142,17 @@ BreadthFirstSearch BreadthFirstSearch_Create(NodeP* root) {
     return bfs;
 }
 
-void BreadthFirstSearch_Reset(BreadthFirstSearch* bfs) {
+void BreadthFirstSearch_Reset(BreadthFirstSearch* bfs, NodeP* root) {
     bfs->queue.front = 0;
     bfs->queue.size = 0;
+    bfs->root = root;
     if (bfs->root) BFSQueue_Push(&bfs->queue, bfs->root);
 }
 
 int BreadthFirstSearch_Next(BreadthFirstSearch* bfs, NodeP** nodeOut) {
     NodeP* node = BFSQueue_Pop(&bfs->queue);
     if (!node) {
-        BreadthFirstSearch_Reset(bfs);
+        BreadthFirstSearch_Reset(bfs, bfs->root);
         return 0;
     }
     *nodeOut = node;
@@ -264,4 +265,10 @@ void ReverseBreadthFirstSearch_Free(ReverseBreadthFirstSearch* rBFS) {
     rBFS->nodes = NULL;
     rBFS->count = 0;
     rBFS->index = 0;
+}
+
+void ReverseBreadthFirstSearch_Reset(ReverseBreadthFirstSearch* rBFS, NodeP* root)
+{
+   ReverseBreadthFirstSearch_Free(rBFS);
+   *rBFS = ReverseBreadthFirstSearch_Create(root);
 }

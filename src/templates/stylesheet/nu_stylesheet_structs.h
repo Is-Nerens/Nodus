@@ -1,4 +1,8 @@
 #pragma once
+typedef uint8_t u8;
+typedef uint16_t u16;
+typedef uint32_t u32;
+typedef uint64_t u64;
 
 typedef struct NU_Stylesheet_Tag_Pseudo_Pair
 {
@@ -22,16 +26,15 @@ typedef struct NU_Stylesheet_Item
     GLuint glImageHandle;
     float preferred_width, preferred_height;
     float minWidth, maxWidth, minHeight, maxHeight;
-    float gap;
-    float left, right, top, bottom;
-    uint16_t layoutFlags;
-    uint8_t padTop, padBottom, padLeft, padRight;
-    uint8_t borderTop, borderBottom, borderLeft, borderRight;
-    uint8_t borderRadiusTl, borderRadiusTr, borderRadiusBl, borderRadiusBr;
-    uint8_t backgroundR, backgroundG, backgroundB;
-    uint8_t borderR, borderG, borderB;
-    uint8_t textR, textG, textB;
-    uint8_t fontId; // index of NU_Font in stylesheet fonts vector
+    int16_t left, right, top, bottom;
+    u16 layoutFlags;
+    u8 gap, padTop, padBottom, padLeft, padRight;
+    u8 borderTop, borderBottom, borderLeft, borderRight;
+    u8 borderRadiusTl, borderRadiusTr, borderRadiusBl, borderRadiusBr;
+    u8 backgroundR, backgroundG, backgroundB;
+    u8 borderR, borderG, borderB;
+    u8 textR, textG, textB;
+    u8 fontId; // index of NU_Font in stylesheet fonts vector
     char horizontalAlignment;
     char verticalAlignment;
     char horizontalTextAlignment;

@@ -98,11 +98,11 @@ typedef struct Node
     // --- Styling ---
     float x, y, width, height, preferred_width, preferred_height;
     float minWidth, maxWidth, minHeight, maxHeight;
-    float gap, contentWidth, contentHeight, scrollX, scrollV;
-    float left, right, top, bottom;
+    float contentWidth, contentHeight, scrollX, scrollV;
+    int16_t left, right, top, bottom;
     u16 eventFlags; // --- Event Information
     u16 layoutFlags;
-    u8 padTop, padBottom, padLeft, padRight;
+    u8 gap, padTop, padBottom, padLeft, padRight;
     u8 borderTop, borderBottom, borderLeft, borderRight;
     u8 borderRadiusTl, borderRadiusTr, borderRadiusBl, borderRadiusBr;
     u8 backgroundR, backgroundG, backgroundB;
@@ -127,10 +127,16 @@ typedef struct NodeP
     struct NodeP* firstChild;
     struct NodeP* lastChild;
     struct NodeP* clippedAncestor;
-    u32 childCount;
+    u16 childCount;
     u8 layer;
     u8 state;
 } NodeP;
+
+
+
+
+
+
 
 typedef struct NU_NodeDimensions
 {
@@ -163,7 +169,7 @@ void NU_ApplyNodeDefaults(NodeP* node)
     node->node.layoutFlags = 0;
     node->node.maxWidth = 10e20f;
     node->node.maxHeight = 10e20f;
-    node->node.left = node->node.right = node->node.top = node->node.bottom = -1.0f;
+    node->node.left = node->node.right = node->node.top = node->node.bottom = -1;
     node->node.backgroundR = node->node.backgroundG = node->node.backgroundB = 50;
     node->node.borderR = node->node.borderG = node->node.borderB = 100;
     node->node.textR = node->node.textG = node->node.textB = 255;

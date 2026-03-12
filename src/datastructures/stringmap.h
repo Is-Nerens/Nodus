@@ -46,7 +46,7 @@ int StringmapInit(Stringmap* map, uint32_t itemSize, uint32_t capacity, uint32_t
     return 1;
 }
 
-uint32_t StringmapHash(char* string) {
+uint32_t StringmapHash(const char* string) {
     uint32_t hash = 2166136261u;
     for (uint8_t* p = (uint8_t*)string; *p; p++) {
         hash ^= *p;
@@ -125,7 +125,7 @@ int StringmapGrowRehash(Stringmap* map)
     return 1;
 }
 
-int StringmapSet(Stringmap* map, char* key, void* value)
+int StringmapSet(Stringmap* map, const char* key, void* value)
 {
     // resize if surpassed max load factor
     if (map->itemCount * 10 > map->capacity * 7) {
@@ -168,7 +168,7 @@ int StringmapSet(Stringmap* map, char* key, void* value)
     return 1;
 }
 
-void* StringmapGet(Stringmap* map, char* key)
+void* StringmapGet(Stringmap* map, const char* key)
 {
     uint32_t probes = 0;
     uint32_t hash = StringmapHash(key);
@@ -186,7 +186,7 @@ void* StringmapGet(Stringmap* map, char* key)
     return NULL;
 }
 
-int StringmapContains(Stringmap* map, char* key)
+int StringmapContains(Stringmap* map, const char* key)
 {
     uint32_t probes = 0;
     uint32_t hash = StringmapHash(key);
@@ -204,7 +204,7 @@ int StringmapContains(Stringmap* map, char* key)
     return 0;
 }
 
-void StringmapDelete(Stringmap* map, char* key)
+void StringmapDelete(Stringmap* map, const char* key)
 {
     uint32_t probes = 0;
     uint32_t hash = StringmapHash(key);

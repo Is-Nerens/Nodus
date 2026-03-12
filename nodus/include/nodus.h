@@ -13,7 +13,6 @@ extern "C" {
 
 
 // Opaque structs
-typedef struct NU_Nodelist NU_Nodelist;
 typedef struct NU_Stylesheet NU_Stylesheet;
 
 // Visible structs
@@ -51,6 +50,13 @@ typedef struct Node
     char verticalTextAlignment;
     uint8_t positionAbsolute;
 } Node;
+
+typedef struct NU_Nodelist
+{
+    size_t size;
+    Node** nodes;
+} NU_Nodelist;
+
 typedef struct {
     float r, g, b;
 } NU_RGB;
@@ -103,13 +109,17 @@ struct NU_Callback_Info
 
 
 // UI functions
-__declspec(dllimport) int NU_Create_Gui(char* xml_filepath, char* css_filepath);
+__declspec(dllimport) int NU_Create_Gui(const char* xml_filepath, const char* css_filepath);
 __declspec(dllimport) void NU_Quit(void);
 __declspec(dllimport) int NU_Running(void);
 
 // Stylesheet functions
-__declspec(dllimport) uint32_t NU_Load_Stylesheet(char* css_filepath);
+__declspec(dllimport) uint32_t NU_Load_Stylesheet(const char* css_filepath);
 __declspec(dllimport) int NU_Apply_Stylesheet(uint32_t stylesheet_handle);
+
+// Window functions
+__declspec(dllimport) void NU_Set_Window_Fullscreen(Node* node);
+__declspec(dllimport) void NU_Set_Window_Windowed(Node* node);
 
 // Cursor functions 
 __declspec(dllimport) void NU_Set_Cursor_Default(void);
@@ -126,8 +136,7 @@ __declspec(dllimport) void NU_Set_Cursor_NeswResize(void);
 // DOM functions
 __declspec(dllimport) inline Node* NU_PARENT(Node* node);
 __declspec(dllimport) inline Node* NU_CHILD(Node* node, uint32_t childIndex);
-__declspec(dllimport) inline uint32_t NU_CHILD_COUNT(Node* node);
-__declspec(dllimport) inline uint32_t NU_DEPTH(Node* node);
+__declspec(dllimport) inline int NU_CHILD_COUNT(Node* node);
 __declspec(dllimport) inline Node* NU_CREATE_NODE(Node* parent, NodeType type);
 __declspec(dllimport) inline void NU_DELETE_NODE(Node* node);
 __declspec(dllimport) inline void NU_SHIFT_NODE_IN_PARENT(Node* node, int index);
@@ -135,10 +144,13 @@ __declspec(dllimport) inline const char* NU_INPUT_TEXT_CONTENT(Node* node);
 __declspec(dllimport) Node* NU_HOVERED_NODE();
 __declspec(dllimport) inline void NU_SHOW(Node* node);
 __declspec(dllimport) inline void NU_HIDE(Node* node);
-__declspec(dllimport) Node* NU_Get_Node_By_Id(char* id);
-__declspec(dllimport) NU_Nodelist NU_Get_Nodes_By_Class(char* class_name);
+__declspec(dllimport) Node* NU_Get_Node_By_Id(const char* id);
+__declspec(dllimport) NU_Nodelist NU_Get_Nodes_By_Class(char* const class);
 __declspec(dllimport) NU_Nodelist NU_Get_Nodes_By_Tag(NodeType type);
-__declspec(dllimport) void NU_Set_Class(Node* node, char* class_name);
+__declspec(dllimport) NU_Nodelist NU_Get_Children(Node* node);
+__declspec(dllimport) Node* NU_Get_First_Descendent_With_Class(Node* node, const char* class);
+__declspec(dllimport) void NU_Nodelist_Free(NU_Nodelist* nodelist);
+__declspec(dllimport) void NU_Set_Class(Node* node, const char* class);
 
 // Event functions
 __declspec(dllimport) void NU_Register_Event(

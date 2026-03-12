@@ -34,7 +34,7 @@ void NU_Stylesheet_Init(NU_Stylesheet* ss)
     item->propertyFlags &= ~PROPERTY_FLAG_IMAGE; // Clear
     item->maxWidth = 10e20f;
     item->maxHeight = 10e20f;
-    item->left = item->right = item->top = item->bottom = -1.0f;
+    item->left = item->right = item->top = item->bottom = -1;
     item->backgroundR = item->backgroundG = item->backgroundB = 50;
     item->borderR = item->borderG = item->borderB = 100;
     item->textR = item->textG = item->textB = 255;
@@ -57,7 +57,7 @@ void NU_Stylesheet_Free(NU_Stylesheet* ss)
     Vector_Free(&ss->fonts);
 }
 
-int NU_Stylesheet_Create(NU_Stylesheet* stylesheet, char* filepath)
+int NU_Stylesheet_Create(NU_Stylesheet* stylesheet, const char* filepath)
 {
     NU_Stylesheet_Init(stylesheet);
 
@@ -85,7 +85,7 @@ int NU_Stylesheet_Create(NU_Stylesheet* stylesheet, char* filepath)
     return 1; // Success
 }
 
-uint32_t NU_Internal_Load_Stylesheet(char* filepath)
+uint32_t NU_Internal_Load_Stylesheet(const char* filepath)
 {
     NU_Stylesheet* stylesheet = Vector_Create_Uninitialised(&__NGUI.stylesheets);
     if (!NU_Stylesheet_Create(stylesheet, filepath)) return 0; // Failure

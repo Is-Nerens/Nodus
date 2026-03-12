@@ -30,7 +30,7 @@ struct NU_GUI
 {
     Tree tree;
     NU_WindowManager winManager;
-    StringArena node_text_arena;
+    StringArena nodeTextArena;
     Stringset class_string_set;
     Stringset id_string_set;
     Stringmap id_node_map;
@@ -43,8 +43,8 @@ struct NU_GUI
     NodeP* scroll_hovered_node;
     NodeP* scroll_mouse_down_node;
     NodeP* focused_node;
-    float mouse_down_global_x;
-    float mouse_down_global_y;
+    float mouseDownGlobalX;
+    float mouseDownGlobalY;
     float v_scroll_thumb_grab_offset;
     bool running;
     bool awaiting_redraw;
@@ -83,6 +83,10 @@ struct NU_GUI
     SDL_Cursor* cursorNwseResize;
     SDL_Cursor* cursorNeswResize;
 
+    // traversal
+    BreadthFirstSearch bfs;
+    ReverseBreadthFirstSearch rbfs;
+
     Uint32 SDL_CUSTOM_RENDER_EVENT;
     SDL_Mutex* unblock_mutex;
     bool unblock;
@@ -93,18 +97,18 @@ struct NU_GUI __NGUI;
 #include <rendering/nu_renderer.h>
 #include <window/nu_window_manager.h>
 #include <rendering/image/nu_image.h>
-#include <parsing/stylesheet/nu_stylesheet.h>
+#include <templates/stylesheet/nu_stylesheet.h>
 #include <rendering/canvas/nu_canvas_api.h>
-#include <parsing/xml/nu_xml_parser.h>
-#include "nu_layout.h"
+#include <templates/xml/nu_xml.h>
+#include <nu_layout.h>
 #include <tree/nu_input_text.h>
-#include "nu_draw.h"
-#include "nu_event_defs.h"
-#include "nu_dom.h"
-#include "nu_events.h"
-#include "cursor.h"
+#include <nu_draw.h>
+#include <nu_event_defs.h>
+#include <nu_dom.h>
+#include <nu_events.h>
+#include <cursor.h>
 
-void NU_Internal_Set_Class(Node* node, char* class)
+void NU_Internal_Set_Class(Node* node, const char* class)
 {   
     if (class == node->class) return;
 
@@ -138,7 +142,7 @@ void NU_Internal_Set_Class(Node* node, char* class)
     __NGUI.awaiting_redraw = true;
 }
 
-int NU_Internal_Create_Gui(char* xml_filepath, char* css_filepath)
+int NU_Internal_Create_Gui(const char* xml_filepath, const char* css_filepath)
 {
     // init SDL and GLEW
     if (!SDL_Init(SDL_INIT_VIDEO)) {
@@ -146,7 +150,7 @@ int NU_Internal_Create_Gui(char* xml_filepath, char* css_filepath)
         return 0;
     }
     NU_WindowManagerInit(&__NGUI.winManager);
-    StringArena_Init(&__NGUI.node_text_arena, 1024);
+    StringArena_Init(&__NGUI.nodeTextArena, 1024);
     StringsetInit(&__NGUI.class_string_set, 1024, 100);
     StringsetInit(&__NGUI.id_string_set, 1024, 100);
     StringmapInit(&__NGUI.id_node_map, sizeof(NodeP*), 100, 1024);
@@ -203,9 +207,6 @@ int NU_Internal_Create_Gui(char* xml_filepath, char* css_filepath)
         return 0;
     }
 
-    // Event watcher
-    SDL_AddEventWatch(EventWatcher, NULL);
-
     // Load xml
     if (!NU_Internal_Load_XML(xml_filepath)) return 0;
 
@@ -213,8 +214,16 @@ int NU_Internal_Create_Gui(char* xml_filepath, char* css_filepath)
     u32 stylesheetHandle = NU_Internal_Load_Stylesheet(css_filepath);
     if (stylesheetHandle == 0) return 0;
     if (!NU_Internal_Apply_Stylesheet(stylesheetHandle)) return 0;
+
+    // Traversal
+    __NGUI.bfs = BreadthFirstSearch_Create(__NGUI.tree.root);
+    __NGUI.rbfs = ReverseBreadthFirstSearch_Create(__NGUI.tree.root);
+
     NU_Layout(); // Initial layout calculation
     __NGUI.running = true;
+
+    // Event watcher
+    SDL_AddEventWatch(EventWatcher, NULL);
 
     return 1; // Success
 }
@@ -224,18 +233,7 @@ int NU_Internal_Running()
     if (!__NGUI.running) return 0;
 
     SDL_Event event;
-
-    SDL_LockMutex(__NGUI.unblock_mutex);
-    bool unblock = __NGUI.unblock;
-    __NGUI.unblock = false;
-    SDL_UnlockMutex(__NGUI.unblock_mutex);
-
-    // If unblock is requested, break after draining events
-    if (unblock) {
-        while (SDL_PollEvent(&event)) {
-            EventWatcher(NULL, &event);
-        }
-    }
+    while (SDL_PollEvent(&event)) {}
 
     if (__NGUI.awaiting_redraw) 
     {
@@ -266,7 +264,7 @@ void NU_Internal_Quit()
     StringmapFree(&__NGUI.id_node_map);
     StringsetFree(&__NGUI.class_string_set);
     StringsetFree(&__NGUI.id_string_set);
-    StringArena_Free(&__NGUI.node_text_arena);
+    StringArena_Free(&__NGUI.nodeTextArena);
     for (u32 i=0; i<__NGUI.stylesheets.size; i++)
     {
         NU_Stylesheet* stylesheet = Vector_Get(&__NGUI.stylesheets, i);
@@ -287,6 +285,8 @@ void NU_Internal_Quit()
     HashmapFree(&__NGUI.on_mouse_out_events);
     HashmapFree(&__NGUI.on_mouse_wheel_events);
     Container_Free(&__NGUI.canvasContexts);
+    BreadthFirstSearch_Free(&__NGUI.bfs);
+    ReverseBreadthFirstSearch_Free(&__NGUI.rbfs);
     SetFree(&__NGUI.deletedNodesWithRegisteredEvents);
     SDL_Quit();
 }

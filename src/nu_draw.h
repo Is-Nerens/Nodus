@@ -144,6 +144,13 @@ void NU_DrawClippedNodeBorderRect(NodeP* node, float winWidth, float winHeight, 
     Index_List_Free(&indices);
 }
 
+inline int NodeNotVisibleInWindow(NodeP* node, int winW, int winH) 
+{
+    float right  = node->node.x + node->node.width;
+    float bottom = node->node.y + node->node.height;
+    return (right < 0 || bottom < 0 || node->node.x > winW || node->node.y > winH);
+}
+
 void NU_GenerateDrawlists()
 {
     // prepare draw datastructures
@@ -154,9 +161,10 @@ void NU_GenerateDrawlists()
     SetNodeDrawlist_Relative(&__NGUI.winManager, root);
 
     // traverse the tree
-    BreadthFirstSearch bfs = BreadthFirstSearch_Create(root);
+    BreadthFirstSearch* bfs = &__NGUI.bfs;
+    BreadthFirstSearch_Reset(bfs, root);
     NodeP* node;
-    while(BreadthFirstSearch_Next(&bfs, &node)) {
+    while(BreadthFirstSearch_Next(bfs, &node)) {
 
         // node not visible? children must inherit this
         if (node->state == 2) {
@@ -187,15 +195,20 @@ void NU_GenerateDrawlists()
             nodeInnerWidth = node->node.width - node->node.borderLeft - node->node.borderRight - node->node.padLeft - node->node.padRight;
         }
 
+        // cache window dimensions
+        int winW, winH;
+        SDL_GetWindowSize(node->node.window, &winW, &winH);
+
         // iterate over children
         NodeP* child = node->firstChild;
-        while(child != NULL) {
+        while(child != NULL) 
+        {
             if (child->state == 2) {
                 child = child->nextSibling; continue;
             }
 
             // if child not visible in window bounds -> mark as hidden
-            if (!NodeVisibleInWindow(&__NGUI.winManager, child)) {
+            if (NodeNotVisibleInWindow(child, winW, winH)) {
                 child->state = 2; 
                 child = child->nextSibling; continue;
             }
@@ -294,12 +307,14 @@ void NU_GenerateDrawlists()
             child = child->nextSibling;
         }
     }
-    BreadthFirstSearch_Free(&bfs);
 }
 
 void NU_Draw()
 {
+    printf("gen drawlists\n");
+    timer_start();
     NU_GenerateDrawlists();
+    timer_stop();
     
     // Initialise text vertex and index buffers (per font)
     Vertex_RGB_UV_List text_relative_vertex_buffers[__NGUI.stylesheet->fonts.size];

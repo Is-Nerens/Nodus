@@ -424,10 +424,10 @@ bool EventWatcher(void* data, SDL_Event* event)
 
         // Get mouse down coordinates
         int win_x, win_y; 
-        SDL_GetGlobalMouseState(&__NGUI.mouse_down_global_x, &__NGUI.mouse_down_global_y);
+        SDL_GetGlobalMouseState(&__NGUI.mouseDownGlobalX, &__NGUI.mouseDownGlobalY);
         SDL_GetWindowPosition(__NGUI.winManager.hoveredWindow, &win_x, &win_y);
-        float mouseX = __NGUI.mouse_down_global_x - win_x;
-        float mouseY = __NGUI.mouse_down_global_y - win_y;
+        float mouseX = __NGUI.mouseDownGlobalX - win_x;
+        float mouseY = __NGUI.mouseDownGlobalY - win_y;
 
         // Set mouse down node
         __NGUI.mouse_down_node = __NGUI.hovered_node;
@@ -506,15 +506,15 @@ bool EventWatcher(void* data, SDL_Event* event)
     {
         __NGUI.scroll_mouse_down_node = NULL;
 
-        SDL_GetGlobalMouseState(&__NGUI.mouse_down_global_x, &__NGUI.mouse_down_global_y);
+        SDL_GetGlobalMouseState(&__NGUI.mouseDownGlobalX, &__NGUI.mouseDownGlobalY);
 
         // Trigger all mouse up events
         if (__NGUI.winManager.hoveredWindow != NULL)
         {
             int win_x, win_y; 
             SDL_GetWindowPosition(__NGUI.winManager.hoveredWindow, &win_x, &win_y);
-            float mouseX = __NGUI.mouse_down_global_x - win_x;
-            float mouseY = __NGUI.mouse_down_global_y - win_y;
+            float mouseX = __NGUI.mouseDownGlobalX - win_x;
+            float mouseY = __NGUI.mouseDownGlobalY - win_y;
             TriggerAllMouseupEvents(mouseX, mouseY, (int)event->button.button);
         }
 
@@ -530,10 +530,10 @@ bool EventWatcher(void* data, SDL_Event* event)
 
                 // Get mouse up coordinates
                 int win_x, win_y; 
-                SDL_GetGlobalMouseState(&__NGUI.mouse_down_global_x, &__NGUI.mouse_down_global_y);
+                SDL_GetGlobalMouseState(&__NGUI.mouseDownGlobalX, &__NGUI.mouseDownGlobalY);
                 SDL_GetWindowPosition(__NGUI.winManager.hoveredWindow, &win_x, &win_y);
-                float mouseX = __NGUI.mouse_down_global_x - win_x;
-                float mouseY = __NGUI.mouse_down_global_y - win_y;
+                float mouseX = __NGUI.mouseDownGlobalX - win_x;
+                float mouseY = __NGUI.mouseDownGlobalY - win_y;
 
 
                 // If there is a click event assigned to the pressed node

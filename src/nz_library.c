@@ -1,11 +1,11 @@
 #define NODUS_BUILD_DLL
-#include "headers/nodus.h"
+#include "nodus.h"
 #include <stdio.h>
 
 // --------------------------
 // --- Nodus UI functions ---
 // --------------------------
-__declspec(dllexport) int NU_Create_Gui(char* xml_filepath, char* css_filepath) {
+__declspec(dllexport) int NU_Create_Gui(const char* xml_filepath, const char* css_filepath) {
     return NU_Internal_Create_Gui(xml_filepath, css_filepath);
 }
 
@@ -19,11 +19,46 @@ __declspec(dllexport) int NU_Running(void) {
 // ----------------------------
 // --- Stylesheet functions ---
 // ----------------------------
-__declspec(dllexport) uint32_t NU_Load_Stylesheet(char* filepath) {
+__declspec(dllexport) uint32_t NU_Load_Stylesheet(const char* filepath) {
     return NU_Internal_Load_Stylesheet(filepath);
 }
 __declspec(dllexport) int NU_Apply_Stylesheet(uint32_t stylesheet_handle) {
     return NU_Internal_Apply_Stylesheet(stylesheet_handle);
+}
+
+// ------------------------
+// --- Window fucntions ---
+// ------------------------
+__declspec(dllexport) void NU_Set_Window_Fullscreen(Node* node) {
+    Uint32 flags = SDL_GetWindowFlags(node->window);
+    if (flags & SDL_WINDOW_FULLSCREEN) return;
+    SDL_SetWindowFullscreen(node->window, true);
+
+    // Clear the window, swap buffers and re-render
+    int w, h;
+    SDL_GetWindowSize(node->window, &w, &h);
+    glViewport(0, 0, w, h);
+    glClearColor(0.0f, 0.0f, 0.0f, 1.0f);
+    glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT | GL_STENCIL_BUFFER_BIT);
+    SDL_GL_SwapWindow(node->window);
+    __NGUI.awaiting_redraw = true;
+    NU_Internal_Render();
+}
+
+__declspec(dllexport) void NU_Set_Window_Windowed(Node* node) {
+    Uint32 flags = SDL_GetWindowFlags(node->window);
+    if (!(flags & SDL_WINDOW_FULLSCREEN)) return;
+    SDL_SetWindowFullscreen(node->window, false);
+
+    // Clear the window, swap buffers and re-render
+    int w, h;
+    SDL_GetWindowSize(node->window, &w, &h);
+    glViewport(0, 0, w, h);
+    glClearColor(0.0f, 0.0f, 0.0f, 1.0f);
+    glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT | GL_STENCIL_BUFFER_BIT);
+    SDL_GL_SwapWindow(node->window);
+    __NGUI.awaiting_redraw = true;
+    NU_Internal_Render();
 }
 
 // ------------------------
@@ -83,50 +118,120 @@ __declspec(dllexport) void NU_Set_Cursor_NeswResize(void)
 // --- DOM functions ---
 // ---------------------
 __declspec(dllexport) Node* NU_PARENT(Node* node) {
-    return PARENT(node);
+    NodeP* nodeP = NODEP_OF(node); // clever macro stuff
+    if (nodeP->parent == NULL) return NULL;
+    return &nodeP->parent->node;
 }
 __declspec(dllexport) Node* NU_CHILD(Node* node, uint32_t childIndex) {
-    return CHILD(node, childIndex);
+    NodeP* nodeP = NODEP_OF(node); // clever macro stuff
+    if (nodeP == NULL || childIndex >= nodeP->childCount) return NULL;
+    NodeP* child = nodeP->firstChild;
+    u32 i = 0;
+    while(child != NULL) {
+        if (i == childIndex) return &child->node;
+        i++;
+        child = child->nextSibling;
+    }
+    return NULL;
 }
-__declspec(dllexport) uint32_t NU_CHILD_COUNT(Node* node) {
-    return CHILD_COUNT(node);
-}
-__declspec(dllexport) int NU_DEPTH(Node* node) {
-    return DEPTH(node);
+__declspec(dllexport) int NU_CHILD_COUNT(Node* node) {
+    NodeP* nodeP = NODEP_OF(node); // clever macro stuff
+    return (int)nodeP->childCount;
 }
 __declspec(dllexport) Node* NU_CREATE_NODE(Node* parent, NodeType type) {
-    return CREATE_NODE(parent, type);
+    if (parent == NULL || type == NU_WINDOW) return NULL; // Nodus doesn't yet support window creation
+    NodeP* parentP = NODEP_OF(parent); // clever macro stuff
+    NodeP* node = TreeCreateNode(&__NGUI.tree, parentP, type);
+    NU_Apply_Stylesheet_To_Node(node, __NGUI.stylesheet);
+    return &node->node;
 }
 __declspec(dllexport) void NU_DELETE_NODE(Node* node) {
-    DELETE_NODE(node);
+    NodeP* nodeP = NODEP_OF(node); // clever macro stuff
+    return TreeDeleteNode(&__NGUI.tree, nodeP, NU_DissociateNode);
 }
 __declspec(dllexport) void NU_SHIFT_NODE_IN_PARENT(Node* node, int index) {
-    SHIFT_NODE_IN_PARENT(node, index);
+    NodeP* nodeP = NODEP_OF(node); // clever macro stuff
+    TreeShiftNodeInParent(&__NGUI.tree, nodeP, index);
 }
 __declspec(dllexport) const char* NU_INPUT_TEXT_CONTENT(Node* node) {
-    return INPUT_TEXT_CONTENT(node);
+    NodeP* nodeP = NODEP_OF(node); // clever macro stuff
+    if (nodeP->type != NU_INPUT) return NULL;
+    return nodeP->typeData.input.inputText.buffer;
 }
 __declspec(dllexport) Node* NU_HOVERED_NODE() {
     if (!__NGUI.hovered_node) return NULL;
     return &__NGUI.hovered_node->node;
 }
 __declspec(dllexport) void NU_HIDE(Node* node) {
-    HIDE(node);
+    node->layoutFlags |= HIDDEN;
 }
 __declspec(dllexport) void NU_SHOW(Node* node) {
-    SHOW(node);
+    node->layoutFlags &= ~HIDDEN;
 }
-__declspec(dllexport) Node* NU_Get_Node_By_Id(char* id) {
-    return NU_Internal_Get_Node_By_Id(id);
+__declspec(dllexport) Node* NU_Get_Node_By_Id(const char* id) {
+    void* found = StringmapGet(&__NGUI.id_node_map, id);
+    if (found == NULL) return NULL;
+    NodeP* node = *(NodeP**)found;
+    return &node->node;
 }
-__declspec(dllexport) NU_Nodelist NU_Get_Nodes_By_Class(char* class_name) {
-    return NU_Internal_Get_Nodes_By_Class(class_name);
+__declspec(dllexport) NU_Nodelist NU_Get_Nodes_By_Class(const char* class) {
+    
+    NU_Nodelist_Internal result;
+    NU_Nodelist_Init(&result, 8);
+    DepthFirstSearch dfs = DepthFirstSearch_Create(__NGUI.tree.root);
+    NodeP* node;
+    while(DepthFirstSearch_Next(&dfs, &node)) {
+        if (node->node.class != NULL && strcmp(class, node->node.class) == 0) {
+            NU_Nodelist_Push(&result, &node->node);
+        }
+    }
+    DepthFirstSearch_Free(&dfs);
+    return result.nodelist;
 }
 __declspec(dllexport) NU_Nodelist NU_Get_Nodes_By_Tag(NodeType type) {
-    return NU_Internal_Get_Nodes_By_Tag(type);
+    NU_Nodelist_Internal result;
+    NU_Nodelist_Init(&result, 8);
+    DepthFirstSearch dfs = DepthFirstSearch_Create(__NGUI.tree.root);
+    NodeP* node;
+    while(DepthFirstSearch_Next(&dfs, &node)) {
+        if (node->type == type) {
+            NU_Nodelist_Push(&result, &node->node);
+        }
+    }
+    DepthFirstSearch_Free(&dfs);
+    return result.nodelist;
 }
-__declspec(dllexport) void NU_Set_Class(Node* node, char* class_name) {
-    NU_Internal_Set_Class(node, class_name);
+__declspec(dllexport) NU_Nodelist NU_Get_Children(Node* node) {
+    NodeP* nodeP = NODEP_OF(node); // clever macro stuff
+    NU_Nodelist_Internal result;
+    NU_Nodelist_Init(&result, nodeP->childCount);
+    NodeP* child = nodeP->firstChild;
+    while(child != NULL) {
+        NU_Nodelist_Push(&result, &child->node);
+        child = child->nextSibling; // move to the next child
+    }
+    return result.nodelist;
+}
+__declspec(dllexport) Node* NU_Get_First_Descendent_With_Class(Node* node, const char* class) {
+    NodeP* nodeP = NODEP_OF(node); // clever macro stuff
+    Node* result = NULL;
+    DepthFirstSearch dfs = DepthFirstSearch_Create(nodeP);
+    NodeP* dfsNode;
+    while(DepthFirstSearch_Next(&dfs, &dfsNode)) {
+        if (strcmp(dfsNode->node.class, class) == 0) {
+            result = &dfsNode->node;
+            break;
+        }
+    }
+    DepthFirstSearch_Free(&dfs);
+    return result;
+}
+__declspec(dllexport) void NU_Nodelist_Free(NU_Nodelist* nodelist) {
+    free(nodelist->nodes);
+    nodelist->count = 0;
+}
+__declspec(dllexport) void NU_Set_Class(Node* node, const char* class) {
+    NU_Internal_Set_Class(node, class);
 }
 // -----------------------
 // --- Event functions ---

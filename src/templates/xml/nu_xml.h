@@ -172,7 +172,7 @@ int NU_Generate_Tree(char* src, TokenArray* tokens, struct Vector* textRefs)
                 char c = src[current_text_ref->src_index];
                 char* text = &src[current_text_ref->src_index];
                 src[current_text_ref->src_index + current_text_ref->char_count] = '\0';
-                currentNode->node.textContent = StringArena_Add(&__NGUI.node_text_arena, text);
+                currentNode->node.textContent = StringArena_Add(&__NGUI.nodeTextArena, text);
             }
 
             // Continue ^
@@ -285,15 +285,16 @@ int NU_Generate_Tree(char* src, TokenArray* tokens, struct Vector* textRefs)
                     
                     // Set gap 
                     case GAP_PROPERTY:
-                        float property_float;
-                        if (String_To_Float(&property_float, ptext)) {
+                        uint8_t gap;
+                        if (String_To_uint8_t(&gap, ptext)) {
                             currentNode->node.inlineStyleFlags |= PROPERTY_FLAG_GAP;
-                            currentNode->node.gap = property_float;
+                            currentNode->node.gap = gap;
                         }
                         break;
                     
                     // Set preferred width
                     case WIDTH_PROPERTY:
+                        float property_float;
                         if (String_To_Float(&property_float, ptext)) {
                             currentNode->node.inlineStyleFlags |= PROPERTY_FLAG_PREFERRED_WIDTH;
                             currentNode->node.preferred_width = property_float;
@@ -398,26 +399,26 @@ int NU_Generate_Tree(char* src, TokenArray* tokens, struct Vector* textRefs)
 
                     // Set absolute positioning
                     case LEFT_PROPERTY:
-                        float abs_position; 
-                        if (String_To_Float(&abs_position, ptext)) {
+                        int16_t abs_position; 
+                        if (String_To_Int16(&abs_position, ptext)) {
                             currentNode->node.left = abs_position;
                             currentNode->node.inlineStyleFlags |= PROPERTY_FLAG_LEFT;
                         }
                         break;
                     case RIGHT_PROPERTY:
-                        if (String_To_Float(&abs_position, ptext)) {
+                        if (String_To_Int16(&abs_position, ptext)) {
                             currentNode->node.right = abs_position;
                             currentNode->node.inlineStyleFlags |= PROPERTY_FLAG_RIGHT;
                         }
                         break;
                      case TOP_PROPERTY:
-                        if (String_To_Float(&abs_position, ptext)) {
+                        if (String_To_Int16(&abs_position, ptext)) {
                             currentNode->node.top = abs_position;
                             currentNode->node.inlineStyleFlags |= PROPERTY_FLAG_TOP;
                         }
                         break;
                     case BOTTOM_PROPERTY:
-                        if (String_To_Float(&abs_position, ptext)) {
+                        if (String_To_Int16(&abs_position, ptext)) {
                             currentNode->node.bottom = abs_position;
                             currentNode->node.inlineStyleFlags |= PROPERTY_FLAG_BOTTOM;
                         }
@@ -613,7 +614,7 @@ int NU_Generate_Tree(char* src, TokenArray* tokens, struct Vector* textRefs)
     return 1;
 }
 
-int NU_Internal_Load_XML(char* filepath)
+int NU_Internal_Load_XML(const char* filepath)
 {
     // Open XML source file and load into buffer
     String src = FileReadUTF8(filepath);

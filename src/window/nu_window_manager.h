@@ -18,8 +18,6 @@ void CreateMainWindow(NU_WindowManager* winManager)
     glewInit();
     glEnable(GL_MULTISAMPLE);
     glEnable(GL_BLEND);
-
-    // if mouse is over window -> initialise hovered window
 }
 
 void NU_WindowManagerInit(NU_WindowManager* winManager)
@@ -128,15 +126,6 @@ void GetLocalMouseCoords(NU_WindowManager* winManager, float* outX, float* outY)
 inline int InHoverredWindow(NU_WindowManager* winManager, NodeP* node)
 {
     return node->node.window == winManager->hoveredWindow;
-}
-
-inline int NodeVisibleInWindow(NU_WindowManager* winManager, NodeP* node)
-{
-    int windowW, windowH;
-    SDL_GetWindowSize(node->node.window, &windowW, &windowH);
-    float right  = node->node.x + node->node.width;
-    float bottom = node->node.y + node->node.height;
-    return !(right < 0 || bottom < 0 || node->node.x > windowW || node->node.y > windowH);
 }
 
 NU_WindowDrawlist* GetWindowDrawlist(NU_WindowManager* winManager, SDL_Window* window)

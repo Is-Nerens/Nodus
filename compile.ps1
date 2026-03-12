@@ -1,12 +1,12 @@
-$headersInclude = "src\headers"
+$srcInclude = "src"
 $sdlLib = "src\vendor\SDL3\lib" 
 $sdlInclude = "src\vendor\SDL3\include"
 $glewInclude = "src\vendor\glew\include"
 $glewLib = "src\vendor\glew\lib"
 $freetypeInclude = "src\vendor\freetype\include"
 $freetypeLib = "src\vendor\freetype\lib"
-clang -std=c99 -O3 "src\nodus_library.c" `
--I"$headersInclude" `
+clang -std=c99 -O3 "src\nz_library.c" `
+-I"$srcInclude" `
 -I"$glewInclude" `
 -I"$sdlInclude" `
 -I"$freetypeInclude" `
@@ -22,7 +22,7 @@ Remove-Item nodus\lib\nodus.exp -Force
 
 # Replace old nodus.dll with updated one
 $sourceDll = "nodus\lib\nodus.dll"
-$destDll = "app\nodus.dll"
+$destDll = "app-test\build\nodus.dll"
 if (Test-Path $sourceDll) {
     if (Test-Path $destDll) {
         Remove-Item $destDll -Force

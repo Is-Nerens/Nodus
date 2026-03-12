@@ -81,7 +81,7 @@ int LinearStringsetInit(LinearStringset* set, uint32_t mapCapacity, uint32_t chu
     return 1;
 }
 
-uint32_t LinearStringsetHash(char* string) {
+uint32_t LinearStringsetHash(const char* string) {
     uint32_t hash = 2166136261u;
     for (uint8_t* p = (uint8_t*)string; *p; p++) {
         hash ^= *p;
@@ -158,7 +158,7 @@ int LinearStringsetRehash(LinearStringset* set)
     return 1;
 }
 
-char* LinearStringsetAddString(LinearStringset* set, char* string)
+char* LinearStringsetAddString(LinearStringset* set, const char* string)
 {
     char* storedKey;
     uint32_t stringLen = strlen(string);
@@ -202,7 +202,7 @@ char* LinearStringsetAddString(LinearStringset* set, char* string)
     return storedKey;
 }
 
-char* LinearStringsetAdd(LinearStringset* set, char* string)
+char* LinearStringsetAdd(LinearStringset* set, const char* string)
 {
     // resize if surpassed max load factor
     if (set->itemCount * 10 > set->mapCapacity * 7) {
@@ -231,7 +231,7 @@ char* LinearStringsetAdd(LinearStringset* set, char* string)
     return NULL;
 }
 
-char* LinearStringsetGet(LinearStringset* set, char* string)
+char* LinearStringsetGet(LinearStringset* set, const char* string)
 {
     uint32_t probes = 0;
     uint32_t hash = LinearStringsetHash(string);
@@ -249,7 +249,7 @@ char* LinearStringsetGet(LinearStringset* set, char* string)
     return NULL;
 }
 
-int LinearStringsetContains(LinearStringset* set, char* string)
+int LinearStringsetContains(LinearStringset* set, const char* string)
 {
     uint32_t probes = 0;
     uint32_t hash = LinearStringsetHash(string);

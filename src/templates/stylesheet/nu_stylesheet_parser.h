@@ -580,37 +580,37 @@ static int NU_Stylesheet_Parse(char* src, TokenArray* tokens, NU_Stylesheet* ss,
 
                     // Set preferred width
                     case STYLE_WIDTH_PROPERTY:
-                        if (String_To_Float(&item.preferred_width, text))
+                        if (String_To_Uint16(&item.preferred_width, text))
                             item.propertyFlags |= PROPERTY_FLAG_PREFERRED_WIDTH;
                         break;
 
                     // Set min width
                     case STYLE_MIN_WIDTH_PROPERTY:
-                        if (String_To_Float(&item.minWidth, text))
+                        if (String_To_Uint16(&item.minWidth, text))
                             item.propertyFlags |= PROPERTY_FLAG_MIN_WIDTH;
                         break;
                     
                     // Set max width
                     case STYLE_MAX_WIDTH_PROPERTY:
-                        if (String_To_Float(&item.maxWidth, text))
+                        if (String_To_Uint16(&item.maxWidth, text))
                             item.propertyFlags |= PROPERTY_FLAG_MAX_WIDTH;
                         break;
 
                     // Set preferred height
                     case STYLE_HEIGHT_PROPERTY:
-                        if (String_To_Float(&item.preferred_height, text)) 
+                        if (String_To_Uint16(&item.preferred_height, text)) 
                             item.propertyFlags |= PROPERTY_FLAG_PREFERRED_HEIGHT;
                         break;
 
                     // Set min height
                     case STYLE_MIN_HEIGHT_PROPERTY:
-                        if (String_To_Float(&item.minHeight, text)) 
+                        if (String_To_Uint16(&item.minHeight, text)) 
                             item.propertyFlags |= PROPERTY_FLAG_MIN_HEIGHT;
                         break;
 
                     // Set max height
                     case STYLE_MAX_HEIGHT_PROPERTY:
-                        if (String_To_Float(&item.maxHeight, text)) 
+                        if (String_To_Uint16(&item.maxHeight, text)) 
                             item.propertyFlags |= PROPERTY_FLAG_MAX_HEIGHT;
                         break;
 
@@ -680,30 +680,25 @@ static int NU_Stylesheet_Parse(char* src, TokenArray* tokens, NU_Stylesheet* ss,
 
                     // Set absolute position properties
                     case STYLE_LEFT_PROPERTY:
-                        int16_t abs_position; 
-                        if (String_To_Int16(&abs_position, text)) {
-                            item.left = abs_position;
+                        if (String_To_Int16(&item.left, text)) {
                             item.propertyFlags |= PROPERTY_FLAG_LEFT;
                         }
                         break;
 
                     case STYLE_RIGHT_PROPERTY:
-                        if (String_To_Int16(&abs_position, text)) {
-                            item.right = abs_position;
+                        if (String_To_Int16(&item.right, text)) {
                             item.propertyFlags |= PROPERTY_FLAG_RIGHT;
                         }
                         break;
 
                     case STYLE_TOP_PROPERTY:
-                        if (String_To_Int16(&abs_position, text)) {
-                            item.top = abs_position;
+                        if (String_To_Int16(&item.top, text)) {
                             item.propertyFlags |= PROPERTY_FLAG_TOP;
                         }
                         break;
 
                     case STYLE_BOTTOM_PROPERTY:
-                        if (String_To_Int16(&abs_position, text)) {
-                            item.bottom = abs_position;
+                        if (String_To_Int16(&item.bottom, text)) {
                             item.propertyFlags |= PROPERTY_FLAG_BOTTOM;
                         }
                         break;

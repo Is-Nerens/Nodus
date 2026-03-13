@@ -46,9 +46,11 @@ NodeP* TreeCreate(Tree* tree, NodeType rootType)
     root->nextSibling = NULL;
     root->firstChild = NULL;
     root->lastChild = NULL;
+    root->clippedAncestor = NULL;
     root->childCount = 0;
     root->layer = 0;
     root->state = 1;
+    NU_ApplyNodeDefaults(root);
     tree->root = root;
     return root;
 }
@@ -85,14 +87,14 @@ NodeP* TreeCreateNode(Tree* tree, NodeP* parent, NodeType type)
     tree->nodeCount++;
 
     // allocate new node
-    //Nalloc* nalloc = &tree->layerAllocs[parent->layer + 1];
-    Nalloc* nalloc = &tree->layerAllocs[0];
+    Nalloc* nalloc = &tree->layerAllocs[parent->layer + 1];
     NodeP* newNode = Nalloc_Alloc(nalloc);
     newNode->type = type;
     newNode->parent = parent;
     newNode->nextSibling = NULL;
     newNode->firstChild = NULL;
     newNode->lastChild = NULL;
+    newNode->clippedAncestor = NULL;
     newNode->childCount = 0;
     newNode->layer = parent->layer + 1;
     newNode->state = 1;

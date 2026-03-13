@@ -118,7 +118,7 @@ void NU_Mouse_Hover()
     __NGUI.prev_hovered_node = __NGUI.hovered_node;
     __NGUI.hovered_node = NULL;
     __NGUI.scroll_hovered_node = NULL;
-    if (__NGUI.winManager.hoveredWindow == NULL) return;
+    if (__NGUI.winManager.hoveredWindowID == -1) return;
 
     // get local mouse coords
     float mouseX, mouseY; GetLocalMouseCoords(&__NGUI.winManager, &mouseX, &mouseY);
@@ -130,7 +130,7 @@ void NU_Mouse_Hover()
     // add absolute root nodes to stack
     for (uint32_t i=0; i<__NGUI.winManager.absoluteRootNodes.size; i++) {
         NodeP* absolute_node = *(NodeP**)Vector_Get(&__NGUI.winManager.absoluteRootNodes, i);
-        if (absolute_node->node.window == __NGUI.winManager.hoveredWindow && NU_MouseIsOverNode(absolute_node, mouseX, mouseY)) {
+        if (absolute_node->windowID == __NGUI.winManager.hoveredWindowID && NU_MouseIsOverNode(absolute_node, mouseX, mouseY)) {
             Vector_Push(&stack, &absolute_node);
         }
     }
@@ -138,7 +138,7 @@ void NU_Mouse_Hover()
     // add window root nodes to stack
     for (uint32_t i=0; i<__NGUI.winManager.windowNodes.size; i++) {
         NodeP* node = *(NodeP**)Vector_Get(&__NGUI.winManager.windowNodes, i);
-        if (node->node.window == __NGUI.winManager.hoveredWindow){
+        if (node->windowID == __NGUI.winManager.hoveredWindowID){
             Vector_Push(&stack, &node);
             break;
         }

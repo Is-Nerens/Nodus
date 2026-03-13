@@ -5,6 +5,7 @@ typedef uint8_t u8;
 typedef uint16_t u16;
 typedef uint32_t u32;
 typedef uint64_t u64;
+typedef int16_t i16;
 
 // Layout flags
 #define LAYOUT_VERTICAL                 (1ULL << 0)
@@ -88,18 +89,15 @@ typedef union NodeTypeData {
 
 typedef struct Node
 {
-    SDL_Window* window;
     char* class;
     char* id;
     char* textContent;
-    
-    u64 inlineStyleFlags; // --- Tracks which styles were applied in xml ---
 
     // --- Styling ---
-    float x, y, width, height, preferred_width, preferred_height;
-    float minWidth, maxWidth, minHeight, maxHeight;
+    float x, y, width, height;
     float contentWidth, contentHeight, scrollX, scrollV;
-    int16_t left, right, top, bottom;
+    u16 minWidth, maxWidth, minHeight, maxHeight;
+    i16 left, right, top, bottom;
     u16 eventFlags; // --- Event Information
     u16 layoutFlags;
     u8 gap, padTop, padBottom, padLeft, padRight;
@@ -108,12 +106,6 @@ typedef struct Node
     u8 backgroundR, backgroundG, backgroundB;
     u8 borderR, borderG, borderB;
     u8 textR, textG, textB;
-    u8 fontId;
-    char horizontalAlignment;
-    char verticalAlignment;
-    char horizontalTextAlignment;
-    char verticalTextAlignment;
-    u8 positionAbsolute;
 } Node;
 
 typedef struct NodeP
@@ -127,9 +119,18 @@ typedef struct NodeP
     struct NodeP* firstChild;
     struct NodeP* lastChild;
     struct NodeP* clippedAncestor;
+    u64 overrideStyleFlags;
     u16 childCount;
+    u16 preferred_width, preferred_height;
     u8 layer;
     u8 state;
+    u8 fontId;
+    u8 windowID;
+    char horizontalAlignment;
+    char verticalAlignment;
+    char horizontalTextAlignment;
+    char verticalTextAlignment;
+    u8 positionAbsolute;
 } NodeP;
 
 
@@ -160,29 +161,34 @@ void NU_ApplyNodeDefaults(NodeP* node)
     // zero init
     memset(&node->node, 0, sizeof(node->node));
     memset(&node->typeData, 0, sizeof(node->typeData));
-
-    node->node.window = NULL;
+    
     node->node.class = NULL;
     node->node.id = NULL;
     node->node.textContent = NULL;
-
     node->node.layoutFlags = 0;
-    node->node.maxWidth = 10e20f;
-    node->node.maxHeight = 10e20f;
+    node->node.maxWidth = UINT16_MAX;
+    node->node.maxHeight = UINT16_MAX;
     node->node.left = node->node.right = node->node.top = node->node.bottom = -1;
     node->node.backgroundR = node->node.backgroundG = node->node.backgroundB = 50;
     node->node.borderR = node->node.borderG = node->node.borderB = 100;
     node->node.textR = node->node.textG = node->node.textB = 255;
-    node->node.horizontalTextAlignment = 1;
-    node->node.verticalTextAlignment = 1;
+    node->overrideStyleFlags = 0;
+    node->preferred_width = 0;
+    node->preferred_height = 0;
+    node->fontId = 0;
+    node->horizontalAlignment = 0;
+    node->verticalAlignment = 0;
+    node->horizontalTextAlignment = 1;
+    node->verticalTextAlignment = 1;
+    node->positionAbsolute = 0;
     
     // set defaults based on node type
     if (node->type == NU_TABLE) {
-        node->node.inlineStyleFlags |= PROPERTY_FLAG_LAYOUT_VERTICAL; // Enforce vertical direction
+        node->overrideStyleFlags |= PROPERTY_FLAG_LAYOUT_VERTICAL; // Enforce vertical direction
         node->node.layoutFlags |= LAYOUT_VERTICAL;
     }
     else if (node->type == NU_THEAD || node->type == NU_ROW) {
-        node->node.inlineStyleFlags |= PROPERTY_FLAG_GROW; // Enforce horizontal growth
+        node->overrideStyleFlags |= PROPERTY_FLAG_GROW; // Enforce horizontal growth
         node->node.layoutFlags |= GROW_HORIZONTAL;
     }
     else if (node->type == NU_INPUT) {
@@ -192,6 +198,6 @@ void NU_ApplyNodeDefaults(NodeP* node)
         node->typeData.canvas.ctxHandle = -1;
     }
     if (node->type != NU_WINDOW) {
-        node->node.window = node->parent->node.window;
+        node->windowID = node->parent->windowID;
     }
 }

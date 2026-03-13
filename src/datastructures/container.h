@@ -38,6 +38,7 @@ static inline Container Container_Create(size_t elementSize)
 
     return container;
 }
+
 static inline void Container_Free(Container* container)
 {
     if (!container) return;
@@ -126,4 +127,22 @@ static inline void* Container_Get(Container* container, int id)
     if (slot >= container->capacity || container->ids[slot] != gen) return NULL;
     int index = container->indices[slot];
     return (char*)container->data + index * container->elementSize;
+}
+
+static inline void* Container_GetAt(Container* container, int i)
+{
+    if (!container) return NULL;
+    if (i < 0 || i >= container->size) return NULL; // bounds check
+    return (char*)container->data + i * container->elementSize;
+}
+
+static inline int Container_IdAt(Container* container, int i)
+{
+    if (!container) return -1;
+    if (i < 0 || i >= container->size) return -1;
+
+    int slot = container->slots[i];       // get the slot for this index
+    int gen  = container->ids[slot];      // get the current generation
+    int id   = (gen << 16) | slot;        // reconstruct full ID
+    return id;
 }

@@ -30,10 +30,11 @@ void NU_Stylesheet_Init(NU_Stylesheet* ss)
     // Create default style item
     NU_Stylesheet_Item* item = &ss->defaultStyleItem;
     memset(item, 0, sizeof(NU_Stylesheet_Item)); // Default struct to 0
+    item->glImageHandle = -1;
     item->propertyFlags = ~(uint64_t)0; // Set all bits to 1
     item->propertyFlags &= ~PROPERTY_FLAG_IMAGE; // Clear
-    item->maxWidth = 10e20f;
-    item->maxHeight = 10e20f;
+    item->maxWidth = UINT16_MAX;
+    item->maxHeight = UINT16_MAX;
     item->left = item->right = item->top = item->bottom = -1;
     item->backgroundR = item->backgroundG = item->backgroundB = 50;
     item->borderR = item->borderG = item->borderB = 100;

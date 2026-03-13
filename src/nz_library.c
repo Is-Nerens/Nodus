@@ -30,33 +30,37 @@ __declspec(dllexport) int NU_Apply_Stylesheet(uint32_t stylesheet_handle) {
 // --- Window fucntions ---
 // ------------------------
 __declspec(dllexport) void NU_Set_Window_Fullscreen(Node* node) {
-    Uint32 flags = SDL_GetWindowFlags(node->window);
+    NodeP* nodeP = NODEP_OF(node); // clever macro stuff
+    SDL_Window* window = GetSDL_Window(&__NGUI.winManager, nodeP->windowID);
+    Uint32 flags = SDL_GetWindowFlags(window);
     if (flags & SDL_WINDOW_FULLSCREEN) return;
-    SDL_SetWindowFullscreen(node->window, true);
+    SDL_SetWindowFullscreen(window, true);
 
     // Clear the window, swap buffers and re-render
     int w, h;
-    SDL_GetWindowSize(node->window, &w, &h);
+    SDL_GetWindowSize(window, &w, &h);
     glViewport(0, 0, w, h);
     glClearColor(0.0f, 0.0f, 0.0f, 1.0f);
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT | GL_STENCIL_BUFFER_BIT);
-    SDL_GL_SwapWindow(node->window);
+    SDL_GL_SwapWindow(window);
     __NGUI.awaiting_redraw = true;
     NU_Internal_Render();
 }
 
 __declspec(dllexport) void NU_Set_Window_Windowed(Node* node) {
-    Uint32 flags = SDL_GetWindowFlags(node->window);
+    NodeP* nodeP = NODEP_OF(node); // clever macro stuff
+    SDL_Window* window = GetSDL_Window(&__NGUI.winManager, nodeP->windowID);
+    Uint32 flags = SDL_GetWindowFlags(window);
     if (!(flags & SDL_WINDOW_FULLSCREEN)) return;
-    SDL_SetWindowFullscreen(node->window, false);
+    SDL_SetWindowFullscreen(window, false);
 
     // Clear the window, swap buffers and re-render
     int w, h;
-    SDL_GetWindowSize(node->window, &w, &h);
+    SDL_GetWindowSize(window, &w, &h);
     glViewport(0, 0, w, h);
     glClearColor(0.0f, 0.0f, 0.0f, 1.0f);
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT | GL_STENCIL_BUFFER_BIT);
-    SDL_GL_SwapWindow(node->window);
+    SDL_GL_SwapWindow(window);
     __NGUI.awaiting_redraw = true;
     NU_Internal_Render();
 }

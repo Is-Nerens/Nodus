@@ -3,6 +3,7 @@ typedef uint8_t u8;
 typedef uint16_t u16;
 typedef uint32_t u32;
 typedef uint64_t u64;
+typedef int16_t i16;
 
 typedef struct NU_Stylesheet_Tag_Pseudo_Pair
 {
@@ -24,9 +25,9 @@ typedef struct NU_Stylesheet_Item
     int tag;
     int item_index;
     GLuint glImageHandle;
-    float preferred_width, preferred_height;
-    float minWidth, maxWidth, minHeight, maxHeight;
-    int16_t left, right, top, bottom;
+    u16 preferred_width, preferred_height;
+    u16 minWidth, maxWidth, minHeight, maxHeight;
+    i16 left, right, top, bottom;
     u16 layoutFlags;
     u8 gap, padTop, padBottom, padLeft, padRight;
     u8 borderTop, borderBottom, borderLeft, borderRight;

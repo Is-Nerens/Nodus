@@ -10,13 +10,13 @@
 static void NU_ApplyMinMaxWidthConstraint(NodeP* node)
 {
     node->node.width = min(max(node->node.width, node->node.minWidth), node->node.maxWidth);
-    node->node.width = max(node->node.width, node->node.preferred_width);
+    node->node.width = max(node->node.width, node->preferred_width);
 }
 
 static void NU_ApplyMinMaxHeightConstraint(NodeP* node)
 {
     node->node.height = min(max(node->node.height, node->node.minHeight), node->node.maxHeight);
-    node->node.height = max(node->node.height, node->node.preferred_height);
+    node->node.height = max(node->node.height, node->preferred_height);
 }
 
 static void NU_Prepass(BreadthFirstSearch* bfs, Vector* scrollAutoNodes)
@@ -34,12 +34,12 @@ static void NU_Prepass(BreadthFirstSearch* bfs, Vector* scrollAutoNodes)
             node->clippedAncestor = NULL;
 
             // set / inherit absolute positioning
-            node->node.positionAbsolute = 0;
+            node->positionAbsolute = 0;
             if (node->node.layoutFlags & POSITION_ABSOLUTE || (node->parent != NULL && (
-                node->parent->node.positionAbsolute || 
+                node->parent->positionAbsolute || 
                 node->parent->node.layoutFlags & POSITION_ABSOLUTE
             ))) { 
-                node->node.positionAbsolute = 1;
+                node->positionAbsolute = 1;
             }
 
             // add node to list of scroll auto nodes
@@ -59,14 +59,12 @@ static void NU_Prepass(BreadthFirstSearch* bfs, Vector* scrollAutoNodes)
             node->node.minHeight = max(node->node.minHeight, natural_height);
             node->node.maxWidth = max(max(node->node.maxWidth, natural_width), node->node.minWidth);
             node->node.maxHeight = max(max(node->node.maxHeight, natural_height), node->node.minHeight);
-            node->node.preferred_width = max(node->node.preferred_width, natural_width);
-            node->node.preferred_height = max(node->node.preferred_height, natural_height);
-            node->node.preferred_width = min(max(node->node.preferred_width, node->node.minWidth), node->node.maxWidth);
-            node->node.preferred_height = min(max(node->node.preferred_height, node->node.minHeight), node->node.maxHeight);
+            node->preferred_width = min(max(node->preferred_width, node->node.minWidth), node->node.maxWidth);
+            node->preferred_height = min(max(node->preferred_height, node->node.minHeight), node->node.maxHeight);
 
             // Set base width/height and reset content dimensions
-            node->node.width = node->node.preferred_width;
-            node->node.height = node->node.preferred_height;
+            node->node.width = max(node->preferred_width, natural_width);
+            node->node.height = max(node->preferred_height, natural_height);
             node->node.contentWidth = 0;
             node->node.contentHeight = 0;
         }
@@ -80,7 +78,7 @@ static void NU_CalculateTextFitWidths(BreadthFirstSearch* bfs)
 
         if (node->state == 2 || node->node.textContent == NULL) continue;
 
-        NU_Font* node_font = Vector_Get(&__NGUI.stylesheet->fonts, node->node.fontId);
+        NU_Font* node_font = Vector_Get(&__NGUI.stylesheet->fonts, node->fontId);
 
         // Calculate text width & height
         float text_width = NU_Calculate_Text_Unwrapped_Width(node_font, node->node.textContent);
@@ -90,7 +88,7 @@ static void NU_CalculateTextFitWidths(BreadthFirstSearch* bfs)
 
         // Increase width to account for text (text height will be accounted for later in NU_CalculateTextHeights())
         float natural_width = node->node.padLeft + node->node.padRight + node->node.borderLeft + node->node.borderRight;
-        node->node.width = max(text_width + natural_width, node->node.preferred_width);
+        node->node.width = max(text_width + natural_width, node->preferred_width);
 
         // Update content width
         node->node.contentWidth = text_width; 
@@ -108,7 +106,8 @@ static void NU_CalculateFitSizeWidths(ReverseBreadthFirstSearch* rbfs)
         // If node is a window -> set dimensions equal to window
         if (node->type == NU_WINDOW) {
             int winWidth, winHeight;
-            SDL_GetWindowSize(node->node.window, &winWidth, &winHeight);
+            SDL_Window* window = GetSDL_Window(&__NGUI.winManager, node->windowID);
+            SDL_GetWindowSize(window, &winWidth, &winHeight);
             node->node.width = (float)winWidth;
             node->node.height = (float)winHeight;
         }
@@ -662,8 +661,17 @@ static void NU_CalculateTextHeights(BreadthFirstSearch* bfs)
     while (BreadthFirstSearch_Next(bfs, &node)) {
         if (node->state == 2) continue;
 
-        if (node->node.textContent != NULL) {
-            NU_Font* node_font = Vector_Get(&__NGUI.stylesheet->fonts, node->node.fontId);
+        if (node->type == NU_INPUT) {
+            NU_Font* node_font = Vector_Get(&__NGUI.stylesheet->fonts, node->fontId);
+
+            // Set input height equal to line height
+            node->node.height = node_font->line_height + 
+            node->node.padTop + node->node.padBottom + 
+            node->node.borderTop + node->node.borderBottom;
+            node->node.contentHeight = node_font->line_height;
+        }
+        else if (node->node.textContent != NULL) {
+            NU_Font* node_font = Vector_Get(&__NGUI.stylesheet->fonts, node->fontId);
 
             // Compute available inner width
             float inner_width = node->node.width - node->node.borderLeft - node->node.borderRight - node->node.padLeft - node->node.padRight;
@@ -673,20 +681,11 @@ static void NU_CalculateTextHeights(BreadthFirstSearch* bfs)
 
             // Increase height to account for text
             float natural_height = node->node.padTop + node->node.padBottom + node->node.borderTop + node->node.borderBottom;
-            node->node.height = max(text_height + natural_height, node->node.preferred_height);
+            node->node.height = max(text_height + natural_height, node->preferred_height);
             
             // Update content height
             node->node.contentHeight = text_height;
         } 
-        else if (node->type == NU_INPUT) {
-            NU_Font* node_font = Vector_Get(&__NGUI.stylesheet->fonts, node->node.fontId);
-
-            // Set input height equal to line height
-            node->node.height = node_font->line_height + 
-            node->node.padTop + node->node.padBottom + 
-            node->node.borderTop + node->node.borderBottom;
-            node->node.contentHeight = node_font->line_height;
-        }
     }
 }
 
@@ -704,7 +703,7 @@ static void NU_PositionChildrenHorizontally(NodeP* node, bool includeNodeScrollb
 
             if (!(child->node.layoutFlags & POSITION_ABSOLUTE)) { // position relative
                 float remaning_width = (node->node.width - node->node.padLeft - node->node.padRight - node->node.borderLeft - node->node.borderRight) - child->node.width;
-                float x_align_offset = remaning_width * 0.5f * (float)node->node.horizontalAlignment;
+                float x_align_offset = remaning_width * 0.5f * (float)node->horizontalAlignment;
                 child->node.x = node->node.x + node->node.padLeft + node->node.borderLeft + x_align_offset;
             }
             else { // position absolute
@@ -750,7 +749,7 @@ static void NU_PositionChildrenHorizontally(NodeP* node, bool includeNodeScrollb
             }
             
             if (!(child->node.layoutFlags & POSITION_ABSOLUTE)) { // position relative
-                float x_align_offset = remainingWidth * 0.5f * (float)node->node.horizontalAlignment;
+                float x_align_offset = remainingWidth * 0.5f * (float)node->horizontalAlignment;
                 child->node.x += node->node.x + node->node.padLeft + node->node.borderLeft + cursorX + x_align_offset;
                 cursorX += child->node.width + node->node.gap;
             }
@@ -805,7 +804,7 @@ static void NU_PositionChildrenVertically(NodeP* node, bool includeNodeScrollbar
 
             if (!(child->node.layoutFlags & POSITION_ABSOLUTE)) { // position relative
                 float remaining_height = (node->node.height - node->node.padTop - node->node.padBottom - node->node.borderTop - node->node.borderBottom) - child->node.height;
-                float y_align_offset = remaining_height * 0.5f * (float)node->node.verticalAlignment;
+                float y_align_offset = remaining_height * 0.5f * (float)node->verticalAlignment;
                 child->node.y += node->node.y + node->node.padTop + node->node.borderTop + y_align_offset + y_scroll_offset;
             }
             else { // position absolute 
@@ -851,7 +850,7 @@ static void NU_PositionChildrenVertically(NodeP* node, bool includeNodeScrollbar
             }
 
             if (!(child->node.layoutFlags & POSITION_ABSOLUTE)) { // position relative
-                float y_align_offset = remainingHeight * 0.5f * (float)node->node.verticalAlignment;
+                float y_align_offset = remainingHeight * 0.5f * (float)node->verticalAlignment;
                 child->node.y += node->node.y + node->node.padTop + node->node.borderTop + cursorY + y_align_offset + y_scroll_offset;
                 cursorY += child->node.height + node->node.gap;
             }
@@ -904,8 +903,10 @@ void NU_Repass(BreadthFirstSearch* bfs)
             child->node.y = 0.0f;
 
             // Set base width/height and reset content dimensions
-            child->node.width = child->node.preferred_width;
-            child->node.height = child->node.preferred_height;
+            float natural_width = node->node.borderLeft + node->node.borderRight + node->node.padLeft + node->node.padRight;
+            float natural_height = node->node.borderTop + node->node.borderBottom + node->node.padTop + node->node.padBottom;
+            node->node.width = max(node->preferred_width, natural_width);
+            node->node.height = max(node->preferred_height, natural_height);
             child->node.contentWidth = 0;
             child->node.contentHeight = 0;
 
@@ -927,10 +928,10 @@ void NU_Layout()
     ReverseBreadthFirstSearch_Reset(rbfs, __NGUI.tree.root);
 
     // RESERVE LIST OF AUTO SCROLL NODES
-    Vector scrollAutoNodes; Vector_Reserve(&scrollAutoNodes, sizeof(NodeP*), 20);
+    Vector_Clear(&__NGUI.layoutScrollAutoNodes);
 
     // FIRST PASS -> ASSUME SCROLLBARS TAKE UP NO SPACE
-    NU_Prepass(bfs, &scrollAutoNodes);
+    NU_Prepass(bfs, &__NGUI.layoutScrollAutoNodes);
     NU_CalculateTextFitWidths(bfs);
     NU_CalculateFitSizeWidths(rbfs);  
     NU_GrowShrinkWidths(bfs, false);
@@ -941,9 +942,9 @@ void NU_Layout()
     NU_CalculatePositions(bfs, false);
 
     // SECOND PASS -> RECOMPUTE OVERFLOWED SCROLL BRANCHES
-    for (uint32_t i=0; i<scrollAutoNodes.size; i++)
+    for (uint32_t i=0; i<__NGUI.layoutScrollAutoNodes.size; i++)
     {
-        NodeP* node = *(NodeP**)Vector_Get(&scrollAutoNodes, i);
+        NodeP* node = *(NodeP**)Vector_Get(&__NGUI.layoutScrollAutoNodes, i);
         bool overflowed = node->node.contentHeight > (node->node.height - node->node.padTop - node->node.padBottom - node->node.borderTop - node->node.borderBottom);
         if (!overflowed) continue;
 

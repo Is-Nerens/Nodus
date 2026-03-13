@@ -25,6 +25,7 @@ typedef uint64_t u64;
 #include <tree/nu_tree.h>
 #include <tree/nu_nodelist.h>
 #include <window/nu_window_manager_structs.h>
+#include <rendering/nu_renderer.h>
 
 struct NU_GUI
 {
@@ -70,6 +71,7 @@ struct NU_GUI
     Hashmap on_mouse_out_events;
     Hashmap on_mouse_wheel_events;
     Set deletedNodesWithRegisteredEvents;
+    Uint32 SDL_CUSTOM_RENDER_EVENT;
 
     // cursors
     SDL_Cursor* cursorDefault;
@@ -83,18 +85,16 @@ struct NU_GUI
     SDL_Cursor* cursorNwseResize;
     SDL_Cursor* cursorNeswResize;
 
-    // traversal
+    // Layout and draw datastructures
     BreadthFirstSearch bfs;
     ReverseBreadthFirstSearch rbfs;
-
-    Uint32 SDL_CUSTOM_RENDER_EVENT;
-    SDL_Mutex* unblock_mutex;
-    bool unblock;
+    Vector layoutScrollAutoNodes;
+    Vertex_RGB_List borderRectVertices;
+    Index_List borderRectIndices;
 };
 
 // global gui instance
 struct NU_GUI __NGUI;
-#include <rendering/nu_renderer.h>
 #include <window/nu_window_manager.h>
 #include <rendering/image/nu_image.h>
 #include <templates/stylesheet/nu_stylesheet.h>
@@ -142,19 +142,66 @@ void NU_Internal_Set_Class(Node* node, const char* class)
     __NGUI.awaiting_redraw = true;
 }
 
+void NU_Internal_Quit()
+{
+    TreeFree(&__NGUI.tree);
+    NU_WindowManagerFree(&__NGUI.winManager);
+    StringmapFree(&__NGUI.id_node_map);
+    StringsetFree(&__NGUI.class_string_set);
+    StringsetFree(&__NGUI.id_string_set);
+    StringArena_Free(&__NGUI.nodeTextArena);
+    for (u32 i=0; i<__NGUI.stylesheets.size; i++)
+    {
+        NU_Stylesheet* stylesheet = Vector_Get(&__NGUI.stylesheets, i);
+        NU_Stylesheet_Free(stylesheet);
+    }
+    Vector_Free(&__NGUI.stylesheets);
+    HashmapFree(&__NGUI.on_click_events);
+    HashmapFree(&__NGUI.on_input_changed_events);
+    HashmapFree(&__NGUI.on_drag_events);
+    HashmapFree(&__NGUI.on_released_events);
+    HashmapFree(&__NGUI.on_resize_events);
+    HashmapFree(&__NGUI.node_resize_tracking);
+    HashmapFree(&__NGUI.on_mouse_down_events);
+    HashmapFree(&__NGUI.on_mouse_up_events);
+    HashmapFree(&__NGUI.on_mouse_down_outside_events);
+    HashmapFree(&__NGUI.on_mouse_move_events);
+    HashmapFree(&__NGUI.on_mouse_in_events);
+    HashmapFree(&__NGUI.on_mouse_out_events);
+    HashmapFree(&__NGUI.on_mouse_wheel_events);
+    Container_Free(&__NGUI.canvasContexts);
+    Vertex_RGB_List_Free(&__NGUI.borderRectVertices);
+    Index_List_Free(&__NGUI.borderRectIndices);
+    BreadthFirstSearch_Free(&__NGUI.bfs);
+    ReverseBreadthFirstSearch_Free(&__NGUI.rbfs);
+    SetFree(&__NGUI.deletedNodesWithRegisteredEvents);
+    SDL_Quit();
+}
+
 int NU_Internal_Create_Gui(const char* xml_filepath, const char* css_filepath)
 {
-    // init SDL and GLEW
-    if (!SDL_Init(SDL_INIT_VIDEO)) {
-        printf("SDL could not initialize! SDL_Error: %s\n", SDL_GetError());
-        return 0;
-    }
+    // Init SDL
+    if (!SDL_Init(SDL_INIT_VIDEO)) return 0;
+    SDL_GL_SetAttribute(SDL_GL_CONTEXT_MAJOR_VERSION, 3);
+    SDL_GL_SetAttribute(SDL_GL_CONTEXT_MINOR_VERSION, 3);
+    SDL_GL_SetAttribute(SDL_GL_CONTEXT_PROFILE_MASK, SDL_GL_CONTEXT_PROFILE_CORE);
+    SDL_GL_SetAttribute(SDL_GL_MULTISAMPLEBUFFERS, 1);
+    SDL_GL_SetAttribute(SDL_GL_MULTISAMPLESAMPLES, 4);
+    SDL_SetHint("SDL_MOUSE_FOCUS_CLICKTHROUGH", "1");
+
+    // Init Window Manager -> create the main window (hidden)
     NU_WindowManagerInit(&__NGUI.winManager);
+
+    // Init string data structures
     StringArena_Init(&__NGUI.nodeTextArena, 1024);
     StringsetInit(&__NGUI.class_string_set, 1024, 100);
     StringsetInit(&__NGUI.id_string_set, 1024, 100);
     StringmapInit(&__NGUI.id_node_map, sizeof(NodeP*), 100, 1024);
+
+    // Init canvas context container
     __NGUI.canvasContexts = Container_Create(sizeof(NU_Canvas_Context));
+
+    // Init stylesheets vector
     Vector_Reserve(&__NGUI.stylesheets, sizeof(NU_Stylesheet), 2);
 
     // Events
@@ -172,6 +219,11 @@ int NU_Internal_Create_Gui(const char* xml_filepath, const char* css_filepath)
     HashmapInit(&__NGUI.on_mouse_out_events,          sizeof(Node*), sizeof(struct NU_Callback_Info), 10);
     HashmapInit(&__NGUI.on_mouse_wheel_events,        sizeof(Node*), sizeof(struct NU_Callback_Info), 10);
     SetInit(&__NGUI.deletedNodesWithRegisteredEvents, sizeof(Node*), 16);
+
+    // Init layout and draw datastructures
+    Vector_Reserve(&__NGUI.layoutScrollAutoNodes, sizeof(NodeP*), 20);
+    Vertex_RGB_List_Init(&__NGUI.borderRectVertices, 5000); 
+    Index_List_Init(&__NGUI.borderRectIndices, 15000);
 
     // Cursors
     __NGUI.cursorDefault    = SDL_CreateSystemCursor(SDL_SYSTEM_CURSOR_DEFAULT);
@@ -196,31 +248,38 @@ int NU_Internal_Create_Gui(const char* xml_filepath, const char* css_filepath)
     __NGUI.running = false;
     __NGUI.awaiting_redraw = true;
     __NGUI.recalculate_mouse_hover = true;
-    __NGUI.unblock_mutex = NULL;
-    __NGUI.unblock = false;
 
 
     // Register custom render event type
     __NGUI.SDL_CUSTOM_RENDER_EVENT = SDL_RegisterEvents(1);
     if (__NGUI.SDL_CUSTOM_RENDER_EVENT == (Uint32)-1) {
-        printf("Failed to register custom SDL render event! SDL_Error: %s\n", SDL_GetError());
+        NU_Internal_Quit();
         return 0;
     }
 
     // Load xml
-    if (!NU_Internal_Load_XML(xml_filepath)) return 0;
+    if (!NU_Internal_Load_XML(xml_filepath)) {
+        NU_Internal_Quit();
+        return 0;
+    }
 
     // Load css
     u32 stylesheetHandle = NU_Internal_Load_Stylesheet(css_filepath);
     if (stylesheetHandle == 0) return 0;
-    if (!NU_Internal_Apply_Stylesheet(stylesheetHandle)) return 0;
+    if (!NU_Internal_Apply_Stylesheet(stylesheetHandle)) {
+        NU_Internal_Quit();
+        return 0;
+    }
 
     // Traversal
     __NGUI.bfs = BreadthFirstSearch_Create(__NGUI.tree.root);
     __NGUI.rbfs = ReverseBreadthFirstSearch_Create(__NGUI.tree.root);
 
+
     NU_Layout(); // Initial layout calculation
     __NGUI.running = true;
+
+    printf("nodeP size: %llu\n", sizeof(NodeP));
 
     // Event watcher
     SDL_AddEventWatch(EventWatcher, NULL);
@@ -255,38 +314,4 @@ void NU_Internal_Render()
     SDL_zero(e);
     e.type = __NGUI.SDL_CUSTOM_RENDER_EVENT;
     SDL_PushEvent(&e);      
-}
-
-void NU_Internal_Quit()
-{
-    TreeFree(&__NGUI.tree);
-    NU_WindowManagerFree(&__NGUI.winManager);
-    StringmapFree(&__NGUI.id_node_map);
-    StringsetFree(&__NGUI.class_string_set);
-    StringsetFree(&__NGUI.id_string_set);
-    StringArena_Free(&__NGUI.nodeTextArena);
-    for (u32 i=0; i<__NGUI.stylesheets.size; i++)
-    {
-        NU_Stylesheet* stylesheet = Vector_Get(&__NGUI.stylesheets, i);
-        NU_Stylesheet_Free(stylesheet);
-    }
-    Vector_Free(&__NGUI.stylesheets);
-    HashmapFree(&__NGUI.on_click_events);
-    HashmapFree(&__NGUI.on_input_changed_events);
-    HashmapFree(&__NGUI.on_drag_events);
-    HashmapFree(&__NGUI.on_released_events);
-    HashmapFree(&__NGUI.on_resize_events);
-    HashmapFree(&__NGUI.node_resize_tracking);
-    HashmapFree(&__NGUI.on_mouse_down_events);
-    HashmapFree(&__NGUI.on_mouse_up_events);
-    HashmapFree(&__NGUI.on_mouse_down_outside_events);
-    HashmapFree(&__NGUI.on_mouse_move_events);
-    HashmapFree(&__NGUI.on_mouse_in_events);
-    HashmapFree(&__NGUI.on_mouse_out_events);
-    HashmapFree(&__NGUI.on_mouse_wheel_events);
-    Container_Free(&__NGUI.canvasContexts);
-    BreadthFirstSearch_Free(&__NGUI.bfs);
-    ReverseBreadthFirstSearch_Free(&__NGUI.rbfs);
-    SetFree(&__NGUI.deletedNodesWithRegisteredEvents);
-    SDL_Quit();
 }

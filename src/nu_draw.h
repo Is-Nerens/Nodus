@@ -9,8 +9,8 @@ void NU_AddTextMesh(Vertex_RGB_UV_List* vertices, Index_List* indices, NodeP* no
     float inner_height = node->node.height - node->node.borderTop  - node->node.borderBottom - node->node.padTop - node->node.padBottom;
     float remaining_w = inner_width  - node->node.contentWidth;
     float remaining_h = inner_height - node->node.contentHeight;
-    float x_align_offset = remaining_w * 0.5f * (float)node->node.horizontalTextAlignment;
-    float y_align_offset = remaining_h * 0.5f * (float)node->node.verticalTextAlignment;
+    float x_align_offset = remaining_w * 0.5f * (float)node->horizontalTextAlignment;
+    float y_align_offset = remaining_h * 0.5f * (float)node->verticalTextAlignment;
 
     // Top-left corner of the content area
     float textPosX = node->node.x + node->node.borderLeft + node->node.padLeft + x_align_offset;
@@ -20,7 +20,7 @@ void NU_AddTextMesh(Vertex_RGB_UV_List* vertices, Index_List* indices, NodeP* no
     float r = (float)node->node.textR / 255.0f;
     float g = (float)node->node.textG / 255.0f;
     float b = (float)node->node.textB / 255.0f;
-    NU_Font* node_font = Vector_Get(&__NGUI.stylesheet->fonts, node->node.fontId);
+    NU_Font* node_font = Vector_Get(&__NGUI.stylesheet->fonts, node->fontId);
     NU_Generate_Text_Mesh(vertices, indices, node_font, textBuffer, floorf(textPosX), floorf(textPosY), r, g, b, inner_width);
 }
 
@@ -69,7 +69,7 @@ void NU_DrawClippedNodeTextContent(NodeP* node, float winWidth, float winHeight,
     Index_List clipped_text_indices;
     Vertex_RGB_UV_List_Init(&clipped_text_vertices, 1000);
     Index_List_Init(&clipped_text_indices, 600);
-    NU_Font* node_font = Vector_Get(&__NGUI.stylesheet->fonts, node->node.fontId);
+    NU_Font* node_font = Vector_Get(&__NGUI.stylesheet->fonts, node->fontId);
     NU_AddTextMesh(&clipped_text_vertices, &clipped_text_indices, node, node->node.textContent);
     NU_Render_Text(&clipped_text_vertices, &clipped_text_indices, node_font, winWidth, winHeight, 0, 0, clip->clip_top, clip->clip_bottom, clip->clip_left, clip->clip_right);
     Vertex_RGB_UV_List_Free(&clipped_text_vertices);
@@ -78,7 +78,7 @@ void NU_DrawClippedNodeTextContent(NodeP* node, float winWidth, float winHeight,
 
 void NU_DrawInputNodeContent(NodeP* node, float winWidth, float winHeight, NU_ClipBounds* clip)
 {   
-    NU_Font* node_font = Vector_Get(&__NGUI.stylesheet->fonts, node->node.fontId);
+    NU_Font* node_font = Vector_Get(&__NGUI.stylesheet->fonts, node->fontId);
     InputText* inputText = &node->typeData.input.inputText;
 
     // construct and draw highlight mesh
@@ -153,8 +153,21 @@ inline int NodeNotVisibleInWindow(NodeP* node, int winW, int winH)
 
 void NU_GenerateDrawlists()
 {
-    // prepare draw datastructures
-    PrepareDrawlists(&__NGUI.winManager);
+    // Clear drawlists
+    for (int i=0; i<__NGUI.winManager.windows.size; i++) 
+    {
+        NU_Window* win = Container_GetAt(&__NGUI.winManager.windows, i);
+        Vector_Clear(&win->drawlist.relativeNodes);
+        Vector_Clear(&win->drawlist.absoluteNodes);
+        Vector_Clear(&win->drawlist.canvasNodes);
+        Vector_Clear(&win->drawlist.clippedRelativeNodes);
+        Vector_Clear(&win->drawlist.clippedAbsoluteNodes);
+        Vector_Clear(&win->drawlist.clippedCanvasNodes);
+    }
+
+    // Clear hashmaps
+    HashmapClear(&__NGUI.winManager.clipMap);
+    Vector_Clear(&__NGUI.winManager.absoluteRootNodes);
 
     // add root to drawlist 
     NodeP* root = __NGUI.tree.root;
@@ -197,7 +210,8 @@ void NU_GenerateDrawlists()
 
         // cache window dimensions
         int winW, winH;
-        SDL_GetWindowSize(node->node.window, &winW, &winH);
+        SDL_Window* window = GetSDL_Window(&__NGUI.winManager, node->windowID);
+        SDL_GetWindowSize(window, &winW, &winH);
 
         // iterate over children
         NodeP* child = node->firstChild;
@@ -238,8 +252,8 @@ void NU_GenerateDrawlists()
                     clip.clip_left = -1.0f;
                     clip.clip_right = 1000000.0f;
 
-                    // position absolute -> secondary drawwing list
-                    if (child->node.positionAbsolute) {
+                    // position absolute -> secondary drawing list
+                    if (child->positionAbsolute) {
                         // if node is also clipped -> merge clips (stack clipping behaviour)
                         if (node->clippedAncestor != NULL) {
                             NU_ClipBounds* node_clip = HashmapGet(&__NGUI.winManager.clipMap, &node->clippedAncestor);
@@ -280,7 +294,7 @@ void NU_GenerateDrawlists()
                 child->clippedAncestor = node->clippedAncestor;
 
                 // position absolute -> secondary drawing list
-                if (child->node.positionAbsolute) {
+                if (child->positionAbsolute) {
                     SetNodeDrawlist_ClippedAbsolute(&__NGUI.winManager, child);
                 }
                 // position relative -> main drawing list
@@ -291,7 +305,7 @@ void NU_GenerateDrawlists()
             }
 
             // neither child nor parent is clipped -> append node to correct window node list
-            if (child->node.positionAbsolute) { // Position Absolute -> secondary drawing list
+            if (child->positionAbsolute) { // Position Absolute -> secondary drawing list
                 SetNodeDrawlist_Absolute(&__NGUI.winManager, child);
             }
             else { // position Relative -> main drawing list
@@ -315,6 +329,10 @@ void NU_Draw()
     timer_start();
     NU_GenerateDrawlists();
     timer_stop();
+
+
+    printf("draw\n");
+    timer_start();
     
     // Initialise text vertex and index buffers (per font)
     Vertex_RGB_UV_List text_relative_vertex_buffers[__NGUI.stylesheet->fonts.size];
@@ -327,18 +345,26 @@ void NU_Draw()
         Vertex_RGB_UV_List_Init(&text_absolute_vertex_buffers[i], 128);
         Index_List_Init(&text_absolute_index_buffers[i], 128);
     }
+
+    Vertex_RGB_List_Clear(&__NGUI.borderRectVertices); 
+    Index_List_Clear(&__NGUI.borderRectIndices);
+
     NodeP* focusedInputNode = NULL;
-    
 
     // For each window
     for (uint32_t i=0; i<__NGUI.winManager.windows.size; i++)
-    {
+    {   
+        NU_Window* win = Container_GetAt(&__NGUI.winManager.windows, i);
+
         // get the window and dimensions, clear and start new frame
-        SDL_Window* window = *(SDL_Window**) Vector_Get(&__NGUI.winManager.windows, i);
+        SDL_Window* window = win->window;
         SDL_GL_MakeCurrent(window, __NGUI.gl_ctx);
-        WindowStartNewFrame(window);
-        NU_WindowDrawlist* drawList = Vector_Get(&__NGUI.winManager.windowDrawLists, i);
-        float winW, winH; GetWindowSize(window, &winW, &winH);
+        WindowBeginFrame(window);
+        NU_WindowDrawlist* drawList = &win->drawlist;
+        int winW_int, winH_int;
+        SDL_GetWindowSize(window, &winW_int, &winH_int);
+        float winW = (float)winW_int;
+        float winH = (float)winH_int;
         
 
         // --------------------------------------------------------------------------------------------------------
@@ -346,21 +372,19 @@ void NU_Draw()
         // --------------------------------------------------------------------------------------------------------
 
         // cosntruct border rects
-        Vertex_RGB_List border_rect_vertices;              Index_List border_rect_indices;
-        Vertex_RGB_List_Init(&border_rect_vertices, 5000); Index_List_Init(&border_rect_indices, 15000);
         for (uint32_t n=0; n<drawList->relativeNodes.size; n++) {
             NodeP* node = *(NodeP**)Vector_Get(&drawList->relativeNodes, n);
-            Construct_Border_Rect(node, winW, winH, &border_rect_vertices, &border_rect_indices);
+            Construct_Border_Rect(node, winW, winH, &__NGUI.borderRectVertices, &__NGUI.borderRectIndices);
             if (node->node.layoutFlags & OVERFLOW_VERTICAL_SCROLL 
                 && node->node.contentHeight > (node->node.height - node->node.padTop - node->node.padBottom - node->node.borderTop - node->node.borderBottom)) {
-                Construct_Scroll_Thumb(node, winW, winH, &border_rect_vertices, &border_rect_indices);
+                Construct_Scroll_Thumb(node, winW, winH, &__NGUI.borderRectVertices, &__NGUI.borderRectIndices);
             }
         }
         
         // draw border rects (one draw call)
-        Draw_Vertex_RGB_List(&border_rect_vertices, &border_rect_indices, winW, winH, 0.0f, 0.0f);
-        Vertex_RGB_List_Free(&border_rect_vertices);
-        Index_List_Free(&border_rect_indices);
+        Draw_Vertex_RGB_List(&__NGUI.borderRectVertices, &__NGUI.borderRectIndices, winW, winH, 0.0f, 0.0f);
+        Vertex_RGB_List_Clear(&__NGUI.borderRectVertices);
+        Index_List_Clear(&__NGUI.borderRectIndices);
 
         // draw canvas api content
         for (uint32_t n=0; n<drawList->canvasNodes.size; n++)
@@ -408,8 +432,8 @@ void NU_Draw()
             // construct text mesh for node's textContent
             NodeP* node = *(NodeP**)Vector_Get(&drawList->relativeNodes, n);
             if (node->node.textContent != NULL) {
-                Vertex_RGB_UV_List* text_vertices = &text_relative_vertex_buffers[node->node.fontId];
-                Index_List* text_indices = &text_relative_index_buffers[node->node.fontId];
+                Vertex_RGB_UV_List* text_vertices = &text_relative_vertex_buffers[node->fontId];
+                Index_List* text_indices = &text_relative_index_buffers[node->fontId];
                 NU_AddTextMesh(text_vertices, text_indices, node, node->node.textContent);
             }
 
@@ -424,7 +448,7 @@ void NU_Draw()
             }    
 
             // draw node image
-            if (node->typeData.image.glImageHandle && node->type != NU_INPUT && node->type != NU_CANVAS) {
+            if (node->typeData.image.glImageHandle && node->type == NU_IMAGE) {
                 NU_DrawNodeImage(node, winW, winH);
             }
         }
@@ -455,7 +479,7 @@ void NU_Draw()
                 innerClip.clip_right -= node->node.borderRight + node->node.padRight; 
                 NU_DrawInputNodeContent(node, winW, winH, &innerClip);
             }
-            if (node->typeData.image.glImageHandle && node->type != NU_INPUT) { // draw node image
+            if (node->typeData.image.glImageHandle && node->type == NU_IMAGE) { // draw node image
                 NU_DrawClippedNodeImage(node, winW, winH, clip);
             }
         }
@@ -467,20 +491,15 @@ void NU_Draw()
         // --------------------------------------------------------------------------------------------------------
 
         // draw border rects
-        Vertex_RGB_List_Init(&border_rect_vertices, 5000); Index_List_Init(&border_rect_indices, 15000);
         for (uint32_t n=0; n<drawList->absoluteNodes.size; n++) { // construct border rect vertices and indices for each node
             NodeP* node = *(NodeP**)Vector_Get(&drawList->absoluteNodes, n);
-            Construct_Border_Rect(node, winW, winH, &border_rect_vertices, &border_rect_indices);
+            Construct_Border_Rect(node, winW, winH, &__NGUI.borderRectVertices, &__NGUI.borderRectIndices);
             if (node->node.layoutFlags & OVERFLOW_VERTICAL_SCROLL 
                 && node->node.contentHeight > (node->node.height - node->node.padTop - node->node.padBottom - node->node.borderTop - node->node.borderBottom)) {
-                Construct_Scroll_Thumb(node, winW, winH, &border_rect_vertices, &border_rect_indices);
+                Construct_Scroll_Thumb(node, winW, winH, &__NGUI.borderRectVertices, &__NGUI.borderRectIndices);
             }
         }
-        if (border_rect_indices.size > 0) {
-            Draw_Vertex_RGB_List(&border_rect_vertices, &border_rect_indices, winW, winH, 0.0f, 0.0f); // draw border rects in one call
-            Vertex_RGB_List_Free(&border_rect_vertices);
-            Index_List_Free(&border_rect_indices);
-        }
+        Draw_Vertex_RGB_List(&__NGUI.borderRectVertices, &__NGUI.borderRectIndices, winW, winH, 0.0f, 0.0f); // draw border rects in one call
 
         // construct text meshes & draw images
         for (uint32_t n=0; n<drawList->absoluteNodes.size; n++) 
@@ -489,8 +508,8 @@ void NU_Draw()
             // construct text mesh for node's textContent
             NodeP* node = *(NodeP**)Vector_Get(&drawList->absoluteNodes, n);
             if (node->node.textContent != NULL) {
-                Vertex_RGB_UV_List* text_vertices = &text_absolute_vertex_buffers[node->node.fontId];
-                Index_List* text_indices = &text_absolute_index_buffers[node->node.fontId];
+                Vertex_RGB_UV_List* text_vertices = &text_absolute_vertex_buffers[node->fontId];
+                Index_List* text_indices = &text_absolute_index_buffers[node->fontId];
                 NU_AddTextMesh(text_vertices, text_indices, node, node->node.textContent);
             }
 
@@ -505,7 +524,7 @@ void NU_Draw()
             }
 
             // draw node image
-            if (node->typeData.image.glImageHandle && node->type != NU_INPUT && node->type != NU_CANVAS) {
+            if (node->typeData.image.glImageHandle && node->type == NU_IMAGE) {
                 NU_DrawNodeImage(node, winW, winH);
             }
         }
@@ -536,7 +555,7 @@ void NU_Draw()
                 innerClip.clip_right -= node->node.borderRight + node->node.padRight; 
                 NU_DrawInputNodeContent(node, winW, winH, &innerClip);
             }
-            if (node->typeData.image.glImageHandle && node->type != NU_INPUT) { // draw node image
+            if (node->typeData.image.glImageHandle && node->type == NU_IMAGE) { // draw node image
                 NU_DrawClippedNodeImage(node, winW, winH, clip);
             }
         }
@@ -553,4 +572,6 @@ void NU_Draw()
         Index_List_Free(&text_absolute_index_buffers[i]);
     }
     __NGUI.awaiting_redraw = false;
+
+    timer_stop();
 }

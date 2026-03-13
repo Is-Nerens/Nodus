@@ -90,6 +90,29 @@ static int String_To_uint8_t(uint8_t* result, char* str)
     return 1;
 }
 
+static int String_To_Uint16(uint16_t* result, const char* str)
+{
+    if (!result || !str) return 0;
+    uint32_t val = 0; 
+    int i = 0;
+    while (str[i] != '\0') {
+        char c = str[i];
+        if (c < '0' || c > '9') {
+            *result = 0;
+            return 0; // invalid character
+        }
+        uint32_t digit = (uint32_t)(c - '0');
+        if (val > (UINT16_MAX - digit) / 10) {
+            val = UINT16_MAX;
+            break;
+        }
+        val = val * 10 + digit;
+        i++;
+    }
+    *result = (uint16_t)val;
+    return 1;
+}
+
 static int String_To_Int16(int16_t* result, const char* str)
 {
     if (!result || !str) return 0;

@@ -34,7 +34,7 @@ static void NU_Stylesheet_Find_Match(NodeP* node, NU_Stylesheet* ss, int* match_
 }
 
 #define STYLE_APPLY_LAYOUT_FLAG(mask) node->node.layoutFlags = (node->node.layoutFlags & ~mask) | (item->layoutFlags & mask)
-#define STYLE_SHOULD_APPLY_TO_NODE(mask) (item->propertyFlags & mask) && !(node->node.inlineStyleFlags & mask)
+#define STYLE_SHOULD_APPLY_TO_NODE(mask) (item->propertyFlags & mask) && !(node->overrideStyleFlags & mask)
 
 static void NU_Apply_Style_Item_To_Node(NodeP* node, NU_Stylesheet_Item* item)
 {
@@ -49,16 +49,16 @@ static void NU_Apply_Style_Item_To_Node(NodeP* node, NU_Stylesheet_Item* item)
     if (STYLE_SHOULD_APPLY_TO_NODE(PROPERTY_FLAG_HIDDEN)) STYLE_APPLY_LAYOUT_FLAG(HIDDEN); // Hidden or not
     if (STYLE_SHOULD_APPLY_TO_NODE(PROPERTY_FLAG_IGNORE_MOUSE)) STYLE_APPLY_LAYOUT_FLAG(IGNORE_MOUSE);
     if (STYLE_SHOULD_APPLY_TO_NODE(PROPERTY_FLAG_GAP)) node->node.gap = item->gap;
-    if (STYLE_SHOULD_APPLY_TO_NODE(PROPERTY_FLAG_PREFERRED_WIDTH)) node->node.preferred_width = item->preferred_width;
+    if (STYLE_SHOULD_APPLY_TO_NODE(PROPERTY_FLAG_PREFERRED_WIDTH)) node->preferred_width = item->preferred_width;
     if (STYLE_SHOULD_APPLY_TO_NODE(PROPERTY_FLAG_MIN_WIDTH)) node->node.minWidth = item->minWidth;
     if (STYLE_SHOULD_APPLY_TO_NODE(PROPERTY_FLAG_MAX_WIDTH)) node->node.maxWidth = item->maxWidth;
-    if (STYLE_SHOULD_APPLY_TO_NODE(PROPERTY_FLAG_PREFERRED_HEIGHT)) node->node.preferred_height = item->preferred_height;
+    if (STYLE_SHOULD_APPLY_TO_NODE(PROPERTY_FLAG_PREFERRED_HEIGHT)) node->preferred_height = item->preferred_height;
     if (STYLE_SHOULD_APPLY_TO_NODE(PROPERTY_FLAG_MIN_HEIGHT)) node->node.minHeight = item->minHeight;
     if (STYLE_SHOULD_APPLY_TO_NODE(PROPERTY_FLAG_MAX_HEIGHT)) node->node.maxHeight = item->maxHeight;
-    if (STYLE_SHOULD_APPLY_TO_NODE(PROPERTY_FLAG_ALIGN_H)) node->node.horizontalAlignment = item->horizontalAlignment;
-    if (STYLE_SHOULD_APPLY_TO_NODE(PROPERTY_FLAG_ALIGN_V)) node->node.verticalAlignment = item->verticalAlignment;
-    if (STYLE_SHOULD_APPLY_TO_NODE(PROPERTY_FLAG_TEXT_ALIGN_H)) node->node.horizontalTextAlignment = item->horizontalTextAlignment;
-    if (STYLE_SHOULD_APPLY_TO_NODE(PROPERTY_FLAG_TEXT_ALIGN_V)) node->node.verticalTextAlignment = item->verticalTextAlignment;
+    if (STYLE_SHOULD_APPLY_TO_NODE(PROPERTY_FLAG_ALIGN_H)) node->horizontalAlignment = item->horizontalAlignment;
+    if (STYLE_SHOULD_APPLY_TO_NODE(PROPERTY_FLAG_ALIGN_V)) node->verticalAlignment = item->verticalAlignment;
+    if (STYLE_SHOULD_APPLY_TO_NODE(PROPERTY_FLAG_TEXT_ALIGN_H)) node->horizontalTextAlignment = item->horizontalTextAlignment;
+    if (STYLE_SHOULD_APPLY_TO_NODE(PROPERTY_FLAG_TEXT_ALIGN_V)) node->verticalTextAlignment = item->verticalTextAlignment;
     if (STYLE_SHOULD_APPLY_TO_NODE(PROPERTY_FLAG_LEFT)) node->node.left = item->left;
     if (STYLE_SHOULD_APPLY_TO_NODE(PROPERTY_FLAG_RIGHT)) node->node.right = item->right;
     if (STYLE_SHOULD_APPLY_TO_NODE(PROPERTY_FLAG_TOP)) node->node.top = item->top;
@@ -93,7 +93,7 @@ static void NU_Apply_Style_Item_To_Node(NodeP* node, NU_Stylesheet_Item* item)
     if (STYLE_SHOULD_APPLY_TO_NODE(PROPERTY_FLAG_PAD_RIGHT)) node->node.padRight = item->padRight;
     if (STYLE_SHOULD_APPLY_TO_NODE(PROPERTY_FLAG_IMAGE)) node->typeData.image.glImageHandle = item->glImageHandle;
     if (STYLE_SHOULD_APPLY_TO_NODE(PROPERTY_FLAG_INPUT_TYPE)) node->typeData.input.inputText.type = item->inputType;
-    node->node.fontId = item->fontId; // set font 
+    node->fontId = item->fontId; // set font 
 }
 
 void NU_Apply_Default_Style_To_Node(NodeP* node)

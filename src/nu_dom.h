@@ -44,7 +44,7 @@ void NU_DissociateNode(NodeP* node)
 {
     switch(node->type) {
         case NU_WINDOW:
-            SDL_DestroyWindow(node->node.window);
+            //SDL_DestroyWindow(node->node.window);
             break;
         case NU_CANVAS:
             NU_DeleteCanvasContext(node->typeData.canvas.ctxHandle);

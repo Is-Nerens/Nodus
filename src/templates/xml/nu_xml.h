@@ -218,10 +218,10 @@ int NU_Generate_Tree(char* src, TokenArray* tokens, struct Vector* textRefs)
                     case LAYOUT_DIRECTION_PROPERTY:
                         if (c == 'v') {
                             currentNode->node.layoutFlags |= LAYOUT_VERTICAL;
-                            currentNode->node.inlineStyleFlags |= PROPERTY_FLAG_LAYOUT_VERTICAL;
+                            currentNode->overrideStyleFlags |= PROPERTY_FLAG_LAYOUT_VERTICAL;
                         }
                         else if (c == 'h') { 
-                            currentNode->node.inlineStyleFlags |= PROPERTY_FLAG_LAYOUT_VERTICAL;
+                            currentNode->overrideStyleFlags |= PROPERTY_FLAG_LAYOUT_VERTICAL;
                         }
                         break;
 
@@ -230,15 +230,15 @@ int NU_Generate_Tree(char* src, TokenArray* tokens, struct Vector* textRefs)
                         switch(c)
                         {
                             case 'v':
-                                currentNode->node.inlineStyleFlags |= PROPERTY_FLAG_GROW;
+                                currentNode->overrideStyleFlags |= PROPERTY_FLAG_GROW;
                                 currentNode->node.layoutFlags |= GROW_VERTICAL;
                                 break;
                             case 'h':
-                                currentNode->node.inlineStyleFlags |= PROPERTY_FLAG_GROW;
+                                currentNode->overrideStyleFlags |= PROPERTY_FLAG_GROW;
                                 currentNode->node.layoutFlags |= GROW_HORIZONTAL;
                                 break;
                             case 'b':
-                                currentNode->node.inlineStyleFlags |= PROPERTY_FLAG_GROW;
+                                currentNode->overrideStyleFlags |= PROPERTY_FLAG_GROW;
                                 currentNode->node.layoutFlags |= (GROW_HORIZONTAL | GROW_VERTICAL);
                                 break;
                         }
@@ -247,14 +247,14 @@ int NU_Generate_Tree(char* src, TokenArray* tokens, struct Vector* textRefs)
                     // Set overflow behaviour
                     case OVERFLOW_V_PROPERTY:
                         if (c == 's') {
-                            currentNode->node.inlineStyleFlags |= PROPERTY_FLAG_VERTICAL_SCROLL;
+                            currentNode->overrideStyleFlags |= PROPERTY_FLAG_VERTICAL_SCROLL;
                             currentNode->node.layoutFlags |= OVERFLOW_VERTICAL_SCROLL;
                         }
                         break;
                     
                     case OVERFLOW_H_PROPERTY:
                         if (c == 's') {
-                            currentNode->node.inlineStyleFlags |= PROPERTY_FLAG_HORIZONTAL_SCROLL;
+                            currentNode->overrideStyleFlags |= PROPERTY_FLAG_HORIZONTAL_SCROLL;
                             currentNode->node.layoutFlags |= OVERFLOW_HORIZONTAL_SCROLL;
                         }                
                         break;
@@ -262,7 +262,7 @@ int NU_Generate_Tree(char* src, TokenArray* tokens, struct Vector* textRefs)
                     // Relative/Absolute positiong
                     case POSITION_PROPERTY:
                         if (strcmp(ptext, "absolute") == 0) {
-                            currentNode->node.inlineStyleFlags |= PROPERTY_FLAG_POSITION_ABSOLUTE;
+                            currentNode->overrideStyleFlags |= PROPERTY_FLAG_POSITION_ABSOLUTE;
                             currentNode->node.layoutFlags |= POSITION_ABSOLUTE;
                         }
                         break;
@@ -270,7 +270,7 @@ int NU_Generate_Tree(char* src, TokenArray* tokens, struct Vector* textRefs)
                     // Show/hide
                     case HIDE_PROPERTY:
                         if (strcmp(ptext, "true") == 0) {
-                            currentNode->node.inlineStyleFlags |= PROPERTY_FLAG_HIDDEN;
+                            currentNode->overrideStyleFlags |= PROPERTY_FLAG_HIDDEN;
                             currentNode->node.layoutFlags |= HIDDEN;
                         }
                         break;
@@ -278,7 +278,7 @@ int NU_Generate_Tree(char* src, TokenArray* tokens, struct Vector* textRefs)
                     // Ignore mouse
                     case IGNORE_MOUSE_PROPERTY:
                         if (strcmp(ptext, "true") == 0) {
-                            currentNode->node.inlineStyleFlags |= PROPERTY_FLAG_IGNORE_MOUSE;
+                            currentNode->overrideStyleFlags |= PROPERTY_FLAG_IGNORE_MOUSE;
                             currentNode->node.layoutFlags |= IGNORE_MOUSE;
                         }
                         break;
@@ -287,113 +287,118 @@ int NU_Generate_Tree(char* src, TokenArray* tokens, struct Vector* textRefs)
                     case GAP_PROPERTY:
                         uint8_t gap;
                         if (String_To_uint8_t(&gap, ptext)) {
-                            currentNode->node.inlineStyleFlags |= PROPERTY_FLAG_GAP;
+                            currentNode->overrideStyleFlags |= PROPERTY_FLAG_GAP;
                             currentNode->node.gap = gap;
                         }
                         break;
                     
                     // Set preferred width
                     case WIDTH_PROPERTY:
-                        float property_float;
-                        if (String_To_Float(&property_float, ptext)) {
-                            currentNode->node.inlineStyleFlags |= PROPERTY_FLAG_PREFERRED_WIDTH;
-                            currentNode->node.preferred_width = property_float;
+                        uint16_t width;
+                        if (String_To_Uint16(&width, ptext)) {
+                            currentNode->overrideStyleFlags |= PROPERTY_FLAG_PREFERRED_WIDTH;
+                            currentNode->preferred_width = width;
                         }
                         break;
 
                     // Set min width
                     case MIN_WIDTH_PROPERTY:
-                        if (String_To_Float(&property_float, ptext)) {
-                            currentNode->node.inlineStyleFlags |= PROPERTY_FLAG_MIN_WIDTH;
-                            currentNode->node.minWidth = property_float;
+                        uint16_t minWidth;
+                        if (String_To_Uint16(&minWidth, ptext)) {
+                            currentNode->overrideStyleFlags |= PROPERTY_FLAG_MIN_WIDTH;
+                            currentNode->node.minWidth = minWidth;
                         }
                         break;
 
                     // Set max width
                     case MAX_WIDTH_PROPERTY:
-                        if (String_To_Float(&property_float, ptext)) {
-                            currentNode->node.inlineStyleFlags |= PROPERTY_FLAG_MAX_WIDTH;
-                           currentNode->node.maxWidth = property_float; 
+                        uint16_t maxWidth;
+                        if (String_To_Uint16(&maxWidth, ptext)) {
+                            currentNode->overrideStyleFlags |= PROPERTY_FLAG_MAX_WIDTH;
+                           currentNode->node.maxWidth = maxWidth; 
                         }
                         break;
 
                     // Set preferred height
                     case HEIGHT_PROPERTY:
-                        if (String_To_Float(&property_float, ptext)) {
-                            currentNode->node.inlineStyleFlags |= PROPERTY_FLAG_PREFERRED_HEIGHT;
-                            currentNode->node.preferred_height = property_float;
+                        uint16_t height;
+                        if (String_To_Uint16(&height, ptext)) {
+                            currentNode->overrideStyleFlags |= PROPERTY_FLAG_PREFERRED_HEIGHT;
+                            currentNode->preferred_height = height;
                         }
                         break;
 
                     // Set min height
                     case MIN_HEIGHT_PROPERTY:
-                        if (String_To_Float(&property_float, ptext)) {
-                            currentNode->node.inlineStyleFlags |= PROPERTY_FLAG_MIN_HEIGHT;
-                            currentNode->node.minHeight = property_float;
+                        uint16_t minHeight;
+                        if (String_To_Uint16(& minHeight, ptext)) {
+                            currentNode->overrideStyleFlags |= PROPERTY_FLAG_MIN_HEIGHT;
+                            currentNode->node.minHeight = minHeight;
                         }
                         break;
 
                     // Set max height
                     case MAX_HEIGHT_PROPERTY:
-                        if (String_To_Float(&property_float, ptext)) {
-                            currentNode->node.inlineStyleFlags |= PROPERTY_FLAG_MAX_HEIGHT;
-                            currentNode->node.maxHeight = property_float;
+                        uint16_t maxHeight;
+                        if (String_To_Uint16(&maxHeight, ptext)) {
+                            currentNode->overrideStyleFlags |= PROPERTY_FLAG_MAX_HEIGHT;
+                            currentNode->node.maxHeight = maxHeight;
                         }
                         break;
 
                     // Set horizontal alignment
                     case ALIGN_H_PROPERTY:
                         if (strcmp(ptext, "left") == 0) {
-                            currentNode->node.inlineStyleFlags |= PROPERTY_FLAG_ALIGN_H;
-                            currentNode->node.horizontalAlignment = 0;
+                            currentNode->overrideStyleFlags |= PROPERTY_FLAG_ALIGN_H;
+                            currentNode->horizontalAlignment = 0;
                         } else if (strcmp(ptext, "center") == 0) {
-                            currentNode->node.inlineStyleFlags |= PROPERTY_FLAG_ALIGN_H;
-                            currentNode->node.horizontalAlignment = 1;
+                            currentNode->overrideStyleFlags |= PROPERTY_FLAG_ALIGN_H;
+                            currentNode->horizontalAlignment = 1;
                         } else if (strcmp(ptext, "right") == 0) {
-                            currentNode->node.inlineStyleFlags |= PROPERTY_FLAG_ALIGN_H;
-                            currentNode->node.horizontalAlignment = 2;
+                            currentNode->overrideStyleFlags |= PROPERTY_FLAG_ALIGN_H;
+                            currentNode->horizontalAlignment = 2;
                         }
                         break;
 
                     // Set vertical alignment
                     case ALIGN_V_PROPERTY:
                         if (strcmp(ptext, "top") == 0) {
-                            currentNode->node.inlineStyleFlags |= PROPERTY_FLAG_ALIGN_V;
-                            currentNode->node.verticalAlignment = 0;
+                            currentNode->overrideStyleFlags |= PROPERTY_FLAG_ALIGN_V;
+                            currentNode->verticalAlignment = 0;
                         } else if (strcmp(ptext, "center") == 0) {
-                            currentNode->node.inlineStyleFlags |= PROPERTY_FLAG_ALIGN_V;
-                            currentNode->node.verticalAlignment = 1;
+                            currentNode->overrideStyleFlags |= PROPERTY_FLAG_ALIGN_V;
+                            currentNode->verticalAlignment = 1;
                         } else if (strcmp(ptext, "bottom") == 0) {
-                            currentNode->node.inlineStyleFlags |= PROPERTY_FLAG_ALIGN_V;
-                            currentNode->node.verticalAlignment = 2;
+                            currentNode->overrideStyleFlags |= PROPERTY_FLAG_ALIGN_V;
+                            currentNode->verticalAlignment = 2;
                         }
                         break;
 
                     // Set horizontal text alignment
                     case TEXT_ALIGN_H_PROPERTY:
                         if (strcmp(ptext, "left") == 0) {
-                            currentNode->node.inlineStyleFlags |= PROPERTY_FLAG_TEXT_ALIGN_H;
-                            currentNode->node.horizontalTextAlignment = 0;
+                            currentNode->overrideStyleFlags |= PROPERTY_FLAG_TEXT_ALIGN_H;
+                            currentNode->horizontalTextAlignment = 0;
                         } else if (strcmp(ptext, "center") == 0) {
-                            currentNode->node.inlineStyleFlags |= PROPERTY_FLAG_TEXT_ALIGN_H;
-                            currentNode->node.horizontalTextAlignment = 1;
+                            currentNode->overrideStyleFlags |= PROPERTY_FLAG_TEXT_ALIGN_H;
+                            currentNode->horizontalTextAlignment = 1;
                         } else if (strcmp(ptext, "right") == 0) {
-                            currentNode->node.inlineStyleFlags |= PROPERTY_FLAG_TEXT_ALIGN_H;
-                            currentNode->node.horizontalTextAlignment = 2;
+                            currentNode->overrideStyleFlags |= PROPERTY_FLAG_TEXT_ALIGN_H;
+                            currentNode->horizontalTextAlignment = 2;
                         }
                         break;
 
                     // Set vertical text alignment
                     case TEXT_ALIGN_V_PROPERTY:
                         if (strcmp(ptext, "top") == 0) {
-                            currentNode->node.inlineStyleFlags |= PROPERTY_FLAG_TEXT_ALIGN_V;
-                            currentNode->node.verticalTextAlignment = 0;
+                            currentNode->overrideStyleFlags |= PROPERTY_FLAG_TEXT_ALIGN_V;
+                            currentNode->verticalTextAlignment = 0;
                         } else if (strcmp(ptext, "center") == 0) {
-                            currentNode->node.inlineStyleFlags |= PROPERTY_FLAG_TEXT_ALIGN_V;
-                            currentNode->node.verticalTextAlignment = 1;
+                            currentNode->overrideStyleFlags |= PROPERTY_FLAG_TEXT_ALIGN_V;
+                            currentNode->verticalTextAlignment = 1;
                         } else if (strcmp(ptext, "bottom") == 0) {
-                            currentNode->node.inlineStyleFlags |= PROPERTY_FLAG_TEXT_ALIGN_V;
-                            currentNode->node.verticalTextAlignment = 2;
+                            currentNode->overrideStyleFlags |= PROPERTY_FLAG_TEXT_ALIGN_V;
+                            currentNode->verticalTextAlignment = 2;
                         }
                         break;
 
@@ -402,25 +407,25 @@ int NU_Generate_Tree(char* src, TokenArray* tokens, struct Vector* textRefs)
                         int16_t abs_position; 
                         if (String_To_Int16(&abs_position, ptext)) {
                             currentNode->node.left = abs_position;
-                            currentNode->node.inlineStyleFlags |= PROPERTY_FLAG_LEFT;
+                            currentNode->overrideStyleFlags |= PROPERTY_FLAG_LEFT;
                         }
                         break;
                     case RIGHT_PROPERTY:
                         if (String_To_Int16(&abs_position, ptext)) {
                             currentNode->node.right = abs_position;
-                            currentNode->node.inlineStyleFlags |= PROPERTY_FLAG_RIGHT;
+                            currentNode->overrideStyleFlags |= PROPERTY_FLAG_RIGHT;
                         }
                         break;
                      case TOP_PROPERTY:
                         if (String_To_Int16(&abs_position, ptext)) {
                             currentNode->node.top = abs_position;
-                            currentNode->node.inlineStyleFlags |= PROPERTY_FLAG_TOP;
+                            currentNode->overrideStyleFlags |= PROPERTY_FLAG_TOP;
                         }
                         break;
                     case BOTTOM_PROPERTY:
                         if (String_To_Int16(&abs_position, ptext)) {
                             currentNode->node.bottom = abs_position;
-                            currentNode->node.inlineStyleFlags |= PROPERTY_FLAG_BOTTOM;
+                            currentNode->overrideStyleFlags |= PROPERTY_FLAG_BOTTOM;
                         }
                         break;
 
@@ -428,12 +433,12 @@ int NU_Generate_Tree(char* src, TokenArray* tokens, struct Vector* textRefs)
                     case BACKGROUND_COLOUR_PROPERTY:
                         struct RGB rgb;
                         if (Parse_Hexcode(ptext, current_text_ref->char_count, &rgb)) {
-                            currentNode->node.inlineStyleFlags |= PROPERTY_FLAG_BACKGROUND;
+                            currentNode->overrideStyleFlags |= PROPERTY_FLAG_BACKGROUND;
                             currentNode->node.backgroundR = rgb.r;
                             currentNode->node.backgroundG = rgb.g;
                             currentNode->node.backgroundB = rgb.b;
                         } else if (strcmp(ptext, "none") == 0) {
-                            currentNode->node.inlineStyleFlags |= PROPERTY_FLAG_HIDE_BACKGROUND;
+                            currentNode->overrideStyleFlags |= PROPERTY_FLAG_HIDE_BACKGROUND;
                             currentNode->node.layoutFlags |= HIDE_BACKGROUND;
                         }
                         break;
@@ -441,7 +446,7 @@ int NU_Generate_Tree(char* src, TokenArray* tokens, struct Vector* textRefs)
                     // Set border colour
                     case BORDER_COLOUR_PROPERTY:
                         if (Parse_Hexcode(ptext, current_text_ref->char_count, &rgb)) {
-                            currentNode->node.inlineStyleFlags |= PROPERTY_FLAG_BORDER_COLOUR;
+                            currentNode->overrideStyleFlags |= PROPERTY_FLAG_BORDER_COLOUR;
                             currentNode->node.borderR = rgb.r;
                             currentNode->node.borderG = rgb.g;
                             currentNode->node.borderB = rgb.b;
@@ -451,7 +456,7 @@ int NU_Generate_Tree(char* src, TokenArray* tokens, struct Vector* textRefs)
                     // Set text colour
                     case TEXT_COLOUR_PROPERTY:
                         if (Parse_Hexcode(ptext, current_text_ref->char_count, &rgb)) {
-                            currentNode->node.inlineStyleFlags |= PROPERTY_FLAG_TEXT_COLOUR;
+                            currentNode->overrideStyleFlags |= PROPERTY_FLAG_TEXT_COLOUR;
                             currentNode->node.textR = rgb.r;
                             currentNode->node.textG = rgb.g;
                             currentNode->node.textB = rgb.b;
@@ -462,7 +467,7 @@ int NU_Generate_Tree(char* src, TokenArray* tokens, struct Vector* textRefs)
                     case BORDER_WIDTH_PROPERTY:
                         uint8_t property_uint8;
                         if (String_To_uint8_t(&property_uint8, ptext)) {
-                            currentNode->node.inlineStyleFlags |= PROPERTY_FLAG_BORDER_TOP | PROPERTY_FLAG_BORDER_BOTTOM | PROPERTY_FLAG_BORDER_LEFT | PROPERTY_FLAG_BORDER_RIGHT;
+                            currentNode->overrideStyleFlags |= PROPERTY_FLAG_BORDER_TOP | PROPERTY_FLAG_BORDER_BOTTOM | PROPERTY_FLAG_BORDER_LEFT | PROPERTY_FLAG_BORDER_RIGHT;
                             currentNode->node.borderTop = property_uint8;
                             currentNode->node.borderBottom = property_uint8;
                             currentNode->node.borderLeft = property_uint8;
@@ -471,25 +476,25 @@ int NU_Generate_Tree(char* src, TokenArray* tokens, struct Vector* textRefs)
                         break;
                     case BORDER_TOP_WIDTH_PROPERTY:
                         if (String_To_uint8_t(&property_uint8, ptext)) {
-                            currentNode->node.inlineStyleFlags |= PROPERTY_FLAG_BORDER_TOP;
+                            currentNode->overrideStyleFlags |= PROPERTY_FLAG_BORDER_TOP;
                             currentNode->node.borderTop = property_uint8;
                         }
                         break;
                     case BORDER_BOTTOM_WIDTH_PROPERTY:
                         if (String_To_uint8_t(&property_uint8, ptext)) {
-                            currentNode->node.inlineStyleFlags |= PROPERTY_FLAG_BORDER_BOTTOM;
+                            currentNode->overrideStyleFlags |= PROPERTY_FLAG_BORDER_BOTTOM;
                             currentNode->node.borderBottom = property_uint8;
                         }
                         break;
                     case BORDER_LEFT_WIDTH_PROPERTY:
                         if (String_To_uint8_t(&property_uint8, ptext)) {
-                            currentNode->node.inlineStyleFlags |= PROPERTY_FLAG_BORDER_LEFT;
+                            currentNode->overrideStyleFlags |= PROPERTY_FLAG_BORDER_LEFT;
                             currentNode->node.borderLeft = property_uint8;
                         }
                         break;
                     case BORDER_RIGHT_WIDTH_PROPERTY:
                         if (String_To_uint8_t(&property_uint8, ptext)) {
-                            currentNode->node.inlineStyleFlags |= PROPERTY_FLAG_BORDER_RIGHT;
+                            currentNode->overrideStyleFlags |= PROPERTY_FLAG_BORDER_RIGHT;
                             currentNode->node.borderRight = property_uint8;
                         }
                         break;
@@ -497,7 +502,7 @@ int NU_Generate_Tree(char* src, TokenArray* tokens, struct Vector* textRefs)
                     // Set border radii
                     case BORDER_RADIUS_PROPERTY:
                         if (String_To_uint8_t(&property_uint8, ptext)) {
-                            currentNode->node.inlineStyleFlags |= PROPERTY_FLAG_BORDER_RADIUS_TL | PROPERTY_FLAG_BORDER_RADIUS_TR | PROPERTY_FLAG_BORDER_RADIUS_BL | PROPERTY_FLAG_BORDER_RADIUS_BR;
+                            currentNode->overrideStyleFlags |= PROPERTY_FLAG_BORDER_RADIUS_TL | PROPERTY_FLAG_BORDER_RADIUS_TR | PROPERTY_FLAG_BORDER_RADIUS_BL | PROPERTY_FLAG_BORDER_RADIUS_BR;
                             currentNode->node.borderRadiusTl = property_uint8;
                             currentNode->node.borderRadiusTr = property_uint8;
                             currentNode->node.borderRadiusBl = property_uint8;
@@ -506,25 +511,25 @@ int NU_Generate_Tree(char* src, TokenArray* tokens, struct Vector* textRefs)
                         break;
                     case BORDER_TOP_LEFT_RADIUS_PROPERTY:
                         if (String_To_uint8_t(&property_uint8, ptext)) {
-                            currentNode->node.inlineStyleFlags |= PROPERTY_FLAG_BORDER_RADIUS_TL;
+                            currentNode->overrideStyleFlags |= PROPERTY_FLAG_BORDER_RADIUS_TL;
                             currentNode->node.borderRadiusTl = property_uint8;
                         }
                         break;
                     case BORDER_TOP_RIGHT_RADIUS_PROPERTY:
                         if (String_To_uint8_t(&property_uint8, ptext)) {
-                            currentNode->node.inlineStyleFlags |= PROPERTY_FLAG_BORDER_RADIUS_TR;
+                            currentNode->overrideStyleFlags |= PROPERTY_FLAG_BORDER_RADIUS_TR;
                             currentNode->node.borderRadiusTr = property_uint8;
                         }
                         break;
                     case BORDER_BOTTOM_LEFT_RADIUS_PROPERTY:
                         if (String_To_uint8_t(&property_uint8, ptext)) {
-                            currentNode->node.inlineStyleFlags |= PROPERTY_FLAG_BORDER_RADIUS_BL;
+                            currentNode->overrideStyleFlags |= PROPERTY_FLAG_BORDER_RADIUS_BL;
                             currentNode->node.borderRadiusBl = property_uint8;
                         }
                         break;
                     case BORDER_BOTTOM_RIGHT_RADIUS_PROPERTY:
                         if (String_To_uint8_t(&property_uint8, ptext)) {
-                            currentNode->node.inlineStyleFlags |= PROPERTY_FLAG_BORDER_RADIUS_BR;
+                            currentNode->overrideStyleFlags |= PROPERTY_FLAG_BORDER_RADIUS_BR;
                             currentNode->node.borderRadiusBr = property_uint8;
                         }
                         break;
@@ -532,7 +537,7 @@ int NU_Generate_Tree(char* src, TokenArray* tokens, struct Vector* textRefs)
                     // Set padding
                     case PADDING_PROPERTY:
                         if (String_To_uint8_t(&property_uint8, ptext)) {
-                            currentNode->node.inlineStyleFlags |= PROPERTY_FLAG_PAD_TOP | PROPERTY_FLAG_PAD_BOTTOM | PROPERTY_FLAG_PAD_LEFT | PROPERTY_FLAG_PAD_RIGHT;
+                            currentNode->overrideStyleFlags |= PROPERTY_FLAG_PAD_TOP | PROPERTY_FLAG_PAD_BOTTOM | PROPERTY_FLAG_PAD_LEFT | PROPERTY_FLAG_PAD_RIGHT;
                             currentNode->node.padTop    = property_uint8;
                             currentNode->node.padBottom = property_uint8;
                             currentNode->node.padLeft   = property_uint8;
@@ -541,43 +546,43 @@ int NU_Generate_Tree(char* src, TokenArray* tokens, struct Vector* textRefs)
                         break;
                     case PADDING_TOP_PROPERTY:
                         if (String_To_uint8_t(&property_uint8, ptext)) {
-                            currentNode->node.inlineStyleFlags |= PROPERTY_FLAG_PAD_TOP;
+                            currentNode->overrideStyleFlags |= PROPERTY_FLAG_PAD_TOP;
                             currentNode->node.padTop = property_uint8;
                         }
                         break;
                     case PADDING_BOTTOM_PROPERTY:
                         if (String_To_uint8_t(&property_uint8, ptext)) {
-                            currentNode->node.inlineStyleFlags |= PROPERTY_FLAG_PAD_BOTTOM;
+                            currentNode->overrideStyleFlags |= PROPERTY_FLAG_PAD_BOTTOM;
                             currentNode->node.padBottom = property_uint8;
                         }
                         break;
                     case PADDING_LEFT_PROPERTY:
                         if (String_To_uint8_t(&property_uint8, ptext)) {
-                            currentNode->node.inlineStyleFlags |= PROPERTY_FLAG_PAD_LEFT;
+                            currentNode->overrideStyleFlags |= PROPERTY_FLAG_PAD_LEFT;
                             currentNode->node.padLeft = property_uint8;
                         }
                         break;
                     case PADDING_RIGHT_PROPERTY:
                         if (String_To_uint8_t(&property_uint8, ptext)) {
-                            currentNode->node.inlineStyleFlags |= PROPERTY_FLAG_PAD_RIGHT;
+                            currentNode->overrideStyleFlags |= PROPERTY_FLAG_PAD_RIGHT;
                             currentNode->node.padRight = property_uint8;
                         }
                         break;
 
                     // Image source
                     case IMAGE_SOURCE_PROPERTY:
-                        if (currentNode->type == NU_INPUT) break;
+                        if (currentNode->type != NU_IMAGE) break;
                         void* found = LinearStringmapGet(&imageFilepathToHandleMap, ptext);
                         if (found == NULL) {
                             GLuint image_handle = Image_Load(ptext);
                             if (image_handle) {
                                 currentNode->typeData.image.glImageHandle = image_handle;
                                 LinearStringmapSet(&imageFilepathToHandleMap, ptext, &image_handle);
-                                currentNode->node.inlineStyleFlags |= PROPERTY_FLAG_IMAGE;
+                                currentNode->overrideStyleFlags |= PROPERTY_FLAG_IMAGE;
                             }
                         } 
                         else { 
-                            currentNode->node.inlineStyleFlags |= PROPERTY_FLAG_IMAGE;
+                            currentNode->overrideStyleFlags |= PROPERTY_FLAG_IMAGE;
                             currentNode->typeData.image.glImageHandle = *(GLuint*)found; 
                         }
                         break;
@@ -585,7 +590,7 @@ int NU_Generate_Tree(char* src, TokenArray* tokens, struct Vector* textRefs)
                     // Input type property
                     case INPUT_TYPE_PROPERTY:
                         if (currentNode->type != NU_INPUT) break;
-                        currentNode->node.inlineStyleFlags |= PROPERTY_FLAG_INPUT_TYPE;
+                        currentNode->overrideStyleFlags |= PROPERTY_FLAG_INPUT_TYPE;
                         if (strcmp(ptext, "number") == 0) {
                             currentNode->typeData.input.inputText.type = 1;
                         } else {

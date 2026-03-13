@@ -244,10 +244,11 @@ bool EventWatcher(void* data, SDL_Event* event)
     else if (event->type == SDL_EVENT_KEY_DOWN) {
 
         // if in text edit mode
-        if (__NGUI.focused_node != NULL && SDL_TextInputActive(__NGUI.focused_node->node.window)) 
+        SDL_Window* window = GetSDL_Window(&__NGUI.winManager, __NGUI.focused_node->windowID);
+        if (__NGUI.focused_node != NULL && SDL_TextInputActive(window)) 
         {
             NodeP* inputNode = __NGUI.focused_node;
-            NU_Font* font = Vector_Get(&__NGUI.stylesheet->fonts, inputNode->node.fontId);
+            NU_Font* font = Vector_Get(&__NGUI.stylesheet->fonts, inputNode->fontId);
             InputText* inputText = &inputNode->typeData.input.inputText;
             SDL_Keymod mods = event->key.mod;
 
@@ -332,7 +333,7 @@ bool EventWatcher(void* data, SDL_Event* event)
     else if (event->type == SDL_EVENT_TEXT_INPUT) {
         NodeP* focusedNode = __NGUI.focused_node;
         if (focusedNode->type == NU_INPUT) {
-            NU_Font* font = Vector_Get(&__NGUI.stylesheet->fonts, focusedNode->node.fontId);
+            NU_Font* font = Vector_Get(&__NGUI.stylesheet->fonts, focusedNode->fontId);
             InputText* inputText = &focusedNode->typeData.input.inputText;
             
             int updated = 0;
@@ -364,7 +365,7 @@ bool EventWatcher(void* data, SDL_Event* event)
     else if (event->type == SDL_EVENT_MOUSE_MOTION)
     {
         // update hovered window
-        __NGUI.winManager.hoveredWindow = SDL_GetWindowFromID(event->window.windowID);
+        SetHoveredWindowID(&__NGUI.winManager, SDL_GetWindowFromID(event->window.windowID));
 
         NU_Mouse_Hover();
 
@@ -398,7 +399,7 @@ bool EventWatcher(void* data, SDL_Event* event)
         // if focused on text input -> update highlighting
         if (__NGUI.focused_node != NULL && __NGUI.focused_node->type == NU_INPUT) {
             NodeP* node = __NGUI.focused_node;
-            NU_Font* font = Vector_Get(&__NGUI.stylesheet->fonts, node->node.fontId);
+            NU_Font* font = Vector_Get(&__NGUI.stylesheet->fonts, node->fontId);
             if (InputText_MouseDrag(&node->typeData.input.inputText, node, font, mouseX)) {
                 __NGUI.awaiting_redraw = true;
             }
@@ -418,14 +419,14 @@ bool EventWatcher(void* data, SDL_Event* event)
     else if (event->type == SDL_EVENT_MOUSE_BUTTON_DOWN)
     {
         // If mouse hasn't moved yet the hovered window and node will not have been set -> set both of these
-        if (__NGUI.winManager.hoveredWindow == NULL) {
-            __NGUI.winManager.hoveredWindow = SDL_GetWindowFromID(event->window.windowID);
+        if (__NGUI.winManager.hoveredWindowID == -1) {
+            SetHoveredWindowID(&__NGUI.winManager, SDL_GetWindowFromID(event->window.windowID));
         }
 
         // Get mouse down coordinates
         int win_x, win_y; 
         SDL_GetGlobalMouseState(&__NGUI.mouseDownGlobalX, &__NGUI.mouseDownGlobalY);
-        SDL_GetWindowPosition(__NGUI.winManager.hoveredWindow, &win_x, &win_y);
+        SDL_GetWindowPosition(GetSDL_Window(&__NGUI.winManager, __NGUI.winManager.hoveredWindowID), &win_x, &win_y);
         float mouseX = __NGUI.mouseDownGlobalX - win_x;
         float mouseY = __NGUI.mouseDownGlobalY - win_y;
 
@@ -483,15 +484,15 @@ bool EventWatcher(void* data, SDL_Event* event)
 
         // Focus on node
         if (__NGUI.focused_node != NULL) {
-            NU_Font* font = Vector_Get(&__NGUI.stylesheet->fonts, __NGUI.focused_node->node.fontId);
+            NU_Font* font = Vector_Get(&__NGUI.stylesheet->fonts, __NGUI.focused_node->fontId);
 
             // Focus on input node
             if (__NGUI.focused_node->type == NU_INPUT) {
                 InputText_Focus(&__NGUI.focused_node->typeData.input.inputText, __NGUI.focused_node, font); 
                 InputText_MousePlaceCursor(&__NGUI.focused_node->typeData.input.inputText, __NGUI.focused_node, font, mouseX);
-                SDL_StartTextInput(__NGUI.focused_node->node.window);
+                SDL_StartTextInput(GetSDL_Window(&__NGUI.winManager, __NGUI.focused_node->windowID));
             } else {
-                SDL_StopTextInput(__NGUI.hovered_node->node.window);
+                SDL_StopTextInput(GetSDL_Window(&__NGUI.winManager, __NGUI.focused_node->windowID));
             }
         }
 
@@ -509,10 +510,10 @@ bool EventWatcher(void* data, SDL_Event* event)
         SDL_GetGlobalMouseState(&__NGUI.mouseDownGlobalX, &__NGUI.mouseDownGlobalY);
 
         // Trigger all mouse up events
-        if (__NGUI.winManager.hoveredWindow != NULL)
+        if (__NGUI.winManager.hoveredWindowID != -1)
         {
             int win_x, win_y; 
-            SDL_GetWindowPosition(__NGUI.winManager.hoveredWindow, &win_x, &win_y);
+            SDL_GetWindowPosition(GetSDL_Window(&__NGUI.winManager, __NGUI.winManager.hoveredWindowID), &win_x, &win_y);
             float mouseX = __NGUI.mouseDownGlobalX - win_x;
             float mouseY = __NGUI.mouseDownGlobalY - win_y;
             TriggerAllMouseupEvents(mouseX, mouseY, (int)event->button.button);
@@ -531,7 +532,7 @@ bool EventWatcher(void* data, SDL_Event* event)
                 // Get mouse up coordinates
                 int win_x, win_y; 
                 SDL_GetGlobalMouseState(&__NGUI.mouseDownGlobalX, &__NGUI.mouseDownGlobalY);
-                SDL_GetWindowPosition(__NGUI.winManager.hoveredWindow, &win_x, &win_y);
+                SDL_GetWindowPosition(GetSDL_Window(&__NGUI.winManager, __NGUI.winManager.hoveredWindowID), &win_x, &win_y);
                 float mouseX = __NGUI.mouseDownGlobalX - win_x;
                 float mouseY = __NGUI.mouseDownGlobalY - win_y;
 
@@ -586,6 +587,5 @@ bool EventWatcher(void* data, SDL_Event* event)
         // Triggger mouse wheel events
         TriggerAllMouseWheelEvents(event->wheel.y);
     }
-
     return true;
 }

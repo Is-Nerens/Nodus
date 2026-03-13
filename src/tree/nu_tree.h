@@ -98,7 +98,7 @@ NodeP* TreeCreateNode(Tree* tree, NodeP* parent, NodeType type)
     newNode->childCount = 0;
     newNode->layer = parent->layer + 1;
     newNode->state = 1;
-    NU_ApplyNodeDefaults(newNode); // applies defaults to node->node (public node struct)
+    NU_ApplyNodeDefaults(newNode);
 
     // parent has no children
     if (parent->firstChild == NULL) {

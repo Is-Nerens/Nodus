@@ -903,10 +903,10 @@ void NU_Repass(BreadthFirstSearch* bfs)
             child->node.y = 0.0f;
 
             // Set base width/height and reset content dimensions
-            float natural_width = node->node.borderLeft + node->node.borderRight + node->node.padLeft + node->node.padRight;
-            float natural_height = node->node.borderTop + node->node.borderBottom + node->node.padTop + node->node.padBottom;
-            node->node.width = max(node->preferred_width, natural_width);
-            node->node.height = max(node->preferred_height, natural_height);
+            float natural_width = child->node.borderLeft + child->node.borderRight + child->node.padLeft + child->node.padRight;
+            float natural_height = child->node.borderTop + child->node.borderBottom + child->node.padTop + child->node.padBottom;
+            child->node.width = max(child->preferred_width, natural_width);
+            child->node.height = max(child->preferred_height, natural_height);
             child->node.contentWidth = 0;
             child->node.contentHeight = 0;
 
@@ -918,9 +918,6 @@ void NU_Repass(BreadthFirstSearch* bfs)
 
 void NU_Layout()
 {
-    printf("layout\n");
-    timer_start();
-
     // RESET TRAVERSAL DATA STRUCTURES
     BreadthFirstSearch* bfs = &__NGUI.bfs;
     ReverseBreadthFirstSearch* rbfs = &__NGUI.rbfs;
@@ -963,6 +960,4 @@ void NU_Layout()
     }
 
     __NGUI.recalculate_mouse_hover = true;
-
-    timer_stop();
 }

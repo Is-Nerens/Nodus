@@ -279,8 +279,6 @@ int NU_Internal_Create_Gui(const char* xml_filepath, const char* css_filepath)
     NU_Layout(); // Initial layout calculation
     __NGUI.running = true;
 
-    printf("nodeP size: %llu\n", sizeof(NodeP));
-
     // Event watcher
     SDL_AddEventWatch(EventWatcher, NULL);
 

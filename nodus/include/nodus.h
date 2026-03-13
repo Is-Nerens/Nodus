@@ -23,32 +23,23 @@ typedef enum NodeType
 
 typedef struct Node
 {
-    SDL_Window* window;
     char* class;
     char* id;
     char* textContent;
-    
-    uint64_t inlineStyleFlags; // --- Tracks which styles were applied in xml ---
 
     // --- Styling ---
-    float x, y, width, height, preferred_width, preferred_height;
-    float minWidth, maxWidth, minHeight, maxHeight;
-    float gap, contentWidth, contentHeight, scrollX, scrollV;
-    float left, right, top, bottom;
+    float x, y, width, height;
+    float contentWidth, contentHeight, scrollX, scrollV;
+    uint16_t minWidth, maxWidth, minHeight, maxHeight;
+    int16_t left, right, top, bottom;
     uint16_t eventFlags; // --- Event Information
     uint16_t layoutFlags;
-    uint8_t padTop, padBottom, padLeft, padRight;
+    uint8_t gap, padTop, padBottom, padLeft, padRight;
     uint8_t borderTop, borderBottom, borderLeft, borderRight;
     uint8_t borderRadiusTl, borderRadiusTr, borderRadiusBl, borderRadiusBr;
     uint8_t backgroundR, backgroundG, backgroundB;
     uint8_t borderR, borderG, borderB;
     uint8_t textR, textG, textB;
-    uint8_t fontId;
-    char horizontalAlignment;
-    char verticalAlignment;
-    char horizontalTextAlignment;
-    char verticalTextAlignment;
-    uint8_t positionAbsolute;
 } Node;
 
 typedef struct NU_Nodelist

@@ -313,7 +313,7 @@ void NU_GenerateDrawlists()
             }
 
             // append node to canvas API drawing list
-            if (child->type == NU_CANVAS) {
+            if (child->type == NU_CANVAS && child->typeData.canvas.ctxHandle != -1) {
                 SetNodeDrawlist_Canvas(&__NGUI.winManager, child);
             }
 
@@ -325,14 +325,8 @@ void NU_GenerateDrawlists()
 
 void NU_Draw()
 {
-    printf("gen drawlists\n");
-    timer_start();
     NU_GenerateDrawlists();
-    timer_stop();
 
-
-    printf("draw\n");
-    timer_start();
     
     // Initialise text vertex and index buffers (per font)
     Vertex_RGB_UV_List text_relative_vertex_buffers[__NGUI.stylesheet->fonts.size];
@@ -448,7 +442,7 @@ void NU_Draw()
             }    
 
             // draw node image
-            if (node->typeData.image.glImageHandle && node->type == NU_IMAGE) {
+            if (node->typeData.image.glImageHandle && node->type != NU_CANVAS && node->type != NU_INPUT) {
                 NU_DrawNodeImage(node, winW, winH);
             }
         }
@@ -479,7 +473,7 @@ void NU_Draw()
                 innerClip.clip_right -= node->node.borderRight + node->node.padRight; 
                 NU_DrawInputNodeContent(node, winW, winH, &innerClip);
             }
-            if (node->typeData.image.glImageHandle && node->type == NU_IMAGE) { // draw node image
+            if (node->typeData.image.glImageHandle && node->type != NU_CANVAS && node->type != NU_INPUT) { // draw node image
                 NU_DrawClippedNodeImage(node, winW, winH, clip);
             }
         }
@@ -524,7 +518,7 @@ void NU_Draw()
             }
 
             // draw node image
-            if (node->typeData.image.glImageHandle && node->type == NU_IMAGE) {
+            if (node->typeData.image.glImageHandle && node->type != NU_CANVAS && node->type != NU_INPUT) {
                 NU_DrawNodeImage(node, winW, winH);
             }
         }
@@ -555,7 +549,7 @@ void NU_Draw()
                 innerClip.clip_right -= node->node.borderRight + node->node.padRight; 
                 NU_DrawInputNodeContent(node, winW, winH, &innerClip);
             }
-            if (node->typeData.image.glImageHandle && node->type == NU_IMAGE) { // draw node image
+            if (node->typeData.image.glImageHandle && node->type != NU_CANVAS && node->type != NU_INPUT) { // draw node image
                 NU_DrawClippedNodeImage(node, winW, winH, clip);
             }
         }
@@ -572,6 +566,4 @@ void NU_Draw()
         Index_List_Free(&text_absolute_index_buffers[i]);
     }
     __NGUI.awaiting_redraw = false;
-
-    timer_stop();
 }

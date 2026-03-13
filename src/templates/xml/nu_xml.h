@@ -571,7 +571,7 @@ int NU_Generate_Tree(char* src, TokenArray* tokens, struct Vector* textRefs)
 
                     // Image source
                     case IMAGE_SOURCE_PROPERTY:
-                        if (currentNode->type != NU_IMAGE) break;
+                        if (currentNode->type == NU_CANVAS && currentNode->type == NU_INPUT) break;
                         void* found = LinearStringmapGet(&imageFilepathToHandleMap, ptext);
                         if (found == NULL) {
                             GLuint image_handle = Image_Load(ptext);

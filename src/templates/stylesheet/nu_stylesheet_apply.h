@@ -91,7 +91,9 @@ static void NU_Apply_Style_Item_To_Node(NodeP* node, NU_Stylesheet_Item* item)
     if (STYLE_SHOULD_APPLY_TO_NODE(PROPERTY_FLAG_PAD_BOTTOM)) node->node.padBottom = item->padBottom;
     if (STYLE_SHOULD_APPLY_TO_NODE(PROPERTY_FLAG_PAD_LEFT)) node->node.padLeft = item->padLeft;
     if (STYLE_SHOULD_APPLY_TO_NODE(PROPERTY_FLAG_PAD_RIGHT)) node->node.padRight = item->padRight;
-    if (STYLE_SHOULD_APPLY_TO_NODE(PROPERTY_FLAG_IMAGE)) node->typeData.image.glImageHandle = item->glImageHandle;
+    if (STYLE_SHOULD_APPLY_TO_NODE(PROPERTY_FLAG_IMAGE) && node->type != NU_CANVAS && node->type != NU_INPUT) {
+        node->typeData.image.glImageHandle = item->glImageHandle;
+    }
     if (STYLE_SHOULD_APPLY_TO_NODE(PROPERTY_FLAG_INPUT_TYPE)) node->typeData.input.inputText.type = item->inputType;
     node->fontId = item->fontId; // set font 
 }

@@ -10,7 +10,7 @@ releases
 build
 documentation
 fonts
-app
+app-test
 src/vendor/freetype
 src/vendor/glew
 src/vendor/SDL3

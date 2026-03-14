@@ -89,17 +89,11 @@ typedef union NodeTypeData {
 
 typedef struct Node
 {
-    char* class;
-    char* id;
     char* textContent;
-
-    // --- Styling ---
     float x, y, width, height;
-    float contentWidth, contentHeight, scrollX, scrollV;
+    float contentWidth, contentHeight;
     u16 minWidth, maxWidth, minHeight, maxHeight;
     i16 left, right, top, bottom;
-    u16 eventFlags; // --- Event Information
-    u16 layoutFlags;
     u8 gap, padTop, padBottom, padLeft, padRight;
     u8 borderTop, borderBottom, borderLeft, borderRight;
     u8 borderRadiusTl, borderRadiusTr, borderRadiusBl, borderRadiusBr;
@@ -119,8 +113,13 @@ typedef struct NodeP
     struct NodeP* firstChild;
     struct NodeP* lastChild;
     struct NodeP* clippedAncestor;
+    char* class;
+    char* id;
     u64 overrideStyleFlags;
+    float scrollX, scrollV;
     u16 childCount;
+    u16 eventFlags;
+    u16 layoutFlags;
     u16 preferred_width, preferred_height;
     u8 layer;
     u8 state;
@@ -162,10 +161,10 @@ void NU_ApplyNodeDefaults(NodeP* node)
     memset(&node->node, 0, sizeof(node->node));
     memset(&node->typeData, 0, sizeof(node->typeData));
     
-    node->node.class = NULL;
-    node->node.id = NULL;
+    node->class = NULL;
+    node->id = NULL;
     node->node.textContent = NULL;
-    node->node.layoutFlags = 0;
+    node->layoutFlags = 0;
     node->node.maxWidth = UINT16_MAX;
     node->node.maxHeight = UINT16_MAX;
     node->node.left = node->node.right = node->node.top = node->node.bottom = -1;
@@ -185,11 +184,11 @@ void NU_ApplyNodeDefaults(NodeP* node)
     // set defaults based on node type
     if (node->type == NU_TABLE) {
         node->overrideStyleFlags |= PROPERTY_FLAG_LAYOUT_VERTICAL; // Enforce vertical direction
-        node->node.layoutFlags |= LAYOUT_VERTICAL;
+        node->layoutFlags |= LAYOUT_VERTICAL;
     }
     else if (node->type == NU_THEAD || node->type == NU_ROW) {
         node->overrideStyleFlags |= PROPERTY_FLAG_GROW; // Enforce horizontal growth
-        node->node.layoutFlags |= GROW_HORIZONTAL;
+        node->layoutFlags |= GROW_HORIZONTAL;
     }
     else if (node->type == NU_INPUT) {
         InputText_Init(&node->typeData.input.inputText);

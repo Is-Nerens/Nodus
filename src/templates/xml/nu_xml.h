@@ -204,20 +204,20 @@ int NU_Generate_Tree(char* src, TokenArray* tokens, struct Vector* textRefs)
                     case ID_PROPERTY:
                         char* id_get = StringsetGet(&__NGUI.id_string_set, ptext);
                         if (id_get == NULL) {
-                            currentNode->node.id = StringsetAdd(&__NGUI.id_string_set, ptext);
+                            currentNode->id = StringsetAdd(&__NGUI.id_string_set, ptext);
                             StringmapSet(&__NGUI.id_node_map, ptext, &currentNode);
                         }
                         break;
 
                     // Set class
                     case CLASS_PROPERTY:
-                        currentNode->node.class = StringsetAdd(&__NGUI.class_string_set, ptext);
+                        currentNode->class = StringsetAdd(&__NGUI.class_string_set, ptext);
                         break;
 
                     // Set layout direction
                     case LAYOUT_DIRECTION_PROPERTY:
                         if (c == 'v') {
-                            currentNode->node.layoutFlags |= LAYOUT_VERTICAL;
+                            currentNode->layoutFlags |= LAYOUT_VERTICAL;
                             currentNode->overrideStyleFlags |= PROPERTY_FLAG_LAYOUT_VERTICAL;
                         }
                         else if (c == 'h') { 
@@ -231,15 +231,15 @@ int NU_Generate_Tree(char* src, TokenArray* tokens, struct Vector* textRefs)
                         {
                             case 'v':
                                 currentNode->overrideStyleFlags |= PROPERTY_FLAG_GROW;
-                                currentNode->node.layoutFlags |= GROW_VERTICAL;
+                                currentNode->layoutFlags |= GROW_VERTICAL;
                                 break;
                             case 'h':
                                 currentNode->overrideStyleFlags |= PROPERTY_FLAG_GROW;
-                                currentNode->node.layoutFlags |= GROW_HORIZONTAL;
+                                currentNode->layoutFlags |= GROW_HORIZONTAL;
                                 break;
                             case 'b':
                                 currentNode->overrideStyleFlags |= PROPERTY_FLAG_GROW;
-                                currentNode->node.layoutFlags |= (GROW_HORIZONTAL | GROW_VERTICAL);
+                                currentNode->layoutFlags |= (GROW_HORIZONTAL | GROW_VERTICAL);
                                 break;
                         }
                         break;
@@ -248,14 +248,14 @@ int NU_Generate_Tree(char* src, TokenArray* tokens, struct Vector* textRefs)
                     case OVERFLOW_V_PROPERTY:
                         if (c == 's') {
                             currentNode->overrideStyleFlags |= PROPERTY_FLAG_VERTICAL_SCROLL;
-                            currentNode->node.layoutFlags |= OVERFLOW_VERTICAL_SCROLL;
+                            currentNode->layoutFlags |= OVERFLOW_VERTICAL_SCROLL;
                         }
                         break;
                     
                     case OVERFLOW_H_PROPERTY:
                         if (c == 's') {
                             currentNode->overrideStyleFlags |= PROPERTY_FLAG_HORIZONTAL_SCROLL;
-                            currentNode->node.layoutFlags |= OVERFLOW_HORIZONTAL_SCROLL;
+                            currentNode->layoutFlags |= OVERFLOW_HORIZONTAL_SCROLL;
                         }                
                         break;
 
@@ -263,7 +263,7 @@ int NU_Generate_Tree(char* src, TokenArray* tokens, struct Vector* textRefs)
                     case POSITION_PROPERTY:
                         if (strcmp(ptext, "absolute") == 0) {
                             currentNode->overrideStyleFlags |= PROPERTY_FLAG_POSITION_ABSOLUTE;
-                            currentNode->node.layoutFlags |= POSITION_ABSOLUTE;
+                            currentNode->layoutFlags |= POSITION_ABSOLUTE;
                         }
                         break;
 
@@ -271,7 +271,7 @@ int NU_Generate_Tree(char* src, TokenArray* tokens, struct Vector* textRefs)
                     case HIDE_PROPERTY:
                         if (strcmp(ptext, "true") == 0) {
                             currentNode->overrideStyleFlags |= PROPERTY_FLAG_HIDDEN;
-                            currentNode->node.layoutFlags |= HIDDEN;
+                            currentNode->layoutFlags |= HIDDEN;
                         }
                         break;
 
@@ -279,7 +279,7 @@ int NU_Generate_Tree(char* src, TokenArray* tokens, struct Vector* textRefs)
                     case IGNORE_MOUSE_PROPERTY:
                         if (strcmp(ptext, "true") == 0) {
                             currentNode->overrideStyleFlags |= PROPERTY_FLAG_IGNORE_MOUSE;
-                            currentNode->node.layoutFlags |= IGNORE_MOUSE;
+                            currentNode->layoutFlags |= IGNORE_MOUSE;
                         }
                         break;
                     
@@ -439,7 +439,7 @@ int NU_Generate_Tree(char* src, TokenArray* tokens, struct Vector* textRefs)
                             currentNode->node.backgroundB = rgb.b;
                         } else if (strcmp(ptext, "none") == 0) {
                             currentNode->overrideStyleFlags |= PROPERTY_FLAG_HIDE_BACKGROUND;
-                            currentNode->node.layoutFlags |= HIDE_BACKGROUND;
+                            currentNode->layoutFlags |= HIDE_BACKGROUND;
                         }
                         break;
 

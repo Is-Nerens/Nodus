@@ -23,17 +23,11 @@ typedef enum NodeType
 
 typedef struct Node
 {
-    char* class;
-    char* id;
     char* textContent;
-
-    // --- Styling ---
     float x, y, width, height;
-    float contentWidth, contentHeight, scrollX, scrollV;
+    float contentWidth, contentHeight;
     uint16_t minWidth, maxWidth, minHeight, maxHeight;
     int16_t left, right, top, bottom;
-    uint16_t eventFlags; // --- Event Information
-    uint16_t layoutFlags;
     uint8_t gap, padTop, padBottom, padLeft, padRight;
     uint8_t borderTop, borderBottom, borderLeft, borderRight;
     uint8_t borderRadiusTl, borderRadiusTr, borderRadiusBl, borderRadiusBr;

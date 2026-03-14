@@ -191,7 +191,7 @@ void NU_GenerateDrawlists()
 
         // precompute node inner rect
         float nodeInnerX, nodeInnerY, nodeInnerWidth, nodeInnerHeight = 0;
-        if (node->node.layoutFlags & OVERFLOW_VERTICAL_SCROLL) {
+        if (node->layoutFlags & OVERFLOW_VERTICAL_SCROLL) {
             nodeInnerY = node->node.y + node->node.borderTop + node->node.padTop;
             nodeInnerHeight = node->node.height - node->node.borderTop - node->node.borderBottom - node->node.padTop - node->node.padBottom;
 
@@ -203,7 +203,7 @@ void NU_GenerateDrawlists()
                 }
             }
         }
-        if (node->node.layoutFlags & OVERFLOW_HORIZONTAL_SCROLL) {
+        if (node->layoutFlags & OVERFLOW_HORIZONTAL_SCROLL) {
             nodeInnerX = node->node.x + node->node.borderLeft + node->node.padLeft;
             nodeInnerWidth = node->node.width - node->node.borderLeft - node->node.borderRight - node->node.padLeft - node->node.padRight;
         }
@@ -228,12 +228,12 @@ void NU_GenerateDrawlists()
             }
 
             // add child to list of root absolute nodes
-            if (child->node.layoutFlags & POSITION_ABSOLUTE) {
+            if (child->layoutFlags & POSITION_ABSOLUTE) {
                 Vector_Push(&__NGUI.winManager.absoluteRootNodes, &child);
             }
 
             // skip child if overflowed parent's bounds
-            if (node->node.layoutFlags & OVERFLOW_VERTICAL_SCROLL && child->type != NU_THEAD) {
+            if (node->layoutFlags & OVERFLOW_VERTICAL_SCROLL && child->type != NU_THEAD) {
                 int intersect_state = NodeVerticalOverlapState(child, nodeInnerY, nodeInnerHeight);
 
                 // child not inside parent -> hide in this draw pass
@@ -369,7 +369,7 @@ void NU_Draw()
         for (uint32_t n=0; n<drawList->relativeNodes.size; n++) {
             NodeP* node = *(NodeP**)Vector_Get(&drawList->relativeNodes, n);
             Construct_Border_Rect(node, winW, winH, &__NGUI.borderRectVertices, &__NGUI.borderRectIndices);
-            if (node->node.layoutFlags & OVERFLOW_VERTICAL_SCROLL 
+            if (node->layoutFlags & OVERFLOW_VERTICAL_SCROLL 
                 && node->node.contentHeight > (node->node.height - node->node.padTop - node->node.padBottom - node->node.borderTop - node->node.borderBottom)) {
                 Construct_Scroll_Thumb(node, winW, winH, &__NGUI.borderRectVertices, &__NGUI.borderRectIndices);
             }
@@ -488,7 +488,7 @@ void NU_Draw()
         for (uint32_t n=0; n<drawList->absoluteNodes.size; n++) { // construct border rect vertices and indices for each node
             NodeP* node = *(NodeP**)Vector_Get(&drawList->absoluteNodes, n);
             Construct_Border_Rect(node, winW, winH, &__NGUI.borderRectVertices, &__NGUI.borderRectIndices);
-            if (node->node.layoutFlags & OVERFLOW_VERTICAL_SCROLL 
+            if (node->layoutFlags & OVERFLOW_VERTICAL_SCROLL 
                 && node->node.contentHeight > (node->node.height - node->node.padTop - node->node.padBottom - node->node.borderTop - node->node.borderBottom)) {
                 Construct_Scroll_Thumb(node, winW, winH, &__NGUI.borderRectVertices, &__NGUI.borderRectIndices);
             }

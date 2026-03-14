@@ -11,8 +11,8 @@ static void NU_Stylesheet_Find_Match(NodeP* node, NU_Stylesheet* ss, int* match_
     }
 
     // Class match second
-    if (node->node.class != NULL) { 
-        char* stored_class = LinearStringsetGet(&ss->class_string_set, node->node.class);
+    if (node->class != NULL) { 
+        char* stored_class = LinearStringsetGet(&ss->class_string_set, node->class);
         if (stored_class != NULL) {
             void* class_found = HashmapGet(&ss->class_item_hashmap, &stored_class);
             if (class_found != NULL) {
@@ -22,8 +22,8 @@ static void NU_Stylesheet_Find_Match(NodeP* node, NU_Stylesheet* ss, int* match_
     }
 
     // ID match last (highest priority)
-    if (node->node.id != NULL) { 
-        char* stored_id = LinearStringsetGet(&ss->id_string_set, node->node.id);
+    if (node->id != NULL) { 
+        char* stored_id = LinearStringsetGet(&ss->id_string_set, node->id);
         if (stored_id != NULL) {
             void* id_found = HashmapGet(&ss->id_item_hashmap, &stored_id);
             if (id_found != NULL) {
@@ -33,7 +33,7 @@ static void NU_Stylesheet_Find_Match(NodeP* node, NU_Stylesheet* ss, int* match_
     }
 }
 
-#define STYLE_APPLY_LAYOUT_FLAG(mask) node->node.layoutFlags = (node->node.layoutFlags & ~mask) | (item->layoutFlags & mask)
+#define STYLE_APPLY_LAYOUT_FLAG(mask) node->layoutFlags = (node->layoutFlags & ~mask) | (item->layoutFlags & mask)
 #define STYLE_SHOULD_APPLY_TO_NODE(mask) (item->propertyFlags & mask) && !(node->overrideStyleFlags & mask)
 
 static void NU_Apply_Style_Item_To_Node(NodeP* node, NU_Stylesheet_Item* item)
@@ -141,8 +141,8 @@ void NU_Apply_Pseudo_Style_To_Node(NodeP* node, NU_Stylesheet* ss, enum NU_Pseud
     }
 
     // Class pseudo style match and apply
-    if (node->node.class != NULL) {
-        char* stored_class = LinearStringsetGet(&ss->class_string_set, node->node.class);
+    if (node->class != NULL) {
+        char* stored_class = LinearStringsetGet(&ss->class_string_set, node->class);
         if (stored_class != NULL) {
             NU_Stylesheet_String_Pseudo_Pair key = { stored_class, pseudo };
             void* class_pseudo_found = HashmapGet(&ss->class_pseudo_item_hashmap, &key);
@@ -155,8 +155,8 @@ void NU_Apply_Pseudo_Style_To_Node(NodeP* node, NU_Stylesheet* ss, enum NU_Pseud
     }
 
     // Id pseudo style match and apply
-    if (node->node.id != NULL) {
-        char* stored_id = LinearStringsetGet(&ss->id_string_set, node->node.id);
+    if (node->id != NULL) {
+        char* stored_id = LinearStringsetGet(&ss->id_string_set, node->id);
         if (stored_id != NULL) {
             NU_Stylesheet_String_Pseudo_Pair key = { stored_id, pseudo };
             void* id_pseudo_found = HashmapGet(&ss->id_pseudo_item_hashmap, &key);

@@ -4,56 +4,58 @@ void NU_Internal_Register_Event(Node* node, void* args, NU_Callback callback, en
 {
     struct NU_Event event = {0}; event.node = node;
     struct NU_Callback_Info cb_info = { event, args, callback };
+
+    NodeP* nodeP = NODEP_OF(node);
     
     switch (event_type) {
         case NU_EVENT_ON_CLICK:
-            node->eventFlags |= NU_EVENT_FLAG_ON_CLICK;
+            nodeP->eventFlags |= NU_EVENT_FLAG_ON_CLICK;
             HashmapSet(&__NGUI.on_click_events, &node, &cb_info);
             break;
         case NU_EVENT_ON_INPUT_CHANGED:
-            node->eventFlags |= NU_EVENT_FLAG_ON_INPUT_CHANGED;
+            nodeP->eventFlags |= NU_EVENT_FLAG_ON_INPUT_CHANGED;
             HashmapSet(&__NGUI.on_input_changed_events, &node, &cb_info);
             break;
         case NU_EVENT_ON_DRAG:
-            node->eventFlags |= NU_EVENT_FLAG_ON_DRAG;
+            nodeP->eventFlags |= NU_EVENT_FLAG_ON_DRAG;
             HashmapSet(&__NGUI.on_drag_events, &node, &cb_info);
             break;
         case NU_EVENT_ON_RELEASED:
-            node->eventFlags |= NU_EVENT_FLAG_ON_RELEASED;
+            nodeP->eventFlags |= NU_EVENT_FLAG_ON_RELEASED;
             HashmapSet(&__NGUI.on_released_events, &node, &cb_info);
             break;
         case NU_EVENT_ON_RESIZE:
-            node->eventFlags |= NU_EVENT_FLAG_ON_RESIZE;
+            nodeP->eventFlags |= NU_EVENT_FLAG_ON_RESIZE;
             HashmapSet(&__NGUI.on_resize_events, &node, &cb_info);
             NU_NodeDimensions initial_dimensions = { -1.0f, -1.0f };
             HashmapSet(&__NGUI.node_resize_tracking, &node, &initial_dimensions);
             break;
         case NU_EVENT_ON_MOUSE_DOWN:
-            node->eventFlags |= NU_EVENT_FLAG_ON_MOUSE_DOWN;
+            nodeP->eventFlags |= NU_EVENT_FLAG_ON_MOUSE_DOWN;
             HashmapSet(&__NGUI.on_mouse_down_events, &node, &cb_info);
             break;
         case NU_EVENT_ON_MOUSE_UP:
-            node->eventFlags |= NU_EVENT_FLAG_ON_MOUSE_UP;
+            nodeP->eventFlags |= NU_EVENT_FLAG_ON_MOUSE_UP;
             HashmapSet(&__NGUI.on_mouse_up_events, &node, &cb_info);
             break;
         case NU_EVENT_ON_MOUSE_DOWN_OUTSIDE:
-            node->eventFlags |= NU_EVENT_FLAG_ON_MOUSE_DOWN_OUTSIDE;
+            nodeP->eventFlags |= NU_EVENT_FLAG_ON_MOUSE_DOWN_OUTSIDE;
             HashmapSet(&__NGUI.on_mouse_down_outside_events, &node, &cb_info);
             break;
         case NU_EVENT_ON_MOUSE_MOVED:
-            node->eventFlags |= NU_EVENT_FLAG_ON_MOUSE_MOVED;
+            nodeP->eventFlags |= NU_EVENT_FLAG_ON_MOUSE_MOVED;
             HashmapSet(&__NGUI.on_mouse_move_events, &node, &cb_info);
             break;
         case NU_EVENT_ON_MOUSE_IN:
-            node->eventFlags |= NU_EVENT_FLAG_ON_MOUSE_IN;
+            nodeP->eventFlags |= NU_EVENT_FLAG_ON_MOUSE_IN;
             HashmapSet(&__NGUI.on_mouse_in_events, &node, &cb_info);
             break;
         case NU_EVENT_ON_MOUSE_OUT:
-            node->eventFlags |= NU_EVENT_FLAG_ON_MOUSE_OUT;
+            nodeP->eventFlags |= NU_EVENT_FLAG_ON_MOUSE_OUT;
             HashmapSet(&__NGUI.on_mouse_out_events, &node, &cb_info);
             break;
         case NU_EVENT_ON_MOUSE_WHEEL:
-            node->eventFlags |= NU_EVENT_FLAG_ON_MOUSE_WHEEL;
+            nodeP->eventFlags |= NU_EVENT_FLAG_ON_MOUSE_WHEEL;
             HashmapSet(&__NGUI.on_mouse_wheel_events, &node, &cb_info);
             break;
     }
@@ -315,7 +317,7 @@ bool EventWatcher(void* data, SDL_Event* event)
             if (textChanged) {
 
                 // Trigger On input changed event
-                if (inputNode->node.eventFlags & NU_EVENT_FLAG_ON_INPUT_CHANGED) {
+                if (inputNode->eventFlags & NU_EVENT_FLAG_ON_INPUT_CHANGED) {
                     Node* node = &inputNode->node;
                     void* found_cb = HashmapGet(&__NGUI.on_input_changed_events, &node);
                     if (found_cb != NULL) {
@@ -346,7 +348,7 @@ bool EventWatcher(void* data, SDL_Event* event)
                 updated = InputText_Write(inputText, focusedNode, font, event->text.text);
             }
             
-            if (updated && focusedNode->node.eventFlags & NU_EVENT_FLAG_ON_INPUT_CHANGED) {
+            if (updated && focusedNode->eventFlags & NU_EVENT_FLAG_ON_INPUT_CHANGED) {
                 Node* node = &__NGUI.focused_node->node;
                 void* found_cb = HashmapGet(&__NGUI.on_input_changed_events, &node);
                 if (found_cb != NULL) {
@@ -386,8 +388,8 @@ bool EventWatcher(void* data, SDL_Event* event)
             float drag_dist = (mouseY - __NGUI.v_scroll_thumb_grab_offset) - track_top_y;
 
             // apply scroll and clamp
-            node->node.scrollV = drag_dist / (track_height - thumb_height);
-            node->node.scrollV = min(max(node->node.scrollV, 0.0f), 1.0f); // Clamp to range [0,1]
+            node->scrollV = drag_dist / (track_height - thumb_height);
+            node->scrollV = min(max(node->scrollV, 0.0f), 1.0f); // Clamp to range [0,1]
 
             // must redraw later
             __NGUI.awaiting_redraw = true;
@@ -446,7 +448,7 @@ bool EventWatcher(void* data, SDL_Event* event)
                 float inner_height_w_pad = track_height - node->node.padTop - node->node.padBottom;
                 float inner_proportion_of_content_height = inner_height_w_pad / node->node.contentHeight;
                 float thumb_height = inner_proportion_of_content_height * track_height;
-                float thumb_top_y = node->node.y + node->node.borderTop + (node->node.scrollV * (track_height - thumb_height));
+                float thumb_top_y = node->node.y + node->node.borderTop + (node->scrollV * (track_height - thumb_height));
                 __NGUI.v_scroll_thumb_grab_offset = mouseY - thumb_top_y;
             }
         }
@@ -458,7 +460,7 @@ bool EventWatcher(void* data, SDL_Event* event)
             NU_Apply_Pseudo_Style_To_Node(__NGUI.hovered_node, __NGUI.stylesheet, PSEUDO_PRESS);
 
             // If node has a mouse down event
-            if (__NGUI.mouse_down_node->node.eventFlags & NU_EVENT_FLAG_ON_MOUSE_DOWN)
+            if (__NGUI.mouse_down_node->eventFlags & NU_EVENT_FLAG_ON_MOUSE_DOWN)
             {
                 Node* node = &__NGUI.mouse_down_node->node;
                 void* found_cb = HashmapGet(&__NGUI.on_mouse_down_events, &node);
@@ -538,7 +540,7 @@ bool EventWatcher(void* data, SDL_Event* event)
 
 
                 // If there is a click event assigned to the pressed node
-                if (__NGUI.hovered_node->node.eventFlags & NU_EVENT_FLAG_ON_CLICK) 
+                if (__NGUI.hovered_node->eventFlags & NU_EVENT_FLAG_ON_CLICK) 
                 {
                     Node* node = &__NGUI.hovered_node->node;
                     void* found_cb = HashmapGet(&__NGUI.on_click_events, &node);
@@ -579,8 +581,8 @@ bool EventWatcher(void* data, SDL_Event* event)
             float inner_height_w_pad = track_height - node->node.padTop - node->node.padBottom;
             float inner_proportion_of_content_height = inner_height_w_pad / node->node.contentHeight;
             float thumb_height = inner_proportion_of_content_height * track_height;
-            node->node.scrollV -= event->wheel.y * (track_height / node->node.contentHeight) * 0.2f;
-            node->node.scrollV = min(max(node->node.scrollV, 0.0f), 1.0f); // Clamp to range [0,1]
+            node->scrollV -= event->wheel.y * (track_height / node->node.contentHeight) * 0.2f;
+            node->scrollV = min(max(node->scrollV, 0.0f), 1.0f); // Clamp to range [0,1]
             __NGUI.awaiting_redraw = true;
         }
 

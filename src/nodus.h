@@ -110,11 +110,11 @@ struct NU_GUI __NGUI;
 
 void NU_Internal_Set_Class(Node* node, const char* class)
 {   
-    if (class == node->class) return;
-
-    char* prevNodeClass = node->class;
-    node->class = NULL;
     NodeP* nodeP = NODEP_OF(node);
+    if (class == nodeP->class) return;
+
+    char* prevNodeClass = nodeP->class;
+    nodeP->class = NULL;
 
     // Look for class in gui class string set
     char* gui_class_get = StringsetGet(&__NGUI.class_string_set, class);
@@ -123,11 +123,11 @@ void NU_Internal_Set_Class(Node* node, const char* class)
 
         // If found in the stylesheet -> add it to the gui class set
         if (style_class_get) {
-            node->class = StringsetAdd(&__NGUI.class_string_set, class);
+            nodeP->class = StringsetAdd(&__NGUI.class_string_set, class);
         }
     } 
     else {
-        node->class = gui_class_get; 
+        nodeP->class = gui_class_get; 
     }
 
     // Update styling

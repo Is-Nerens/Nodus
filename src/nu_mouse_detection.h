@@ -71,7 +71,7 @@ static bool NU_Mouse_Over_Node_V_Scrollbar(NodeP* node, float mouse_x, float mou
     float track_height = node->node.height - node->node.borderTop - node->node.borderBottom;
     float thumb_height = (track_height / node->node.contentHeight) * track_height;
     float scroll_thumb_left_wall = node->node.x + node->node.width - node->node.borderRight - 8.0f;
-    float scroll_thumb_top_wall = node->node.y + node->node.borderTop + (node->node.scrollV * (track_height - thumb_height));
+    float scroll_thumb_top_wall = node->node.y + node->node.borderTop + (node->scrollV * (track_height - thumb_height));
     bool within_x_bound = mouse_x >= scroll_thumb_left_wall && mouse_x <= scroll_thumb_left_wall + 8.0f;
     bool within_y_bound = mouse_y >= scroll_thumb_top_wall && mouse_y <= scroll_thumb_top_wall + thumb_height;
     return within_x_bound && within_y_bound;
@@ -150,7 +150,7 @@ void NU_Mouse_Hover()
     {
         // pop the stack
         NodeP* current_node = *(NodeP**)Vector_Get(&stack, stack.size - 1);
-        if (!(current_node->node.layoutFlags & IGNORE_MOUSE)) {
+        if (!(current_node->layoutFlags & IGNORE_MOUSE)) {
             __NGUI.hovered_node = current_node;
         }
         stack.size -= 1;
@@ -163,7 +163,7 @@ void NU_Mouse_Hover()
         while(child != NULL) {
 
             if (child->state == 2 || 
-                child->node.layoutFlags & POSITION_ABSOLUTE || 
+                child->layoutFlags & POSITION_ABSOLUTE || 
                 child->type == NU_WINDOW ||
                 !NU_MouseIsOverNode(child, mouseX, mouseY))
             {
@@ -171,7 +171,7 @@ void NU_Mouse_Hover()
             }
 
             // check for scroll hover
-            if (child->node.layoutFlags & OVERFLOW_V_PROPERTY) {
+            if (child->layoutFlags & OVERFLOW_V_PROPERTY) {
                 bool overflow_v = child->node.contentHeight > child->node.height - child->node.borderTop - child->node.borderBottom;
                 if (overflow_v) __NGUI.scroll_hovered_node = child;
             }
@@ -198,7 +198,7 @@ void NU_Mouse_Hover()
     // on mouse in event triggered
     if (__NGUI.hovered_node != NULL &&
         __NGUI.prev_hovered_node != __NGUI.hovered_node && 
-        __NGUI.hovered_node->node.eventFlags & NU_EVENT_FLAG_ON_MOUSE_IN)
+        __NGUI.hovered_node->eventFlags & NU_EVENT_FLAG_ON_MOUSE_IN)
     {
         TriggerOnMouseInEvent(&__NGUI.hovered_node->node, mouseX, mouseY);
     }
@@ -206,7 +206,7 @@ void NU_Mouse_Hover()
     // on mouse out event triggered
     if (__NGUI.prev_hovered_node != NULL && 
         __NGUI.prev_hovered_node != __NGUI.hovered_node && 
-        __NGUI.prev_hovered_node->node.eventFlags & NU_EVENT_FLAG_ON_MOUSE_OUT)
+        __NGUI.prev_hovered_node->eventFlags & NU_EVENT_FLAG_ON_MOUSE_OUT)
     {
         TriggerOnMouseOutEvent(&__NGUI.prev_hovered_node->node, mouseX, mouseY);
     }

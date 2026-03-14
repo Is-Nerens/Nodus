@@ -228,22 +228,22 @@ void Construct_Border_Rect(
     vec2 br_a              = { (float)(int)(n->x + n->width - borderRadiusBr), (float)(int)(n->y + n->height - borderRadiusBr) };
 
     // --- Allocate extra space in vertex and index lists ---
-    uint32_t additional_vertices = (n->layoutFlags & HIDE_BACKGROUND) ? total_pts * 2 + 4 : total_pts * 3 + 4;    // each corner contributes 3*cp + 1 verts
+    uint32_t additional_vertices = (node->layoutFlags & HIDE_BACKGROUND) ? total_pts * 2 + 4 : total_pts * 3 + 4;    // each corner contributes 3*cp + 1 verts
     uint32_t additional_indices = (total_pts - 4) * 6                                                // curved edges
                                   + 24                                                               // straight sides
-                                  + ((n->layoutFlags & HIDE_BACKGROUND) ? 0 : (total_pts - 4) * 3 + 30);          // background tris
+                                  + ((node->layoutFlags & HIDE_BACKGROUND) ? 0 : (total_pts - 4) * 3 + 30);          // background tris
     if (vertices->size + additional_vertices > vertices->capacity) Vertex_RGB_List_Grow(vertices, additional_vertices);
     if (indices->size + additional_indices > indices->capacity) Index_List_Grow(indices, additional_indices);
 
     // --- Generate corner vertices and indices ---
     int TL = vertices->size;
-    Generate_Corner_Segment(vertices, indices, tl_a, PI, 1.5f * PI, borderRadiusTl, n->borderLeft, n->borderTop, n->width, n->height, border_r_fl, border_g_fl, border_b_fl, bg_r_fl, bg_g_fl, bg_b_fl, tl_pts, 0, n->layoutFlags & HIDE_BACKGROUND);
+    Generate_Corner_Segment(vertices, indices, tl_a, PI, 1.5f * PI, borderRadiusTl, n->borderLeft, n->borderTop, n->width, n->height, border_r_fl, border_g_fl, border_b_fl, bg_r_fl, bg_g_fl, bg_b_fl, tl_pts, 0, node->layoutFlags & HIDE_BACKGROUND);
     int TR = vertices->size;
-    Generate_Corner_Segment(vertices, indices, tr_a, 1.5f * PI, 2.0f * PI, borderRadiusTr, n->borderTop, n->borderRight, n->width, n->height, border_r_fl, border_g_fl, border_b_fl, bg_r_fl, bg_g_fl, bg_b_fl, tr_pts, 1, n->layoutFlags & HIDE_BACKGROUND);
+    Generate_Corner_Segment(vertices, indices, tr_a, 1.5f * PI, 2.0f * PI, borderRadiusTr, n->borderTop, n->borderRight, n->width, n->height, border_r_fl, border_g_fl, border_b_fl, bg_r_fl, bg_g_fl, bg_b_fl, tr_pts, 1, node->layoutFlags & HIDE_BACKGROUND);
     int BR = vertices->size;
-    Generate_Corner_Segment(vertices, indices, br_a, 0.0f, 0.5f * PI, borderRadiusBr, n->borderRight, n->borderBottom, n->width, n->height, border_r_fl, border_g_fl, border_b_fl, bg_r_fl, bg_g_fl, bg_b_fl, br_pts, 2, n->layoutFlags & HIDE_BACKGROUND);
+    Generate_Corner_Segment(vertices, indices, br_a, 0.0f, 0.5f * PI, borderRadiusBr, n->borderRight, n->borderBottom, n->width, n->height, border_r_fl, border_g_fl, border_b_fl, bg_r_fl, bg_g_fl, bg_b_fl, br_pts, 2, node->layoutFlags & HIDE_BACKGROUND);
     int BL = vertices->size;
-    Generate_Corner_Segment(vertices, indices, bl_a, 0.5f * PI, PI, borderRadiusBl, n->borderBottom, n->borderLeft, n->width, n->height, border_r_fl, border_g_fl, border_b_fl, bg_r_fl, bg_g_fl, bg_b_fl, bl_pts, 3, n->layoutFlags & HIDE_BACKGROUND);
+    Generate_Corner_Segment(vertices, indices, bl_a, 0.5f * PI, PI, borderRadiusBl, n->borderBottom, n->borderLeft, n->width, n->height, border_r_fl, border_g_fl, border_b_fl, bg_r_fl, bg_g_fl, bg_b_fl, bl_pts, 3, node->layoutFlags & HIDE_BACKGROUND);
 
 
 
@@ -283,7 +283,7 @@ void Construct_Border_Rect(
     *indices_write++ = TL;
 
     // --- Fill in background indices ---
-    if (!(n->layoutFlags & HIDE_BACKGROUND)) 
+    if (!(node->layoutFlags & HIDE_BACKGROUND)) 
     {
         int TL_bg_connector = TL + 3 * tl_pts; 
         int TR_bg_connector = TR + 3 * tr_pts;
@@ -338,7 +338,7 @@ void Construct_Scroll_Thumb(NodeP* node,
 
     float x = n->x + n->width - n->borderRight - 8.0f;
     float y = n->y + n->borderTop;
-    float thumb_y = n->y + n->borderTop + (n->scrollV * (track_height - thumb_height));
+    float thumb_y = n->y + n->borderTop + (node->scrollV * (track_height - thumb_height));
     float w = 8.0f;
 
     uint32_t vertOffset = vertices->size;

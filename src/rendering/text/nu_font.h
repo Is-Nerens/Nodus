@@ -1,6 +1,7 @@
 #pragma once
 #include <freetype/freetype.h>
 #include <datastructures/vector.h>
+#include "nu_default_font.h"
 
 FT_Library nu_global_freetype;
 
@@ -21,7 +22,7 @@ typedef struct NU_Font_Atlas {
     int pen_x;          // For construction only
     int pen_y;          // For construction only
     int tallest_in_row; // For construction only
-    uint8_t channels;
+    int channels;
     GLuint handle;
 } NU_Font_Atlas;
 
@@ -39,7 +40,7 @@ typedef struct NU_Font
     bool subpixel_rendering;
 } NU_Font;
 
-void NU_Font_Atlas_Create(NU_Font_Atlas* atlas, int width, int height, uint8_t channels)
+void NU_Font_Atlas_Create(NU_Font_Atlas* atlas, int width, int height, int channels)
 {
     atlas->buffer = calloc(width * height, channels);
     atlas->width = width;
@@ -134,12 +135,12 @@ void NU_Font_Atlas_To_GPU(NU_Font_Atlas* atlas)
     glBindTexture(GL_TEXTURE_2D, 0);
 }
 
-int NU_Font_Create(NU_Font* font, const char* filepath, int height_pixels, bool subpixel_rendering)
+int NU_Create_Font_From_Face(NU_Font* font, FT_Face face, int height_pixels, bool subpixel_rendering)
 {
     height_pixels = min(height_pixels, 256);
     font->subpixel_rendering = subpixel_rendering;
 
-    uint8_t channels = 1;
+    int channels = 1;
     FT_Int32 load_flags = FT_LOAD_DEFAULT | FT_LOAD_FORCE_AUTOHINT | FT_LOAD_TARGET_LIGHT;
     FT_Int32 render_flags = FT_RENDER_MODE_NORMAL;
     if (font->subpixel_rendering) {
@@ -148,22 +149,15 @@ int NU_Font_Create(NU_Font* font, const char* filepath, int height_pixels, bool 
         render_flags = FT_RENDER_MODE_LCD;
     }
 
-    FT_Face face;
-    if (FT_New_Face(nu_global_freetype, filepath, 0, &face)) {
-        printf("Error! Could not find font: %s\n", filepath);
-        return 0;
-    }
-
     // Update height pixels
     FT_Set_Pixel_Sizes(face, 0, (FT_UInt)height_pixels);
     FT_Size_Metrics* metrics = &face->size->metrics;
-    font->height_pixels = metrics->height >> 6;                      // convert from 1/64th pixels to integer pixels
+    font->height_pixels = metrics->height >> 6;
     font->y_max         = (float)(face->bbox.yMax >> 6);
     font->y_min         = (float)(face->bbox.yMin >> 6);
     font->ascent        = (float)(face->size->metrics.ascender >> 6);
     font->descent       = (float)(face->size->metrics.descender >> 6);
     font->line_height   = (float)(face->size->metrics.height >> 6);
-
 
     // Init font storage
     Vector_Reserve(&font->glyphs, sizeof(NU_Glyph), 95);
@@ -186,11 +180,11 @@ int NU_Font_Create(NU_Font* font, const char* filepath, int height_pixels, bool 
         
         // Store glyph metrics
         NU_Glyph glyph;
-        glyph.width    = (int)bmp->width / channels;            // pixel width of bitmap
-        glyph.height   = bmp->rows;            // pixel height of bitmap
+        glyph.width    = (int)bmp->width / channels;
+        glyph.height   = bmp->rows;
         glyph.bearingX = face->glyph->bitmap_left;
         glyph.bearingY = face->glyph->bitmap_top;
-        glyph.advance  = (float)(face->glyph->advance.x >> 6); // pen advance in pixels
+        glyph.advance  = (float)(face->glyph->advance.x >> 6);
         Vector_Push(&font->glyphs, &glyph);
         NU_Glyph* stored_glyph = Vector_Get(&font->glyphs, glyph_char - 32);
 
@@ -220,6 +214,27 @@ int NU_Font_Create(NU_Font* font, const char* filepath, int height_pixels, bool 
 
     FT_Done_Face(face);
     return 1; // Success
+}
+
+int NU_Font_Create(NU_Font* font, const char* filepath, int height_pixels, bool subpixel_rendering)
+{
+    FT_Face face;
+    if (FT_New_Face(nu_global_freetype, filepath, 0, &face)) {
+        printf("Error! Could not find font: %s\n", filepath);
+        return 0;
+    }
+
+    return NU_Create_Font_From_Face(font, face, height_pixels, subpixel_rendering);
+}
+
+int NU_Font_Create_Default(NU_Font* font, int height_pixels, bool subpixel_rendering)
+{
+    FT_Face face;
+    if (FT_New_Memory_Face(nu_global_freetype, (unsigned char*)nu_default_ttf, nu_default_ttf_len, 0, &face)) {
+        return 0;
+    }
+    
+    return NU_Create_Font_From_Face(font, face, height_pixels, subpixel_rendering);
 }
 
 void NU_Font_Free(NU_Font* font)

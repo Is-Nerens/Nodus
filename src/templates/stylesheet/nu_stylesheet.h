@@ -7,6 +7,7 @@
 #include <filesystem/nu_file.h>
 #include <datastructures/string.h>
 #include <datastructures/linear_stringset.h>
+#include <datastructures/container.h>
 #include "nu_stylesheet_tokens.h"
 #include "nu_stylesheet_structs.h"
 #include "nu_stylesheet_tokeniser.h"
@@ -25,7 +26,7 @@ void NU_Stylesheet_Init(NU_Stylesheet* ss)
     HashmapInit(&ss->class_pseudo_item_hashmap, sizeof(NU_Stylesheet_String_Pseudo_Pair), sizeof(uint32_t), 16);
     HashmapInit(&ss->id_pseudo_item_hashmap, sizeof(NU_Stylesheet_String_Pseudo_Pair), sizeof(uint32_t), 16);
     LinearStringmapInit(&ss->fontNameIndexMap, sizeof(int), 12, 128);
-    Vector_Reserve(&ss->fonts, sizeof(NU_Font), 4);
+    ss->fonts = Container_Create(sizeof(NU_Font));
 
     // Create default style item
     NU_Stylesheet_Item* item = &ss->defaultStyleItem;
@@ -41,6 +42,7 @@ void NU_Stylesheet_Init(NU_Stylesheet* ss)
     item->textR = item->textG = item->textB = 255;
     item->horizontalAlignment = 1;
     item->verticalTextAlignment = 1;
+    item->fontId = 0;
 }
 
 void NU_Stylesheet_Free(NU_Stylesheet* ss)
@@ -55,7 +57,7 @@ void NU_Stylesheet_Free(NU_Stylesheet* ss)
     HashmapFree(&ss->class_pseudo_item_hashmap);
     HashmapFree(&ss->id_pseudo_item_hashmap);
     LinearStringmapFree(&ss->fontNameIndexMap);
-    Vector_Free(&ss->fonts);
+    Container_Free(&ss->fonts);
 }
 
 int NU_Stylesheet_Create(NU_Stylesheet* stylesheet, const char* filepath)
@@ -110,4 +112,9 @@ int NU_Internal_Apply_Stylesheet(uint32_t stylesheet_handle)
 
     __NGUI.stylesheet = stylesheet;
     return 1; // success
+}
+
+inline NU_Font* Stylesheet_Get_Font(NU_Stylesheet* ss, u8 fontID) {
+
+    return Container_Get(&ss->fonts, fontID);
 }

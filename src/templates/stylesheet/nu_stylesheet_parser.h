@@ -23,12 +23,12 @@ static int NU_Stylesheet_Parse(char* src, TokenArray* tokens, NU_Stylesheet* ss,
     int selector_count = 0;
 
     int ctx = 0; // 0 == standard selector; 1 == font creation selector
-    uint8_t create_font_index = UINT8_MAX;
-    NU_Font* create_font;
-    int create_font_size = 18;
-    int create_font_weight = 400;
-    char* create_font_name = NULL;
-    char* create_font_src = NULL;
+    uint8_t createFontID = UINT8_MAX;
+    NU_Font* createFont;
+    int createFontSize = 18;
+    int createFontWeight = 400;
+    char* createFontName = NULL;
+    char* createFontSrc = NULL;
 
     int i = 0;
     while(i < tokens->size)
@@ -43,18 +43,17 @@ static int NU_Stylesheet_Parse(char* src, TokenArray* tokens, NU_Stylesheet* ss,
 
                 // Get id string
                 text_ref = (struct Style_Text_Ref*)Vector_Get(text_refs, text_index);
-                create_font_name = &src[text_ref->src_index];
+                createFontName = &src[text_ref->src_index];
                 src[text_ref->src_index + text_ref->char_count] = '\0';
                 text_index += 1;
 
                 // Create a new font
-                void* found_font = LinearStringmapGet(&ss->fontNameIndexMap, create_font_name);
+                void* found_font = LinearStringmapGet(&ss->fontNameIndexMap, createFontName);
                 if (found_font == NULL) {
                     NU_Font font;
-                    Vector_Push(&ss->fonts, &font);
-                    create_font_index = (uint8_t)(ss->fonts.size - 1);
-                    create_font = Vector_Get(&ss->fonts, create_font_index);
-                    LinearStringmapSet(&ss->fontNameIndexMap, create_font_name, &create_font_index);
+                    createFontID = Container_Add(&ss->fonts, &font);
+                    createFont = Container_Get(&ss->fonts, createFontID);
+                    LinearStringmapSet(&ss->fontNameIndexMap, createFontName, &createFontID);
                 } 
 
                 ctx = 1;
@@ -144,18 +143,18 @@ static int NU_Stylesheet_Parse(char* src, TokenArray* tokens, NU_Stylesheet* ss,
             }
             else // ctx == 1
             {
-                if (create_font_src != NULL)
+                if (createFontSrc != NULL)
                 {
-                    NU_Font_Create(create_font, create_font_src, create_font_size, true);
-                    create_font_index = UINT8_MAX;
-                    create_font_size = 18;
-                    create_font_weight = 400;
-                    create_font_name = NULL;
-                    create_font_src = NULL;
+                    NU_Font_Create(createFont, createFontSrc, createFontSize, true);
+                    createFontID = UINT8_MAX;
+                    createFontSize = 18;
+                    createFontWeight = 400;
+                    createFontName = NULL;
+                    createFontSrc = NULL;
                 }
                 else 
                 {
-                    printf("[NU_Generate_Stylesheet] Error! created font \"%s\" must have a src!", create_font_name);
+                    printf("[NU_Generate_Stylesheet] Error! created font \"%s\" must have a src!", createFontName);
                     LinearStringmapFree(&imageFilepathToHandleMap);
                     LinearStringmapFree(&ss->fontNameIndexMap);
                     return 0;
@@ -883,20 +882,20 @@ static int NU_Stylesheet_Parse(char* src, TokenArray* tokens, NU_Stylesheet* ss,
                 switch (token)
                 {
                     case STYLE_FONT_SRC:
-                        create_font_src = text;
+                        createFontSrc = text;
                         break;
 
                     case STYLE_FONT_SIZE:
                         int size = 0;
                         if (String_To_Int(&size, text)) {
-                            create_font_size = size;
+                            createFontSize = size;
                         }
                         break;
 
                     case STYLE_FONT_WEIGHT:
                         int weight = 0;
                         if (String_To_Int(&weight, text)) {
-                            create_font_weight = weight;
+                            createFontWeight = weight;
                         }
                         break;
 
@@ -909,12 +908,15 @@ static int NU_Stylesheet_Parse(char* src, TokenArray* tokens, NU_Stylesheet* ss,
         i += 3;
     }
 
-    // Ensure that at least one font is present
+    // No fonts loaded -> default load embedded font
     if (ss->fonts.size == 0) {
-        printf("[NU_Generate_Stylesheet] Error! at least one font must be provided!\n");
-        LinearStringmapFree(&imageFilepathToHandleMap);
-        LinearStringmapFree(&ss->fontNameIndexMap);
-        return 0;
+        NU_Font font; 
+        if (!NU_Font_Create_Default(&font, 14, true)) {
+            LinearStringmapFree(&imageFilepathToHandleMap);
+            LinearStringmapFree(&ss->fontNameIndexMap);
+            return 0;
+        }
+        Container_Add(&ss->fonts, &font); // FontID will be 0
     }
 
     LinearStringmapFree(&imageFilepathToHandleMap);

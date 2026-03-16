@@ -13,7 +13,7 @@ clang -std=c99 -O3 "src\nz_library.c" `
 -L"$glewLib" `
 -L"$sdlLib" `
 -L"$freetypeLib" `
--lglew32 -lSDL3 -lopengl32 -lgdi32 -lfreetype `
+-lglew32 -lSDL3 -lopengl32 -lgdi32 -lfreetype -ladvapi32 `
 "-Wl,/SUBSYSTEM:WINDOWS" `
 -shared `
 -o "nodus\lib\nodus.dll" -Wno-deprecated-declarations

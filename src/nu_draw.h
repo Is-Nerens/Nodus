@@ -20,7 +20,7 @@ void NU_AddTextMesh(Vertex_RGB_UV_List* vertices, Index_List* indices, NodeP* no
     float r = (float)node->node.textR / 255.0f;
     float g = (float)node->node.textG / 255.0f;
     float b = (float)node->node.textB / 255.0f;
-    NU_Font* node_font = Vector_Get(&__NGUI.stylesheet->fonts, node->fontId);
+    NU_Font* node_font = Stylesheet_Get_Font(__NGUI.stylesheet, node->fontId);
     NU_Generate_Text_Mesh(vertices, indices, node_font, textBuffer, floorf(textPosX), floorf(textPosY), r, g, b, inner_width);
 }
 
@@ -69,7 +69,7 @@ void NU_DrawClippedNodeTextContent(NodeP* node, float winWidth, float winHeight,
     Index_List clipped_text_indices;
     Vertex_RGB_UV_List_Init(&clipped_text_vertices, 1000);
     Index_List_Init(&clipped_text_indices, 600);
-    NU_Font* node_font = Vector_Get(&__NGUI.stylesheet->fonts, node->fontId);
+    NU_Font* node_font = Stylesheet_Get_Font(__NGUI.stylesheet, node->fontId);
     NU_AddTextMesh(&clipped_text_vertices, &clipped_text_indices, node, node->node.textContent);
     NU_Render_Text(&clipped_text_vertices, &clipped_text_indices, node_font, winWidth, winHeight, 0, 0, clip->clip_top, clip->clip_bottom, clip->clip_left, clip->clip_right);
     Vertex_RGB_UV_List_Free(&clipped_text_vertices);
@@ -78,7 +78,7 @@ void NU_DrawClippedNodeTextContent(NodeP* node, float winWidth, float winHeight,
 
 void NU_DrawInputNodeContent(NodeP* node, float winWidth, float winHeight, NU_ClipBounds* clip)
 {   
-    NU_Font* node_font = Vector_Get(&__NGUI.stylesheet->fonts, node->fontId);
+    NU_Font* node_font = Stylesheet_Get_Font(__NGUI.stylesheet, node->fontId);
     InputText* inputText = &node->typeData.input.inputText;
 
     // construct and draw highlight mesh
@@ -408,7 +408,7 @@ void NU_Draw()
                 // Text layer
                 else 
                 {
-                    NU_Font* font = Vector_Get(&__NGUI.stylesheet->fonts, layer->fontID);
+                    NU_Font* font = Stylesheet_Get_Font(__NGUI.stylesheet, layer->fontID);
                     NU_Render_Text(
                         &layer->vertexData.textVertices, &layer->indices, 
                         font, 
@@ -451,7 +451,7 @@ void NU_Draw()
         for (uint32_t t=0; t<__NGUI.stylesheet->fonts.size; t++) {
             Vertex_RGB_UV_List* text_vertices = &text_relative_vertex_buffers[t];
             Index_List* text_indices = &text_relative_index_buffers[t];
-            NU_Font* node_font = Vector_Get(&__NGUI.stylesheet->fonts, t);
+            NU_Font* node_font = Stylesheet_Get_Font(__NGUI.stylesheet, t);
             NU_Render_Text(text_vertices, text_indices, node_font, winW, winH, 0, 0, -1.0f, 100000.0f, -1.0f, 100000.0f);
             text_vertices->size = 0;
             text_indices->size = 0;
@@ -527,7 +527,7 @@ void NU_Draw()
         for (uint32_t t=0; t<__NGUI.stylesheet->fonts.size; t++) {
             Vertex_RGB_UV_List* text_vertices = &text_absolute_vertex_buffers[t];
             Index_List* text_indices = &text_absolute_index_buffers[t];
-            NU_Font* node_font = Vector_Get(&__NGUI.stylesheet->fonts, t);
+            NU_Font* node_font = Stylesheet_Get_Font(__NGUI.stylesheet, t);
             NU_Render_Text(text_vertices, text_indices, node_font, winW, winH, 0, 0, -1.0f, 100000.0f, -1.0f, 100000.0f);
             text_vertices->size = 0;
             text_indices->size = 0;

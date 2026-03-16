@@ -250,7 +250,7 @@ bool EventWatcher(void* data, SDL_Event* event)
         if (__NGUI.focused_node != NULL && SDL_TextInputActive(window)) 
         {
             NodeP* inputNode = __NGUI.focused_node;
-            NU_Font* font = Vector_Get(&__NGUI.stylesheet->fonts, inputNode->fontId);
+            NU_Font* font = Stylesheet_Get_Font(__NGUI.stylesheet, inputNode->fontId);
             InputText* inputText = &inputNode->typeData.input.inputText;
             SDL_Keymod mods = event->key.mod;
 
@@ -335,7 +335,7 @@ bool EventWatcher(void* data, SDL_Event* event)
     else if (event->type == SDL_EVENT_TEXT_INPUT) {
         NodeP* focusedNode = __NGUI.focused_node;
         if (focusedNode->type == NU_INPUT) {
-            NU_Font* font = Vector_Get(&__NGUI.stylesheet->fonts, focusedNode->fontId);
+            NU_Font* font = Stylesheet_Get_Font(__NGUI.stylesheet, focusedNode->fontId);
             InputText* inputText = &focusedNode->typeData.input.inputText;
             
             int updated = 0;
@@ -401,7 +401,7 @@ bool EventWatcher(void* data, SDL_Event* event)
         // if focused on text input -> update highlighting
         if (__NGUI.focused_node != NULL && __NGUI.focused_node->type == NU_INPUT) {
             NodeP* node = __NGUI.focused_node;
-            NU_Font* font = Vector_Get(&__NGUI.stylesheet->fonts, node->fontId);
+            NU_Font* font = Stylesheet_Get_Font(__NGUI.stylesheet, node->fontId);
             if (InputText_MouseDrag(&node->typeData.input.inputText, node, font, mouseX)) {
                 __NGUI.awaiting_redraw = true;
             }
@@ -486,7 +486,7 @@ bool EventWatcher(void* data, SDL_Event* event)
 
         // Focus on node
         if (__NGUI.focused_node != NULL) {
-            NU_Font* font = Vector_Get(&__NGUI.stylesheet->fonts, __NGUI.focused_node->fontId);
+            NU_Font* font = Stylesheet_Get_Font(__NGUI.stylesheet, __NGUI.focused_node->fontId);
 
             // Focus on input node
             if (__NGUI.focused_node->type == NU_INPUT) {

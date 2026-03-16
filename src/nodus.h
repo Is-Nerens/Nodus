@@ -210,7 +210,7 @@ int NU_Internal_Create_Gui(const char* xml_filepath, const char* css_filepath)
     HashmapInit(&__NGUI.on_drag_events,               sizeof(Node*), sizeof(struct NU_Callback_Info), 10);
     HashmapInit(&__NGUI.on_released_events,           sizeof(Node*), sizeof(struct NU_Callback_Info), 10);
     HashmapInit(&__NGUI.on_resize_events,             sizeof(Node*), sizeof(struct NU_Callback_Info), 10);
-    HashmapInit(&__NGUI.node_resize_tracking,         sizeof(Node*), sizeof(NU_NodeDimensions)     , 10);
+    HashmapInit(&__NGUI.node_resize_tracking,         sizeof(Node*), sizeof(NU_NodeDimensions)      , 10);
     HashmapInit(&__NGUI.on_mouse_down_events,         sizeof(Node*), sizeof(struct NU_Callback_Info), 10);
     HashmapInit(&__NGUI.on_mouse_up_events,           sizeof(Node*), sizeof(struct NU_Callback_Info), 10);
     HashmapInit(&__NGUI.on_mouse_down_outside_events, sizeof(Node*), sizeof(struct NU_Callback_Info), 10);
@@ -265,7 +265,10 @@ int NU_Internal_Create_Gui(const char* xml_filepath, const char* css_filepath)
 
     // Load css
     u32 stylesheetHandle = NU_Internal_Load_Stylesheet(css_filepath);
-    if (stylesheetHandle == 0) return 0;
+    if (stylesheetHandle == 0) {
+        NU_Internal_Quit();
+        return 0;
+    }
     if (!NU_Internal_Apply_Stylesheet(stylesheetHandle)) {
         NU_Internal_Quit();
         return 0;

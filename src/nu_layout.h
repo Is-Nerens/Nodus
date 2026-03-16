@@ -78,7 +78,7 @@ static void NU_CalculateTextFitWidths(BreadthFirstSearch* bfs)
 
         if (node->state == 2 || node->node.textContent == NULL) continue;
 
-        NU_Font* node_font = Vector_Get(&__NGUI.stylesheet->fonts, node->fontId);
+        NU_Font* node_font = Stylesheet_Get_Font(__NGUI.stylesheet, node->fontId);
 
         // Calculate text width & height
         float text_width = NU_Calculate_Text_Unwrapped_Width(node_font, node->node.textContent);
@@ -662,7 +662,7 @@ static void NU_CalculateTextHeights(BreadthFirstSearch* bfs)
         if (node->state == 2) continue;
 
         if (node->type == NU_INPUT) {
-            NU_Font* node_font = Vector_Get(&__NGUI.stylesheet->fonts, node->fontId);
+            NU_Font* node_font = Stylesheet_Get_Font(__NGUI.stylesheet, node->fontId);
 
             // Set input height equal to line height
             node->node.height = node_font->line_height + 
@@ -671,7 +671,7 @@ static void NU_CalculateTextHeights(BreadthFirstSearch* bfs)
             node->node.contentHeight = node_font->line_height;
         }
         else if (node->node.textContent != NULL) {
-            NU_Font* node_font = Vector_Get(&__NGUI.stylesheet->fonts, node->fontId);
+            NU_Font* node_font = Stylesheet_Get_Font(__NGUI.stylesheet, node->fontId);
 
             // Compute available inner width
             float inner_width = node->node.width - node->node.borderLeft - node->node.borderRight - node->node.padLeft - node->node.padRight;

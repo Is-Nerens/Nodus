@@ -126,6 +126,7 @@ static inline void* Container_Get(Container* container, int id)
     int gen  = (id >> 16) & 0xFFFF;
     if (slot >= container->capacity || container->ids[slot] != gen) return NULL;
     int index = container->indices[slot];
+    if (index < 0 || index >= container->size) return NULL;
     return (char*)container->data + index * container->elementSize;
 }
 

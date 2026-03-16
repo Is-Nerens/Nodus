@@ -55,7 +55,7 @@ typedef struct NU_Stylesheet
     struct Hashmap class_pseudo_item_hashmap;
     struct Hashmap id_pseudo_item_hashmap;
     LinearStringmap fontNameIndexMap;
-    Vector fonts;
+    Container fonts;
     NU_Stylesheet_Item defaultStyleItem;
 } NU_Stylesheet;
 

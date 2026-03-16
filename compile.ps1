@@ -5,7 +5,7 @@ $glewInclude = "src\vendor\glew\include"
 $glewLib = "src\vendor\glew\lib"
 $freetypeInclude = "src\vendor\freetype\include"
 $freetypeLib = "src\vendor\freetype\lib"
-clang -std=c99 -O3 "src\nz_library.c" `
+clang -std=c99 -O3 -fopenmp "src\nz_library.c" `
 -I"$srcInclude" `
 -I"$glewInclude" `
 -I"$sdlInclude" `

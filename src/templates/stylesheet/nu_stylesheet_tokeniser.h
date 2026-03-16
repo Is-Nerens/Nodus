@@ -24,7 +24,6 @@ static void NU_Style_Tokenise(String src, TokenArray* tokens, struct Vector* tex
     {
         uint32_t c = NextUTF8Codepoint(src, &i);
         
-
         // Globalspace comment begins
         int peekI = i;
         if (ctx == 0 && i < srcLen - 1 && c == '/' && NextUTF8Codepoint(src, &peekI) == '*') {
@@ -156,7 +155,7 @@ static void NU_Style_Tokenise(String src, TokenArray* tokens, struct Vector* tex
         // Encountered separation character -> word is completed
         if (c == ' ' || c == '\t' || c == '\n' || c == '\r' || c == ',' || c == ':')
         {
-            // Tag selector word completed
+            // Any selector word completed
             if (ctx == 0 && word.length > 0) {
                 enum NU_Style_Token token = NU_Word_To_Any_Selector_Token(word.buffer, word.length);
                 TokenArray_Add(tokens, token);

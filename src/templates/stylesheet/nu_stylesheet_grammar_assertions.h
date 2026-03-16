@@ -31,7 +31,14 @@ static int AssertSelectionClosingBraceGrammar(TokenArray* tokens, int i)
     // ENFORCE RULE: MUST BE LAST TOKEN OR NEXT TOKEN MUST BE A SELECTOR
     if (i == tokens->size - 1) return 1;
     enum NU_Style_Token next_token = TokenArray_Get(tokens, i+1);
-    if (next_token == STYLE_CLASS_SELECTOR || next_token == STYLE_ID_SELECTOR || NU_Is_Tag_Selector_Token(next_token) || next_token == STYLE_FONT_CREATION_SELECTOR) return 1;
+    if (next_token == STYLE_CLASS_SELECTOR || 
+        next_token == STYLE_ID_SELECTOR || 
+        NU_Is_Tag_Selector_Token(next_token) || 
+        next_token == STYLE_FONT_CREATION_SELECTOR ||
+        next_token == STYLE_DEFAULT_SELECTOR) 
+    {
+        return 1;
+    } 
     printf("%s", "[Generate Stylesheet] Error! Expected selector or end of file!");
     return 0;
 }

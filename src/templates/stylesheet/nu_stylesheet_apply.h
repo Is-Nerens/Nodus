@@ -33,21 +33,19 @@ static void NU_Stylesheet_Find_Match(NodeP* node, NU_Stylesheet* ss, int* match_
     }
 }
 
-#define STYLE_APPLY_LAYOUT_FLAG(mask) node->layoutFlags = (node->layoutFlags & ~mask) | (item->layoutFlags & mask)
+#define STYLE_APPLY_LAYOUT_FLAG(prop, layout_mask) if ((item->propertyFlags & (prop)) && !(node->overrideStyleFlags & (prop))) node->layoutFlags = (node->layoutFlags & ~(layout_mask)) | (item->layoutFlags & (layout_mask))
 #define STYLE_SHOULD_APPLY_TO_NODE(mask) (item->propertyFlags & mask) && !(node->overrideStyleFlags & mask)
 
 static void NU_Apply_Style_Item_To_Node(NodeP* node, NU_Stylesheet_Item* item)
 {
-    if (STYLE_SHOULD_APPLY_TO_NODE(PROPERTY_FLAG_LAYOUT_VERTICAL)) STYLE_APPLY_LAYOUT_FLAG(LAYOUT_VERTICAL); 
-    if (STYLE_SHOULD_APPLY_TO_NODE(PROPERTY_FLAG_GROW)) {
-        STYLE_APPLY_LAYOUT_FLAG(GROW_HORIZONTAL); // Grow horizontal WHY DOES THIS OVERWRITE THE NODE's VERTICAL LAYOUT DIRECTION?
-        STYLE_APPLY_LAYOUT_FLAG(GROW_VERTICAL); // Grow vertical
-    }
-    if (STYLE_SHOULD_APPLY_TO_NODE(PROPERTY_FLAG_VERTICAL_SCROLL)) STYLE_APPLY_LAYOUT_FLAG(OVERFLOW_VERTICAL_SCROLL); // Overflow vertical scroll (or not)
-    if (STYLE_SHOULD_APPLY_TO_NODE(PROPERTY_FLAG_HORIZONTAL_SCROLL)) STYLE_APPLY_LAYOUT_FLAG(OVERFLOW_HORIZONTAL_SCROLL); // Overflow horizontal scroll (or not)
-    if (STYLE_SHOULD_APPLY_TO_NODE(PROPERTY_FLAG_POSITION_ABSOLUTE)) STYLE_APPLY_LAYOUT_FLAG(POSITION_ABSOLUTE); // Absolute positioning (or not)
-    if (STYLE_SHOULD_APPLY_TO_NODE(PROPERTY_FLAG_HIDDEN)) STYLE_APPLY_LAYOUT_FLAG(HIDDEN); // Hidden or not
-    if (STYLE_SHOULD_APPLY_TO_NODE(PROPERTY_FLAG_IGNORE_MOUSE)) STYLE_APPLY_LAYOUT_FLAG(IGNORE_MOUSE);
+    STYLE_APPLY_LAYOUT_FLAG(PROPERTY_FLAG_LAYOUT_VERTICAL, LAYOUT_VERTICAL); 
+    STYLE_APPLY_LAYOUT_FLAG(PROPERTY_FLAG_GROW, GROW_HORIZONTAL);
+    STYLE_APPLY_LAYOUT_FLAG(PROPERTY_FLAG_GROW, GROW_VERTICAL);
+    STYLE_APPLY_LAYOUT_FLAG(PROPERTY_FLAG_VERTICAL_SCROLL, OVERFLOW_VERTICAL_SCROLL);     // Overflow vertical scroll (or not)
+    STYLE_APPLY_LAYOUT_FLAG(PROPERTY_FLAG_HORIZONTAL_SCROLL, OVERFLOW_HORIZONTAL_SCROLL); // Overflow horizontal scroll (or not)
+    STYLE_APPLY_LAYOUT_FLAG(PROPERTY_FLAG_POSITION_ABSOLUTE, POSITION_ABSOLUTE);          // Absolute positioning (or not)
+    STYLE_APPLY_LAYOUT_FLAG(PROPERTY_FLAG_HIDDEN, HIDDEN);                                 // Hidden or not
+    STYLE_APPLY_LAYOUT_FLAG(PROPERTY_FLAG_IGNORE_MOUSE, IGNORE_MOUSE);                     // Ignore mouse or not
     if (STYLE_SHOULD_APPLY_TO_NODE(PROPERTY_FLAG_GAP)) node->node.gap = item->gap;
     if (STYLE_SHOULD_APPLY_TO_NODE(PROPERTY_FLAG_PREFERRED_WIDTH)) node->preferred_width = item->preferred_width;
     if (STYLE_SHOULD_APPLY_TO_NODE(PROPERTY_FLAG_MIN_WIDTH)) node->node.minWidth = item->minWidth;
@@ -68,7 +66,7 @@ static void NU_Apply_Style_Item_To_Node(NodeP* node, NU_Stylesheet_Item* item)
         node->node.backgroundG = item->backgroundG;
         node->node.backgroundB = item->backgroundB;
     }
-    if (STYLE_SHOULD_APPLY_TO_NODE(PROPERTY_FLAG_HIDE_BACKGROUND)) STYLE_APPLY_LAYOUT_FLAG(HIDE_BACKGROUND); // Hide background (or not)
+    STYLE_APPLY_LAYOUT_FLAG(PROPERTY_FLAG_HIDE_BACKGROUND, HIDE_BACKGROUND); // Hide background (or not)
     if (STYLE_SHOULD_APPLY_TO_NODE(PROPERTY_FLAG_BORDER_COLOUR)) {
         node->node.borderR = item->borderR;
         node->node.borderG = item->borderG;
@@ -98,13 +96,10 @@ static void NU_Apply_Style_Item_To_Node(NodeP* node, NU_Stylesheet_Item* item)
     node->fontId = item->fontId; // set font 
 }
 
-void NU_Apply_Default_Style_To_Node(NodeP* node)
-{
-    NU_Apply_Style_Item_To_Node(node, &__NGUI.stylesheet->defaultStyleItem);
-}
-
 void NU_Apply_Stylesheet_To_Node(NodeP* node, NU_Stylesheet* ss)
 {
+    NU_Apply_Style_Item_To_Node(node, &ss->defaultStyleItem);
+
     int match_index_list[3] = {-1, -1, -1};
     NU_Stylesheet_Find_Match(node, ss, &match_index_list[0]);
 

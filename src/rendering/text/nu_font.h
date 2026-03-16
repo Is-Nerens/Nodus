@@ -219,8 +219,9 @@ int NU_Create_Font_From_Face(NU_Font* font, FT_Face face, int height_pixels, boo
 int NU_Font_Create(NU_Font* font, const char* filepath, int height_pixels, bool subpixel_rendering)
 {
     FT_Face face;
-    if (FT_New_Face(nu_global_freetype, filepath, 0, &face)) {
-        printf("Error! Could not find font: %s\n", filepath);
+    FT_Error error = FT_New_Face(nu_global_freetype, filepath, 0, &face);
+    if (error) {
+        printf("FT_Error: %d (%s)\n", error, FT_Error_String(error));
         return 0;
     }
 
@@ -230,7 +231,9 @@ int NU_Font_Create(NU_Font* font, const char* filepath, int height_pixels, bool 
 int NU_Font_Create_Default(NU_Font* font, int height_pixels, bool subpixel_rendering)
 {
     FT_Face face;
-    if (FT_New_Memory_Face(nu_global_freetype, (unsigned char*)nu_default_ttf, nu_default_ttf_len, 0, &face)) {
+    FT_Error error = FT_New_Memory_Face(nu_global_freetype, (unsigned char*)nu_default_ttf, nu_default_ttf_len, 0, &face);
+    if (error) {
+        printf("FT_Error: %d (%s)\n", error, FT_Error_String(error));
         return 0;
     }
     

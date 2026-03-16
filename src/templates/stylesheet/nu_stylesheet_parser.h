@@ -4,6 +4,52 @@
 #include <datastructures/linear_stringset.h>
 #include "../nu_token_array.h"
 
+void NU_Stylesheet_Overwrite_Style_Item(NU_Stylesheet_Item* item, NU_Stylesheet_Item* overwriter)
+{
+    item->propertyFlags |= overwriter->propertyFlags;
+    if (overwriter->propertyFlags & PROPERTY_FLAG_LAYOUT_VERTICAL  ) item->layoutFlags = (item->layoutFlags & ~LAYOUT_VERTICAL) | (overwriter->layoutFlags & LAYOUT_VERTICAL); // Layout direction
+    if (overwriter->propertyFlags & PROPERTY_FLAG_GROW             ) item->layoutFlags = (item->layoutFlags & ~(GROW_HORIZONTAL | GROW_VERTICAL)) | (overwriter->layoutFlags & (GROW_HORIZONTAL | GROW_VERTICAL)); // Grow
+    if (overwriter->propertyFlags & PROPERTY_FLAG_VERTICAL_SCROLL  ) item->layoutFlags = (item->layoutFlags & ~OVERFLOW_VERTICAL_SCROLL) | (overwriter->layoutFlags & OVERFLOW_VERTICAL_SCROLL); // Overflow vertical scroll (or not)
+    if (overwriter->propertyFlags & PROPERTY_FLAG_HORIZONTAL_SCROLL) item->layoutFlags = (item->layoutFlags & ~OVERFLOW_HORIZONTAL_SCROLL) | (overwriter->layoutFlags & OVERFLOW_HORIZONTAL_SCROLL); // Overflow horizontal scroll (or not)
+    if (overwriter->propertyFlags & PROPERTY_FLAG_POSITION_ABSOLUTE) item->layoutFlags = (item->layoutFlags & ~POSITION_ABSOLUTE) | (overwriter->layoutFlags & POSITION_ABSOLUTE); // Position absolute or not
+    if (overwriter->propertyFlags & PROPERTY_FLAG_HIDDEN           ) item->layoutFlags = (item->layoutFlags & ~HIDDEN) | (overwriter->layoutFlags & HIDDEN); // Hide or not
+    if (overwriter->propertyFlags & PROPERTY_FLAG_IGNORE_MOUSE     ) item->layoutFlags = (item->layoutFlags & ~IGNORE_MOUSE) | (overwriter->layoutFlags & IGNORE_MOUSE); // Ignore mouse or not
+    if (overwriter->propertyFlags & PROPERTY_FLAG_GAP              ) item->gap = overwriter->gap;
+    if (overwriter->propertyFlags & PROPERTY_FLAG_PREFERRED_WIDTH  ) item->preferred_width = overwriter->preferred_width;
+    if (overwriter->propertyFlags & PROPERTY_FLAG_MIN_WIDTH        ) item->minWidth = overwriter->minWidth;
+    if (overwriter->propertyFlags & PROPERTY_FLAG_MAX_WIDTH        ) item->maxWidth = overwriter->maxWidth;
+    if (overwriter->propertyFlags & PROPERTY_FLAG_PREFERRED_HEIGHT ) item->preferred_height = overwriter->preferred_height;
+    if (overwriter->propertyFlags & PROPERTY_FLAG_MIN_HEIGHT       ) item->minHeight = overwriter->minHeight;
+    if (overwriter->propertyFlags & PROPERTY_FLAG_MAX_HEIGHT       ) item->maxHeight = overwriter->maxHeight;
+    if (overwriter->propertyFlags & PROPERTY_FLAG_ALIGN_H          ) item->horizontalAlignment = overwriter->horizontalAlignment;
+    if (overwriter->propertyFlags & PROPERTY_FLAG_ALIGN_V          ) item->verticalAlignment = overwriter->verticalAlignment;
+    if (overwriter->propertyFlags & PROPERTY_FLAG_TEXT_ALIGN_H     ) item->horizontalTextAlignment = overwriter->horizontalTextAlignment;
+    if (overwriter->propertyFlags & PROPERTY_FLAG_TEXT_ALIGN_V     ) item->verticalTextAlignment = overwriter->verticalTextAlignment;
+    if (overwriter->propertyFlags & PROPERTY_FLAG_LEFT             ) item->left = overwriter->left;
+    if (overwriter->propertyFlags & PROPERTY_FLAG_RIGHT            ) item->right = overwriter->right;
+    if (overwriter->propertyFlags & PROPERTY_FLAG_TOP              ) item->top = overwriter->top;
+    if (overwriter->propertyFlags & PROPERTY_FLAG_BOTTOM           ) item->bottom = overwriter->bottom;
+    if (overwriter->propertyFlags & PROPERTY_FLAG_BACKGROUND       ) memcpy(&item->backgroundR, &overwriter->backgroundR, 3); // Copy rgb
+    if (overwriter->propertyFlags & PROPERTY_FLAG_HIDE_BACKGROUND  ) item->layoutFlags = (item->layoutFlags & ~HIDE_BACKGROUND) | (overwriter->layoutFlags & HIDE_BACKGROUND); // Hide background or not
+    if (overwriter->propertyFlags & PROPERTY_FLAG_BORDER_COLOUR    ) memcpy(&item->borderR, &overwriter->borderR, 3); // Copy rgb
+    if (overwriter->propertyFlags & PROPERTY_FLAG_TEXT_COLOUR      ) memcpy(&item->textR, &overwriter->textR, 3); // Copy rgb
+    if (overwriter->propertyFlags & PROPERTY_FLAG_BORDER_TOP       ) item->borderTop = overwriter->borderTop; 
+    if (overwriter->propertyFlags & PROPERTY_FLAG_BORDER_BOTTOM    ) item->borderBottom = overwriter->borderBottom; 
+    if (overwriter->propertyFlags & PROPERTY_FLAG_BORDER_LEFT      ) item->borderLeft = overwriter->borderLeft; 
+    if (overwriter->propertyFlags & PROPERTY_FLAG_BORDER_RIGHT     ) item->borderRight = overwriter->borderRight; 
+    if (overwriter->propertyFlags & PROPERTY_FLAG_BORDER_RADIUS_TL ) item->borderRadiusTl = overwriter->borderRadiusTl; 
+    if (overwriter->propertyFlags & PROPERTY_FLAG_BORDER_RADIUS_TR ) item->borderRadiusTr = overwriter->borderRadiusTr; 
+    if (overwriter->propertyFlags & PROPERTY_FLAG_BORDER_RADIUS_BL ) item->borderRadiusBl = overwriter->borderRadiusBl; 
+    if (overwriter->propertyFlags & PROPERTY_FLAG_BORDER_RADIUS_BR ) item->borderRadiusBr = overwriter->borderRadiusBr; 
+    if (overwriter->propertyFlags & PROPERTY_FLAG_PAD_TOP          ) item->padTop = overwriter->padTop; 
+    if (overwriter->propertyFlags & PROPERTY_FLAG_PAD_BOTTOM       ) item->padBottom = overwriter->padBottom; 
+    if (overwriter->propertyFlags & PROPERTY_FLAG_PAD_LEFT         ) item->padLeft = overwriter->padLeft; 
+    if (overwriter->propertyFlags & PROPERTY_FLAG_PAD_RIGHT        ) item->padRight = overwriter->padRight; 
+    if (overwriter->propertyFlags & PROPERTY_FLAG_IMAGE            ) item->glImageHandle = overwriter->glImageHandle;
+    if (overwriter->propertyFlags & PROPERTY_FLAG_INPUT_TYPE       ) item->inputType = overwriter->inputType;
+    item->fontId = overwriter->fontId;
+}
+
 static int NU_Stylesheet_Parse(char* src, TokenArray* tokens, NU_Stylesheet* ss, struct Vector* text_refs)
 {
     uint32_t text_index = 0;
@@ -22,7 +68,7 @@ static int NU_Stylesheet_Parse(char* src, TokenArray* tokens, NU_Stylesheet* ss,
     uint32_t selector_indexes[64];
     int selector_count = 0;
 
-    int ctx = 0; // 0 == standard selector; 1 == font creation selector
+    int ctx = 0; // 0 == standard selector; 1 == font creation selector; 2 == default selector
     uint8_t createFontID = UINT8_MAX;
     NU_Font* createFont;
     int createFontSize = 18;
@@ -67,12 +113,26 @@ static int NU_Stylesheet_Parse(char* src, TokenArray* tokens, NU_Stylesheet* ss,
             }
         }
 
-        if (token == STYLE_SELECTOR_OPEN_BRACE)
+        else if (token == STYLE_DEFAULT_SELECTOR)
+        {
+            if (i < tokens->size - 1 && TokenArray_Get(tokens, i+1) == STYLE_SELECTOR_OPEN_BRACE) {
+                ctx = 2;
+                i += 1;
+                continue;
+            }
+            else {
+                LinearStringmapFree(&imageFilepathToHandleMap);
+                LinearStringmapFree(&ss->fontNameIndexMap);
+                return 0;
+            }
+        }
+
+        else if (token == STYLE_SELECTOR_OPEN_BRACE)
         {
             if (AssertSelectionOpeningBraceGrammar(tokens, i)) {
                 item.propertyFlags = 0;
                 item.layoutFlags = 0;
-                item.fontId = 0;
+                item.fontId = ss->defaultStyleItem.fontId;
                 i += 1;
                 continue;
             } 
@@ -83,7 +143,7 @@ static int NU_Stylesheet_Parse(char* src, TokenArray* tokens, NU_Stylesheet* ss,
             }
         }
 
-        if (token == STYLE_SELECTOR_CLOSE_BRACE)
+        else if (token == STYLE_SELECTOR_CLOSE_BRACE)
         {
             if (!AssertSelectionClosingBraceGrammar(tokens, i)) {
                 LinearStringmapFree(&imageFilepathToHandleMap);
@@ -96,52 +156,13 @@ static int NU_Stylesheet_Parse(char* src, TokenArray* tokens, NU_Stylesheet* ss,
                 for (int i=0; i<selector_count; i++) {
                     uint32_t item_index = selector_indexes[i];
                     NU_Stylesheet_Item* curr_item = Vector_Get(&ss->items, item_index);
-                    curr_item->propertyFlags |= item.propertyFlags;
-                    if (item.propertyFlags & PROPERTY_FLAG_LAYOUT_VERTICAL  ) curr_item->layoutFlags = (curr_item->layoutFlags & ~LAYOUT_VERTICAL) | (item.layoutFlags & LAYOUT_VERTICAL); // Layout direction
-                    if (item.propertyFlags & PROPERTY_FLAG_GROW             ) curr_item->layoutFlags = (curr_item->layoutFlags & ~(GROW_HORIZONTAL | GROW_VERTICAL)) | (item.layoutFlags & (GROW_HORIZONTAL | GROW_VERTICAL)); // Grow
-                    if (item.propertyFlags & PROPERTY_FLAG_VERTICAL_SCROLL  ) curr_item->layoutFlags = (curr_item->layoutFlags & ~OVERFLOW_VERTICAL_SCROLL) | (item.layoutFlags & OVERFLOW_VERTICAL_SCROLL); // Overflow vertical scroll (or not)
-                    if (item.propertyFlags & PROPERTY_FLAG_HORIZONTAL_SCROLL) curr_item->layoutFlags = (curr_item->layoutFlags & ~OVERFLOW_HORIZONTAL_SCROLL) | (item.layoutFlags & OVERFLOW_HORIZONTAL_SCROLL); // Overflow horizontal scroll (or not)
-                    if (item.propertyFlags & PROPERTY_FLAG_POSITION_ABSOLUTE) curr_item->layoutFlags = (curr_item->layoutFlags & ~POSITION_ABSOLUTE) | (item.layoutFlags & POSITION_ABSOLUTE); // Position absolute or not
-                    if (item.propertyFlags & PROPERTY_FLAG_HIDDEN           ) curr_item->layoutFlags = (curr_item->layoutFlags & ~HIDDEN) | (item.layoutFlags & HIDDEN); // Hide or not
-                    if (item.propertyFlags & PROPERTY_FLAG_IGNORE_MOUSE     ) curr_item->layoutFlags = (curr_item->layoutFlags & ~IGNORE_MOUSE) | (item.layoutFlags & IGNORE_MOUSE); // Ignore mouse or not
-                    if (item.propertyFlags & PROPERTY_FLAG_GAP              ) curr_item->gap = item.gap;
-                    if (item.propertyFlags & PROPERTY_FLAG_PREFERRED_WIDTH  ) curr_item->preferred_width = item.preferred_width;
-                    if (item.propertyFlags & PROPERTY_FLAG_MIN_WIDTH        ) curr_item->minWidth = item.minWidth;
-                    if (item.propertyFlags & PROPERTY_FLAG_MAX_WIDTH        ) curr_item->maxWidth = item.maxWidth;
-                    if (item.propertyFlags & PROPERTY_FLAG_PREFERRED_HEIGHT ) curr_item->preferred_height = item.preferred_height;
-                    if (item.propertyFlags & PROPERTY_FLAG_MIN_HEIGHT       ) curr_item->minHeight = item.minHeight;
-                    if (item.propertyFlags & PROPERTY_FLAG_MAX_HEIGHT       ) curr_item->maxHeight = item.maxHeight;
-                    if (item.propertyFlags & PROPERTY_FLAG_ALIGN_H          ) curr_item->horizontalAlignment = item.horizontalAlignment;
-                    if (item.propertyFlags & PROPERTY_FLAG_ALIGN_V          ) curr_item->verticalAlignment = item.verticalAlignment;
-                    if (item.propertyFlags & PROPERTY_FLAG_TEXT_ALIGN_H     ) curr_item->horizontalTextAlignment = item.horizontalTextAlignment;
-                    if (item.propertyFlags & PROPERTY_FLAG_TEXT_ALIGN_V     ) curr_item->verticalTextAlignment = item.verticalTextAlignment;
-                    if (item.propertyFlags & PROPERTY_FLAG_LEFT             ) curr_item->left = item.left;
-                    if (item.propertyFlags & PROPERTY_FLAG_RIGHT            ) curr_item->right = item.right;
-                    if (item.propertyFlags & PROPERTY_FLAG_TOP              ) curr_item->top = item.top;
-                    if (item.propertyFlags & PROPERTY_FLAG_BOTTOM           ) curr_item->bottom = item.bottom;
-                    if (item.propertyFlags & PROPERTY_FLAG_BACKGROUND       ) memcpy(&curr_item->backgroundR, &item.backgroundR, 3); // Copy rgb
-                    if (item.propertyFlags & PROPERTY_FLAG_HIDE_BACKGROUND  ) curr_item->layoutFlags = (curr_item->layoutFlags & ~HIDE_BACKGROUND) | (item.layoutFlags & HIDE_BACKGROUND); // Hide background or not
-                    if (item.propertyFlags & PROPERTY_FLAG_BORDER_COLOUR    ) memcpy(&curr_item->borderR, &item.borderR, 3); // Copy rgb
-                    if (item.propertyFlags & PROPERTY_FLAG_TEXT_COLOUR      ) memcpy(&curr_item->textR, &item.textR, 3); // Copy rgb
-                    if (item.propertyFlags & PROPERTY_FLAG_BORDER_TOP       ) curr_item->borderTop = item.borderTop; 
-                    if (item.propertyFlags & PROPERTY_FLAG_BORDER_BOTTOM    ) curr_item->borderBottom = item.borderBottom; 
-                    if (item.propertyFlags & PROPERTY_FLAG_BORDER_LEFT      ) curr_item->borderLeft = item.borderLeft; 
-                    if (item.propertyFlags & PROPERTY_FLAG_BORDER_RIGHT     ) curr_item->borderRight = item.borderRight; 
-                    if (item.propertyFlags & PROPERTY_FLAG_BORDER_RADIUS_TL ) curr_item->borderRadiusTl = item.borderRadiusTl; 
-                    if (item.propertyFlags & PROPERTY_FLAG_BORDER_RADIUS_TR ) curr_item->borderRadiusTr = item.borderRadiusTr; 
-                    if (item.propertyFlags & PROPERTY_FLAG_BORDER_RADIUS_BL ) curr_item->borderRadiusBl = item.borderRadiusBl; 
-                    if (item.propertyFlags & PROPERTY_FLAG_BORDER_RADIUS_BR ) curr_item->borderRadiusBr = item.borderRadiusBr; 
-                    if (item.propertyFlags & PROPERTY_FLAG_PAD_TOP          ) curr_item->padTop = item.padTop; 
-                    if (item.propertyFlags & PROPERTY_FLAG_PAD_BOTTOM       ) curr_item->padBottom = item.padBottom; 
-                    if (item.propertyFlags & PROPERTY_FLAG_PAD_LEFT         ) curr_item->padLeft = item.padLeft; 
-                    if (item.propertyFlags & PROPERTY_FLAG_PAD_RIGHT        ) curr_item->padRight = item.padRight; 
-                    if (item.propertyFlags & PROPERTY_FLAG_IMAGE            ) curr_item->glImageHandle = item.glImageHandle;
-                    if (item.propertyFlags & PROPERTY_FLAG_INPUT_TYPE       ) curr_item->inputType = item.inputType;
-                    curr_item->fontId = item.fontId;
+
+                    // Update current item
+                    NU_Stylesheet_Overwrite_Style_Item(curr_item, &item);
                 }
                 selector_count = 0;
             }
-            else // ctx == 1
+            else if (ctx == 1)
             {
                 if (createFontSrc != NULL)
                 {
@@ -154,27 +175,29 @@ static int NU_Stylesheet_Parse(char* src, TokenArray* tokens, NU_Stylesheet* ss,
                 }
                 else 
                 {
-                    printf("[NU_Generate_Stylesheet] Error! created font \"%s\" must have a src!", createFontName);
                     LinearStringmapFree(&imageFilepathToHandleMap);
                     LinearStringmapFree(&ss->fontNameIndexMap);
                     return 0;
                 }
-
-                ctx = 0;
+            }
+            else // ctx == 2
+            {
+                NU_Stylesheet_Overwrite_Style_Item(&ss->defaultStyleItem, &item);
             }
 
+            ctx = 0;
             i += 1;
             continue;
         }
 
-        if (NU_Is_Tag_Selector_Token(token))
+        else if (NU_Is_Tag_Selector_Token(token))
         {
             if (i < tokens->size - 1)
             {
                 enum NU_Style_Token next_token = TokenArray_Get(tokens, i+1);
                 if (next_token == STYLE_SELECTOR_COMMA || next_token == STYLE_SELECTOR_OPEN_BRACE)    
                 {
-                    int tag = token - STYLE_PROPERTY_COUNT;
+                    int tag = NU_Token_To_Tag(token);
                     void* found = HashmapGet(&ss->tag_item_hashmap, &tag);
                     if (found != NULL) // Style item exists
                     {
@@ -203,7 +226,7 @@ static int NU_Stylesheet_Parse(char* src, TokenArray* tokens, NU_Stylesheet* ss,
                     enum NU_Style_Token third_token = TokenArray_Get(tokens, i+3);
                     if (NU_Is_Pseudo_Token(following_token) && (third_token == STYLE_SELECTOR_COMMA || third_token == STYLE_SELECTOR_OPEN_BRACE)) 
                     {
-                        int tag = token - STYLE_PROPERTY_COUNT;
+                        int tag = NU_Token_To_Tag(token);
                         enum NU_Pseudo_Class pseudo_class = Token_To_Pseudo_Class(following_token);
                         struct NU_Stylesheet_Tag_Pseudo_Pair key = { tag, pseudo_class };
                         void* found = HashmapGet(&ss->tag_pseudo_item_hashmap, &key);
@@ -252,7 +275,7 @@ static int NU_Stylesheet_Parse(char* src, TokenArray* tokens, NU_Stylesheet* ss,
             }
         }
 
-        if (token == STYLE_CLASS_SELECTOR)
+        else if (token == STYLE_CLASS_SELECTOR)
         {
             if (i < tokens->size - 1)
             {
@@ -352,7 +375,7 @@ static int NU_Stylesheet_Parse(char* src, TokenArray* tokens, NU_Stylesheet* ss,
             }
         }
 
-        if (token == STYLE_ID_SELECTOR)
+        else if (token == STYLE_ID_SELECTOR)
         {
             if (i < tokens->size - 1)
             {
@@ -452,7 +475,7 @@ static int NU_Stylesheet_Parse(char* src, TokenArray* tokens, NU_Stylesheet* ss,
             }
         }
 
-        if (token == STYLE_SELECTOR_COMMA)
+        else if (token == STYLE_SELECTOR_COMMA)
         {
             if (AssertSelectorCommaGrammar(tokens, i)) {
                 if (selector_count == 64) {
@@ -471,7 +494,7 @@ static int NU_Stylesheet_Parse(char* src, TokenArray* tokens, NU_Stylesheet* ss,
             }
         }
 
-        if (NU_Is_Property_Identifier_Token(token))
+        else if (NU_Is_Property_Identifier_Token(token))
         {
             if (!AssertPropertyIdentifierGrammar(tokens, i)) {
                 LinearStringmapFree(&imageFilepathToHandleMap);
@@ -486,7 +509,7 @@ static int NU_Stylesheet_Parse(char* src, TokenArray* tokens, NU_Stylesheet* ss,
             src[text_ref->src_index + text_ref->char_count] = '\0';
             text_index += 1;
             
-            if (ctx == 0)
+            if (ctx == 0 || ctx == 2)
             {
                 switch (token)
                 {

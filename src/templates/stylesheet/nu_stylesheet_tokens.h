@@ -1,30 +1,49 @@
 #pragma once
 
-#define STYLE_PROPERTY_COUNT 46
-#define STYLE_KEYWORD_COUNT 59
-#define STYLE_TAG_SELECTOR_COUNT 9
-#define STYLE_SPECIAL_SELECTOR_COUNT 1
-#define STYLE_PSEUDO_COUNT 3
+#define STYLE_PROPERTY_FIRST STYLE_LAYOUT_DIRECTION_PROPERTY
+#define STYLE_PROPERTY_LAST  STYLE_FONT_WEIGHT
+
+#define STYLE_TAG_SELECTOR_FIRST STYLE_WINDOW_SELECTOR
+#define STYLE_TAG_SELECTOR_LAST  STYLE_ROW_SELECTOR
+
+#define STYLE_SPECIAL_SELECTOR_FIRST STYLE_FONT_CREATION_SELECTOR
+#define STYLE_SPECIAL_SELECTOR_LAST  STYLE_DEFAULT_SELECTOR
+
+#define STYLE_PSEUDO_FIRST STYLE_HOVER_PSEUDO
+#define STYLE_PSEUDO_LAST  STYLE_FOCUS_PSEUDO
 
 static const char* style_keywords[] = {
-    "dir", "grow", "overflow-v", "overflow-h", "position", "hide", "ignore-mouse", "gap",
-    "width", "min-width", "max-width", "height",  "min-height", "max-height",
-    "align-h", "align-v", "text-align-h", "text-align-v",
+    "dir", "grow",
+    "overflow-v", "overflow-h", 
+    "position", "hide", 
+    "ignore-mouse", "gap",
+    "width", 
+    "min-width", "max-width", 
+    "height",  
+    "min-height", "max-height",
+    "align-h", "align-v", 
+    "text-align-h", "text-align-v",
     "left", "right", "top", "bottom",
     "background", "border-colour", "text-colour",
-    "border", "border-top", "border-bottom", "border-left", "border-right",
-    "border-radius", "border-radius-top-left", "border-radius-top-right", "border-radius-bottom-left", "border-radius-bottom-right",
-    "padding", "padding-top", "padding-bottom", "padding-left", "padding-right", 
+    "border", 
+    "border-top", "border-bottom", "border-left", "border-right",
+    "border-radius", 
+    "border-radius-top-left", "border-radius-top-right", "border-radius-bottom-left", "border-radius-bottom-right",
+    "padding", 
+    "padding-top", "padding-bottom", "padding-left", "padding-right", 
     "image-src", 
     "input-type",
     "font", "src", "size", "weight",
-    "window", "box", "button", "input", "canvas", "image", "table", "thead", "row", "@font",
+    "window", "box", "button", 
+    "input", "canvas", "image", 
+    "table", "thead", "row", 
+    "@font", "@default",
     "hover", "press", "focus",
 };
 
-enum NU_Style_Token 
+enum NU_Style_Token
 {
-    // --- Inline node poperties ---
+    // --- Properties ---
     STYLE_LAYOUT_DIRECTION_PROPERTY,
     STYLE_GROW_PROPERTY,
     STYLE_OVERFLOW_V_PROPERTY,
@@ -67,9 +86,6 @@ enum NU_Style_Token
     STYLE_PADDING_RIGHT_PROPERTY,
     STYLE_IMAGE_SOURCE_PROPERTY,
     STYLE_INPUT_TYPE_PROPERTY,
-    
-
-    // --- CSS only node properties ---
     STYLE_FONT_PROPERTY,
     STYLE_FONT_SRC,
     STYLE_FONT_SIZE,
@@ -86,21 +102,19 @@ enum NU_Style_Token
     STYLE_THEAD_SELECTOR,
     STYLE_ROW_SELECTOR,
 
-    // --- Special selectors --- 
+    // --- Special selectors ---
     STYLE_FONT_CREATION_SELECTOR,
+    STYLE_DEFAULT_SELECTOR,
 
     // --- Pseudos ---
     STYLE_HOVER_PSEUDO,
     STYLE_PRESS_PSEUDO,
     STYLE_FOCUS_PSEUDO,
-    // --- End of keyword direct mapping ---
 
-
-    // --- Class/ID selector prefixes ---
+    // --- Other tokens ---
     STYLE_ID_SELECTOR,
     STYLE_CLASS_SELECTOR,
 
-    // --- Syntax tokens ---
     STYLE_PSEUDO_COLON,
     STYLE_SELECTOR_COMMA,
     STYLE_SELECTOR_OPEN_BRACE,
@@ -110,7 +124,6 @@ enum NU_Style_Token
     STYLE_FONT_CREATION_PROPERTY_VALUE,
     STYLE_FONT_NAME,
 
-    // --- Unknown token (error occured) --- 
     STYLE_UNDEFINED
 };
 
@@ -127,86 +140,72 @@ static inline uint32_t Property_Token_To_Flag(enum NU_Style_Token token)
     return (1u << token);
 }
 
-static enum NU_Style_Token NU_Word_To_Style_Token(char* word, uint8_t wordLen)
+static enum NU_Style_Token NU_Word_To_Style_Token(char* word, uint8_t len)
 {
-    word[wordLen] = '\0';
-    for (uint8_t i=0; i<STYLE_KEYWORD_COUNT; i++) {
-        if (strcmp(word, style_keywords[i]) == 0) {
-            return i;
-        } 
+    word[len] = '\0';
+    for (int i = STYLE_PROPERTY_FIRST; i <= STYLE_PSEUDO_LAST; i++) {
+        if (strcmp(word, style_keywords[i]) == 0) return (enum NU_Style_Token)i;
     }
     return STYLE_UNDEFINED;
 }
 
-static enum NU_Style_Token NU_Word_To_Style_Property_Token(char* word, uint8_t wordLen)
+static enum NU_Style_Token NU_Word_To_Style_Property_Token(char* word, uint8_t len)
 {
-    word[wordLen] = '\0';
-    for (int i=0; i<STYLE_PROPERTY_COUNT; i++) {
-        if (strcmp(word, style_keywords[i]) == 0) {
-            return i;
-        }
+    word[len] = '\0';
+    for (int i = STYLE_PROPERTY_FIRST; i <= STYLE_PROPERTY_LAST; i++) {
+        if (strcmp(word, style_keywords[i]) == 0) return (enum NU_Style_Token)i;
     }
     return STYLE_UNDEFINED;
 }
 
-static enum NU_Style_Token NU_Word_To_Tag_Selector_Token(char* word, uint8_t wordLen)
+static enum NU_Style_Token NU_Word_To_Tag_Selector_Token(char* word, uint8_t len)
 {
-    word[wordLen] = '\0';
-    int start = STYLE_PROPERTY_COUNT;
-    int end = STYLE_PROPERTY_COUNT + STYLE_TAG_SELECTOR_COUNT;
-    for (int i=start; i<end; i++) {
-        if (strcmp(word, style_keywords[i]) == 0) {
-            return i;
-        }
+    word[len] = '\0';
+    for (int i = STYLE_TAG_SELECTOR_FIRST; i <= STYLE_TAG_SELECTOR_LAST; i++) {
+        if (strcmp(word, style_keywords[i]) == 0) return (enum NU_Style_Token)i;
     }
     return STYLE_UNDEFINED;
 }
 
-static enum NU_Style_Token NU_Word_To_Any_Selector_Token(char* word, uint8_t wordLen)
+static enum NU_Style_Token NU_Word_To_Any_Selector_Token(char* word, uint8_t len)
 {
-    word[wordLen] = '\0';
-    int start = STYLE_PROPERTY_COUNT;
-    int end = STYLE_PROPERTY_COUNT + STYLE_TAG_SELECTOR_COUNT + STYLE_SPECIAL_SELECTOR_COUNT;
-    for (int i=start; i<end; i++) {
-        if (strcmp(word, style_keywords[i]) == 0) {
-            return i;
-        }
+    word[len] = '\0';
+    for (int i = STYLE_TAG_SELECTOR_FIRST; i <= STYLE_SPECIAL_SELECTOR_LAST; i++) {
+        if (strcmp(word, style_keywords[i]) == 0) return (enum NU_Style_Token)i;
     }
     return STYLE_UNDEFINED;
 }
 
-static enum NU_Style_Token NU_Word_To_Pseudo_Token(char* word, uint8_t wordLen)
+static enum NU_Style_Token NU_Word_To_Pseudo_Token(char* word, uint8_t len)
 {
-    word[wordLen] = '\0';
-    int start = STYLE_PROPERTY_COUNT + STYLE_TAG_SELECTOR_COUNT + STYLE_SPECIAL_SELECTOR_COUNT;
-    int end = start + STYLE_PSEUDO_COUNT;
-    for (int i=start; i<end; i++) {
-        if (strcmp(word, style_keywords[i]) == 0) {
-            return i;
-        }
+    word[len] = '\0';
+    for (int i = STYLE_PSEUDO_FIRST; i <= STYLE_PSEUDO_LAST; i++) {
+        if (strcmp(word, style_keywords[i]) == 0) return (enum NU_Style_Token)i;
     }
     return STYLE_UNDEFINED;
 }
 
 static enum NU_Pseudo_Class Token_To_Pseudo_Class(enum NU_Style_Token token)
 {
-    return token - (STYLE_PROPERTY_COUNT + STYLE_TAG_SELECTOR_COUNT + STYLE_SPECIAL_SELECTOR_COUNT);
+    return token - STYLE_PSEUDO_FIRST;
+}
+
+static int NU_Token_To_Tag(enum NU_Style_Token token)
+{
+    return token - STYLE_TAG_SELECTOR_FIRST;
 }
 
 static inline int NU_Is_Property_Identifier_Token(enum NU_Style_Token token)
 {
-    return token < STYLE_PROPERTY_COUNT;
+    return token >= STYLE_PROPERTY_FIRST && token <= STYLE_PROPERTY_LAST;
 }
 
 static inline int NU_Is_Tag_Selector_Token(enum NU_Style_Token token)
 {
-    return token > (STYLE_PROPERTY_COUNT - 1) && token < STYLE_PROPERTY_COUNT + STYLE_TAG_SELECTOR_COUNT;
+    return token >= STYLE_TAG_SELECTOR_FIRST && token <= STYLE_TAG_SELECTOR_LAST;
 }
 
-static int NU_Is_Pseudo_Token(enum NU_Style_Token token)
+static inline int NU_Is_Pseudo_Token(enum NU_Style_Token token)
 {
-    int start = STYLE_PROPERTY_COUNT + STYLE_TAG_SELECTOR_COUNT + STYLE_SPECIAL_SELECTOR_COUNT - 1;
-    int end = start + STYLE_PSEUDO_COUNT + 1;
-    return token > start && token < end;
+    return token >= STYLE_PSEUDO_FIRST && token <= STYLE_PSEUDO_LAST;
 }
-

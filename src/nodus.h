@@ -131,7 +131,6 @@ void NU_Internal_Set_Class(Node* node, const char* class)
     }
 
     // Update styling
-    if (prevNodeClass != NULL) NU_Apply_Default_Style_To_Node(nodeP);
     NU_Apply_Stylesheet_To_Node(nodeP, __NGUI.stylesheet);
     if (nodeP == __NGUI.scroll_mouse_down_node) {
         NU_Apply_Pseudo_Style_To_Node(nodeP, __NGUI.stylesheet, PSEUDO_PRESS);
@@ -249,6 +248,9 @@ int NU_Internal_Create_Gui(const char* xml_filepath, const char* css_filepath)
     __NGUI.awaiting_redraw = true;
     __NGUI.recalculate_mouse_hover = true;
 
+    // Traversal
+    __NGUI.bfs = BreadthFirstSearch_Create(__NGUI.tree.root);
+    __NGUI.rbfs = ReverseBreadthFirstSearch_Create(__NGUI.tree.root);
 
     // Register custom render event type
     __NGUI.SDL_CUSTOM_RENDER_EVENT = SDL_RegisterEvents(1);
@@ -269,15 +271,12 @@ int NU_Internal_Create_Gui(const char* xml_filepath, const char* css_filepath)
         NU_Internal_Quit();
         return 0;
     }
+
+    // Apply css
     if (!NU_Internal_Apply_Stylesheet(stylesheetHandle)) {
         NU_Internal_Quit();
         return 0;
     }
-
-    // Traversal
-    __NGUI.bfs = BreadthFirstSearch_Create(__NGUI.tree.root);
-    __NGUI.rbfs = ReverseBreadthFirstSearch_Create(__NGUI.tree.root);
-
 
     NU_Layout(); // Initial layout calculation
     __NGUI.running = true;

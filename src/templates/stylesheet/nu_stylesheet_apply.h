@@ -105,6 +105,9 @@ void NU_Apply_Stylesheet_To_Node(NodeP* node, NU_Stylesheet* ss)
 
 void NU_Apply_Pseudo_Style_To_Node(NodeP* node, NU_Stylesheet* ss, enum NU_Pseudo_Class pseudo)
 {
+    // Apply base style
+    NU_Apply_Stylesheet_To_Node(node, ss);
+    
     // Tag pseudo style match and apply
     NU_Stylesheet_Tag_Pseudo_Pair key = { node->type, pseudo };
     void* tag_pseudo_found = HashmapGet(&ss->tag_pseudo_item_hashmap, &key);

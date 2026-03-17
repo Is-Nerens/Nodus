@@ -4,7 +4,7 @@ struct RGB {
     u8 r, g, b;
 };
 
-static int String_To_Float(float* result, char* str)
+static int String_To_Float(float* result, const char* str)
 {
     *result = 0.0f;
     float fraction_divider = 1.0f;
@@ -37,7 +37,7 @@ static int String_To_Float(float* result, char* str)
     return 1;
 }
 
-static int String_To_Int(int* result, char* str)
+static int String_To_Int(int* result, const char* str)
 {
     *result = 0;
     int i = 0;
@@ -70,7 +70,7 @@ static int String_To_Int(int* result, char* str)
     return 1;
 }
 
-static int String_To_u8(u8* result, char* str)
+static int String_To_u8(u8* result, const char* str)
 {
     *result = 0;
     int i=0;

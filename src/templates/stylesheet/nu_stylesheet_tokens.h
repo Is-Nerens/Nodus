@@ -127,6 +127,97 @@ enum NU_Style_Token
     STYLE_UNDEFINED
 };
 
+void PrintStyleTokenLine(enum NU_Style_Token token)
+{
+    const char* name = NULL;
+    switch (token)
+    {
+        // --- Properties ---
+        case STYLE_LAYOUT_DIRECTION_PROPERTY:     name = "STYLE_LAYOUT_DIRECTION_PROPERTY"; break;
+        case STYLE_GROW_PROPERTY:                  name = "STYLE_GROW_PROPERTY"; break;
+        case STYLE_OVERFLOW_V_PROPERTY:            name = "STYLE_OVERFLOW_V_PROPERTY"; break;
+        case STYLE_OVERFLOW_H_PROPERTY:            name = "STYLE_OVERFLOW_H_PROPERTY"; break;
+        case STYLE_POSITION_PROPERTY:              name = "STYLE_POSITION_PROPERTY"; break;
+        case STYLE_HIDE_PROPERTY:                  name = "STYLE_HIDE_PROPERTY"; break;
+        case STYLE_IGNORE_MOUSE_PROPERTY:          name = "STYLE_IGNORE_MOUSE_PROPERTY"; break;
+        case STYLE_GAP_PROPERTY:                   name = "STYLE_GAP_PROPERTY"; break;
+        case STYLE_WIDTH_PROPERTY:                 name = "STYLE_WIDTH_PROPERTY"; break;
+        case STYLE_MIN_WIDTH_PROPERTY:             name = "STYLE_MIN_WIDTH_PROPERTY"; break;
+        case STYLE_MAX_WIDTH_PROPERTY:             name = "STYLE_MAX_WIDTH_PROPERTY"; break;
+        case STYLE_HEIGHT_PROPERTY:                name = "STYLE_HEIGHT_PROPERTY"; break;
+        case STYLE_MIN_HEIGHT_PROPERTY:            name = "STYLE_MIN_HEIGHT_PROPERTY"; break;
+        case STYLE_MAX_HEIGHT_PROPERTY:            name = "STYLE_MAX_HEIGHT_PROPERTY"; break;
+        case STYLE_ALIGN_H_PROPERTY:               name = "STYLE_ALIGN_H_PROPERTY"; break;
+        case STYLE_ALIGN_V_PROPERTY:               name = "STYLE_ALIGN_V_PROPERTY"; break;
+        case STYLE_TEXT_ALIGN_H_PROPERTY:          name = "STYLE_TEXT_ALIGN_H_PROPERTY"; break;
+        case STYLE_TEXT_ALIGN_V_PROPERTY:          name = "STYLE_TEXT_ALIGN_V_PROPERTY"; break;
+        case STYLE_LEFT_PROPERTY:                  name = "STYLE_LEFT_PROPERTY"; break;
+        case STYLE_RIGHT_PROPERTY:                 name = "STYLE_RIGHT_PROPERTY"; break;
+        case STYLE_TOP_PROPERTY:                   name = "STYLE_TOP_PROPERTY"; break;
+        case STYLE_BOTTOM_PROPERTY:                name = "STYLE_BOTTOM_PROPERTY"; break;
+        case STYLE_BACKGROUND_COLOUR_PROPERTY:     name = "STYLE_BACKGROUND_COLOUR_PROPERTY"; break;
+        case STYLE_BORDER_COLOUR_PROPERTY:         name = "STYLE_BORDER_COLOUR_PROPERTY"; break;
+        case STYLE_TEXT_COLOUR_PROPERTY:           name = "STYLE_TEXT_COLOUR_PROPERTY"; break;
+        case STYLE_BORDER_WIDTH_PROPERTY:          name = "STYLE_BORDER_WIDTH_PROPERTY"; break;
+        case STYLE_BORDER_TOP_WIDTH_PROPERTY:      name = "STYLE_BORDER_TOP_WIDTH_PROPERTY"; break;
+        case STYLE_BORDER_BOTTOM_WIDTH_PROPERTY:   name = "STYLE_BORDER_BOTTOM_WIDTH_PROPERTY"; break;
+        case STYLE_BORDER_LEFT_WIDTH_PROPERTY:     name = "STYLE_BORDER_LEFT_WIDTH_PROPERTY"; break;
+        case STYLE_BORDER_RIGHT_WIDTH_PROPERTY:    name = "STYLE_BORDER_RIGHT_WIDTH_PROPERTY"; break;
+        case STYLE_BORDER_RADIUS_PROPERTY:         name = "STYLE_BORDER_RADIUS_PROPERTY"; break;
+        case STYLE_BORDER_TOP_LEFT_RADIUS_PROPERTY:    name = "STYLE_BORDER_TOP_LEFT_RADIUS_PROPERTY"; break;
+        case STYLE_BORDER_TOP_RIGHT_RADIUS_PROPERTY:   name = "STYLE_BORDER_TOP_RIGHT_RADIUS_PROPERTY"; break;
+        case STYLE_BORDER_BOTTOM_LEFT_RADIUS_PROPERTY: name = "STYLE_BORDER_BOTTOM_LEFT_RADIUS_PROPERTY"; break;
+        case STYLE_BORDER_BOTTOM_RIGHT_RADIUS_PROPERTY:name = "STYLE_BORDER_BOTTOM_RIGHT_RADIUS_PROPERTY"; break;
+        case STYLE_PADDING_PROPERTY:               name = "STYLE_PADDING_PROPERTY"; break;
+        case STYLE_PADDING_TOP_PROPERTY:           name = "STYLE_PADDING_TOP_PROPERTY"; break;
+        case STYLE_PADDING_BOTTOM_PROPERTY:        name = "STYLE_PADDING_BOTTOM_PROPERTY"; break;
+        case STYLE_PADDING_LEFT_PROPERTY:          name = "STYLE_PADDING_LEFT_PROPERTY"; break;
+        case STYLE_PADDING_RIGHT_PROPERTY:         name = "STYLE_PADDING_RIGHT_PROPERTY"; break;
+        case STYLE_IMAGE_SOURCE_PROPERTY:          name = "STYLE_IMAGE_SOURCE_PROPERTY"; break;
+        case STYLE_INPUT_TYPE_PROPERTY:            name = "STYLE_INPUT_TYPE_PROPERTY"; break;
+        case STYLE_FONT_PROPERTY:                  name = "STYLE_FONT_PROPERTY"; break;
+        case STYLE_FONT_SRC:                       name = "STYLE_FONT_SRC"; break;
+        case STYLE_FONT_SIZE:                      name = "STYLE_FONT_SIZE"; break;
+        case STYLE_FONT_WEIGHT:                    name = "STYLE_FONT_WEIGHT"; break;
+
+        // --- Tag selectors ---
+        case STYLE_WINDOW_SELECTOR: name = "STYLE_WINDOW_SELECTOR"; break;
+        case STYLE_BOX_SELECTOR:    name = "STYLE_BOX_SELECTOR"; break;
+        case STYLE_BUTTON_SELECTOR: name = "STYLE_BUTTON_SELECTOR"; break;
+        case STYLE_INPUT_SELECTOR:  name = "STYLE_INPUT_SELECTOR"; break;
+        case STYLE_CANVAS_SELECTOR: name = "STYLE_CANVAS_SELECTOR"; break;
+        case STYLE_IMAGE_SELECTOR:  name = "STYLE_IMAGE_SELECTOR"; break;
+        case STYLE_TABLE_SELECTOR:  name = "STYLE_TABLE_SELECTOR"; break;
+        case STYLE_THEAD_SELECTOR:  name = "STYLE_THEAD_SELECTOR"; break;
+        case STYLE_ROW_SELECTOR:    name = "STYLE_ROW_SELECTOR"; break;
+
+        // --- Special selectors ---
+        case STYLE_FONT_CREATION_SELECTOR: name = "STYLE_FONT_CREATION_SELECTOR"; break;
+        case STYLE_DEFAULT_SELECTOR:       name = "STYLE_DEFAULT_SELECTOR"; break;
+
+        // --- Pseudos ---
+        case STYLE_HOVER_PSEUDO:  name = "STYLE_HOVER_PSEUDO"; break;
+        case STYLE_PRESS_PSEUDO:  name = "STYLE_PRESS_PSEUDO"; break;
+        case STYLE_FOCUS_PSEUDO:  name = "STYLE_FOCUS_PSEUDO"; break;
+
+        // --- Other tokens ---
+        case STYLE_ID_SELECTOR:               name = "STYLE_ID_SELECTOR"; break;
+        case STYLE_CLASS_SELECTOR:            name = "STYLE_CLASS_SELECTOR"; break;
+        case STYLE_PSEUDO_COLON:              name = "STYLE_PSEUDO_COLON"; break;
+        case STYLE_SELECTOR_COMMA:            name = "STYLE_SELECTOR_COMMA"; break;
+        case STYLE_SELECTOR_OPEN_BRACE:       name = "STYLE_SELECTOR_OPEN_BRACE"; break;
+        case STYLE_SELECTOR_CLOSE_BRACE:      name = "STYLE_SELECTOR_CLOSE_BRACE"; break;
+        case STYLE_PROPERTY_ASSIGNMENT:       name = "STYLE_PROPERTY_ASSIGNMENT"; break;
+        case STYLE_PROPERTY_VALUE:            name = "STYLE_PROPERTY_VALUE"; break;
+        case STYLE_FONT_CREATION_PROPERTY_VALUE:name = "STYLE_FONT_CREATION_PROPERTY_VALUE"; break;
+        case STYLE_FONT_NAME:                  name = "STYLE_FONT_NAME"; break;
+
+        default: name = "STYLE_UNDEFINED"; break;
+    }
+
+    printf("%s\n", name);
+}
+
 enum NU_Pseudo_Class
 {
     PSEUDO_HOVER,

@@ -4,8 +4,7 @@
 *.css
 *.ttf
 *.png
-test.c
-String.h
+*.zip
 releases
 build
 documentation
@@ -14,4 +13,3 @@ app-test
 src/libraries/freetype
 src/libraries/glew
 src/libraries/SDL3
-compile-app.ps1

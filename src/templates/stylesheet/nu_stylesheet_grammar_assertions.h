@@ -26,6 +26,13 @@ static int AssertFontCreationSelectorGrammar(TokenArray* tokens, int i)
     return 0;
 }
 
+static int AssertDefaultSelectionGrammar(TokenArray* tokens, int i)
+{
+    // ENFORCE RULE: NEXT TOKEN MUST BE AN OPEN BRACE
+    if (i < tokens->size - 1 && TokenArray_Get(tokens, i+1) == STYLE_SELECTOR_OPEN_BRACE) return 1;
+    return 0;
+}
+
 static int AssertSelectionClosingBraceGrammar(TokenArray* tokens, int i)
 {
     // ENFORCE RULE: MUST BE LAST TOKEN OR NEXT TOKEN MUST BE A SELECTOR

@@ -4,49 +4,76 @@
 #include <datastructures/linear_stringset.h>
 #include "../nu_token_array.h"
 
+// You might not like it, but this is what *peak performance looks like
 void NU_Stylesheet_Overwrite_Style_Item(NU_Stylesheet_Item* item, NU_Stylesheet_Item* overwriter)
 {
     item->propertyFlags |= overwriter->propertyFlags;
-    if (overwriter->propertyFlags & PROPERTY_FLAG_LAYOUT_VERTICAL  ) item->layoutFlags = (item->layoutFlags & ~LAYOUT_VERTICAL) | (overwriter->layoutFlags & LAYOUT_VERTICAL); // Layout direction
-    if (overwriter->propertyFlags & PROPERTY_FLAG_GROW             ) item->layoutFlags = (item->layoutFlags & ~(GROW_HORIZONTAL | GROW_VERTICAL)) | (overwriter->layoutFlags & (GROW_HORIZONTAL | GROW_VERTICAL)); // Grow
-    if (overwriter->propertyFlags & PROPERTY_FLAG_VERTICAL_SCROLL  ) item->layoutFlags = (item->layoutFlags & ~OVERFLOW_VERTICAL_SCROLL) | (overwriter->layoutFlags & OVERFLOW_VERTICAL_SCROLL); // Overflow vertical scroll (or not)
-    if (overwriter->propertyFlags & PROPERTY_FLAG_HORIZONTAL_SCROLL) item->layoutFlags = (item->layoutFlags & ~OVERFLOW_HORIZONTAL_SCROLL) | (overwriter->layoutFlags & OVERFLOW_HORIZONTAL_SCROLL); // Overflow horizontal scroll (or not)
-    if (overwriter->propertyFlags & PROPERTY_FLAG_POSITION_ABSOLUTE) item->layoutFlags = (item->layoutFlags & ~POSITION_ABSOLUTE) | (overwriter->layoutFlags & POSITION_ABSOLUTE); // Position absolute or not
-    if (overwriter->propertyFlags & PROPERTY_FLAG_HIDDEN           ) item->layoutFlags = (item->layoutFlags & ~HIDDEN) | (overwriter->layoutFlags & HIDDEN); // Hide or not
-    if (overwriter->propertyFlags & PROPERTY_FLAG_IGNORE_MOUSE     ) item->layoutFlags = (item->layoutFlags & ~IGNORE_MOUSE) | (overwriter->layoutFlags & IGNORE_MOUSE); // Ignore mouse or not
-    if (overwriter->propertyFlags & PROPERTY_FLAG_GAP              ) item->gap = overwriter->gap;
-    if (overwriter->propertyFlags & PROPERTY_FLAG_PREFERRED_WIDTH  ) item->preferred_width = overwriter->preferred_width;
-    if (overwriter->propertyFlags & PROPERTY_FLAG_MIN_WIDTH        ) item->minWidth = overwriter->minWidth;
-    if (overwriter->propertyFlags & PROPERTY_FLAG_MAX_WIDTH        ) item->maxWidth = overwriter->maxWidth;
-    if (overwriter->propertyFlags & PROPERTY_FLAG_PREFERRED_HEIGHT ) item->preferred_height = overwriter->preferred_height;
-    if (overwriter->propertyFlags & PROPERTY_FLAG_MIN_HEIGHT       ) item->minHeight = overwriter->minHeight;
-    if (overwriter->propertyFlags & PROPERTY_FLAG_MAX_HEIGHT       ) item->maxHeight = overwriter->maxHeight;
-    if (overwriter->propertyFlags & PROPERTY_FLAG_ALIGN_H          ) item->horizontalAlignment = overwriter->horizontalAlignment;
-    if (overwriter->propertyFlags & PROPERTY_FLAG_ALIGN_V          ) item->verticalAlignment = overwriter->verticalAlignment;
-    if (overwriter->propertyFlags & PROPERTY_FLAG_TEXT_ALIGN_H     ) item->horizontalTextAlignment = overwriter->horizontalTextAlignment;
-    if (overwriter->propertyFlags & PROPERTY_FLAG_TEXT_ALIGN_V     ) item->verticalTextAlignment = overwriter->verticalTextAlignment;
-    if (overwriter->propertyFlags & PROPERTY_FLAG_LEFT             ) item->left = overwriter->left;
-    if (overwriter->propertyFlags & PROPERTY_FLAG_RIGHT            ) item->right = overwriter->right;
-    if (overwriter->propertyFlags & PROPERTY_FLAG_TOP              ) item->top = overwriter->top;
-    if (overwriter->propertyFlags & PROPERTY_FLAG_BOTTOM           ) item->bottom = overwriter->bottom;
-    if (overwriter->propertyFlags & PROPERTY_FLAG_BACKGROUND       ) memcpy(&item->backgroundR, &overwriter->backgroundR, 3); // Copy rgb
-    if (overwriter->propertyFlags & PROPERTY_FLAG_HIDE_BACKGROUND  ) item->layoutFlags = (item->layoutFlags & ~HIDE_BACKGROUND) | (overwriter->layoutFlags & HIDE_BACKGROUND); // Hide background or not
-    if (overwriter->propertyFlags & PROPERTY_FLAG_BORDER_COLOUR    ) memcpy(&item->borderR, &overwriter->borderR, 3); // Copy rgb
-    if (overwriter->propertyFlags & PROPERTY_FLAG_TEXT_COLOUR      ) memcpy(&item->textR, &overwriter->textR, 3); // Copy rgb
-    if (overwriter->propertyFlags & PROPERTY_FLAG_BORDER_TOP       ) item->borderTop = overwriter->borderTop; 
-    if (overwriter->propertyFlags & PROPERTY_FLAG_BORDER_BOTTOM    ) item->borderBottom = overwriter->borderBottom; 
-    if (overwriter->propertyFlags & PROPERTY_FLAG_BORDER_LEFT      ) item->borderLeft = overwriter->borderLeft; 
-    if (overwriter->propertyFlags & PROPERTY_FLAG_BORDER_RIGHT     ) item->borderRight = overwriter->borderRight; 
-    if (overwriter->propertyFlags & PROPERTY_FLAG_BORDER_RADIUS_TL ) item->borderRadiusTl = overwriter->borderRadiusTl; 
-    if (overwriter->propertyFlags & PROPERTY_FLAG_BORDER_RADIUS_TR ) item->borderRadiusTr = overwriter->borderRadiusTr; 
-    if (overwriter->propertyFlags & PROPERTY_FLAG_BORDER_RADIUS_BL ) item->borderRadiusBl = overwriter->borderRadiusBl; 
-    if (overwriter->propertyFlags & PROPERTY_FLAG_BORDER_RADIUS_BR ) item->borderRadiusBr = overwriter->borderRadiusBr; 
-    if (overwriter->propertyFlags & PROPERTY_FLAG_PAD_TOP          ) item->padTop = overwriter->padTop; 
-    if (overwriter->propertyFlags & PROPERTY_FLAG_PAD_BOTTOM       ) item->padBottom = overwriter->padBottom; 
-    if (overwriter->propertyFlags & PROPERTY_FLAG_PAD_LEFT         ) item->padLeft = overwriter->padLeft; 
-    if (overwriter->propertyFlags & PROPERTY_FLAG_PAD_RIGHT        ) item->padRight = overwriter->padRight; 
-    if (overwriter->propertyFlags & PROPERTY_FLAG_IMAGE            ) item->glImageHandle = overwriter->glImageHandle;
-    if (overwriter->propertyFlags & PROPERTY_FLAG_INPUT_TYPE       ) item->inputType = overwriter->inputType;
+
+    // Branchless layoutFlags update
+    item->layoutFlags = (item->layoutFlags & ~LAYOUT_VERTICAL)                 | ((overwriter->layoutFlags & LAYOUT_VERTICAL)                 * !!(overwriter->propertyFlags & PROPERTY_FLAG_LAYOUT_VERTICAL));
+    item->layoutFlags = (item->layoutFlags & ~(GROW_HORIZONTAL|GROW_VERTICAL)) | ((overwriter->layoutFlags & (GROW_HORIZONTAL|GROW_VERTICAL)) * !!(overwriter->propertyFlags & PROPERTY_FLAG_GROW));
+    item->layoutFlags = (item->layoutFlags & ~OVERFLOW_VERTICAL_SCROLL)        | ((overwriter->layoutFlags & OVERFLOW_VERTICAL_SCROLL)        * !!(overwriter->propertyFlags & PROPERTY_FLAG_VERTICAL_SCROLL));
+    item->layoutFlags = (item->layoutFlags & ~OVERFLOW_HORIZONTAL_SCROLL)      | ((overwriter->layoutFlags & OVERFLOW_HORIZONTAL_SCROLL)      * !!(overwriter->propertyFlags & PROPERTY_FLAG_HORIZONTAL_SCROLL));
+    item->layoutFlags = (item->layoutFlags & ~POSITION_ABSOLUTE)               | ((overwriter->layoutFlags & POSITION_ABSOLUTE)               * !!(overwriter->propertyFlags & PROPERTY_FLAG_POSITION_ABSOLUTE));
+    item->layoutFlags = (item->layoutFlags & ~HIDDEN)                          | ((overwriter->layoutFlags & HIDDEN)                          * !!(overwriter->propertyFlags & PROPERTY_FLAG_HIDDEN));
+    item->layoutFlags = (item->layoutFlags & ~IGNORE_MOUSE)                    | ((overwriter->layoutFlags & IGNORE_MOUSE)                    * !!(overwriter->propertyFlags & PROPERTY_FLAG_IGNORE_MOUSE));
+    item->layoutFlags = (item->layoutFlags & ~HIDE_BACKGROUND)                 | ((overwriter->layoutFlags & HIDE_BACKGROUND) * !!(overwriter->propertyFlags & PROPERTY_FLAG_HIDE_BACKGROUND));
+
+    // Overwrite gap and size fields (branchless)
+    item->gap              = item->gap              * !(overwriter->propertyFlags & PROPERTY_FLAG_GAP)              + overwriter->gap              * !!(overwriter->propertyFlags & PROPERTY_FLAG_GAP);
+    item->preferred_width  = item->preferred_width  * !(overwriter->propertyFlags & PROPERTY_FLAG_PREFERRED_WIDTH)  + overwriter->preferred_width  * !!(overwriter->propertyFlags & PROPERTY_FLAG_PREFERRED_WIDTH);
+    item->minWidth         = item->minWidth         * !(overwriter->propertyFlags & PROPERTY_FLAG_MIN_WIDTH)        + overwriter->minWidth         * !!(overwriter->propertyFlags & PROPERTY_FLAG_MIN_WIDTH);
+    item->maxWidth         = item->maxWidth         * !(overwriter->propertyFlags & PROPERTY_FLAG_MAX_WIDTH)        + overwriter->maxWidth         * !!(overwriter->propertyFlags & PROPERTY_FLAG_MAX_WIDTH);
+    item->preferred_height = item->preferred_height * !(overwriter->propertyFlags & PROPERTY_FLAG_PREFERRED_HEIGHT) + overwriter->preferred_height * !!(overwriter->propertyFlags & PROPERTY_FLAG_PREFERRED_HEIGHT);
+    item->minHeight        = item->minHeight        * !(overwriter->propertyFlags & PROPERTY_FLAG_MIN_HEIGHT)       + overwriter->minHeight        * !!(overwriter->propertyFlags & PROPERTY_FLAG_MIN_HEIGHT);
+    item->maxHeight        = item->maxHeight        * !(overwriter->propertyFlags & PROPERTY_FLAG_MAX_HEIGHT)       + overwriter->maxHeight        * !!(overwriter->propertyFlags & PROPERTY_FLAG_MAX_HEIGHT);
+
+    // Overwrite alignments (branchless)
+    item->horizontalAlignment     = item->horizontalAlignment     * !(overwriter->propertyFlags & PROPERTY_FLAG_ALIGN_H)      + overwriter->horizontalAlignment     * !!(overwriter->propertyFlags & PROPERTY_FLAG_ALIGN_H);
+    item->verticalAlignment       = item->verticalAlignment       * !(overwriter->propertyFlags & PROPERTY_FLAG_ALIGN_V)      + overwriter->verticalAlignment       * !!(overwriter->propertyFlags & PROPERTY_FLAG_ALIGN_V);
+    item->horizontalTextAlignment = item->horizontalTextAlignment * !(overwriter->propertyFlags & PROPERTY_FLAG_TEXT_ALIGN_H) + overwriter->horizontalTextAlignment * !!(overwriter->propertyFlags & PROPERTY_FLAG_TEXT_ALIGN_H);
+    item->verticalTextAlignment   = item->verticalTextAlignment   * !(overwriter->propertyFlags & PROPERTY_FLAG_TEXT_ALIGN_V) + overwriter->verticalTextAlignment   * !!(overwriter->propertyFlags & PROPERTY_FLAG_TEXT_ALIGN_V);
+
+    // Overwrite absolute distances (branchless)
+    item->left   = item->left   * !(overwriter->propertyFlags & PROPERTY_FLAG_LEFT)   + overwriter->left   * !!(overwriter->propertyFlags & PROPERTY_FLAG_LEFT);
+    item->right  = item->right  * !(overwriter->propertyFlags & PROPERTY_FLAG_RIGHT)  + overwriter->right  * !!(overwriter->propertyFlags & PROPERTY_FLAG_RIGHT);
+    item->top    = item->top    * !(overwriter->propertyFlags & PROPERTY_FLAG_TOP)    + overwriter->top    * !!(overwriter->propertyFlags & PROPERTY_FLAG_TOP);
+    item->bottom = item->bottom * !(overwriter->propertyFlags & PROPERTY_FLAG_BOTTOM) + overwriter->bottom * !!(overwriter->propertyFlags & PROPERTY_FLAG_BOTTOM);
+    
+    // Branchless RGB overwrite
+    item->backgroundR = item->backgroundR * !(overwriter->propertyFlags & PROPERTY_FLAG_BACKGROUND)    + overwriter->backgroundR * !!(overwriter->propertyFlags & PROPERTY_FLAG_BACKGROUND);
+    item->backgroundG = item->backgroundG * !(overwriter->propertyFlags & PROPERTY_FLAG_BACKGROUND)    + overwriter->backgroundG * !!(overwriter->propertyFlags & PROPERTY_FLAG_BACKGROUND);
+    item->backgroundB = item->backgroundB * !(overwriter->propertyFlags & PROPERTY_FLAG_BACKGROUND)    + overwriter->backgroundB * !!(overwriter->propertyFlags & PROPERTY_FLAG_BACKGROUND);
+    item->borderR     = item->borderR     * !(overwriter->propertyFlags & PROPERTY_FLAG_BORDER_COLOUR) + overwriter->borderR     * !!(overwriter->propertyFlags & PROPERTY_FLAG_BORDER_COLOUR);
+    item->borderG     = item->borderG     * !(overwriter->propertyFlags & PROPERTY_FLAG_BORDER_COLOUR) + overwriter->borderG     * !!(overwriter->propertyFlags & PROPERTY_FLAG_BORDER_COLOUR);
+    item->borderB     = item->borderB     * !(overwriter->propertyFlags & PROPERTY_FLAG_BORDER_COLOUR) + overwriter->borderB     * !!(overwriter->propertyFlags & PROPERTY_FLAG_BORDER_COLOUR);
+    item->textR       = item->textR       * !(overwriter->propertyFlags & PROPERTY_FLAG_TEXT_COLOUR)   + overwriter->textR       * !!(overwriter->propertyFlags & PROPERTY_FLAG_TEXT_COLOUR);
+    item->textG       = item->textG       * !(overwriter->propertyFlags & PROPERTY_FLAG_TEXT_COLOUR)   + overwriter->textG       * !!(overwriter->propertyFlags & PROPERTY_FLAG_TEXT_COLOUR);
+    item->textB       = item->textB       * !(overwriter->propertyFlags & PROPERTY_FLAG_TEXT_COLOUR)   + overwriter->textB       * !!(overwriter->propertyFlags & PROPERTY_FLAG_TEXT_COLOUR);
+
+    // Overwrite border widths (branchless)
+    item->borderTop    = item->borderTop    * !(overwriter->propertyFlags & PROPERTY_FLAG_BORDER_TOP)    + overwriter->borderTop    * !!(overwriter->propertyFlags & PROPERTY_FLAG_BORDER_TOP);
+    item->borderBottom = item->borderBottom * !(overwriter->propertyFlags & PROPERTY_FLAG_BORDER_BOTTOM) + overwriter->borderBottom * !!(overwriter->propertyFlags & PROPERTY_FLAG_BORDER_BOTTOM);
+    item->borderLeft   = item->borderLeft   * !(overwriter->propertyFlags & PROPERTY_FLAG_BORDER_LEFT)   + overwriter->borderLeft   * !!(overwriter->propertyFlags & PROPERTY_FLAG_BORDER_LEFT);
+    item->borderRight  = item->borderRight  * !(overwriter->propertyFlags & PROPERTY_FLAG_BORDER_RIGHT)  + overwriter->borderRight  * !!(overwriter->propertyFlags & PROPERTY_FLAG_BORDER_RIGHT);
+
+    // Overwrite border radii (branchless)
+    item->borderRadiusTl = item->borderRadiusTl * !(overwriter->propertyFlags & PROPERTY_FLAG_BORDER_RADIUS_TL) + overwriter->borderRadiusTl * !!(overwriter->propertyFlags & PROPERTY_FLAG_BORDER_RADIUS_TL);
+    item->borderRadiusTr = item->borderRadiusTr * !(overwriter->propertyFlags & PROPERTY_FLAG_BORDER_RADIUS_TR) + overwriter->borderRadiusTr * !!(overwriter->propertyFlags & PROPERTY_FLAG_BORDER_RADIUS_TR);
+    item->borderRadiusBl = item->borderRadiusBl * !(overwriter->propertyFlags & PROPERTY_FLAG_BORDER_RADIUS_BL) + overwriter->borderRadiusBl * !!(overwriter->propertyFlags & PROPERTY_FLAG_BORDER_RADIUS_BL);
+    item->borderRadiusBr = item->borderRadiusBr * !(overwriter->propertyFlags & PROPERTY_FLAG_BORDER_RADIUS_BR) + overwriter->borderRadiusBr * !!(overwriter->propertyFlags & PROPERTY_FLAG_BORDER_RADIUS_BR);
+
+    // Overwrite padding (branchless)
+    item->padTop = item->padTop       * !(overwriter->propertyFlags & PROPERTY_FLAG_PAD_TOP)    + overwriter->padTop    * !!(overwriter->propertyFlags & PROPERTY_FLAG_PAD_TOP);
+    item->padBottom = item->padBottom * !(overwriter->propertyFlags & PROPERTY_FLAG_PAD_BOTTOM) + overwriter->padBottom * !!(overwriter->propertyFlags & PROPERTY_FLAG_PAD_BOTTOM);
+    item->padLeft = item->padLeft     * !(overwriter->propertyFlags & PROPERTY_FLAG_PAD_LEFT)   + overwriter->padLeft   * !!(overwriter->propertyFlags & PROPERTY_FLAG_PAD_LEFT);
+    item->padRight = item->padRight   * !(overwriter->propertyFlags & PROPERTY_FLAG_PAD_RIGHT)  + overwriter->padRight  * !!(overwriter->propertyFlags & PROPERTY_FLAG_PAD_RIGHT);
+
+    // Overwrite image and input type (branchless)
+    item->glImageHandle = item->glImageHandle * !(overwriter->propertyFlags & PROPERTY_FLAG_IMAGE)      + overwriter->glImageHandle * !!(overwriter->propertyFlags & PROPERTY_FLAG_IMAGE);
+    item->inputType     = item->inputType     * !(overwriter->propertyFlags & PROPERTY_FLAG_INPUT_TYPE) + overwriter->inputType     * !!(overwriter->propertyFlags & PROPERTY_FLAG_INPUT_TYPE);
+    
+    // Overwrite font Id
     item->fontId = overwriter->fontId;
 }
 
@@ -444,139 +471,65 @@ static void NU_Stylesheet_Parse_Property(NU_Stylesheet* ss, const enum NU_Style_
     }
 }
 
-static int NU_Stylesheet_Parse_Specials(char* src, TokenArray* tokens, NU_Stylesheet* ss, struct Vector* textRefs, LinearStringmap* imageFilepathToHandleMap)
+struct Style_Text_Ref* BinarySearchTextRef(Vector* textRefs, int targetTokenIndex) {
+    int left = 0;
+    int right = textRefs->size - 1;
+
+    while (left <= right) {
+        int mid = left + (right - left) / 2;
+        struct Style_Text_Ref* textRef = (struct Style_Text_Ref*)Vector_Get(textRefs, mid);
+
+        if (textRef->NU_Token_index == targetTokenIndex) {
+            return textRef;  // found
+        } else if (textRef->NU_Token_index < targetTokenIndex) {
+            left = mid + 1;
+        } else {
+            right = mid - 1;
+        }
+    }
+
+    return NULL;  // not found
+}
+
+static int NU_Stylesheet_Parse_Fonts(NU_Stylesheet* ss, char* src, TokenArray* tokens, struct Vector* textRefs)
 {
-    // ---------------
-    // --- Context ---
-    // ---------------
-    int ctx = 0;        // 0 == standard selector; 1 == font creation selector; 2 == default selector
-    u32 textRefIndex = 0;
-    struct Style_Text_Ref* textRef;
-    u8 createFontID;
-    NU_Font* createFont;
+    // State
+    int inFontSelector = 0;
     int createFontSize = 18;
     int createFontWeight = 400;
     char* createFontName = NULL;
     char* createFontSrc = NULL;
 
-
-    int succeeded = 1;
-
-    // -------------
-    // --- Parse ---
-    // -------------
     int i = 0;
     while(i < tokens->size)
     {
         const enum NU_Style_Token token = TokenArray_Get(tokens, i);
 
-        if (token == STYLE_FONT_CREATION_SELECTOR) 
-        {
-            if (!AssertFontCreationSelectorGrammar(tokens, i)) { succeeded = 0; break; }
+        if (token == STYLE_FONT_CREATION_SELECTOR) {
 
-            enum NU_Style_Token font_name_token = TokenArray_Get(tokens, i+1);
+            if (!AssertFontCreationSelectorGrammar(tokens, i)) return 0;
 
-            // Get id string
-            textRef = (struct Style_Text_Ref*)Vector_Get(textRefs, textRefIndex++);
-            createFontName = &src[textRef->src_index];
-            src[textRef->src_index + textRef->char_count] = '\0';
+            struct Style_Text_Ref* textRef = BinarySearchTextRef(textRefs, i+1);
 
-            // Create a new font
-            void* found_font = LinearStringmapGet(&ss->fontNameIndexMap, createFontName);
-            if (found_font == NULL) {
-                NU_Font font;
-                createFontID = Container_Add(&ss->fonts, &font);
-                createFont = Container_Get(&ss->fonts, createFontID);
-                LinearStringmapSet(&ss->fontNameIndexMap, createFontName, &createFontID);
-            } 
+            if (textRef) {
+                createFontName = &src[textRef->src_index]; src[textRef->src_index + textRef->char_count] = '\0';
+            }
 
-            // Advance
-            ctx = 1;
-            i += 3;
-            continue;
+            inFontSelector = 1;
+            i += 3; continue;
         }
 
-        else if (token == STYLE_DEFAULT_SELECTOR) 
-        {
-            if (i < tokens->size - 1 && TokenArray_Get(tokens, i+1) == STYLE_SELECTOR_OPEN_BRACE) {
-                ctx = 2;
-                i += 2;
-                continue;
-            }
-            else {
-                succeeded = 0; break;
-            }
-        }
-        
-        else if (token == STYLE_CLASS_SELECTOR || token == STYLE_ID_SELECTOR) {
-            if (i < tokens->size - 1)
-            {
-                enum NU_Style_Token next_token = TokenArray_Get(tokens, i+1);
+        else if (NU_Is_Property_Identifier_Token(token)) {
 
-                if (next_token == STYLE_SELECTOR_COMMA || next_token == STYLE_SELECTOR_OPEN_BRACE)  
-                {
-                    i += 1;
-                    textRefIndex += 1;
-                    continue;
-                }
-                else if (next_token == STYLE_PSEUDO_COLON && i < tokens->size-3)  
-                {
-                    i += 3;
-                    textRefIndex += 1;
-                    continue;
-                }
-                else
-                {
-                    succeeded = 0; break;
-                }
-            }
-            else
-            {
-                succeeded = 0; break;
-            }
-        }
+            if (!AssertPropertyIdentifierGrammar(tokens, i)) return 0;
 
-        else if (token == STYLE_SELECTOR_CLOSE_BRACE) 
-        {
-            if (!AssertSelectionClosingBraceGrammar(tokens, i)) { succeeded = 0; break; }
+            // Use binary search to find the corresponding property text
+            struct Style_Text_Ref* textRef = BinarySearchTextRef(textRefs, i + 2);
 
-            if (ctx == 1)
-            {
-                if (createFontSrc != NULL)
-                {
-                    NU_Font_Create(createFont, createFontSrc, createFontSize, true);
-                    createFontID = UINT8_MAX;
-                    createFontSize = 18;
-                    createFontWeight = 400;
-                    createFontName = NULL;
-                    createFontSrc = NULL;
-                }
-                else {
-                    succeeded = 0; break;
-                }
-            }
+            if (textRef) {
+                // Get null terminated property text
+                char* text = &src[textRef->src_index]; src[textRef->src_index + textRef->char_count] = '\0';
 
-            ctx = 0;
-            i += 1;
-            continue;
-        }
-
-        else if (NU_Is_Property_Identifier_Token(token)) 
-        {
-            if (!AssertPropertyIdentifierGrammar(tokens, i)) { succeeded = 0; break; }
-
-            // Get property value text
-            textRef = (struct Style_Text_Ref*)Vector_Get(textRefs, textRefIndex++);
-            char c = src[textRef->src_index];
-            char* text = &src[textRef->src_index];
-            src[textRef->src_index + textRef->char_count] = '\0';
-
-            // Parse Default Selector Property
-            if (ctx == 2) {
-                NU_Stylesheet_Parse_Property(ss, token, &ss->defaultStyleItem, text, textRef->char_count, imageFilepathToHandleMap);
-            }
-            // Parse Font Selector Property
-            else if (ctx == 1) {
                 switch (token)
                 {
                     case STYLE_FONT_SRC:
@@ -585,49 +538,120 @@ static int NU_Stylesheet_Parse_Specials(char* src, TokenArray* tokens, NU_Styles
 
                     case STYLE_FONT_SIZE:
                         int size = 0;
-                        if (String_To_Int(&size, text)) {
-                            createFontSize = size;
-                        }
+                        if (String_To_Int(&size, text)) createFontSize = size;
                         break;
 
                     case STYLE_FONT_WEIGHT:
                         int weight = 0;
-                        if (String_To_Int(&weight, text)) {
-                            createFontWeight = weight;
-                        }
+                        if (String_To_Int(&weight, text)) createFontWeight = weight;
                         break;
 
                     default:
                         break;
                 }
-            }
+            } 
 
-            // Advance
             i += 3; continue;
         }
-        
-        else 
-        {
-            // Advance
-            i += 1; continue;
+        else if (token == STYLE_SELECTOR_OPEN_BRACE) {
+            if (!AssertSelectionOpeningBraceGrammar(tokens, i)) return 0;
         }
+        else if (token == STYLE_SELECTOR_CLOSE_BRACE) {
+
+            if (!AssertSelectionClosingBraceGrammar(tokens, i)) return 0;
+
+            if (inFontSelector) {
+                if (createFontSrc != NULL) {
+                    
+                    // Create a new font
+                    void* found_font = LinearStringmapGet(&ss->fontNameIndexMap, createFontName);
+                    if (found_font == NULL) {
+                        NU_Font font;
+                        u8 createFontID = Container_Add(&ss->fonts, &font);
+                        NU_Font* createFont = Container_Get(&ss->fonts, createFontID);
+                        LinearStringmapSet(&ss->fontNameIndexMap, createFontName, &createFontID);
+                        NU_Font_Create(createFont, createFontSrc, createFontSize, true);
+                    } 
+                }
+                else {
+                    return 0;
+                }
+            }
+
+            inFontSelector = 0;
+        }
+        i += 1;
     }
 
-    return succeeded;
+    return 1;
+}
+
+static int NU_Stylesheet_Parse_Default(char* src, TokenArray* tokens, NU_Stylesheet* ss, struct Vector* textRefs, LinearStringmap* imageFilepathToHandleMap)
+{
+    int inDefaultSelector = 0;
+
+    int i = 0;
+    while(i < tokens->size)
+    {
+        const enum NU_Style_Token token = TokenArray_Get(tokens, i);
+
+        if (token == STYLE_DEFAULT_SELECTOR) {
+            if (!AssertDefaultSelectionGrammar(tokens, i)) return 0;
+
+            inDefaultSelector = 1;
+        }
+        else if (NU_Is_Property_Identifier_Token(token)) {
+            if (!AssertPropertyIdentifierGrammar(tokens, i)) return 0;
+
+            if (inDefaultSelector) {
+                // Use binary search to find the corresponding property text
+                struct Style_Text_Ref* textRef = BinarySearchTextRef(textRefs, i+2);
+
+                if (textRef) {
+                    // Get null terminated property text
+                    char* text = &src[textRef->src_index]; src[textRef->src_index + textRef->char_count] = '\0';
+
+                    NU_Stylesheet_Parse_Property(ss, token, &ss->defaultStyleItem, text, textRef->char_count, imageFilepathToHandleMap);
+                }   
+            }
+            i += 3; continue;
+        }
+        else if (token == STYLE_SELECTOR_OPEN_BRACE) {
+            if (!AssertSelectionOpeningBraceGrammar(tokens, i)) return 0;
+        }
+        else if (STYLE_SELECTOR_CLOSE_BRACE) {
+            inDefaultSelector = 0;
+        }
+        i += 1;
+    }
+
+    return 1;
 }
 
 static int NU_Stylesheet_Parse(char* src, TokenArray* tokens, NU_Stylesheet* ss, struct Vector* textRefs)
 {
+    // -----------------------
+    
     // -----------------------
     // --- (string -> int) ---
     // -----------------------
     LinearStringmap imageFilepathToHandleMap;
     LinearStringmapInit(&imageFilepathToHandleMap, sizeof(GLuint), 20, 512);
 
+    // -------------------
+    // --- Parse Fonts ---
+    // -------------------
+    int succeeded = NU_Stylesheet_Parse_Fonts(ss, src, tokens, textRefs);
+    if (!succeeded) {
+        LinearStringmapFree(&imageFilepathToHandleMap);
+        LinearStringmapFree(&ss->fontNameIndexMap);
+        return 0;
+    }
+
     // -------------------------------
     // --- Parse Special Selectors ---
     // -------------------------------
-    int succeeded = NU_Stylesheet_Parse_Specials(src, tokens, ss, textRefs, &imageFilepathToHandleMap);
+    succeeded = NU_Stylesheet_Parse_Default(src, tokens, ss, textRefs, &imageFilepathToHandleMap);
     if (!succeeded) {
         LinearStringmapFree(&imageFilepathToHandleMap);
         LinearStringmapFree(&ss->fontNameIndexMap);
@@ -662,23 +686,18 @@ static int NU_Stylesheet_Parse(char* src, TokenArray* tokens, NU_Stylesheet* ss,
     {
         const enum NU_Style_Token token = TokenArray_Get(tokens, i);
 
-        if (token == STYLE_FONT_CREATION_SELECTOR)
-        {
+        if (token == STYLE_FONT_CREATION_SELECTOR) {
             textRefIndex += 1;
             ctx = 1;
             i += 2;
             continue;
         }
-
-        else if (token == STYLE_DEFAULT_SELECTOR)
-        {
+        else if (token == STYLE_DEFAULT_SELECTOR) {
             ctx = 2;
             i += 2;
             continue;
         }
-
-        else if (token == STYLE_SELECTOR_OPEN_BRACE)
-        {
+        else if (token == STYLE_SELECTOR_OPEN_BRACE) {
             if (AssertSelectionOpeningBraceGrammar(tokens, i)) {
                 item.propertyFlags = 0;
                 item.layoutFlags = 0;
@@ -690,13 +709,10 @@ static int NU_Stylesheet_Parse(char* src, TokenArray* tokens, NU_Stylesheet* ss,
                 succeeded = 0; break;
             }
         }
-
-        else if (token == STYLE_SELECTOR_CLOSE_BRACE)
-        {
+        else if (token == STYLE_SELECTOR_CLOSE_BRACE) {
             if (!AssertSelectionClosingBraceGrammar(tokens, i)) { succeeded = 0; break; }
                 
-            if (ctx == 0)
-            {   
+            if (ctx == 0) {   
                 for (int j=0; j<selectorCount; j++) {
                     u32 item_index = selectorIndexes[j];
                     NU_Stylesheet_Item* curr_item = Vector_Get(&ss->items, item_index);
@@ -711,23 +727,21 @@ static int NU_Stylesheet_Parse(char* src, TokenArray* tokens, NU_Stylesheet* ss,
             i += 1;
             continue;
         }
-
-        else if (NU_Is_Tag_Selector_Token(token))
-        {
-            if (i < tokens->size - 1)
-            {
+        else if (NU_Is_Tag_Selector_Token(token)) {
+            if (i < tokens->size - 1) {
                 enum NU_Style_Token next_token = TokenArray_Get(tokens, i+1);
                 if (next_token == STYLE_SELECTOR_COMMA || next_token == STYLE_SELECTOR_OPEN_BRACE)    
                 {
                     int tag = NU_Token_To_Tag(token);
                     void* found = HashmapGet(&ss->tag_item_hashmap, &tag);
-                    if (found != NULL) // Style item exists
-                    {
+                    
+                    // Style item exists
+                    if (found != NULL) {
                         NU_Stylesheet_Item* found_item = Vector_Get(&ss->items, *(u32*)found);
                         selectorIndexes[selectorCount] = *(u32*)found;
                     } 
-                    else // Style item does not exist -> add one
-                    { 
+                    // Style item does not exist -> add one
+                    else { 
                         NU_Stylesheet_Item new_item;
                         new_item.class = NULL;
                         new_item.id = NULL;

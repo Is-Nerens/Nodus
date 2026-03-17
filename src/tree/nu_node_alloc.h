@@ -1,6 +1,5 @@
 #pragma once
 #include <stdlib.h>
-#include <stdint.h>
 
 typedef union NallocChunk NallocChunk;
 union NallocChunk {
@@ -19,10 +18,10 @@ typedef struct Nalloc
 {
     NallocChunk* freeChunk;
     ArrayStart* arrayStart;
-    uint32_t chunksPerArray;
+    u32 chunksPerArray;
 } Nalloc;
 
-int Nalloc_Init(Nalloc* pool, uint32_t itemsPerBlock)
+int Nalloc_Init(Nalloc* pool, u32 itemsPerBlock)
 {
     if (!pool) return 0;
     
@@ -35,7 +34,7 @@ int Nalloc_Init(Nalloc* pool, uint32_t itemsPerBlock)
         return 0;
     }
 
-    for (uint32_t i=0; i<itemsPerBlock-1; i++) {
+    for (u32 i=0; i<itemsPerBlock-1; i++) {
         array[i].next = &array[i + 1];
     }
     array[itemsPerBlock-1].next = NULL;
@@ -47,7 +46,7 @@ int Nalloc_Init(Nalloc* pool, uint32_t itemsPerBlock)
     return 1;
 }
 
-int Nalloc_Expand(Nalloc* pool, uint32_t extraChunks)
+int Nalloc_Expand(Nalloc* pool, u32 extraChunks)
 {
     if (pool == NULL) return 0;
 
@@ -60,7 +59,7 @@ int Nalloc_Expand(Nalloc* pool, uint32_t extraChunks)
         return 0;
     }
 
-    for (uint32_t i=0; i<extraChunks-1; i++) {
+    for (u32 i=0; i<extraChunks-1; i++) {
         extraArray[i].next = &extraArray[i+1];
     }
 

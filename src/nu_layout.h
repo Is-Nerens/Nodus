@@ -5,7 +5,7 @@
 #include <stdbool.h>
 #include <math.h>
 #include <utils/performance.h>
-#include <rendering/text/nu_text_layout.h>
+#include <text/nu_text_layout.h>
 
 static void NU_ApplyMinMaxWidthConstraint(NodeP* node)
 {
@@ -78,7 +78,7 @@ static void NU_CalculateTextFitWidths(BreadthFirstSearch* bfs)
 
         if (node->state == 2 || node->node.textContent == NULL) continue;
 
-        NU_Font* node_font = Stylesheet_Get_Font(__NGUI.stylesheet, node->fontId);
+        NU_Font* node_font = Stylesheet_Get_Font(GUI.stylesheet, node->fontId);
 
         // Calculate text width & height
         float text_width = NU_Calculate_Text_Unwrapped_Width(node_font, node->node.textContent);
@@ -106,7 +106,7 @@ static void NU_CalculateFitSizeWidths(ReverseBreadthFirstSearch* rbfs)
         // If node is a window -> set dimensions equal to window
         if (node->type == NU_WINDOW) {
             int winWidth, winHeight;
-            SDL_Window* window = GetSDL_Window(&__NGUI.winManager, node->windowID);
+            SDL_Window* window = GetSDL_Window(&GUI.winManager, node->windowID);
             SDL_GetWindowSize(window, &winWidth, &winHeight);
             node->node.width = (float)winWidth;
             node->node.height = (float)winHeight;
@@ -662,7 +662,7 @@ static void NU_CalculateTextHeights(BreadthFirstSearch* bfs)
         if (node->state == 2) continue;
 
         if (node->type == NU_INPUT) {
-            NU_Font* node_font = Stylesheet_Get_Font(__NGUI.stylesheet, node->fontId);
+            NU_Font* node_font = Stylesheet_Get_Font(GUI.stylesheet, node->fontId);
 
             // Set input height equal to line height
             node->node.height = node_font->line_height + 
@@ -671,7 +671,7 @@ static void NU_CalculateTextHeights(BreadthFirstSearch* bfs)
             node->node.contentHeight = node_font->line_height;
         }
         else if (node->node.textContent != NULL) {
-            NU_Font* node_font = Stylesheet_Get_Font(__NGUI.stylesheet, node->fontId);
+            NU_Font* node_font = Stylesheet_Get_Font(GUI.stylesheet, node->fontId);
 
             // Compute available inner width
             float inner_width = node->node.width - node->node.borderLeft - node->node.borderRight - node->node.padLeft - node->node.padRight;
@@ -919,16 +919,16 @@ void NU_Repass(BreadthFirstSearch* bfs)
 void NU_Layout()
 {
     // RESET TRAVERSAL DATA STRUCTURES
-    BreadthFirstSearch* bfs = &__NGUI.bfs;
-    ReverseBreadthFirstSearch* rbfs = &__NGUI.rbfs;
-    BreadthFirstSearch_Reset(bfs, __NGUI.tree.root);
-    ReverseBreadthFirstSearch_Reset(rbfs, __NGUI.tree.root);
+    BreadthFirstSearch* bfs = &GUI.bfs;
+    ReverseBreadthFirstSearch* rbfs = &GUI.rbfs;
+    BreadthFirstSearch_Reset(bfs, GUI.tree.root);
+    ReverseBreadthFirstSearch_Reset(rbfs, GUI.tree.root);
 
     // RESERVE LIST OF AUTO SCROLL NODES
-    Vector_Clear(&__NGUI.layoutScrollAutoNodes);
+    Vector_Clear(&GUI.layoutScrollAutoNodes);
 
     // FIRST PASS -> ASSUME SCROLLBARS TAKE UP NO SPACE
-    NU_Prepass(bfs, &__NGUI.layoutScrollAutoNodes);
+    NU_Prepass(bfs, &GUI.layoutScrollAutoNodes);
     NU_CalculateTextFitWidths(bfs);
     NU_CalculateFitSizeWidths(rbfs);  
     NU_GrowShrinkWidths(bfs, false);
@@ -939,9 +939,9 @@ void NU_Layout()
     NU_CalculatePositions(bfs, false);
 
     // SECOND PASS -> RECOMPUTE OVERFLOWED SCROLL BRANCHES
-    for (uint32_t i=0; i<__NGUI.layoutScrollAutoNodes.size; i++)
+    for (u32 i=0; i<GUI.layoutScrollAutoNodes.size; i++)
     {
-        NodeP* node = *(NodeP**)Vector_Get(&__NGUI.layoutScrollAutoNodes, i);
+        NodeP* node = *(NodeP**)Vector_Get(&GUI.layoutScrollAutoNodes, i);
         bool overflowed = node->node.contentHeight > (node->node.height - node->node.padTop - node->node.padBottom - node->node.borderTop - node->node.borderBottom);
         if (!overflowed) continue;
 
@@ -959,5 +959,5 @@ void NU_Layout()
         NU_CalculatePositions(bfs, true);
     }
 
-    __NGUI.recalculate_mouse_hover = true;
+    GUI.recalculate_mouse_hover = true;
 }

@@ -1,10 +1,5 @@
-#include <stdint.h>
-#include <string.h>
-typedef int8_t i8;
-typedef uint8_t u8;
-typedef uint16_t u16;
-typedef uint32_t u32;
-typedef uint64_t u64;
+#pragma once
+#include <input_text/nu_input_text_struct.h>
 
 // Updates the cursorOffset and textOffset
 void InputText_UpdateCusorTextOffsets(InputText* text, NodeP* node, NU_Font* font, i8 moveDelta) 

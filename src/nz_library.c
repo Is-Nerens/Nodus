@@ -8,21 +8,44 @@
 __declspec(dllexport) int NU_Create_Gui(const char* xml_filepath, const char* css_filepath) {
     return NU_Internal_Create_Gui(xml_filepath, css_filepath);
 }
-
 __declspec(dllexport) void NU_Quit(void) {
     NU_Internal_Quit();
 }
 __declspec(dllexport) int NU_Running(void) {
-    return NU_Internal_Running();
+    if (!GUI.running) return 0;
+
+    SDL_Event event;
+    while (SDL_PollEvent(&event)) {}
+
+    if (GUI.awaiting_redraw) 
+    {
+        NU_Layout();
+        if (GUI.recalculate_mouse_hover) NU_Mouse_Hover();
+        NU_Draw();
+        CheckForResizeEvents();
+    }
+
+    // Wait for next event, with timeout to save CPU
+    SDL_WaitEventTimeout(&event, GetFrametime());
+
+    return 1;
 }
+__declspec(dllexport) void NU_Render() 
+{
+    SDL_Event e;
+    SDL_zero(e);
+    e.type = GUI.SDL_CUSTOM_RENDER_EVENT;
+    SDL_PushEvent(&e);   
+}
+
 
 // ----------------------------
 // --- Stylesheet functions ---
 // ----------------------------
-__declspec(dllexport) uint32_t NU_Load_Stylesheet(const char* filepath) {
+__declspec(dllexport) u32 NU_Load_Stylesheet(const char* filepath) {
     return NU_Internal_Load_Stylesheet(filepath);
 }
-__declspec(dllexport) int NU_Apply_Stylesheet(uint32_t stylesheet_handle) {
+__declspec(dllexport) int NU_Apply_Stylesheet(u32 stylesheet_handle) {
     return NU_Internal_Apply_Stylesheet(stylesheet_handle);
 }
 
@@ -31,7 +54,7 @@ __declspec(dllexport) int NU_Apply_Stylesheet(uint32_t stylesheet_handle) {
 // ------------------------
 __declspec(dllexport) void NU_Set_Window_Fullscreen(Node* node) {
     NodeP* nodeP = NODEP_OF(node);
-    SDL_Window* window = GetSDL_Window(&__NGUI.winManager, nodeP->windowID);
+    SDL_Window* window = GetSDL_Window(&GUI.winManager, nodeP->windowID);
     Uint32 flags = SDL_GetWindowFlags(window);
     if (flags & SDL_WINDOW_FULLSCREEN) return;
     SDL_SetWindowFullscreen(window, true);
@@ -43,13 +66,13 @@ __declspec(dllexport) void NU_Set_Window_Fullscreen(Node* node) {
     glClearColor(0.0f, 0.0f, 0.0f, 1.0f);
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT | GL_STENCIL_BUFFER_BIT);
     SDL_GL_SwapWindow(window);
-    __NGUI.awaiting_redraw = true;
-    NU_Internal_Render();
+    GUI.awaiting_redraw = true;
+    NU_Render();
 }
 
 __declspec(dllexport) void NU_Set_Window_Windowed(Node* node) {
     NodeP* nodeP = NODEP_OF(node);
-    SDL_Window* window = GetSDL_Window(&__NGUI.winManager, nodeP->windowID);
+    SDL_Window* window = GetSDL_Window(&GUI.winManager, nodeP->windowID);
     Uint32 flags = SDL_GetWindowFlags(window);
     if (!(flags & SDL_WINDOW_FULLSCREEN)) return;
     SDL_SetWindowFullscreen(window, false);
@@ -61,8 +84,8 @@ __declspec(dllexport) void NU_Set_Window_Windowed(Node* node) {
     glClearColor(0.0f, 0.0f, 0.0f, 1.0f);
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT | GL_STENCIL_BUFFER_BIT);
     SDL_GL_SwapWindow(window);
-    __NGUI.awaiting_redraw = true;
-    NU_Internal_Render();
+    GUI.awaiting_redraw = true;
+    NU_Render();
 }
 
 // ------------------------
@@ -70,52 +93,52 @@ __declspec(dllexport) void NU_Set_Window_Windowed(Node* node) {
 // ------------------------
 __declspec(dllexport) void NU_Set_Cursor_Default(void)
 {
-    SDL_SetCursor(__NGUI.cursorDefault);
+    SDL_SetCursor(GUI.cursorDefault);
 }
 
 __declspec(dllexport) void NU_Set_Cursor_Pointer(void)
 {
-    SDL_SetCursor(__NGUI.cursorPointer);
+    SDL_SetCursor(GUI.cursorPointer);
 }
 
 __declspec(dllexport) void NU_Set_Cursor_Text(void)
 {
-    SDL_SetCursor(__NGUI.cursorText);
+    SDL_SetCursor(GUI.cursorText);
 }
 
 __declspec(dllexport) void NU_Set_Cursor_Wait(void)
 {
-    SDL_SetCursor(__NGUI.cursorWait);
+    SDL_SetCursor(GUI.cursorWait);
 }
 
 __declspec(dllexport) void NU_Set_Cursor_Crosshair(void)
 {
-    SDL_SetCursor(__NGUI.cursorCrosshair);
+    SDL_SetCursor(GUI.cursorCrosshair);
 }
 
 __declspec(dllexport) void NU_Set_Cursor_Move(void)
 {
-    SDL_SetCursor(__NGUI.cursorMove);
+    SDL_SetCursor(GUI.cursorMove);
 }
 
 __declspec(dllexport) void NU_Set_Cursor_NsResize(void)
 {
-    SDL_SetCursor(__NGUI.cursorNsResize);
+    SDL_SetCursor(GUI.cursorNsResize);
 }
 
 __declspec(dllexport) void NU_Set_Cursor_EwResize(void)
 {
-    SDL_SetCursor(__NGUI.cursorEwResize);
+    SDL_SetCursor(GUI.cursorEwResize);
 }
 
 __declspec(dllexport) void NU_Set_Cursor_NwseResize(void)
 {
-    SDL_SetCursor(__NGUI.cursorNwseResize);
+    SDL_SetCursor(GUI.cursorNwseResize);
 }
 
 __declspec(dllexport) void NU_Set_Cursor_NeswResize(void)
 {
-    SDL_SetCursor(__NGUI.cursorNeswResize);
+    SDL_SetCursor(GUI.cursorNeswResize);
 }
 
 // ---------------------
@@ -126,7 +149,7 @@ __declspec(dllexport) Node* NU_PARENT(Node* node) {
     if (nodeP->parent == NULL) return NULL;
     return &nodeP->parent->node;
 }
-__declspec(dllexport) Node* NU_CHILD(Node* node, uint32_t childIndex) {
+__declspec(dllexport) Node* NU_CHILD(Node* node, u32 childIndex) {
     NodeP* nodeP = NODEP_OF(node);
     if (nodeP == NULL || childIndex >= nodeP->childCount) return NULL;
     NodeP* child = nodeP->firstChild;
@@ -145,17 +168,17 @@ __declspec(dllexport) int NU_CHILD_COUNT(Node* node) {
 __declspec(dllexport) Node* NU_CREATE_NODE(Node* parent, NodeType type) {
     if (parent == NULL || type == NU_WINDOW) return NULL; // Nodus doesn't yet support window creation
     NodeP* parentP = NODEP_OF(parent);
-    NodeP* node = TreeCreateNode(&__NGUI.tree, parentP, type);
-    NU_Apply_Stylesheet_To_Node(node, __NGUI.stylesheet);
+    NodeP* node = TreeCreateNode(&GUI.tree, parentP, type);
+    NU_Apply_Stylesheet_To_Node(node, GUI.stylesheet);
     return &node->node;
 }
 __declspec(dllexport) void NU_DELETE_NODE(Node* node) {
     NodeP* nodeP = NODEP_OF(node);
-    return TreeDeleteNode(&__NGUI.tree, nodeP, NU_DissociateNode);
+    return TreeDeleteNode(&GUI.tree, nodeP, NU_DissociateNode);
 }
 __declspec(dllexport) void NU_SHIFT_NODE_IN_PARENT(Node* node, int index) {
     NodeP* nodeP = NODEP_OF(node);
-    TreeShiftNodeInParent(&__NGUI.tree, nodeP, index);
+    TreeShiftNodeInParent(&GUI.tree, nodeP, index);
 }
 __declspec(dllexport) const char* NU_INPUT_TEXT_CONTENT(Node* node) {
     NodeP* nodeP = NODEP_OF(node);
@@ -163,8 +186,8 @@ __declspec(dllexport) const char* NU_INPUT_TEXT_CONTENT(Node* node) {
     return nodeP->typeData.input.inputText.buffer;
 }
 __declspec(dllexport) Node* NU_HOVERED_NODE() {
-    if (!__NGUI.hovered_node) return NULL;
-    return &__NGUI.hovered_node->node;
+    if (!GUI.hovered_node) return NULL;
+    return &GUI.hovered_node->node;
 }
 __declspec(dllexport) void NU_HIDE(Node* node) {
     NodeP* nodeP = NODEP_OF(node);
@@ -175,7 +198,7 @@ __declspec(dllexport) void NU_SHOW(Node* node) {
     nodeP->layoutFlags &= ~HIDDEN;
 }
 __declspec(dllexport) Node* NU_Get_Node_By_Id(const char* id) {
-    void* found = StringmapGet(&__NGUI.id_node_map, id);
+    void* found = StringmapGet(&GUI.id_node_map, id);
     if (found == NULL) return NULL;
     NodeP* node = *(NodeP**)found;
     return &node->node;
@@ -184,7 +207,7 @@ __declspec(dllexport) NU_Nodelist NU_Get_Nodes_By_Class(const char* class) {
     
     NU_Nodelist_Internal result;
     NU_Nodelist_Init(&result, 8);
-    DepthFirstSearch dfs = DepthFirstSearch_Create(__NGUI.tree.root);
+    DepthFirstSearch dfs = DepthFirstSearch_Create(GUI.tree.root);
     NodeP* node;
     while(DepthFirstSearch_Next(&dfs, &node)) {
         if (node->class != NULL && strcmp(class, node->class) == 0) {
@@ -197,7 +220,7 @@ __declspec(dllexport) NU_Nodelist NU_Get_Nodes_By_Class(const char* class) {
 __declspec(dllexport) NU_Nodelist NU_Get_Nodes_By_Tag(NodeType type) {
     NU_Nodelist_Internal result;
     NU_Nodelist_Init(&result, 8);
-    DepthFirstSearch dfs = DepthFirstSearch_Create(__NGUI.tree.root);
+    DepthFirstSearch dfs = DepthFirstSearch_Create(GUI.tree.root);
     NodeP* node;
     while(DepthFirstSearch_Next(&dfs, &node)) {
         if (node->type == type) {
@@ -237,8 +260,37 @@ __declspec(dllexport) void NU_Nodelist_Free(NU_Nodelist* nodelist) {
     nodelist->count = 0;
 }
 __declspec(dllexport) void NU_Set_Class(Node* node, const char* class) {
-    NU_Internal_Set_Class(node, class);
+    NodeP* nodeP = NODEP_OF(node);
+    if (class == nodeP->class) return;
+
+    char* prevNodeClass = nodeP->class;
+    nodeP->class = NULL;
+
+    // Look for class in gui class string set
+    char* gui_class_get = StringsetGet(&GUI.class_string_set, class);
+    if (gui_class_get == NULL) { // Not found? Look in the stylesheet
+        char* style_class_get = LinearStringsetGet(&GUI.stylesheet->class_string_set, class);
+
+        // If found in the stylesheet -> add it to the gui class set
+        if (style_class_get) {
+            nodeP->class = StringsetAdd(&GUI.class_string_set, class);
+        }
+    } 
+    else {
+        nodeP->class = gui_class_get; 
+    }
+
+    // Update styling
+    NU_Apply_Stylesheet_To_Node(nodeP, GUI.stylesheet);
+    if (nodeP == GUI.scroll_mouse_down_node) {
+        NU_Apply_Pseudo_Style_To_Node(nodeP, GUI.stylesheet, PSEUDO_PRESS);
+    } else if (nodeP == GUI.hovered_node) {
+        NU_Apply_Pseudo_Style_To_Node(nodeP, GUI.stylesheet, PSEUDO_HOVER);
+    }
+
+    GUI.awaiting_redraw = true;
 }
+
 // -----------------------
 // --- Event functions ---
 // -----------------------
@@ -258,17 +310,10 @@ __declspec(dllexport) int64_t NU_Get_Canvas_Ctx(Node* canvasNode)
 {
     return NU_Internal_Get_Canvas_Context(canvasNode);
 }
-
 __declspec(dllexport) void NU_Clear_Canvas(int contextID) 
 {
     NU_Internal_Clear_Canvas(contextID);
 }
-
-__declspec(dllexport) void NU_Render() 
-{
-    NU_Internal_Render();
-}
-
 __declspec(dllexport) NU_RGB NU_RGB_From_Hex(const char* hex)
 {
     NU_RGB col = {1.0f, 1.0f, 1.0f};
@@ -281,7 +326,6 @@ __declspec(dllexport) NU_RGB NU_RGB_From_Hex(const char* hex)
     col.b = (float)b / 255.0f;
     return col;
 }
-
 __declspec(dllexport) void NU_Border_Rect(
     int contextID,
     float x, float y, float w, float h, 
@@ -299,13 +343,12 @@ __declspec(dllexport) void NU_Line(
 {
     NU_Internal_Line(contextID, x1, y1, x2, y2, thickness, col);
 }
-
 __declspec(dllexport) void NU_Dashed_Line(
     int contextID,
     float x1, float y1, float x2, float y2,
     float thickness,
-    uint8_t* dash_pattern,
-    uint32_t dash_pattern_len,
+    u8* dash_pattern,
+    u32 dash_pattern_len,
     NU_RGB col) 
 {
     NU_Internal_Dashed_Line(
@@ -316,14 +359,12 @@ __declspec(dllexport) void NU_Dashed_Line(
         dash_pattern_len,
         col);
 }
-
 __declspec(dllexport) void NU_Set_Canvas_Font(
     int contextID,
     const char* font_name)
 {
     NU_Internal_Set_Canvas_Font(contextID, font_name);
 }
-
 __declspec(dllexport) void NU_Text(
     int contextID,
     float x, float y, float wrapWidth,
@@ -331,7 +372,6 @@ __declspec(dllexport) void NU_Text(
 {
     NU_Internal_Text(contextID, x, y, wrapWidth, col, string);
 }
-
 __declspec(dllexport) float NU_Text_Height(
     int contextID,
     float wrapWidth,
@@ -339,14 +379,12 @@ __declspec(dllexport) float NU_Text_Height(
 {
     return NU_Internal_Text_Height(contextID, wrapWidth, string);
 }
-
 __declspec(dllexport) float NU_Text_Width(
     int contextID,
     const char* string)
 {
     return NU_Internal_Text_Width(contextID, string);
 }
-
 __declspec(dllexport) float NU_Text_Line_Height(
     int contextID)
 {

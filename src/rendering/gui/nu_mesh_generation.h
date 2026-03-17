@@ -228,8 +228,8 @@ void Construct_Border_Rect(
     vec2 br_a              = { (float)(int)(n->x + n->width - borderRadiusBr), (float)(int)(n->y + n->height - borderRadiusBr) };
 
     // --- Allocate extra space in vertex and index lists ---
-    uint32_t additional_vertices = (node->layoutFlags & HIDE_BACKGROUND) ? total_pts * 2 + 4 : total_pts * 3 + 4;    // each corner contributes 3*cp + 1 verts
-    uint32_t additional_indices = (total_pts - 4) * 6                                                // curved edges
+    u32 additional_vertices = (node->layoutFlags & HIDE_BACKGROUND) ? total_pts * 2 + 4 : total_pts * 3 + 4;    // each corner contributes 3*cp + 1 verts
+    u32 additional_indices = (total_pts - 4) * 6                                                // curved edges
                                   + 24                                                               // straight sides
                                   + ((node->layoutFlags & HIDE_BACKGROUND) ? 0 : (total_pts - 4) * 3 + 30);          // background tris
     if (vertices->size + additional_vertices > vertices->capacity) Vertex_RGB_List_Grow(vertices, additional_vertices);
@@ -248,7 +248,7 @@ void Construct_Border_Rect(
 
 
     // --- Fill in side indices ---
-    uint32_t* indices_write = indices->array + indices->size;
+    u32* indices_write = indices->array + indices->size;
 
     // --- Top side quad ---
     *indices_write++ = TL + tl_pts - 1;
@@ -324,8 +324,8 @@ void Construct_Scroll_Thumb(NodeP* node,
     Node* n = &node->node;
 
     // --- Allocate extra space in vertex and index lists ---
-    uint32_t additional_vertices = 8;    
-    uint32_t additional_indices = 12;          
+    u32 additional_vertices = 8;    
+    u32 additional_indices = 12;          
     if (vertices->size + additional_vertices > vertices->capacity) Vertex_RGB_List_Grow(vertices, additional_vertices);
     if (indices->size + additional_indices > indices->capacity) Index_List_Grow(indices, additional_indices);
 
@@ -341,7 +341,7 @@ void Construct_Scroll_Thumb(NodeP* node,
     float thumb_y = n->y + n->borderTop + (node->scrollV * (track_height - thumb_height));
     float w = 8.0f;
 
-    uint32_t vertOffset = vertices->size;
+    u32 vertOffset = vertices->size;
 
     // Background Rect TL
     vertices->array[vertOffset + 0].x = x;
@@ -400,7 +400,7 @@ void Construct_Scroll_Thumb(NodeP* node,
     vertices->array[vertOffset + 7].b = 0.9f;
 
     // Indices
-    uint32_t* indices_write = indices->array + indices->size;
+    u32* indices_write = indices->array + indices->size;
     *indices_write++ = vertOffset + 0;
     *indices_write++ = vertOffset + 1;
     *indices_write++ = vertOffset + 2;
@@ -458,7 +458,7 @@ void NU_ConstructInputCursorMesh(
     vertices->array[3].b = 1.0f;
 
     // indices
-    uint32_t* indices_write = indices->array;
+    u32* indices_write = indices->array;
     *indices_write++ = 0;
     *indices_write++ = 1;
     *indices_write++ = 2;
@@ -517,7 +517,7 @@ void NU_ConstructInputHighlightMesh(
     vertices->array[3].b = highlightB;
 
     // indices
-    uint32_t* indices_write = indices->array;
+    u32* indices_write = indices->array;
     *indices_write++ = 0;
     *indices_write++ = 1;
     *indices_write++ = 2;

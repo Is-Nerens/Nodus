@@ -135,12 +135,12 @@ enum NU_Pseudo_Class
     PSEUDO_UNDEFINED
 };
 
-static inline uint32_t Property_Token_To_Flag(enum NU_Style_Token token)
+static inline u32 Property_Token_To_Flag(enum NU_Style_Token token)
 {
     return (1u << token);
 }
 
-static enum NU_Style_Token NU_Word_To_Style_Token(char* word, uint8_t len)
+static enum NU_Style_Token NU_Word_To_Style_Token(char* word, u8 len)
 {
     word[len] = '\0';
     for (int i = STYLE_PROPERTY_FIRST; i <= STYLE_PSEUDO_LAST; i++) {
@@ -149,7 +149,7 @@ static enum NU_Style_Token NU_Word_To_Style_Token(char* word, uint8_t len)
     return STYLE_UNDEFINED;
 }
 
-static enum NU_Style_Token NU_Word_To_Style_Property_Token(char* word, uint8_t len)
+static enum NU_Style_Token NU_Word_To_Style_Property_Token(char* word, u8 len)
 {
     word[len] = '\0';
     for (int i = STYLE_PROPERTY_FIRST; i <= STYLE_PROPERTY_LAST; i++) {
@@ -158,7 +158,7 @@ static enum NU_Style_Token NU_Word_To_Style_Property_Token(char* word, uint8_t l
     return STYLE_UNDEFINED;
 }
 
-static enum NU_Style_Token NU_Word_To_Tag_Selector_Token(char* word, uint8_t len)
+static enum NU_Style_Token NU_Word_To_Tag_Selector_Token(char* word, u8 len)
 {
     word[len] = '\0';
     for (int i = STYLE_TAG_SELECTOR_FIRST; i <= STYLE_TAG_SELECTOR_LAST; i++) {
@@ -167,7 +167,7 @@ static enum NU_Style_Token NU_Word_To_Tag_Selector_Token(char* word, uint8_t len
     return STYLE_UNDEFINED;
 }
 
-static enum NU_Style_Token NU_Word_To_Any_Selector_Token(char* word, uint8_t len)
+static enum NU_Style_Token NU_Word_To_Any_Selector_Token(char* word, u8 len)
 {
     word[len] = '\0';
     for (int i = STYLE_TAG_SELECTOR_FIRST; i <= STYLE_SPECIAL_SELECTOR_LAST; i++) {
@@ -176,7 +176,7 @@ static enum NU_Style_Token NU_Word_To_Any_Selector_Token(char* word, uint8_t len
     return STYLE_UNDEFINED;
 }
 
-static enum NU_Style_Token NU_Word_To_Pseudo_Token(char* word, uint8_t len)
+static enum NU_Style_Token NU_Word_To_Pseudo_Token(char* word, u8 len)
 {
     word[len] = '\0';
     for (int i = STYLE_PSEUDO_FIRST; i <= STYLE_PSEUDO_LAST; i++) {

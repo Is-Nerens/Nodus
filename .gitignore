@@ -11,7 +11,7 @@ build
 documentation
 fonts
 app-test
-src/vendor/freetype
-src/vendor/glew
-src/vendor/SDL3
+src/libraries/freetype
+src/libraries/glew
+src/libraries/SDL3
 compile-app.ps1

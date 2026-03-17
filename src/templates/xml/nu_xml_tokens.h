@@ -68,12 +68,12 @@ typedef enum NU_XML_TOKEN
 
 typedef struct Text_Ref
 {
-    uint32_t NU_Token_index;
-    uint32_t src_index;
-    uint8_t char_count;
+    u32 NU_Token_index;
+    u32 src_index;
+    u8 char_count;
 } Text_Ref;
 
-NU_XML_TOKEN NU_Word_To_Token(char* word, uint8_t wordLen)
+NU_XML_TOKEN NU_Word_To_Token(char* word, u8 wordLen)
 {
     word[wordLen] = '\0';
 
@@ -93,7 +93,7 @@ NU_XML_TOKEN NU_Word_To_Token(char* word, uint8_t wordLen)
     return UNDEFINED;
 }
 
-NU_XML_TOKEN NU_Word_To_Tag_Token(char* word, uint8_t wordLen)
+NU_XML_TOKEN NU_Word_To_Tag_Token(char* word, u8 wordLen)
 {
     word[wordLen] = '\0';
     for (int i=0; i<NU_XML_TYPE_COUNT; i++) {
@@ -104,7 +104,7 @@ NU_XML_TOKEN NU_Word_To_Tag_Token(char* word, uint8_t wordLen)
     return UNDEFINED_TAG;
 }
 
-NU_XML_TOKEN NU_Word_To_Property_Token(char* word, uint8_t wordLen)
+NU_XML_TOKEN NU_Word_To_Property_Token(char* word, u8 wordLen)
 {
     word[wordLen] = '\0';
     for (int i=0; i<NU_XML_PROPERTY_COUNT; i++) {

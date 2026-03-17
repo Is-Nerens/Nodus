@@ -20,8 +20,8 @@ int NU_Generate_Tree(char* src, TokenArray* tokens, struct Vector* textRefs)
     // -----------------------
     // Create root window node
     // -----------------------
-    NodeP* rootNode = TreeCreate(&__NGUI.tree, NU_WINDOW);
-    AssignRootWindow(&__NGUI.winManager, rootNode);
+    NodeP* rootNode = TreeCreate(&GUI.tree, NU_WINDOW);
+    AssignRootWindow(&GUI.winManager, rootNode);
 
     // ---------------------------------
     // Get first property text reference
@@ -85,12 +85,12 @@ int NU_Generate_Tree(char* src, TokenArray* tokens, struct Vector* textRefs)
                 // ----------------------------------------
                 // Create a new node and add it to the tree
                 // ----------------------------------------
-                currentNode = TreeCreateNode(&__NGUI.tree, currentNode, type);
+                currentNode = TreeCreateNode(&GUI.tree, currentNode, type);
                 // ----------------------------------------
                 // --- Handle scenarios for different tags
                 // ----------------------------------------
                 if (currentNode->type == NU_WINDOW) { // If node is a window -> create SDL window
-                    CreateSubwindow(&__NGUI.winManager, currentNode);
+                    CreateSubwindow(&GUI.winManager, currentNode);
                 }
                 else if (currentNode->type == NU_TABLE) {
                     ctx = 1;
@@ -172,7 +172,7 @@ int NU_Generate_Tree(char* src, TokenArray* tokens, struct Vector* textRefs)
                 char c = src[current_text_ref->src_index];
                 char* text = &src[current_text_ref->src_index];
                 src[current_text_ref->src_index + current_text_ref->char_count] = '\0';
-                currentNode->node.textContent = StringArena_Add(&__NGUI.nodeTextArena, text);
+                currentNode->node.textContent = StringArena_Add(&GUI.nodeTextArena, text);
             }
 
             // Continue ^
@@ -202,16 +202,16 @@ int NU_Generate_Tree(char* src, TokenArray* tokens, struct Vector* textRefs)
                 {
                     // Set id
                     case ID_PROPERTY:
-                        char* id_get = StringsetGet(&__NGUI.id_string_set, ptext);
+                        char* id_get = StringsetGet(&GUI.id_string_set, ptext);
                         if (id_get == NULL) {
-                            currentNode->id = StringsetAdd(&__NGUI.id_string_set, ptext);
-                            StringmapSet(&__NGUI.id_node_map, ptext, &currentNode);
+                            currentNode->id = StringsetAdd(&GUI.id_string_set, ptext);
+                            StringmapSet(&GUI.id_node_map, ptext, &currentNode);
                         }
                         break;
 
                     // Set class
                     case CLASS_PROPERTY:
-                        currentNode->class = StringsetAdd(&__NGUI.class_string_set, ptext);
+                        currentNode->class = StringsetAdd(&GUI.class_string_set, ptext);
                         break;
 
                     // Set layout direction
@@ -285,8 +285,8 @@ int NU_Generate_Tree(char* src, TokenArray* tokens, struct Vector* textRefs)
                     
                     // Set gap 
                     case GAP_PROPERTY:
-                        uint8_t gap;
-                        if (String_To_uint8_t(&gap, ptext)) {
+                        u8 gap;
+                        if (String_To_u8(&gap, ptext)) {
                             currentNode->overrideStyleFlags |= PROPERTY_FLAG_GAP;
                             currentNode->node.gap = gap;
                         }
@@ -465,8 +465,8 @@ int NU_Generate_Tree(char* src, TokenArray* tokens, struct Vector* textRefs)
 
                     // Set border width
                     case BORDER_WIDTH_PROPERTY:
-                        uint8_t property_uint8;
-                        if (String_To_uint8_t(&property_uint8, ptext)) {
+                        u8 property_uint8;
+                        if (String_To_u8(&property_uint8, ptext)) {
                             currentNode->overrideStyleFlags |= PROPERTY_FLAG_BORDER_TOP | PROPERTY_FLAG_BORDER_BOTTOM | PROPERTY_FLAG_BORDER_LEFT | PROPERTY_FLAG_BORDER_RIGHT;
                             currentNode->node.borderTop = property_uint8;
                             currentNode->node.borderBottom = property_uint8;
@@ -475,25 +475,25 @@ int NU_Generate_Tree(char* src, TokenArray* tokens, struct Vector* textRefs)
                         }
                         break;
                     case BORDER_TOP_WIDTH_PROPERTY:
-                        if (String_To_uint8_t(&property_uint8, ptext)) {
+                        if (String_To_u8(&property_uint8, ptext)) {
                             currentNode->overrideStyleFlags |= PROPERTY_FLAG_BORDER_TOP;
                             currentNode->node.borderTop = property_uint8;
                         }
                         break;
                     case BORDER_BOTTOM_WIDTH_PROPERTY:
-                        if (String_To_uint8_t(&property_uint8, ptext)) {
+                        if (String_To_u8(&property_uint8, ptext)) {
                             currentNode->overrideStyleFlags |= PROPERTY_FLAG_BORDER_BOTTOM;
                             currentNode->node.borderBottom = property_uint8;
                         }
                         break;
                     case BORDER_LEFT_WIDTH_PROPERTY:
-                        if (String_To_uint8_t(&property_uint8, ptext)) {
+                        if (String_To_u8(&property_uint8, ptext)) {
                             currentNode->overrideStyleFlags |= PROPERTY_FLAG_BORDER_LEFT;
                             currentNode->node.borderLeft = property_uint8;
                         }
                         break;
                     case BORDER_RIGHT_WIDTH_PROPERTY:
-                        if (String_To_uint8_t(&property_uint8, ptext)) {
+                        if (String_To_u8(&property_uint8, ptext)) {
                             currentNode->overrideStyleFlags |= PROPERTY_FLAG_BORDER_RIGHT;
                             currentNode->node.borderRight = property_uint8;
                         }
@@ -501,7 +501,7 @@ int NU_Generate_Tree(char* src, TokenArray* tokens, struct Vector* textRefs)
 
                     // Set border radii
                     case BORDER_RADIUS_PROPERTY:
-                        if (String_To_uint8_t(&property_uint8, ptext)) {
+                        if (String_To_u8(&property_uint8, ptext)) {
                             currentNode->overrideStyleFlags |= PROPERTY_FLAG_BORDER_RADIUS_TL | PROPERTY_FLAG_BORDER_RADIUS_TR | PROPERTY_FLAG_BORDER_RADIUS_BL | PROPERTY_FLAG_BORDER_RADIUS_BR;
                             currentNode->node.borderRadiusTl = property_uint8;
                             currentNode->node.borderRadiusTr = property_uint8;
@@ -510,25 +510,25 @@ int NU_Generate_Tree(char* src, TokenArray* tokens, struct Vector* textRefs)
                         }
                         break;
                     case BORDER_TOP_LEFT_RADIUS_PROPERTY:
-                        if (String_To_uint8_t(&property_uint8, ptext)) {
+                        if (String_To_u8(&property_uint8, ptext)) {
                             currentNode->overrideStyleFlags |= PROPERTY_FLAG_BORDER_RADIUS_TL;
                             currentNode->node.borderRadiusTl = property_uint8;
                         }
                         break;
                     case BORDER_TOP_RIGHT_RADIUS_PROPERTY:
-                        if (String_To_uint8_t(&property_uint8, ptext)) {
+                        if (String_To_u8(&property_uint8, ptext)) {
                             currentNode->overrideStyleFlags |= PROPERTY_FLAG_BORDER_RADIUS_TR;
                             currentNode->node.borderRadiusTr = property_uint8;
                         }
                         break;
                     case BORDER_BOTTOM_LEFT_RADIUS_PROPERTY:
-                        if (String_To_uint8_t(&property_uint8, ptext)) {
+                        if (String_To_u8(&property_uint8, ptext)) {
                             currentNode->overrideStyleFlags |= PROPERTY_FLAG_BORDER_RADIUS_BL;
                             currentNode->node.borderRadiusBl = property_uint8;
                         }
                         break;
                     case BORDER_BOTTOM_RIGHT_RADIUS_PROPERTY:
-                        if (String_To_uint8_t(&property_uint8, ptext)) {
+                        if (String_To_u8(&property_uint8, ptext)) {
                             currentNode->overrideStyleFlags |= PROPERTY_FLAG_BORDER_RADIUS_BR;
                             currentNode->node.borderRadiusBr = property_uint8;
                         }
@@ -536,7 +536,7 @@ int NU_Generate_Tree(char* src, TokenArray* tokens, struct Vector* textRefs)
 
                     // Set padding
                     case PADDING_PROPERTY:
-                        if (String_To_uint8_t(&property_uint8, ptext)) {
+                        if (String_To_u8(&property_uint8, ptext)) {
                             currentNode->overrideStyleFlags |= PROPERTY_FLAG_PAD_TOP | PROPERTY_FLAG_PAD_BOTTOM | PROPERTY_FLAG_PAD_LEFT | PROPERTY_FLAG_PAD_RIGHT;
                             currentNode->node.padTop    = property_uint8;
                             currentNode->node.padBottom = property_uint8;
@@ -545,25 +545,25 @@ int NU_Generate_Tree(char* src, TokenArray* tokens, struct Vector* textRefs)
                         }
                         break;
                     case PADDING_TOP_PROPERTY:
-                        if (String_To_uint8_t(&property_uint8, ptext)) {
+                        if (String_To_u8(&property_uint8, ptext)) {
                             currentNode->overrideStyleFlags |= PROPERTY_FLAG_PAD_TOP;
                             currentNode->node.padTop = property_uint8;
                         }
                         break;
                     case PADDING_BOTTOM_PROPERTY:
-                        if (String_To_uint8_t(&property_uint8, ptext)) {
+                        if (String_To_u8(&property_uint8, ptext)) {
                             currentNode->overrideStyleFlags |= PROPERTY_FLAG_PAD_BOTTOM;
                             currentNode->node.padBottom = property_uint8;
                         }
                         break;
                     case PADDING_LEFT_PROPERTY:
-                        if (String_To_uint8_t(&property_uint8, ptext)) {
+                        if (String_To_u8(&property_uint8, ptext)) {
                             currentNode->overrideStyleFlags |= PROPERTY_FLAG_PAD_LEFT;
                             currentNode->node.padLeft = property_uint8;
                         }
                         break;
                     case PADDING_RIGHT_PROPERTY:
-                        if (String_To_uint8_t(&property_uint8, ptext)) {
+                        if (String_To_u8(&property_uint8, ptext)) {
                             currentNode->overrideStyleFlags |= PROPERTY_FLAG_PAD_RIGHT;
                             currentNode->node.padRight = property_uint8;
                         }

@@ -1,10 +1,10 @@
 $srcInclude = "src"
-$sdlLib = "src\vendor\SDL3\lib" 
-$sdlInclude = "src\vendor\SDL3\include"
-$glewInclude = "src\vendor\glew\include"
-$glewLib = "src\vendor\glew\lib"
-$freetypeInclude = "src\vendor\freetype\include"
-$freetypeLib = "src\vendor\freetype\lib"
+$sdlLib = "src\libraries\SDL3\lib" 
+$sdlInclude = "src\libraries\SDL3\include"
+$glewInclude = "src\libraries\glew\include"
+$glewLib = "src\libraries\glew\lib"
+$freetypeInclude = "src\libraries\freetype\include"
+$freetypeLib = "src\libraries\freetype\lib"
 clang -std=c99 -O3 -fopenmp "src\nz_library.c" `
 -I"$srcInclude" `
 -I"$glewInclude" `

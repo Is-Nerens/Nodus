@@ -1,6 +1,6 @@
 #pragma once
 #include <rendering/nu_renderer_structures.h>
-#include <rendering/text/nu_text_layout.h>
+#include <text/nu_text_layout.h>
 #include <math.h>
 
 int NU_Internal_Get_Canvas_Context(Node* node)
@@ -14,18 +14,18 @@ int NU_Internal_Get_Canvas_Context(Node* node)
     ctx.currentLayerType = NU_CANVAS_UNDEFINED_LAYER;
     ctx.fontID = 0;
     Vector_Reserve(&ctx.canvasLayers, sizeof(CanvasLayer), 50);
-    int ctxId = Container_Add(&__NGUI.canvasContexts, &ctx);
+    int ctxId = Container_Add(&GUI.canvasContexts, &ctx);
     nodeP->typeData.canvas.ctxHandle = ctxId;
     return ctxId;
 }
 
 void NU_DeleteCanvasContext(int contextID)
 {
-    NU_Canvas_Context* ctx = Container_Get(&__NGUI.canvasContexts, contextID); 
+    NU_Canvas_Context* ctx = Container_Get(&GUI.canvasContexts, contextID); 
     if (ctx == NULL) return;
 
     // Free vertices and indices of each layer
-    for (uint32_t i=0; i<ctx->canvasLayers.size; i++) {
+    for (u32 i=0; i<ctx->canvasLayers.size; i++) {
         CanvasLayer* layer = Vector_Get(&ctx->canvasLayers, i);
         if (layer->type == NU_CANVAS_SHAPE_LAYER) Vertex_RGB_List_Free(&layer->vertexData.shapeVertices);
         else Vertex_RGB_UV_List_Free(&layer->vertexData.textVertices);
@@ -33,16 +33,16 @@ void NU_DeleteCanvasContext(int contextID)
     }
     Vector_Free(&ctx->canvasLayers);
 
-    Container_Remove(&__NGUI.canvasContexts, contextID);
+    Container_Remove(&GUI.canvasContexts, contextID);
 }
 
 void NU_Internal_Clear_Canvas(int contextID)
 {
-    NU_Canvas_Context* ctx = Container_Get(&__NGUI.canvasContexts, contextID); 
+    NU_Canvas_Context* ctx = Container_Get(&GUI.canvasContexts, contextID); 
     if (ctx == NULL) return;
 
     // Free vertices and indices of each layer
-    for (uint32_t i=0; i<ctx->canvasLayers.size; i++) {
+    for (u32 i=0; i<ctx->canvasLayers.size; i++) {
         CanvasLayer* layer = Vector_Get(&ctx->canvasLayers, i);
         if (layer->type == NU_CANVAS_SHAPE_LAYER) Vertex_RGB_List_Free(&layer->vertexData.shapeVertices);
         else Vertex_RGB_UV_List_Free(&layer->vertexData.textVertices);
@@ -85,7 +85,7 @@ void NU_Internal_Border_Rect(
     NU_RGB border_col,
     NU_RGB fill_col)
 {
-    NU_Canvas_Context* ctx = Container_Get(&__NGUI.canvasContexts, contextID); 
+    NU_Canvas_Context* ctx = Container_Get(&GUI.canvasContexts, contextID); 
     if (ctx == NULL) return;
 
     // Check if it is necessary to create a new layer
@@ -103,12 +103,12 @@ void NU_Internal_Border_Rect(
     h = fmaxf(h, thickness * 2);
 
     // --- Allocate extra space in vertex and index lists ---
-    uint32_t additional_vertices = 12;    
-    uint32_t additional_indices = 30;          
+    u32 additional_vertices = 12;    
+    u32 additional_indices = 30;          
     if (vertices->size + additional_vertices > vertices->capacity) Vertex_RGB_List_Grow(vertices, additional_vertices);
     if (indices->size + additional_indices > indices->capacity) Index_List_Grow(indices, additional_indices);
 
-    uint32_t vertex_offset = vertices->size;
+    u32 vertex_offset = vertices->size;
 
     // Outer TL
     vertices->array[vertex_offset].x = x;
@@ -195,7 +195,7 @@ void NU_Internal_Border_Rect(
     vertices->array[vertex_offset + 11].b = fill_col.b;
 
     // Indices
-    uint32_t* indices_write = indices->array + indices->size;
+    u32* indices_write = indices->array + indices->size;
 
     // Top border face
     *indices_write++ = vertex_offset;
@@ -248,7 +248,7 @@ void NU_Internal_Line(
     NU_RGB col
 )
 {
-    NU_Canvas_Context* ctx = Container_Get(&__NGUI.canvasContexts, contextID); 
+    NU_Canvas_Context* ctx = Container_Get(&GUI.canvasContexts, contextID); 
     if (ctx == NULL) return;
 
     // Check if it is necessary to create a new layer
@@ -262,8 +262,8 @@ void NU_Internal_Line(
     Index_List* indices = &layer->indices;
 
     // --- Allocate extra space in vertex and index lists ---
-    uint32_t additional_vertices = 4;    
-    uint32_t additional_indices = 6;          
+    u32 additional_vertices = 4;    
+    u32 additional_indices = 6;          
     if (vertices->size + additional_vertices > vertices->capacity) Vertex_RGB_List_Grow(vertices, additional_vertices);
     if (indices->size + additional_indices > indices->capacity) Index_List_Grow(indices, additional_indices);
 
@@ -286,7 +286,7 @@ void NU_Internal_Line(
     py *= half_thick;
 
 
-    uint32_t vertex_offset = vertices->size;
+    u32 vertex_offset = vertices->size;
 
     // V1 -> thick -
     vertices->array[vertex_offset].x = x1 - px;
@@ -318,7 +318,7 @@ void NU_Internal_Line(
 
 
     // Indices
-    uint32_t* indices_write = indices->array + indices->size;
+    u32* indices_write = indices->array + indices->size;
     *indices_write++ = vertex_offset;
     *indices_write++ = vertex_offset + 1;
     *indices_write++ = vertex_offset + 2;
@@ -335,11 +335,11 @@ void NU_Internal_Dashed_Line(
     float x1, float y1, float x2, float y2,
     float thickness,
     uint8_t* dash_pattern,
-    uint32_t dash_pattern_len,
+    u32 dash_pattern_len,
     NU_RGB col
 )
 {
-    NU_Canvas_Context* ctx = Container_Get(&__NGUI.canvasContexts, contextID); 
+    NU_Canvas_Context* ctx = Container_Get(&GUI.canvasContexts, contextID); 
     if (ctx == NULL) return;
 
     // Check if it is necessary to create a new layer
@@ -361,17 +361,17 @@ void NU_Internal_Dashed_Line(
     float dy = y2 - y1;
     float length = sqrtf(dx * dx + dy * dy);
     if (length == 0.0f) return; // avoid divide-by-zero
-    uint32_t pattern_len = 0;
-    uint32_t vertices_per_pattern = 0;
-    uint32_t indices_per_pattern = 0;
-    for (uint32_t i=0; i<dash_pattern_len; i++)
+    u32 pattern_len = 0;
+    u32 vertices_per_pattern = 0;
+    u32 indices_per_pattern = 0;
+    for (u32 i=0; i<dash_pattern_len; i++)
     {
         pattern_len += dash_pattern[i];
         vertices_per_pattern += (dash_pattern[i] * ((i % 2) == 0)) * 4;
         indices_per_pattern += (dash_pattern[i] * ((i % 2) == 0)) * 6;
     }
-    uint32_t min_additional_vertices = ((uint32_t)(length / pattern_len) + 1) * vertices_per_pattern;    
-    uint32_t min_additional_indices  = ((uint32_t)(length / pattern_len) + 1) * indices_per_pattern;   
+    u32 min_additional_vertices = ((u32)(length / pattern_len) + 1) * vertices_per_pattern;    
+    u32 min_additional_indices  = ((u32)(length / pattern_len) + 1) * indices_per_pattern;   
 
 
 
@@ -382,7 +382,7 @@ void NU_Internal_Dashed_Line(
 
 
     // Construct line mesh
-    uint32_t i = 0;
+    u32 i = 0;
     float travelled = 0.0f;
     float step_x = dx / length;
     float step_y = dy / length;
@@ -412,7 +412,7 @@ void NU_Internal_Dashed_Line(
                 dy_seg /= seg_len;
                 float px = -dy_seg * half_thick;
                 float py =  dx_seg * half_thick;
-                uint32_t v0 = vertices->size;
+                u32 v0 = vertices->size;
                 vertex_rgb* v = vertices->array + v0;
                 // V1-
                 v[0].x = sx1 - px; v[0].y = sy1 - py;
@@ -426,7 +426,7 @@ void NU_Internal_Dashed_Line(
                 // V2+
                 v[3].x = sx2 + px; v[3].y = sy2 + py;
                 v[3].r = col.r; v[3].g = col.g; v[3].b = col.b;
-                uint32_t* id = indices->array + indices->size;
+                u32* id = indices->array + indices->size;
                 *id++ = v0;
                 *id++ = v0 + 1;
                 *id++ = v0 + 2;
@@ -445,11 +445,11 @@ void NU_Internal_Dashed_Line(
 
 void NU_Internal_Set_Canvas_Font(int contextID, const char* fontName)
 {
-    NU_Canvas_Context* ctx = Container_Get(&__NGUI.canvasContexts, contextID); 
+    NU_Canvas_Context* ctx = Container_Get(&GUI.canvasContexts, contextID); 
     if (ctx == NULL) return;
 
     // Get fontID from font name
-    void* found = LinearStringmapGet(&__NGUI.stylesheet->fontNameIndexMap, fontName);
+    void* found = LinearStringmapGet(&GUI.stylesheet->fontNameIndexMap, fontName);
     int fontID = *(int*)found;
     ctx->fontID = fontID;
 }
@@ -462,7 +462,7 @@ void NU_Internal_Text(
     NU_RGB col,
     const char* string)
 {
-    NU_Canvas_Context* ctx = Container_Get(&__NGUI.canvasContexts, contextID); 
+    NU_Canvas_Context* ctx = Container_Get(&GUI.canvasContexts, contextID); 
     if (ctx == NULL) return;
 
     // Create layer if there are no layers
@@ -484,32 +484,32 @@ void NU_Internal_Text(
     Index_List* indices = &layer->indices;
 
     // Generate text mesh
-    NU_Font* font = Stylesheet_Get_Font(__NGUI.stylesheet, ctx->fontID);
+    NU_Font* font = Stylesheet_Get_Font(GUI.stylesheet, ctx->fontID);
     NU_Generate_Text_Mesh(vertices, indices, font, string, x, y, col.r, col.g, col.b, wrapWidth);
 }
 
 float NU_Internal_Text_Height(int contextID, float wrapWidth, const char* string)
 {
-    NU_Canvas_Context* ctx = Container_Get(&__NGUI.canvasContexts, contextID); 
+    NU_Canvas_Context* ctx = Container_Get(&GUI.canvasContexts, contextID); 
     if (ctx == NULL) return 0.0f; // node type is not valid therefore there is no context
 
-    NU_Font* font = Stylesheet_Get_Font(__NGUI.stylesheet, ctx->fontID);
+    NU_Font* font = Stylesheet_Get_Font(GUI.stylesheet, ctx->fontID);
     return NU_Calculate_FreeText_Height_From_Wrap_Width(font, string, wrapWidth);
 }
 
 float NU_Internal_Text_Width(int contextID, const char* string)
 {
-    NU_Canvas_Context* ctx = Container_Get(&__NGUI.canvasContexts, contextID); 
+    NU_Canvas_Context* ctx = Container_Get(&GUI.canvasContexts, contextID); 
     if (ctx == NULL) return 0.0f; // node type is not valid therefore there is no context
 
-    NU_Font* font = Stylesheet_Get_Font(__NGUI.stylesheet, ctx->fontID);
+    NU_Font* font = Stylesheet_Get_Font(GUI.stylesheet, ctx->fontID);
     return NU_Calculate_Text_Unwrapped_Width(font, string);
 }
 
 float NU_Internal_Text_Line_Height(int contextID)
 {
-    NU_Canvas_Context* ctx = Container_Get(&__NGUI.canvasContexts, contextID); 
+    NU_Canvas_Context* ctx = Container_Get(&GUI.canvasContexts, contextID); 
     if (ctx == NULL) return 0.0f; // node type is not valid therefore there is no context
-    NU_Font* font = Stylesheet_Get_Font(__NGUI.stylesheet, ctx->fontID);
+    NU_Font* font = Stylesheet_Get_Font(GUI.stylesheet, ctx->fontID);
     return font->line_height;
 }

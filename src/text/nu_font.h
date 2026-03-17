@@ -91,7 +91,7 @@ void NU_Font_Atlas_Add_Glyph(NU_Font_Atlas* atlas, NU_Glyph* glyph, FT_Bitmap* b
 
 void NU_Normalise_Glyph_UVs(NU_Font* font)
 {
-    for (uint32_t i=0; i<font->glyphs.size; i++)
+    for (u32 i=0; i<font->glyphs.size; i++)
     {
         NU_Glyph* glyph = (NU_Glyph*)Vector_Get(&font->glyphs, i);
         glyph->uv_y0 /= font->atlas.height;

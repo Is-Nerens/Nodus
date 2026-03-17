@@ -1,38 +1,8 @@
 #pragma once
 
-static void NU_Stylesheet_Find_Match(NodeP* node, NU_Stylesheet* ss, int* match_index_list)
-{
-    int count = 0;
-
-    // Tag match first (lowest priority)
-    void* tag_found = HashmapGet(&ss->tag_item_hashmap, &node->type); 
-    if (tag_found != NULL) { 
-        match_index_list[count++] = (int)*(uint32_t*)tag_found;
-    }
-
-    // Class match second
-    if (node->class != NULL) { 
-        char* stored_class = LinearStringsetGet(&ss->class_string_set, node->class);
-        if (stored_class != NULL) {
-            void* class_found = HashmapGet(&ss->class_item_hashmap, &stored_class);
-            if (class_found != NULL) {
-                match_index_list[count++] = (int)*(uint32_t*)class_found;
-            }
-        }
-    }
-
-    // ID match last (highest priority)
-    if (node->id != NULL) { 
-        char* stored_id = LinearStringsetGet(&ss->id_string_set, node->id);
-        if (stored_id != NULL) {
-            void* id_found = HashmapGet(&ss->id_item_hashmap, &stored_id);
-            if (id_found != NULL) {
-                match_index_list[count++] = (int)*(uint32_t*)id_found;
-            }
-        }
-    }
-}
-
+// ---------------------------------------
+// --- Macros to reduce code verbosity ---
+// ---------------------------------------
 #define STYLE_APPLY_LAYOUT_FLAG(prop, layout_mask) if ((item->propertyFlags & (prop)) && !(node->overrideStyleFlags & (prop))) node->layoutFlags = (node->layoutFlags & ~(layout_mask)) | (item->layoutFlags & (layout_mask))
 #define STYLE_SHOULD_APPLY_TO_NODE(mask) (item->propertyFlags & mask) && !(node->overrideStyleFlags & mask)
 
@@ -97,30 +67,39 @@ static void NU_Apply_Style_Item_To_Node(NodeP* node, NU_Stylesheet_Item* item)
 }
 
 void NU_Apply_Stylesheet_To_Node(NodeP* node, NU_Stylesheet* ss)
-{
+{   
+    // 1. Apply default style
     NU_Apply_Style_Item_To_Node(node, &ss->defaultStyleItem);
 
-    int match_index_list[3] = {-1, -1, -1};
-    NU_Stylesheet_Find_Match(node, ss, &match_index_list[0]);
-
-    int i = 0;
-    while (match_index_list[i] != -1) {
-        NU_Stylesheet_Item* item = (NU_Stylesheet_Item*)Vector_Get(&ss->items, (uint32_t)match_index_list[i]);
-        i += 1;
-
-        // --- Apply style ---
-        NU_Apply_Style_Item_To_Node(node, item);
-    }
-}
-
-void NU_Apply_Tag_Style_To_Node(NodeP* node, NU_Stylesheet* ss)
-{
-    // Tag match first (lowest priority)
+    // 2. Apply tag match
     void* tag_found = HashmapGet(&ss->tag_item_hashmap, &node->type); 
     if (tag_found != NULL) { 
-        uint32_t index = *(uint32_t*)tag_found;
-        NU_Stylesheet_Item* item = (NU_Stylesheet_Item*)Vector_Get(&ss->items, index);
+        NU_Stylesheet_Item* item = (NU_Stylesheet_Item*)Vector_Get(&ss->items, *(u32*)tag_found);
         NU_Apply_Style_Item_To_Node(node, item);
+    }
+
+    // 3. Apply class match
+    if (node->class != NULL) { 
+        char* stored_class = LinearStringsetGet(&ss->class_string_set, node->class);
+        if (stored_class != NULL) {
+            void* class_found = HashmapGet(&ss->class_item_hashmap, &stored_class);
+            if (class_found != NULL) {
+                NU_Stylesheet_Item* item = (NU_Stylesheet_Item*)Vector_Get(&ss->items, *(u32*)class_found);
+                NU_Apply_Style_Item_To_Node(node, item);
+            }
+        }
+    }
+
+    // 4. Apply ID match
+    if (node->id != NULL) { 
+        char* stored_id = LinearStringsetGet(&ss->id_string_set, node->id);
+        if (stored_id != NULL) {
+            void* id_found = HashmapGet(&ss->id_item_hashmap, &stored_id);
+            if (id_found != NULL) {
+                NU_Stylesheet_Item* item = (NU_Stylesheet_Item*)Vector_Get(&ss->items, *(u32*)id_found);
+                NU_Apply_Style_Item_To_Node(node, item);
+            }
+        }
     }
 }
 
@@ -130,7 +109,7 @@ void NU_Apply_Pseudo_Style_To_Node(NodeP* node, NU_Stylesheet* ss, enum NU_Pseud
     NU_Stylesheet_Tag_Pseudo_Pair key = { node->type, pseudo };
     void* tag_pseudo_found = HashmapGet(&ss->tag_pseudo_item_hashmap, &key);
     if (tag_pseudo_found != NULL) {
-        uint32_t index = *(uint32_t*)tag_pseudo_found;
+        u32 index = *(u32*)tag_pseudo_found;
         NU_Stylesheet_Item* item = (NU_Stylesheet_Item*)Vector_Get(&ss->items, index);
         NU_Apply_Style_Item_To_Node(node, item);
     }
@@ -142,7 +121,7 @@ void NU_Apply_Pseudo_Style_To_Node(NodeP* node, NU_Stylesheet* ss, enum NU_Pseud
             NU_Stylesheet_String_Pseudo_Pair key = { stored_class, pseudo };
             void* class_pseudo_found = HashmapGet(&ss->class_pseudo_item_hashmap, &key);
             if (class_pseudo_found != NULL) {
-                uint32_t index = *(uint32_t*)class_pseudo_found;
+                u32 index = *(u32*)class_pseudo_found;
                 NU_Stylesheet_Item* item = (NU_Stylesheet_Item*)Vector_Get(&ss->items, index);
                 NU_Apply_Style_Item_To_Node(node, item);
             }
@@ -156,7 +135,7 @@ void NU_Apply_Pseudo_Style_To_Node(NodeP* node, NU_Stylesheet* ss, enum NU_Pseud
             NU_Stylesheet_String_Pseudo_Pair key = { stored_id, pseudo };
             void* id_pseudo_found = HashmapGet(&ss->id_pseudo_item_hashmap, &key);
             if (id_pseudo_found != NULL) {
-                uint32_t index = *(uint32_t*)id_pseudo_found;
+                u32 index = *(u32*)id_pseudo_found;
                 NU_Stylesheet_Item* item = (NU_Stylesheet_Item*)Vector_Get(&ss->items, index);
                 NU_Apply_Style_Item_To_Node(node, item);
             }

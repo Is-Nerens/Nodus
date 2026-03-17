@@ -35,26 +35,26 @@ typedef struct {
 
 typedef struct {
     GLuint* array;
-    uint32_t size;
-    uint32_t capacity;
+    u32 size;
+    u32 capacity;
 } Index_List;
 
 typedef struct {
     vertex_rgb* array;
-    uint32_t size;
-    uint32_t capacity;
+    u32 size;
+    u32 capacity;
 } Vertex_RGB_List;
 
 typedef struct {
     vertex_uv* array;
-    uint32_t size;
-    uint32_t capacity;
+    u32 size;
+    u32 capacity;
 } Vertex_UV_List;
 
 typedef struct {
     vertex_rgb_uv* array;
-    uint32_t size;
-    uint32_t capacity;
+    u32 size;
+    u32 capacity;
 } Vertex_RGB_UV_List;
 
 typedef enum {
@@ -128,22 +128,22 @@ void RGB_From_Hex(const char* hexstring, NU_RGB* result)
 // ----------------------
 // --- Init Functions ---
 // ----------------------
-void Index_List_Init(Index_List* list, uint32_t capacity) {
+void Index_List_Init(Index_List* list, u32 capacity) {
     list->size = 0;
     list->capacity = capacity;
     list->array = malloc(capacity * sizeof(GLuint));
 }
-void Vertex_RGB_List_Init(Vertex_RGB_List* list, uint32_t capacity) {
+void Vertex_RGB_List_Init(Vertex_RGB_List* list, u32 capacity) {
     list->size = 0;
     list->capacity = capacity;
     list->array = malloc(capacity * sizeof(vertex_rgb));
 }
-void Vertex_UV_List_Init(Vertex_UV_List* list, uint32_t capacity) {
+void Vertex_UV_List_Init(Vertex_UV_List* list, u32 capacity) {
     list->size = 0;
     list->capacity = capacity;
     list->array = malloc(capacity * sizeof(vertex_uv));
 }
-void Vertex_RGB_UV_List_Init(Vertex_RGB_UV_List* list, uint32_t capacity) {
+void Vertex_RGB_UV_List_Init(Vertex_RGB_UV_List* list, u32 capacity) {
     list->size = 0;
     list->capacity = capacity;
     list->array = malloc(capacity * sizeof(vertex_rgb_uv));
@@ -196,19 +196,19 @@ void Vertex_RGB_UV_List_Clear(Vertex_RGB_UV_List* list) {
 // ----------------------
 // --- Grow Functions ---
 // ----------------------
-void Index_List_Grow(Index_List* list, uint32_t extra_capacity) {
+void Index_List_Grow(Index_List* list, u32 extra_capacity) {
     list->capacity = max(list->capacity * 2, list->capacity + extra_capacity);
     list->array = realloc(list->array, list->capacity * sizeof(GLuint));
 }
-void Vertex_RGB_List_Grow(Vertex_RGB_List* list, uint32_t extra_capacity) {
+void Vertex_RGB_List_Grow(Vertex_RGB_List* list, u32 extra_capacity) {
     list->capacity = max(list->capacity * 2, list->capacity + extra_capacity);
     list->array = realloc(list->array, list->capacity * sizeof(vertex_rgb));
 }
-void Vertex_UV_List_Grow(Vertex_UV_List* list, uint32_t extra_capacity) {
+void Vertex_UV_List_Grow(Vertex_UV_List* list, u32 extra_capacity) {
     list->capacity = max(list->capacity * 2, list->capacity + extra_capacity);
     list->array = realloc(list->array, list->capacity * sizeof(vertex_uv));
 }
-void Vertex_RGB_UV_List_Grow(Vertex_RGB_UV_List* list, uint32_t extra_capacity) {
+void Vertex_RGB_UV_List_Grow(Vertex_RGB_UV_List* list, u32 extra_capacity) {
     list->capacity = max(list->capacity * 2, list->capacity + extra_capacity);
     list->array = realloc(list->array, list->capacity * sizeof(vertex_rgb_uv));
 }

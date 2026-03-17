@@ -10,7 +10,7 @@ static void NU_Style_Tokenise(String src, TokenArray* tokens, struct Vector* tex
     ParserWordInit(&word);
 
     // Context
-    uint8_t ctx = 0; 
+    u8 ctx = 0; 
     // 0 == globalspace, 1 == global commentspace, 2 == selectorspace, 10 == selector commentspace
     // 3 == property value space, 8 == property value string space 9 == property value string space escape char (\)
     // 4 == class selector namespace, 5 == id selector name space 
@@ -18,11 +18,11 @@ static void NU_Style_Tokenise(String src, TokenArray* tokens, struct Vector* tex
     // 7 == font creation namespace
 
     // Iterate over src file
-    uint32_t srcLen = StringLen(src);
+    u32 srcLen = StringLen(src);
     int i = 0;
     while (i < srcLen)
     {
-        uint32_t c = NextUTF8Codepoint(src, &i);
+        u32 c = NextUTF8Codepoint(src, &i);
         
         // Globalspace comment begins
         int peekI = i;

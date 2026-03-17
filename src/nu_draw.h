@@ -20,7 +20,7 @@ void NU_AddTextMesh(Vertex_RGB_UV_List* vertices, Index_List* indices, NodeP* no
     float r = (float)node->node.textR / 255.0f;
     float g = (float)node->node.textG / 255.0f;
     float b = (float)node->node.textB / 255.0f;
-    NU_Font* node_font = Stylesheet_Get_Font(__NGUI.stylesheet, node->fontId);
+    NU_Font* node_font = Stylesheet_Get_Font(GUI.stylesheet, node->fontId);
     NU_Generate_Text_Mesh(vertices, indices, node_font, textBuffer, floorf(textPosX), floorf(textPosY), r, g, b, inner_width);
 }
 
@@ -69,7 +69,7 @@ void NU_DrawClippedNodeTextContent(NodeP* node, float winWidth, float winHeight,
     Index_List clipped_text_indices;
     Vertex_RGB_UV_List_Init(&clipped_text_vertices, 1000);
     Index_List_Init(&clipped_text_indices, 600);
-    NU_Font* node_font = Stylesheet_Get_Font(__NGUI.stylesheet, node->fontId);
+    NU_Font* node_font = Stylesheet_Get_Font(GUI.stylesheet, node->fontId);
     NU_AddTextMesh(&clipped_text_vertices, &clipped_text_indices, node, node->node.textContent);
     NU_Render_Text(&clipped_text_vertices, &clipped_text_indices, node_font, winWidth, winHeight, 0, 0, clip->clip_top, clip->clip_bottom, clip->clip_left, clip->clip_right);
     Vertex_RGB_UV_List_Free(&clipped_text_vertices);
@@ -78,11 +78,11 @@ void NU_DrawClippedNodeTextContent(NodeP* node, float winWidth, float winHeight,
 
 void NU_DrawInputNodeContent(NodeP* node, float winWidth, float winHeight, NU_ClipBounds* clip)
 {   
-    NU_Font* node_font = Stylesheet_Get_Font(__NGUI.stylesheet, node->fontId);
+    NU_Font* node_font = Stylesheet_Get_Font(GUI.stylesheet, node->fontId);
     InputText* inputText = &node->typeData.input.inputText;
 
     // construct and draw highlight mesh
-    if (__NGUI.focused_node != NULL && node == __NGUI.focused_node
+    if (GUI.focused_node != NULL && node == GUI.focused_node
         && InputText_IsHighlighting(inputText)) 
     {
         Vertex_RGB_List highlightVertices; Vertex_RGB_List_Init(&highlightVertices, 4);
@@ -113,7 +113,7 @@ void NU_DrawInputNodeContent(NodeP* node, float winWidth, float winHeight, NU_Cl
     Index_List_Free(&clipped_text_indices);
 
     // draw cursor afterwards (if input is focused)
-    if (__NGUI.focused_node != NULL && node == __NGUI.focused_node
+    if (GUI.focused_node != NULL && node == GUI.focused_node
         && !InputText_IsHighlighting(inputText)) 
     {
 
@@ -154,9 +154,9 @@ inline int NodeNotVisibleInWindow(NodeP* node, int winW, int winH)
 void NU_GenerateDrawlists()
 {
     // Clear drawlists
-    for (int i=0; i<__NGUI.winManager.windows.size; i++) 
+    for (int i=0; i<GUI.winManager.windows.size; i++) 
     {
-        NU_Window* win = Container_GetAt(&__NGUI.winManager.windows, i);
+        NU_Window* win = Container_GetAt(&GUI.winManager.windows, i);
         Vector_Clear(&win->drawlist.relativeNodes);
         Vector_Clear(&win->drawlist.absoluteNodes);
         Vector_Clear(&win->drawlist.canvasNodes);
@@ -166,15 +166,15 @@ void NU_GenerateDrawlists()
     }
 
     // Clear hashmaps
-    HashmapClear(&__NGUI.winManager.clipMap);
-    Vector_Clear(&__NGUI.winManager.absoluteRootNodes);
+    HashmapClear(&GUI.winManager.clipMap);
+    Vector_Clear(&GUI.winManager.absoluteRootNodes);
 
     // add root to drawlist 
-    NodeP* root = __NGUI.tree.root;
-    SetNodeDrawlist_Relative(&__NGUI.winManager, root);
+    NodeP* root = GUI.tree.root;
+    SetNodeDrawlist_Relative(&GUI.winManager, root);
 
     // traverse the tree
-    BreadthFirstSearch* bfs = &__NGUI.bfs;
+    BreadthFirstSearch* bfs = &GUI.bfs;
     BreadthFirstSearch_Reset(bfs, root);
     NodeP* node;
     while(BreadthFirstSearch_Next(bfs, &node)) {
@@ -210,7 +210,7 @@ void NU_GenerateDrawlists()
 
         // cache window dimensions
         int winW, winH;
-        SDL_Window* window = GetSDL_Window(&__NGUI.winManager, node->windowID);
+        SDL_Window* window = GetSDL_Window(&GUI.winManager, node->windowID);
         SDL_GetWindowSize(window, &winW, &winH);
 
         // iterate over children
@@ -229,7 +229,7 @@ void NU_GenerateDrawlists()
 
             // add child to list of root absolute nodes
             if (child->layoutFlags & POSITION_ABSOLUTE) {
-                Vector_Push(&__NGUI.winManager.absoluteRootNodes, &child);
+                Vector_Push(&GUI.winManager.absoluteRootNodes, &child);
             }
 
             // skip child if overflowed parent's bounds
@@ -256,34 +256,34 @@ void NU_GenerateDrawlists()
                     if (child->positionAbsolute) {
                         // if node is also clipped -> merge clips (stack clipping behaviour)
                         if (node->clippedAncestor != NULL) {
-                            NU_ClipBounds* node_clip = HashmapGet(&__NGUI.winManager.clipMap, &node->clippedAncestor);
+                            NU_ClipBounds* node_clip = HashmapGet(&GUI.winManager.clipMap, &node->clippedAncestor);
                             clip.clip_top = fmaxf(clip.clip_top, node_clip->clip_top);
                             clip.clip_bottom = fminf(clip.clip_bottom, node_clip->clip_bottom);
                         }
 
                         // add clipping to hashmap
-                        HashmapSet(&__NGUI.winManager.clipMap, &child, &clip);
+                        HashmapSet(&GUI.winManager.clipMap, &child, &clip);
                         child->clippedAncestor = child; // Set clip root to self
 
                         // append node to correct window clipped node list
-                        SetNodeDrawlist_ClippedAbsolute(&__NGUI.winManager, child);
+                        SetNodeDrawlist_ClippedAbsolute(&GUI.winManager, child);
                         child = child->nextSibling; continue;
                     }
                     // position relative -> main drawing list
                     else {
                         // if parent is also clipped -> merge clips (stack clipping behaviour)
                         if (node->clippedAncestor != NULL) {
-                            NU_ClipBounds* parent_clip = HashmapGet(&__NGUI.winManager.clipMap, &node->clippedAncestor);
+                            NU_ClipBounds* parent_clip = HashmapGet(&GUI.winManager.clipMap, &node->clippedAncestor);
                             clip.clip_top = fmaxf(clip.clip_top, parent_clip->clip_top);
                             clip.clip_bottom = fminf(clip.clip_bottom, parent_clip->clip_bottom);
                         }
                         
                         // add clipping to hashmap
-                        HashmapSet(&__NGUI.winManager.clipMap, &child, &clip);
+                        HashmapSet(&GUI.winManager.clipMap, &child, &clip);
                         child->clippedAncestor = child; // Set clip root to self
 
                         // append node to correct window clipped node list
-                        SetNodeDrawlist_ClippedRelative(&__NGUI.winManager, child);
+                        SetNodeDrawlist_ClippedRelative(&GUI.winManager, child);
                         child = child->nextSibling; continue;
                     }
                 }
@@ -295,26 +295,26 @@ void NU_GenerateDrawlists()
 
                 // position absolute -> secondary drawing list
                 if (child->positionAbsolute) {
-                    SetNodeDrawlist_ClippedAbsolute(&__NGUI.winManager, child);
+                    SetNodeDrawlist_ClippedAbsolute(&GUI.winManager, child);
                 }
                 // position relative -> main drawing list
                 else {
-                    SetNodeDrawlist_ClippedRelative(&__NGUI.winManager, child);
+                    SetNodeDrawlist_ClippedRelative(&GUI.winManager, child);
                 }
                 child = child->nextSibling; continue;
             }
 
             // neither child nor parent is clipped -> append node to correct window node list
             if (child->positionAbsolute) { // Position Absolute -> secondary drawing list
-                SetNodeDrawlist_Absolute(&__NGUI.winManager, child);
+                SetNodeDrawlist_Absolute(&GUI.winManager, child);
             }
             else { // position Relative -> main drawing list
-                SetNodeDrawlist_Relative(&__NGUI.winManager, child);
+                SetNodeDrawlist_Relative(&GUI.winManager, child);
             }
 
             // append node to canvas API drawing list
             if (child->type == NU_CANVAS && child->typeData.canvas.ctxHandle != -1) {
-                SetNodeDrawlist_Canvas(&__NGUI.winManager, child);
+                SetNodeDrawlist_Canvas(&GUI.winManager, child);
             }
 
             // move to the next child
@@ -329,30 +329,30 @@ void NU_Draw()
 
     
     // Initialise text vertex and index buffers (per font)
-    Vertex_RGB_UV_List text_relative_vertex_buffers[__NGUI.stylesheet->fonts.size];
-    Vertex_RGB_UV_List text_absolute_vertex_buffers[__NGUI.stylesheet->fonts.size];
-    Index_List text_relative_index_buffers[__NGUI.stylesheet->fonts.size];
-    Index_List text_absolute_index_buffers[__NGUI.stylesheet->fonts.size];
-    for (uint32_t i=0; i<__NGUI.stylesheet->fonts.size; i++) {
+    Vertex_RGB_UV_List text_relative_vertex_buffers[GUI.stylesheet->fonts.size];
+    Vertex_RGB_UV_List text_absolute_vertex_buffers[GUI.stylesheet->fonts.size];
+    Index_List text_relative_index_buffers[GUI.stylesheet->fonts.size];
+    Index_List text_absolute_index_buffers[GUI.stylesheet->fonts.size];
+    for (u32 i=0; i<GUI.stylesheet->fonts.size; i++) {
         Vertex_RGB_UV_List_Init(&text_relative_vertex_buffers[i], 512);
         Index_List_Init(&text_relative_index_buffers[i], 512);
         Vertex_RGB_UV_List_Init(&text_absolute_vertex_buffers[i], 128);
         Index_List_Init(&text_absolute_index_buffers[i], 128);
     }
 
-    Vertex_RGB_List_Clear(&__NGUI.borderRectVertices); 
-    Index_List_Clear(&__NGUI.borderRectIndices);
+    Vertex_RGB_List_Clear(&GUI.borderRectVertices); 
+    Index_List_Clear(&GUI.borderRectIndices);
 
     NodeP* focusedInputNode = NULL;
 
     // For each window
-    for (uint32_t i=0; i<__NGUI.winManager.windows.size; i++)
+    for (u32 i=0; i<GUI.winManager.windows.size; i++)
     {   
-        NU_Window* win = Container_GetAt(&__NGUI.winManager.windows, i);
+        NU_Window* win = Container_GetAt(&GUI.winManager.windows, i);
 
         // get the window and dimensions, clear and start new frame
         SDL_Window* window = win->window;
-        SDL_GL_MakeCurrent(window, __NGUI.gl_ctx);
+        SDL_GL_MakeCurrent(window, GUI.gl_ctx);
         WindowBeginFrame(window);
         NU_WindowDrawlist* drawList = &win->drawlist;
         int winW_int, winH_int;
@@ -366,22 +366,22 @@ void NU_Draw()
         // --------------------------------------------------------------------------------------------------------
 
         // cosntruct border rects
-        for (uint32_t n=0; n<drawList->relativeNodes.size; n++) {
+        for (u32 n=0; n<drawList->relativeNodes.size; n++) {
             NodeP* node = *(NodeP**)Vector_Get(&drawList->relativeNodes, n);
-            Construct_Border_Rect(node, winW, winH, &__NGUI.borderRectVertices, &__NGUI.borderRectIndices);
+            Construct_Border_Rect(node, winW, winH, &GUI.borderRectVertices, &GUI.borderRectIndices);
             if (node->layoutFlags & OVERFLOW_VERTICAL_SCROLL 
                 && node->node.contentHeight > (node->node.height - node->node.padTop - node->node.padBottom - node->node.borderTop - node->node.borderBottom)) {
-                Construct_Scroll_Thumb(node, winW, winH, &__NGUI.borderRectVertices, &__NGUI.borderRectIndices);
+                Construct_Scroll_Thumb(node, winW, winH, &GUI.borderRectVertices, &GUI.borderRectIndices);
             }
         }
         
         // draw border rects (one draw call)
-        Draw_Vertex_RGB_List(&__NGUI.borderRectVertices, &__NGUI.borderRectIndices, winW, winH, 0.0f, 0.0f);
-        Vertex_RGB_List_Clear(&__NGUI.borderRectVertices);
-        Index_List_Clear(&__NGUI.borderRectIndices);
+        Draw_Vertex_RGB_List(&GUI.borderRectVertices, &GUI.borderRectIndices, winW, winH, 0.0f, 0.0f);
+        Vertex_RGB_List_Clear(&GUI.borderRectVertices);
+        Index_List_Clear(&GUI.borderRectIndices);
 
         // draw canvas api content
-        for (uint32_t n=0; n<drawList->canvasNodes.size; n++)
+        for (u32 n=0; n<drawList->canvasNodes.size; n++)
         {
             NodeP* canvas_node = *(NodeP**)Vector_Get(&drawList->canvasNodes, n);
             float offset_x = canvas_node->node.x + canvas_node->node.borderLeft + canvas_node->node.padLeft;
@@ -390,10 +390,10 @@ void NU_Draw()
             float clip_bottom = canvas_node->node.y + canvas_node->node.height - canvas_node->node.borderBottom - canvas_node->node.padBottom;
             float clip_left   = canvas_node->node.x + canvas_node->node.borderLeft + canvas_node->node.padLeft;
             float clip_right  = canvas_node->node.x + canvas_node->node.width - canvas_node->node.borderRight - canvas_node->node.padRight;
-            NU_Canvas_Context* ctx = Container_Get(&__NGUI.canvasContexts, canvas_node->typeData.canvas.ctxHandle); 
+            NU_Canvas_Context* ctx = Container_Get(&GUI.canvasContexts, canvas_node->typeData.canvas.ctxHandle); 
 
             // Draw each canvas layer
-            for (uint32_t l=0; l<ctx->canvasLayers.size; l++) {
+            for (u32 l=0; l<ctx->canvasLayers.size; l++) {
                 CanvasLayer* layer = Vector_Get(&ctx->canvasLayers, l);
                 
                 // Shape layer
@@ -408,7 +408,7 @@ void NU_Draw()
                 // Text layer
                 else 
                 {
-                    NU_Font* font = Stylesheet_Get_Font(__NGUI.stylesheet, layer->fontID);
+                    NU_Font* font = Stylesheet_Get_Font(GUI.stylesheet, layer->fontID);
                     NU_Render_Text(
                         &layer->vertexData.textVertices, &layer->indices, 
                         font, 
@@ -421,7 +421,7 @@ void NU_Draw()
         }   
 
         // construct text meshes and draw images
-        for (uint32_t n=0; n<drawList->relativeNodes.size; n++) 
+        for (u32 n=0; n<drawList->relativeNodes.size; n++) 
         {
             // construct text mesh for node's textContent
             NodeP* node = *(NodeP**)Vector_Get(&drawList->relativeNodes, n);
@@ -448,20 +448,20 @@ void NU_Draw()
         }
         
         // draw text
-        for (uint32_t t=0; t<__NGUI.stylesheet->fonts.size; t++) {
+        for (u32 t=0; t<GUI.stylesheet->fonts.size; t++) {
             Vertex_RGB_UV_List* text_vertices = &text_relative_vertex_buffers[t];
             Index_List* text_indices = &text_relative_index_buffers[t];
-            NU_Font* node_font = Stylesheet_Get_Font(__NGUI.stylesheet, t);
+            NU_Font* node_font = Stylesheet_Get_Font(GUI.stylesheet, t);
             NU_Render_Text(text_vertices, text_indices, node_font, winW, winH, 0, 0, -1.0f, 100000.0f, -1.0f, 100000.0f);
             text_vertices->size = 0;
             text_indices->size = 0;
         }
     
         // draw partially visible nodes
-        for (uint32_t n=0; n<drawList->clippedRelativeNodes.size; n++) {
+        for (u32 n=0; n<drawList->clippedRelativeNodes.size; n++) {
             NodeP* node = *(NodeP**)Vector_Get(&drawList->clippedRelativeNodes, n);
 
-            NU_ClipBounds* clip = (NU_ClipBounds*)HashmapGet(&__NGUI.winManager.clipMap, &node->clippedAncestor);
+            NU_ClipBounds* clip = (NU_ClipBounds*)HashmapGet(&GUI.winManager.clipMap, &node->clippedAncestor);
             NU_DrawClippedNodeBorderRect(node, winW, winH, clip); // draw border rects
 
             if (node->node.textContent != NULL) { // draw node's textContent
@@ -485,18 +485,18 @@ void NU_Draw()
         // --------------------------------------------------------------------------------------------------------
 
         // draw border rects
-        for (uint32_t n=0; n<drawList->absoluteNodes.size; n++) { // construct border rect vertices and indices for each node
+        for (u32 n=0; n<drawList->absoluteNodes.size; n++) { // construct border rect vertices and indices for each node
             NodeP* node = *(NodeP**)Vector_Get(&drawList->absoluteNodes, n);
-            Construct_Border_Rect(node, winW, winH, &__NGUI.borderRectVertices, &__NGUI.borderRectIndices);
+            Construct_Border_Rect(node, winW, winH, &GUI.borderRectVertices, &GUI.borderRectIndices);
             if (node->layoutFlags & OVERFLOW_VERTICAL_SCROLL 
                 && node->node.contentHeight > (node->node.height - node->node.padTop - node->node.padBottom - node->node.borderTop - node->node.borderBottom)) {
-                Construct_Scroll_Thumb(node, winW, winH, &__NGUI.borderRectVertices, &__NGUI.borderRectIndices);
+                Construct_Scroll_Thumb(node, winW, winH, &GUI.borderRectVertices, &GUI.borderRectIndices);
             }
         }
-        Draw_Vertex_RGB_List(&__NGUI.borderRectVertices, &__NGUI.borderRectIndices, winW, winH, 0.0f, 0.0f); // draw border rects in one call
+        Draw_Vertex_RGB_List(&GUI.borderRectVertices, &GUI.borderRectIndices, winW, winH, 0.0f, 0.0f); // draw border rects in one call
 
         // construct text meshes & draw images
-        for (uint32_t n=0; n<drawList->absoluteNodes.size; n++) 
+        for (u32 n=0; n<drawList->absoluteNodes.size; n++) 
         {
 
             // construct text mesh for node's textContent
@@ -524,19 +524,19 @@ void NU_Draw()
         }
         
         // draw text
-        for (uint32_t t=0; t<__NGUI.stylesheet->fonts.size; t++) {
+        for (u32 t=0; t<GUI.stylesheet->fonts.size; t++) {
             Vertex_RGB_UV_List* text_vertices = &text_absolute_vertex_buffers[t];
             Index_List* text_indices = &text_absolute_index_buffers[t];
-            NU_Font* node_font = Stylesheet_Get_Font(__NGUI.stylesheet, t);
+            NU_Font* node_font = Stylesheet_Get_Font(GUI.stylesheet, t);
             NU_Render_Text(text_vertices, text_indices, node_font, winW, winH, 0, 0, -1.0f, 100000.0f, -1.0f, 100000.0f);
             text_vertices->size = 0;
             text_indices->size = 0;
         }
 
         // draw partially visible absolute nodes
-        for (uint32_t n=0; n<drawList->clippedAbsoluteNodes.size; n++) {
+        for (u32 n=0; n<drawList->clippedAbsoluteNodes.size; n++) {
             NodeP* node = *(NodeP**) Vector_Get(&drawList->clippedAbsoluteNodes, n);
-            NU_ClipBounds* clip = (NU_ClipBounds*)HashmapGet(&__NGUI.winManager.clipMap, &node->clippedAncestor);
+            NU_ClipBounds* clip = (NU_ClipBounds*)HashmapGet(&GUI.winManager.clipMap, &node->clippedAncestor);
 
             NU_DrawClippedNodeBorderRect(node, winW, winH, clip); // draw border rect
 
@@ -559,11 +559,11 @@ void NU_Draw()
     // -----------------------
     // --- Free memory -------
     // -----------------------
-    for (uint32_t i=0; i<__NGUI.stylesheet->fonts.size; i++) {
+    for (u32 i=0; i<GUI.stylesheet->fonts.size; i++) {
         Vertex_RGB_UV_List_Free(&text_relative_vertex_buffers[i]);
         Index_List_Free(&text_relative_index_buffers[i]);
         Vertex_RGB_UV_List_Free(&text_absolute_vertex_buffers[i]);
         Index_List_Free(&text_absolute_index_buffers[i]);
     }
-    __NGUI.awaiting_redraw = false;
+    GUI.awaiting_redraw = false;
 }

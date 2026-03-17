@@ -1,14 +1,16 @@
 #pragma once
+
+// -------------------------
+// --- External Includes ---
+// -------------------------
 #include <math.h>
 #include <SDL3/SDL.h>
 #include <GL/glew.h>
-#include <stdint.h>
-typedef uint8_t u8;
-typedef uint16_t u16;
-typedef uint32_t u32;
-typedef uint64_t u64;
 
-// === NODUS INCLUDES ===
+// ----------------------
+// --- Nodus Includes ---
+// ----------------------
+#include <utils/nu_int.h>
 #include <datastructures/vector.h>
 #include <datastructures/string.h>
 #include <datastructures/container.h>
@@ -19,7 +21,7 @@ typedef uint64_t u64;
 #include <datastructures/linear_stringmap.h>
 #include <datastructures/string_arena.h>
 #include <datastructures/hashmap.h>
-#include <rendering/text/nu_font.h>
+#include <text/nu_font.h>
 #include <rendering/nu_renderer_structures.h>
 #include <tree/nu_node.h>
 #include <tree/nu_tree.h>
@@ -93,87 +95,60 @@ struct NU_GUI
     Index_List borderRectIndices;
 };
 
-// global gui instance
-struct NU_GUI __NGUI;
+// ---------------------------
+// --- Global GUI Instance ---
+// ---------------------------
+struct NU_GUI GUI;
+
+// --------------------------------------------------
+// --- Includes That Require Access To Global GUI ---
+// --------------------------------------------------
 #include <window/nu_window_manager.h>
 #include <rendering/image/nu_image.h>
 #include <templates/stylesheet/nu_stylesheet.h>
 #include <rendering/canvas/nu_canvas_api.h>
 #include <templates/xml/nu_xml.h>
 #include <nu_layout.h>
-#include <tree/nu_input_text.h>
+#include <input_text/nu_input_text.h>
 #include <nu_draw.h>
-#include <nu_event_defs.h>
+#include <events/nu_event_structs.h>
+#include <nu_mouse_detection.h>
+#include <events/nu_events.h>
 #include <nu_dom.h>
-#include <nu_events.h>
-#include <cursor.h>
-
-void NU_Internal_Set_Class(Node* node, const char* class)
-{   
-    NodeP* nodeP = NODEP_OF(node);
-    if (class == nodeP->class) return;
-
-    char* prevNodeClass = nodeP->class;
-    nodeP->class = NULL;
-
-    // Look for class in gui class string set
-    char* gui_class_get = StringsetGet(&__NGUI.class_string_set, class);
-    if (gui_class_get == NULL) { // Not found? Look in the stylesheet
-        char* style_class_get = LinearStringsetGet(&__NGUI.stylesheet->class_string_set, class);
-
-        // If found in the stylesheet -> add it to the gui class set
-        if (style_class_get) {
-            nodeP->class = StringsetAdd(&__NGUI.class_string_set, class);
-        }
-    } 
-    else {
-        nodeP->class = gui_class_get; 
-    }
-
-    // Update styling
-    NU_Apply_Stylesheet_To_Node(nodeP, __NGUI.stylesheet);
-    if (nodeP == __NGUI.scroll_mouse_down_node) {
-        NU_Apply_Pseudo_Style_To_Node(nodeP, __NGUI.stylesheet, PSEUDO_PRESS);
-    } else if (nodeP == __NGUI.hovered_node) {
-        NU_Apply_Pseudo_Style_To_Node(nodeP, __NGUI.stylesheet, PSEUDO_HOVER);
-    }
-
-    __NGUI.awaiting_redraw = true;
-}
 
 void NU_Internal_Quit()
 {
-    TreeFree(&__NGUI.tree);
-    NU_WindowManagerFree(&__NGUI.winManager);
-    StringmapFree(&__NGUI.id_node_map);
-    StringsetFree(&__NGUI.class_string_set);
-    StringsetFree(&__NGUI.id_string_set);
-    StringArena_Free(&__NGUI.nodeTextArena);
-    for (u32 i=0; i<__NGUI.stylesheets.size; i++)
+    TreeFree(&GUI.tree);
+    NU_WindowManagerFree(&GUI.winManager);
+    StringmapFree(&GUI.id_node_map);
+    StringsetFree(&GUI.class_string_set);
+    StringsetFree(&GUI.id_string_set);
+    StringArena_Free(&GUI.nodeTextArena);
+    for (u32 i=0; i<GUI.stylesheets.size; i++)
     {
-        NU_Stylesheet* stylesheet = Vector_Get(&__NGUI.stylesheets, i);
+        NU_Stylesheet* stylesheet = Vector_Get(&GUI.stylesheets, i);
         NU_Stylesheet_Free(stylesheet);
     }
-    Vector_Free(&__NGUI.stylesheets);
-    HashmapFree(&__NGUI.on_click_events);
-    HashmapFree(&__NGUI.on_input_changed_events);
-    HashmapFree(&__NGUI.on_drag_events);
-    HashmapFree(&__NGUI.on_released_events);
-    HashmapFree(&__NGUI.on_resize_events);
-    HashmapFree(&__NGUI.node_resize_tracking);
-    HashmapFree(&__NGUI.on_mouse_down_events);
-    HashmapFree(&__NGUI.on_mouse_up_events);
-    HashmapFree(&__NGUI.on_mouse_down_outside_events);
-    HashmapFree(&__NGUI.on_mouse_move_events);
-    HashmapFree(&__NGUI.on_mouse_in_events);
-    HashmapFree(&__NGUI.on_mouse_out_events);
-    HashmapFree(&__NGUI.on_mouse_wheel_events);
-    Container_Free(&__NGUI.canvasContexts);
-    Vertex_RGB_List_Free(&__NGUI.borderRectVertices);
-    Index_List_Free(&__NGUI.borderRectIndices);
-    BreadthFirstSearch_Free(&__NGUI.bfs);
-    ReverseBreadthFirstSearch_Free(&__NGUI.rbfs);
-    SetFree(&__NGUI.deletedNodesWithRegisteredEvents);
+    Vector_Free(&GUI.stylesheets);
+    HashmapFree(&GUI.on_click_events);
+    HashmapFree(&GUI.on_input_changed_events);
+    HashmapFree(&GUI.on_drag_events);
+    HashmapFree(&GUI.on_released_events);
+    HashmapFree(&GUI.on_resize_events);
+    HashmapFree(&GUI.node_resize_tracking);
+    HashmapFree(&GUI.on_mouse_down_events);
+    HashmapFree(&GUI.on_mouse_up_events);
+    HashmapFree(&GUI.on_mouse_down_outside_events);
+    HashmapFree(&GUI.on_mouse_move_events);
+    HashmapFree(&GUI.on_mouse_in_events);
+    HashmapFree(&GUI.on_mouse_out_events);
+    HashmapFree(&GUI.on_mouse_wheel_events);
+    Container_Free(&GUI.canvasContexts);
+    Vertex_RGB_List_Free(&GUI.borderRectVertices);
+    Index_List_Free(&GUI.borderRectIndices);
+    BreadthFirstSearch_Free(&GUI.bfs);
+    ReverseBreadthFirstSearch_Free(&GUI.rbfs);
+    SetFree(&GUI.deletedNodesWithRegisteredEvents);
     SDL_Quit();
 }
 
@@ -189,72 +164,72 @@ int NU_Internal_Create_Gui(const char* xml_filepath, const char* css_filepath)
     SDL_SetHint("SDL_MOUSE_FOCUS_CLICKTHROUGH", "1");
 
     // Init Window Manager -> create the main window (hidden)
-    NU_WindowManagerInit(&__NGUI.winManager);
+    NU_WindowManagerInit(&GUI.winManager);
 
     // Init string data structures
-    StringArena_Init(&__NGUI.nodeTextArena, 1024);
-    StringsetInit(&__NGUI.class_string_set, 1024, 100);
-    StringsetInit(&__NGUI.id_string_set, 1024, 100);
-    StringmapInit(&__NGUI.id_node_map, sizeof(NodeP*), 100, 1024);
+    StringArena_Init(&GUI.nodeTextArena, 1024);
+    StringsetInit(&GUI.class_string_set, 1024, 100);
+    StringsetInit(&GUI.id_string_set, 1024, 100);
+    StringmapInit(&GUI.id_node_map, sizeof(NodeP*), 100, 1024);
 
     // Init canvas context container
-    __NGUI.canvasContexts = Container_Create(sizeof(NU_Canvas_Context));
+    GUI.canvasContexts = Container_Create(sizeof(NU_Canvas_Context));
 
     // Init stylesheets vector
-    Vector_Reserve(&__NGUI.stylesheets, sizeof(NU_Stylesheet), 2);
+    Vector_Reserve(&GUI.stylesheets, sizeof(NU_Stylesheet), 2);
 
     // Events
-    HashmapInit(&__NGUI.on_click_events,              sizeof(Node*), sizeof(struct NU_Callback_Info), 50);
-    HashmapInit(&__NGUI.on_input_changed_events,      sizeof(Node*), sizeof(struct NU_Callback_Info), 10);
-    HashmapInit(&__NGUI.on_drag_events,               sizeof(Node*), sizeof(struct NU_Callback_Info), 10);
-    HashmapInit(&__NGUI.on_released_events,           sizeof(Node*), sizeof(struct NU_Callback_Info), 10);
-    HashmapInit(&__NGUI.on_resize_events,             sizeof(Node*), sizeof(struct NU_Callback_Info), 10);
-    HashmapInit(&__NGUI.node_resize_tracking,         sizeof(Node*), sizeof(NU_NodeDimensions)      , 10);
-    HashmapInit(&__NGUI.on_mouse_down_events,         sizeof(Node*), sizeof(struct NU_Callback_Info), 10);
-    HashmapInit(&__NGUI.on_mouse_up_events,           sizeof(Node*), sizeof(struct NU_Callback_Info), 10);
-    HashmapInit(&__NGUI.on_mouse_down_outside_events, sizeof(Node*), sizeof(struct NU_Callback_Info), 10);
-    HashmapInit(&__NGUI.on_mouse_move_events,         sizeof(Node*), sizeof(struct NU_Callback_Info), 10);
-    HashmapInit(&__NGUI.on_mouse_in_events,           sizeof(Node*), sizeof(struct NU_Callback_Info), 10);
-    HashmapInit(&__NGUI.on_mouse_out_events,          sizeof(Node*), sizeof(struct NU_Callback_Info), 10);
-    HashmapInit(&__NGUI.on_mouse_wheel_events,        sizeof(Node*), sizeof(struct NU_Callback_Info), 10);
-    SetInit(&__NGUI.deletedNodesWithRegisteredEvents, sizeof(Node*), 16);
+    HashmapInit(&GUI.on_click_events,              sizeof(Node*), sizeof(struct NU_Callback_Info), 50);
+    HashmapInit(&GUI.on_input_changed_events,      sizeof(Node*), sizeof(struct NU_Callback_Info), 10);
+    HashmapInit(&GUI.on_drag_events,               sizeof(Node*), sizeof(struct NU_Callback_Info), 10);
+    HashmapInit(&GUI.on_released_events,           sizeof(Node*), sizeof(struct NU_Callback_Info), 10);
+    HashmapInit(&GUI.on_resize_events,             sizeof(Node*), sizeof(struct NU_Callback_Info), 10);
+    HashmapInit(&GUI.node_resize_tracking,         sizeof(Node*), sizeof(NU_NodeDimensions)      , 10);
+    HashmapInit(&GUI.on_mouse_down_events,         sizeof(Node*), sizeof(struct NU_Callback_Info), 10);
+    HashmapInit(&GUI.on_mouse_up_events,           sizeof(Node*), sizeof(struct NU_Callback_Info), 10);
+    HashmapInit(&GUI.on_mouse_down_outside_events, sizeof(Node*), sizeof(struct NU_Callback_Info), 10);
+    HashmapInit(&GUI.on_mouse_move_events,         sizeof(Node*), sizeof(struct NU_Callback_Info), 10);
+    HashmapInit(&GUI.on_mouse_in_events,           sizeof(Node*), sizeof(struct NU_Callback_Info), 10);
+    HashmapInit(&GUI.on_mouse_out_events,          sizeof(Node*), sizeof(struct NU_Callback_Info), 10);
+    HashmapInit(&GUI.on_mouse_wheel_events,        sizeof(Node*), sizeof(struct NU_Callback_Info), 10);
+    SetInit(&GUI.deletedNodesWithRegisteredEvents, sizeof(Node*), 16);
 
     // Init layout and draw datastructures
-    Vector_Reserve(&__NGUI.layoutScrollAutoNodes, sizeof(NodeP*), 20);
-    Vertex_RGB_List_Init(&__NGUI.borderRectVertices, 5000); 
-    Index_List_Init(&__NGUI.borderRectIndices, 15000);
+    Vector_Reserve(&GUI.layoutScrollAutoNodes, sizeof(NodeP*), 20);
+    Vertex_RGB_List_Init(&GUI.borderRectVertices, 5000); 
+    Index_List_Init(&GUI.borderRectIndices, 15000);
 
     // Cursors
-    __NGUI.cursorDefault    = SDL_CreateSystemCursor(SDL_SYSTEM_CURSOR_DEFAULT);
-    __NGUI.cursorPointer    = SDL_CreateSystemCursor(SDL_SYSTEM_CURSOR_POINTER);
-    __NGUI.cursorText       = SDL_CreateSystemCursor(SDL_SYSTEM_CURSOR_TEXT);
-    __NGUI.cursorWait       = SDL_CreateSystemCursor(SDL_SYSTEM_CURSOR_WAIT);
-    __NGUI.cursorCrosshair  = SDL_CreateSystemCursor(SDL_SYSTEM_CURSOR_CROSSHAIR);
-    __NGUI.cursorMove       = SDL_CreateSystemCursor(SDL_SYSTEM_CURSOR_MOVE);
-    __NGUI.cursorNsResize   = SDL_CreateSystemCursor(SDL_SYSTEM_CURSOR_NS_RESIZE);
-    __NGUI.cursorEwResize   = SDL_CreateSystemCursor(SDL_SYSTEM_CURSOR_EW_RESIZE);
-    __NGUI.cursorNwseResize = SDL_CreateSystemCursor(SDL_SYSTEM_CURSOR_NWSE_RESIZE);
-    __NGUI.cursorNeswResize = SDL_CreateSystemCursor(SDL_SYSTEM_CURSOR_NESW_RESIZE);
+    GUI.cursorDefault    = SDL_CreateSystemCursor(SDL_SYSTEM_CURSOR_DEFAULT);
+    GUI.cursorPointer    = SDL_CreateSystemCursor(SDL_SYSTEM_CURSOR_POINTER);
+    GUI.cursorText       = SDL_CreateSystemCursor(SDL_SYSTEM_CURSOR_TEXT);
+    GUI.cursorWait       = SDL_CreateSystemCursor(SDL_SYSTEM_CURSOR_WAIT);
+    GUI.cursorCrosshair  = SDL_CreateSystemCursor(SDL_SYSTEM_CURSOR_CROSSHAIR);
+    GUI.cursorMove       = SDL_CreateSystemCursor(SDL_SYSTEM_CURSOR_MOVE);
+    GUI.cursorNsResize   = SDL_CreateSystemCursor(SDL_SYSTEM_CURSOR_NS_RESIZE);
+    GUI.cursorEwResize   = SDL_CreateSystemCursor(SDL_SYSTEM_CURSOR_EW_RESIZE);
+    GUI.cursorNwseResize = SDL_CreateSystemCursor(SDL_SYSTEM_CURSOR_NWSE_RESIZE);
+    GUI.cursorNeswResize = SDL_CreateSystemCursor(SDL_SYSTEM_CURSOR_NESW_RESIZE);
 
     // State
-    __NGUI.prev_hovered_node = NULL;
-    __NGUI.hovered_node = NULL;
-    __NGUI.mouse_down_node = NULL;
-    __NGUI.scroll_hovered_node = NULL;
-    __NGUI.scroll_mouse_down_node = NULL;
-    __NGUI.focused_node = NULL;
-    __NGUI.stylesheet = NULL;
-    __NGUI.running = false;
-    __NGUI.awaiting_redraw = true;
-    __NGUI.recalculate_mouse_hover = true;
+    GUI.prev_hovered_node = NULL;
+    GUI.hovered_node = NULL;
+    GUI.mouse_down_node = NULL;
+    GUI.scroll_hovered_node = NULL;
+    GUI.scroll_mouse_down_node = NULL;
+    GUI.focused_node = NULL;
+    GUI.stylesheet = NULL;
+    GUI.running = false;
+    GUI.awaiting_redraw = true;
+    GUI.recalculate_mouse_hover = true;
 
     // Traversal
-    __NGUI.bfs = BreadthFirstSearch_Create(__NGUI.tree.root);
-    __NGUI.rbfs = ReverseBreadthFirstSearch_Create(__NGUI.tree.root);
+    GUI.bfs = BreadthFirstSearch_Create(GUI.tree.root);
+    GUI.rbfs = ReverseBreadthFirstSearch_Create(GUI.tree.root);
 
     // Register custom render event type
-    __NGUI.SDL_CUSTOM_RENDER_EVENT = SDL_RegisterEvents(1);
-    if (__NGUI.SDL_CUSTOM_RENDER_EVENT == (Uint32)-1) {
+    GUI.SDL_CUSTOM_RENDER_EVENT = SDL_RegisterEvents(1);
+    if (GUI.SDL_CUSTOM_RENDER_EVENT == (Uint32)-1) {
         NU_Internal_Quit();
         return 0;
     }
@@ -279,39 +254,10 @@ int NU_Internal_Create_Gui(const char* xml_filepath, const char* css_filepath)
     }
 
     NU_Layout(); // Initial layout calculation
-    __NGUI.running = true;
+    GUI.running = true;
 
     // Event watcher
     SDL_AddEventWatch(EventWatcher, NULL);
 
     return 1; // Success
-}
-
-int NU_Internal_Running()
-{
-    if (!__NGUI.running) return 0;
-
-    SDL_Event event;
-    while (SDL_PollEvent(&event)) {}
-
-    if (__NGUI.awaiting_redraw) 
-    {
-        NU_Layout();
-        if (__NGUI.recalculate_mouse_hover) NU_Mouse_Hover();
-        NU_Draw();
-        CheckForResizeEvents();
-    }
-
-    // Wait for next event, with timeout to save CPU
-    SDL_WaitEventTimeout(&event, GetFrametime());
-
-    return 1;
-}
-
-void NU_Internal_Render()
-{
-    SDL_Event e;
-    SDL_zero(e);
-    e.type = __NGUI.SDL_CUSTOM_RENDER_EVENT;
-    SDL_PushEvent(&e);      
 }

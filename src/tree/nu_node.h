@@ -1,11 +1,5 @@
 #pragma once
-#include <stdint.h>
-#include "nu_input_text_struct.h"
-typedef uint8_t u8;
-typedef uint16_t u16;
-typedef uint32_t u32;
-typedef uint64_t u64;
-typedef int16_t i16;
+#include <input_text/nu_input_text_struct.h>
 
 // Layout flags
 #define LAYOUT_VERTICAL                 (1ULL << 0)

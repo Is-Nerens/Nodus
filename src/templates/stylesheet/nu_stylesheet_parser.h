@@ -52,7 +52,7 @@ void NU_Stylesheet_Overwrite_Style_Item(NU_Stylesheet_Item* item, NU_Stylesheet_
 
 static int NU_Stylesheet_Parse(char* src, TokenArray* tokens, NU_Stylesheet* ss, struct Vector* text_refs)
 {
-    uint32_t text_index = 0;
+    u32 text_index = 0;
     struct Style_Text_Ref* text_ref;
 
     NU_Stylesheet_Item item;
@@ -65,11 +65,11 @@ static int NU_Stylesheet_Parse(char* src, TokenArray* tokens, NU_Stylesheet* ss,
     LinearStringmap imageFilepathToHandleMap;
     LinearStringmapInit(&imageFilepathToHandleMap, sizeof(GLuint), 20, 512);
 
-    uint32_t selector_indexes[64];
+    u32 selector_indexes[64];
     int selector_count = 0;
 
     int ctx = 0; // 0 == standard selector; 1 == font creation selector; 2 == default selector
-    uint8_t createFontID = UINT8_MAX;
+    u8 createFontID = UINT8_MAX;
     NU_Font* createFont;
     int createFontSize = 18;
     int createFontWeight = 400;
@@ -154,7 +154,7 @@ static int NU_Stylesheet_Parse(char* src, TokenArray* tokens, NU_Stylesheet* ss,
             if (ctx == 0)
             {   
                 for (int i=0; i<selector_count; i++) {
-                    uint32_t item_index = selector_indexes[i];
+                    u32 item_index = selector_indexes[i];
                     NU_Stylesheet_Item* curr_item = Vector_Get(&ss->items, item_index);
 
                     // Update current item
@@ -201,8 +201,8 @@ static int NU_Stylesheet_Parse(char* src, TokenArray* tokens, NU_Stylesheet* ss,
                     void* found = HashmapGet(&ss->tag_item_hashmap, &tag);
                     if (found != NULL) // Style item exists
                     {
-                        NU_Stylesheet_Item* found_item = Vector_Get(&ss->items, *(uint32_t*)found);
-                        selector_indexes[selector_count] = *(uint32_t*)found;
+                        NU_Stylesheet_Item* found_item = Vector_Get(&ss->items, *(u32*)found);
+                        selector_indexes[selector_count] = *(u32*)found;
                     } 
                     else // Style item does not exist -> add one
                     { 
@@ -212,7 +212,7 @@ static int NU_Stylesheet_Parse(char* src, TokenArray* tokens, NU_Stylesheet* ss,
                         new_item.tag = tag;
                         new_item.propertyFlags = 0;
                         Vector_Push(&ss->items, &new_item);
-                        selector_indexes[selector_count] = (uint32_t)(ss->items.size - 1);
+                        selector_indexes[selector_count] = (u32)(ss->items.size - 1);
                         HashmapSet(&ss->tag_item_hashmap, &tag, &selector_indexes[selector_count]); // Store item index
                     }
 
@@ -233,8 +233,8 @@ static int NU_Stylesheet_Parse(char* src, TokenArray* tokens, NU_Stylesheet* ss,
 
                         if (found != NULL) // Style item exists
                         {
-                            NU_Stylesheet_Item* found_item = Vector_Get(&ss->items, *(uint32_t*)found);
-                            selector_indexes[selector_count] = *(uint32_t*)found;
+                            NU_Stylesheet_Item* found_item = Vector_Get(&ss->items, *(u32*)found);
+                            selector_indexes[selector_count] = *(u32*)found;
                         }
                         else
                         {
@@ -244,7 +244,7 @@ static int NU_Stylesheet_Parse(char* src, TokenArray* tokens, NU_Stylesheet* ss,
                             new_item.tag = tag;
                             new_item.propertyFlags = 0;
                             Vector_Push(&ss->items, &new_item);
-                            selector_indexes[selector_count] = (uint32_t)(ss->items.size - 1);
+                            selector_indexes[selector_count] = (u32)(ss->items.size - 1);
                             HashmapSet(&ss->tag_pseudo_item_hashmap, &key, &selector_indexes[selector_count]); // Store item index
 
                         }
@@ -294,8 +294,8 @@ static int NU_Stylesheet_Parse(char* src, TokenArray* tokens, NU_Stylesheet* ss,
                     void* found = HashmapGet(&ss->class_item_hashmap, &stored_class);
                     if (found != NULL) 
                     {
-                        NU_Stylesheet_Item* found_item = Vector_Get(&ss->items, *(uint32_t*)found);
-                        selector_indexes[selector_count] = *(uint32_t*)found;
+                        NU_Stylesheet_Item* found_item = Vector_Get(&ss->items, *(u32*)found);
+                        selector_indexes[selector_count] = *(u32*)found;
                     } 
                     else // does not exist -> add item
                     { 
@@ -305,7 +305,7 @@ static int NU_Stylesheet_Parse(char* src, TokenArray* tokens, NU_Stylesheet* ss,
                         new_item.tag = -1;
                         new_item.propertyFlags = 0;
                         Vector_Push(&ss->items, &new_item);
-                        selector_indexes[selector_count] = (uint32_t)(ss->items.size - 1);
+                        selector_indexes[selector_count] = (u32)(ss->items.size - 1);
                         HashmapSet(&ss->class_item_hashmap, &stored_class, &selector_indexes[selector_count]); // Store item index
                     }
 
@@ -333,8 +333,8 @@ static int NU_Stylesheet_Parse(char* src, TokenArray* tokens, NU_Stylesheet* ss,
                         void* found = HashmapGet(&ss->class_pseudo_item_hashmap, &key);
                         if (found != NULL) 
                         {
-                            NU_Stylesheet_Item* found_item = Vector_Get(&ss->items, *(uint32_t*)found);
-                            selector_indexes[selector_count] = *(uint32_t*)found;
+                            NU_Stylesheet_Item* found_item = Vector_Get(&ss->items, *(u32*)found);
+                            selector_indexes[selector_count] = *(u32*)found;
                         }
                         else // does not exist -> add item
                         {
@@ -344,7 +344,7 @@ static int NU_Stylesheet_Parse(char* src, TokenArray* tokens, NU_Stylesheet* ss,
                             new_item.tag = -1;
                             new_item.propertyFlags = 0;
                             Vector_Push(&ss->items, &new_item);
-                            selector_indexes[selector_count] = (uint32_t)(ss->items.size - 1);
+                            selector_indexes[selector_count] = (u32)(ss->items.size - 1);
                             HashmapSet(&ss->class_pseudo_item_hashmap, &key, &selector_indexes[selector_count]); // Store item index
                         }
                     }
@@ -394,8 +394,8 @@ static int NU_Stylesheet_Parse(char* src, TokenArray* tokens, NU_Stylesheet* ss,
                     void* found = HashmapGet(&ss->id_item_hashmap, &stored_id);
                     if (found != NULL)
                     {
-                        NU_Stylesheet_Item* found_item = Vector_Get(&ss->items, *(uint32_t*)found);
-                        selector_indexes[selector_count] = *(uint32_t*)found;
+                        NU_Stylesheet_Item* found_item = Vector_Get(&ss->items, *(u32*)found);
+                        selector_indexes[selector_count] = *(u32*)found;
                     }
                     else // does not exist -> add item
                     {
@@ -405,7 +405,7 @@ static int NU_Stylesheet_Parse(char* src, TokenArray* tokens, NU_Stylesheet* ss,
                         new_item.tag = -1;
                         new_item.propertyFlags = 0;
                         Vector_Push(&ss->items, &new_item);
-                        selector_indexes[selector_count] = (uint32_t)(ss->items.size - 1);
+                        selector_indexes[selector_count] = (u32)(ss->items.size - 1);
                         HashmapSet(&ss->id_item_hashmap, &stored_id, &selector_indexes[selector_count]); // Store item index
                     }
 
@@ -433,8 +433,8 @@ static int NU_Stylesheet_Parse(char* src, TokenArray* tokens, NU_Stylesheet* ss,
                         void* found = HashmapGet(&ss->id_pseudo_item_hashmap, &key);
                         if (found != NULL) 
                         {
-                            NU_Stylesheet_Item* found_item = Vector_Get(&ss->items, *(uint32_t*)found);
-                            selector_indexes[selector_count] = *(uint32_t*)found;
+                            NU_Stylesheet_Item* found_item = Vector_Get(&ss->items, *(u32*)found);
+                            selector_indexes[selector_count] = *(u32*)found;
                         }
                         else // does not exist -> add item
                         {
@@ -444,7 +444,7 @@ static int NU_Stylesheet_Parse(char* src, TokenArray* tokens, NU_Stylesheet* ss,
                             new_item.tag = -1;
                             new_item.propertyFlags = 0;
                             Vector_Push(&ss->items, &new_item);
-                            selector_indexes[selector_count] = (uint32_t)(ss->items.size - 1);
+                            selector_indexes[selector_count] = (u32)(ss->items.size - 1);
                             HashmapSet(&ss->id_pseudo_item_hashmap, &key, &selector_indexes[selector_count]); // Store item index
                         }
                     }
@@ -596,7 +596,7 @@ static int NU_Stylesheet_Parse(char* src, TokenArray* tokens, NU_Stylesheet* ss,
                     
                     // Set gap
                     case STYLE_GAP_PROPERTY:
-                        if (String_To_uint8_t(&item.gap, text)) 
+                        if (String_To_u8(&item.gap, text)) 
                             item.propertyFlags |= PROPERTY_FLAG_GAP;
                         break;
 
@@ -761,8 +761,8 @@ static int NU_Stylesheet_Parse(char* src, TokenArray* tokens, NU_Stylesheet* ss,
                     
                     // Set border width
                     case STYLE_BORDER_WIDTH_PROPERTY:
-                        uint8_t border_width;
-                        if (String_To_uint8_t(&border_width, text)) {
+                        u8 border_width;
+                        if (String_To_u8(&border_width, text)) {
                             item.borderTop = border_width;
                             item.borderBottom = border_width;
                             item.borderLeft = border_width;
@@ -774,30 +774,30 @@ static int NU_Stylesheet_Parse(char* src, TokenArray* tokens, NU_Stylesheet* ss,
                         }
                         break;
                     case STYLE_BORDER_TOP_WIDTH_PROPERTY:
-                        if (String_To_uint8_t(&item.borderTop, text)) {
+                        if (String_To_u8(&item.borderTop, text)) {
                             item.propertyFlags |= PROPERTY_FLAG_BORDER_TOP;
                         }
                         break;
                     case STYLE_BORDER_BOTTOM_WIDTH_PROPERTY:
-                        if (String_To_uint8_t(&item.borderBottom, text)) {
+                        if (String_To_u8(&item.borderBottom, text)) {
                             item.propertyFlags |= PROPERTY_FLAG_BORDER_BOTTOM;
                         }
                         break;
                     case STYLE_BORDER_LEFT_WIDTH_PROPERTY:
-                        if (String_To_uint8_t(&item.borderLeft, text)) {
+                        if (String_To_u8(&item.borderLeft, text)) {
                             item.propertyFlags |= PROPERTY_FLAG_BORDER_LEFT;
                         }
                         break;
                     case STYLE_BORDER_RIGHT_WIDTH_PROPERTY:
-                        if (String_To_uint8_t(&item.borderRight, text)) {
+                        if (String_To_u8(&item.borderRight, text)) {
                             item.propertyFlags |= PROPERTY_FLAG_BORDER_RIGHT;
                         }
                         break;
 
                     // Set border radii
                     case STYLE_BORDER_RADIUS_PROPERTY:
-                        uint8_t border_radius;
-                        if (String_To_uint8_t(&border_radius, text)) {
+                        u8 border_radius;
+                        if (String_To_u8(&border_radius, text)) {
                             item.borderRadiusTl = border_radius;
                             item.borderRadiusTr = border_radius;
                             item.borderRadiusBl = border_radius;
@@ -809,30 +809,30 @@ static int NU_Stylesheet_Parse(char* src, TokenArray* tokens, NU_Stylesheet* ss,
                         }
                         break;
                     case STYLE_BORDER_TOP_LEFT_RADIUS_PROPERTY:
-                        if (String_To_uint8_t(&item.borderRadiusTl, text)) {
+                        if (String_To_u8(&item.borderRadiusTl, text)) {
                             item.propertyFlags |= PROPERTY_FLAG_BORDER_RADIUS_TL;
                         }
                         break;
                     case STYLE_BORDER_TOP_RIGHT_RADIUS_PROPERTY:
-                        if (String_To_uint8_t(&item.borderRadiusTr, text)) {
+                        if (String_To_u8(&item.borderRadiusTr, text)) {
                             item.propertyFlags |= PROPERTY_FLAG_BORDER_RADIUS_TR;
                         }
                         break;
                     case STYLE_BORDER_BOTTOM_LEFT_RADIUS_PROPERTY:
-                        if (String_To_uint8_t(&item.borderRadiusBl, text)) {
+                        if (String_To_u8(&item.borderRadiusBl, text)) {
                             item.propertyFlags |= PROPERTY_FLAG_BORDER_RADIUS_BL;
                         }
                         break;
                     case STYLE_BORDER_BOTTOM_RIGHT_RADIUS_PROPERTY:
-                        if (String_To_uint8_t(&item.borderRadiusBr, text)) {
+                        if (String_To_u8(&item.borderRadiusBr, text)) {
                             item.propertyFlags |= PROPERTY_FLAG_BORDER_RADIUS_BR;
                         }
                         break;
 
                     // Set padding
                     case STYLE_PADDING_PROPERTY:
-                        uint8_t pad;
-                        if (String_To_uint8_t(&pad, text)) {
+                        u8 pad;
+                        if (String_To_u8(&pad, text)) {
                             item.padTop = pad;
                             item.padBottom = pad;
                             item.padLeft = pad;
@@ -844,22 +844,22 @@ static int NU_Stylesheet_Parse(char* src, TokenArray* tokens, NU_Stylesheet* ss,
                         }
                         break;
                     case STYLE_PADDING_TOP_PROPERTY:
-                        if (String_To_uint8_t(&item.padTop, text)) {
+                        if (String_To_u8(&item.padTop, text)) {
                             item.propertyFlags |= PROPERTY_FLAG_PAD_TOP;
                         }
                         break;
                     case STYLE_PADDING_BOTTOM_PROPERTY:
-                        if (String_To_uint8_t(&item.padBottom, text)) {
+                        if (String_To_u8(&item.padBottom, text)) {
                             item.propertyFlags |= PROPERTY_FLAG_PAD_BOTTOM;
                         }
                         break;
                     case STYLE_PADDING_LEFT_PROPERTY:
-                        if (String_To_uint8_t(&item.padLeft, text)) {
+                        if (String_To_u8(&item.padLeft, text)) {
                             item.propertyFlags |= PROPERTY_FLAG_PAD_LEFT;
                         }
                         break;
                     case STYLE_PADDING_RIGHT_PROPERTY:
-                        if (String_To_uint8_t(&item.padRight, text)) {
+                        if (String_To_u8(&item.padRight, text)) {
                             item.propertyFlags |= PROPERTY_FLAG_PAD_RIGHT;
                         }
                         break;
@@ -883,7 +883,7 @@ static int NU_Stylesheet_Parse(char* src, TokenArray* tokens, NU_Stylesheet* ss,
                     case STYLE_FONT_PROPERTY:
                         void* found_font = LinearStringmapGet(&ss->fontNameIndexMap, text);
                         if (found_font != NULL) {
-                            item.fontId = *(uint8_t*)found_font;
+                            item.fontId = *(u8*)found_font;
                         }
                         break;
 

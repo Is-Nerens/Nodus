@@ -1,7 +1,7 @@
 #pragma once
 
 struct RGB {
-    uint8_t r, g, b;
+    u8 r, g, b;
 };
 
 static int String_To_Float(float* result, char* str)
@@ -70,7 +70,7 @@ static int String_To_Int(int* result, char* str)
     return 1;
 }
 
-static int String_To_uint8_t(uint8_t* result, char* str)
+static int String_To_u8(u8* result, char* str)
 {
     *result = 0;
     int i=0;
@@ -82,18 +82,18 @@ static int String_To_uint8_t(uint8_t* result, char* str)
         }
         int digit = c - '0';
         if (*result > (UINT8_MAX - digit) / 10) {
-            *result = 255; // limit to max uint8_t value
+            *result = 255; // limit to max u8 value
         }
-        *result = (uint8_t)(*result * 10 + digit);
+        *result = (u8)(*result * 10 + digit);
         i += 1;
     }
     return 1;
 }
 
-static int String_To_Uint16(uint16_t* result, const char* str)
+static int String_To_Uint16(u16* result, const char* str)
 {
     if (!result || !str) return 0;
-    uint32_t val = 0; 
+    u32 val = 0; 
     int i = 0;
     while (str[i] != '\0') {
         char c = str[i];
@@ -101,7 +101,7 @@ static int String_To_Uint16(uint16_t* result, const char* str)
             *result = 0;
             return 0; // invalid character
         }
-        uint32_t digit = (uint32_t)(c - '0');
+        u32 digit = (u32)(c - '0');
         if (val > (UINT16_MAX - digit) / 10) {
             val = UINT16_MAX;
             break;
@@ -109,11 +109,11 @@ static int String_To_Uint16(uint16_t* result, const char* str)
         val = val * 10 + digit;
         i++;
     }
-    *result = (uint16_t)val;
+    *result = (u16)val;
     return 1;
 }
 
-static int String_To_Int16(int16_t* result, const char* str)
+static int String_To_Int16(i16* result, const char* str)
 {
     if (!result || !str) return 0;
     int32_t val = 0;
@@ -132,7 +132,7 @@ static int String_To_Int16(int16_t* result, const char* str)
         val = val * 10 + digit;
         i++;
     }
-    *result = (int16_t)val;
+    *result = (i16)val;
     return 1;
 }
 
@@ -152,8 +152,8 @@ bool Parse_Hexcode(const char* string, int char_count, struct RGB* rgb) {
     int b1 = Hex_To_Int(string[5]);
     int b2 = Hex_To_Int(string[6]);
     if (r1 < 0 || r2 < 0 || g1 < 0 || g2 < 0 || b1 < 0 || b2 < 0) return false;
-    rgb->r = (uint8_t)((r1 << 4) | r2);
-    rgb->g = (uint8_t)((g1 << 4) | g2);
-    rgb->b = (uint8_t)((b1 << 4) | b2);
+    rgb->r = (u8)((r1 << 4) | r2);
+    rgb->g = (u8)((g1 << 4) | g2);
+    rgb->b = (u8)((b1 << 4) | b2);
     return true;
 }

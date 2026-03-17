@@ -1,5 +1,6 @@
 #pragma once 
 #include <window/nu_window_manager_structs.h>
+#include <window/cursor.h>
 
 void InitGlew(NU_WindowManager* winManager)
 {
@@ -8,8 +9,8 @@ void InitGlew(NU_WindowManager* winManager)
     win.window = SDL_CreateWindow("Window", 1000, 800, SDL_WINDOW_OPENGL | SDL_WINDOW_RESIZABLE);
 
     // Init gl context
-    __NGUI.gl_ctx = SDL_GL_CreateContext(win.window);
-    SDL_GL_MakeCurrent(win.window, __NGUI.gl_ctx);
+    GUI.gl_ctx = SDL_GL_CreateContext(win.window);
+    SDL_GL_MakeCurrent(win.window, GUI.gl_ctx);
     SDL_GL_SetSwapInterval(0); // VSYNC ON
 
     // Add NU_Window to Window Manager

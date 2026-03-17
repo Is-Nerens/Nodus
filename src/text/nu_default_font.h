@@ -1,9 +1,8 @@
 
 #pragma once
-#include <stdint.h>
 
 static const unsigned int nu_default_ttf_len = 66276;
-static const uint64_t nu_default_ttf[] = {
+static const u64 nu_default_ttf[] = {
     0x0001130000000100ULL, 0x4645444730000400ULL, 0xd0fb0000d1008c00ULL, 0x534f50471c000000ULL,
     0xecfb0000b99fef7fULL, 0x4255534742050000ULL, 0x30010100fbb748baULL, 0x322f534fb4010000ULL,
     0x24bc0000077ee66aULL, 0x584d445660000000ULL, 0x84bc0000f56a9250ULL, 0x70616d6394110000ULL,

@@ -19,12 +19,12 @@ void NU_Stylesheet_Init(NU_Stylesheet* ss)
     Vector_Reserve(&ss->items, sizeof(NU_Stylesheet_Item), 512);
     LinearStringsetInit(&ss->class_string_set, 1024, 128);
     LinearStringsetInit(&ss->id_string_set, 1024, 128);
-    HashmapInit(&ss->class_item_hashmap, sizeof(char*), sizeof(uint32_t), 128);
-    HashmapInit(&ss->id_item_hashmap, sizeof(char*), sizeof(uint32_t), 128);
-    HashmapInit(&ss->tag_item_hashmap, sizeof(int), sizeof(uint32_t), 16);
-    HashmapInit(&ss->tag_pseudo_item_hashmap, sizeof(NU_Stylesheet_Tag_Pseudo_Pair), sizeof(uint32_t), 16);
-    HashmapInit(&ss->class_pseudo_item_hashmap, sizeof(NU_Stylesheet_String_Pseudo_Pair), sizeof(uint32_t), 16);
-    HashmapInit(&ss->id_pseudo_item_hashmap, sizeof(NU_Stylesheet_String_Pseudo_Pair), sizeof(uint32_t), 16);
+    HashmapInit(&ss->class_item_hashmap, sizeof(char*), sizeof(u32), 128);
+    HashmapInit(&ss->id_item_hashmap, sizeof(char*), sizeof(u32), 128);
+    HashmapInit(&ss->tag_item_hashmap, sizeof(int), sizeof(u32), 16);
+    HashmapInit(&ss->tag_pseudo_item_hashmap, sizeof(NU_Stylesheet_Tag_Pseudo_Pair), sizeof(u32), 16);
+    HashmapInit(&ss->class_pseudo_item_hashmap, sizeof(NU_Stylesheet_String_Pseudo_Pair), sizeof(u32), 16);
+    HashmapInit(&ss->id_pseudo_item_hashmap, sizeof(NU_Stylesheet_String_Pseudo_Pair), sizeof(u32), 16);
     LinearStringmapInit(&ss->fontNameIndexMap, sizeof(int), 12, 128);
     ss->fonts = Container_Create(sizeof(NU_Font));
 
@@ -111,25 +111,25 @@ int NU_Stylesheet_Create(NU_Stylesheet* stylesheet, const char* filepath)
     return 1; // Success
 }
 
-uint32_t NU_Internal_Load_Stylesheet(const char* filepath)
+u32 NU_Internal_Load_Stylesheet(const char* filepath)
 {
-    NU_Stylesheet* stylesheet = Vector_Create_Uninitialised(&__NGUI.stylesheets);
+    NU_Stylesheet* stylesheet = Vector_Create_Uninitialised(&GUI.stylesheets);
     if (!NU_Stylesheet_Create(stylesheet, filepath)) return 0; // Failure
-    uint32_t stylesheet_handle = __NGUI.stylesheets.size;
+    u32 stylesheet_handle = GUI.stylesheets.size;
     return stylesheet_handle;
 }
 
-int NU_Internal_Apply_Stylesheet(uint32_t stylesheet_handle)
+int NU_Internal_Apply_Stylesheet(u32 stylesheet_handle)
 {
-    NU_Stylesheet* stylesheet = Vector_Get_Safe(&__NGUI.stylesheets, stylesheet_handle - 1);   
+    NU_Stylesheet* stylesheet = Vector_Get_Safe(&GUI.stylesheets, stylesheet_handle - 1);   
     if (stylesheet == NULL) return 0;
 
-    __NGUI.stylesheet = stylesheet;
+    GUI.stylesheet = stylesheet;
 
     // Traverse tree using DFS
-    BreadthFirstSearch_Reset(&__NGUI.bfs, __NGUI.tree.root);
+    BreadthFirstSearch_Reset(&GUI.bfs, GUI.tree.root);
     NodeP* node;
-    while (BreadthFirstSearch_Next(&__NGUI.bfs, &node)) {
+    while (BreadthFirstSearch_Next(&GUI.bfs, &node)) {
         NU_Apply_Stylesheet_To_Node(node, stylesheet);
     }
 

@@ -1,10 +1,3 @@
-#pragma once
-typedef uint8_t u8;
-typedef uint16_t u16;
-typedef uint32_t u32;
-typedef uint64_t u64;
-typedef int16_t i16;
-
 typedef struct NU_Stylesheet_Tag_Pseudo_Pair
 {
     int tag;
@@ -61,7 +54,7 @@ typedef struct NU_Stylesheet
 
 struct Style_Text_Ref
 {
-    uint32_t NU_Token_index;
-    uint32_t src_index;
-    uint8_t char_count; 
+    u32 NU_Token_index;
+    u32 src_index;
+    u8 char_count; 
 };

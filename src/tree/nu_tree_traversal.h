@@ -13,8 +13,8 @@ typedef struct DFSFrame {
 
 typedef struct DepthFirstSearch {
     DFSFrame* stack;
-    uint32_t size;
-    uint32_t capacity;
+    u32 size;
+    u32 capacity;
 } DepthFirstSearch;
 
 DepthFirstSearch DepthFirstSearch_Create(NodeP* root)
@@ -96,9 +96,9 @@ void DepthFirstSearch_Free(DepthFirstSearch* dfs)
 // -----------------------------
 typedef struct BFSQueue {
     NodeP** data;
-    uint32_t size;
-    uint32_t capacity;
-    uint32_t front;
+    u32 size;
+    u32 capacity;
+    u32 front;
 } BFSQueue;
 
 typedef struct BreadthFirstSearch {
@@ -106,7 +106,7 @@ typedef struct BreadthFirstSearch {
     NodeP* root;
 } BreadthFirstSearch;
 
-static void BFSQueue_Init(BFSQueue* q, uint32_t cap) {
+static void BFSQueue_Init(BFSQueue* q, u32 cap) {
     q->data = malloc(sizeof(NodeP*) * cap);
     q->size = 0;
     q->front = 0;
@@ -180,8 +180,8 @@ void BreadthFirstSearch_Free(BreadthFirstSearch* bfs) {
 // -------------------------------------
 typedef struct ReverseBreadthFirstSearch {
     NodeP** nodes;
-    uint32_t count;
-    uint32_t index;
+    u32 count;
+    u32 index;
 } ReverseBreadthFirstSearch;
 
 ReverseBreadthFirstSearch ReverseBreadthFirstSearch_Create(NodeP* root) {
@@ -195,15 +195,15 @@ ReverseBreadthFirstSearch ReverseBreadthFirstSearch_Create(NodeP* root) {
 
     // temp stack for layers
     NodeP*** layerStack = malloc(sizeof(NodeP**) * 16);
-    uint32_t* layerCounts = malloc(sizeof(uint32_t) * 16);
-    uint32_t layerStackSize = 0;
-    uint32_t layerCapacity = 16;
+    u32* layerCounts = malloc(sizeof(u32) * 16);
+    u32 layerStackSize = 0;
+    u32 layerCapacity = 16;
 
     while (queue.front < queue.size) {
-        uint32_t layerCount = queue.size - queue.front;
+        u32 layerCount = queue.size - queue.front;
         NodeP** layerNodes = malloc(sizeof(NodeP*) * layerCount);
 
-        for (uint32_t i = 0; i < layerCount; i++) {
+        for (u32 i = 0; i < layerCount; i++) {
             NodeP* node = BFSQueue_Pop(&queue);
             layerNodes[i] = node;
 
@@ -217,7 +217,7 @@ ReverseBreadthFirstSearch ReverseBreadthFirstSearch_Create(NodeP* root) {
         if (layerStackSize == layerCapacity) {
             layerCapacity *= 2;
             layerStack = realloc(layerStack, sizeof(NodeP**) * layerCapacity);
-            layerCounts = realloc(layerCounts, sizeof(uint32_t) * layerCapacity);
+            layerCounts = realloc(layerCounts, sizeof(u32) * layerCapacity);
         }
 
         layerStack[layerStackSize] = layerNodes;
@@ -228,17 +228,17 @@ ReverseBreadthFirstSearch ReverseBreadthFirstSearch_Create(NodeP* root) {
     BFSQueue_Free(&queue);
 
     // Count total nodes
-    uint32_t total = 0;
-    for (uint32_t i = 0; i < layerStackSize; i++) total += layerCounts[i];
+    u32 total = 0;
+    for (u32 i = 0; i < layerStackSize; i++) total += layerCounts[i];
 
     rBFS.nodes = malloc(sizeof(NodeP*) * total);
     rBFS.count = total;
     rBFS.index = 0;
 
     // Fill rBFS array bottom-up, left-to-right per layer
-    uint32_t pos = 0;
+    u32 pos = 0;
     for (int l = layerStackSize - 1; l >= 0; l--) {
-        for (uint32_t i = 0; i < layerCounts[l]; i++) {
+        for (u32 i = 0; i < layerCounts[l]; i++) {
             rBFS.nodes[pos++] = layerStack[l][i];
         }
         free(layerStack[l]);

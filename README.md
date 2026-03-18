@@ -17,7 +17,7 @@ Nodus requires: [stb_image](https://github.com/nothings/stb/blob/master/stb_imag
 - Text rendering using FreeType with support for subpixel rendering, producing sharp text on lower resolution displays
 - Canvas API that supports drawing
 - UI events to detect resizing, mouse hovering, clicks and more
-- Multi-window support is as easy as creating a <window> tag (All child elements of a window will be drawn in that window)
+- Multi-window support is as easy as creating a <window> tag in-xml or during runtime
 
 <br>
 
@@ -30,7 +30,6 @@ Nodus requires: [stb_image](https://github.com/nothings/stb/blob/master/stb_imag
 - Linux and MacOS support
 - Debugging tools
 - Library Documentation
-- Pseudo styles do not apply to id and class selectors
 
 <br>
 

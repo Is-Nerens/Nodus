@@ -18,7 +18,7 @@ typedef struct NU_Stylesheet_Item
     int tag;
     int item_index;
     GLuint glImageHandle;
-    u16 preferred_width, preferred_height;
+    u16 prefWidth, prefHeight;
     u16 minWidth, maxWidth, minHeight, maxHeight;
     i16 left, right, top, bottom;
     u16 layoutFlags;
@@ -39,6 +39,7 @@ typedef struct NU_Stylesheet_Item
 typedef struct NU_Stylesheet
 {
     struct Vector items;
+    struct Vector pseudoItems;
     LinearStringset class_string_set;
     LinearStringset id_string_set;
     struct Hashmap class_item_hashmap;

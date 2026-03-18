@@ -10,13 +10,13 @@
 static void NU_ApplyMinMaxWidthConstraint(NodeP* node)
 {
     node->node.width = min(max(node->node.width, node->node.minWidth), node->node.maxWidth);
-    node->node.width = max(node->node.width, node->preferred_width);
+    node->node.width = max(node->node.width, node->node.prefWidth);
 }
 
 static void NU_ApplyMinMaxHeightConstraint(NodeP* node)
 {
     node->node.height = min(max(node->node.height, node->node.minHeight), node->node.maxHeight);
-    node->node.height = max(node->node.height, node->preferred_height);
+    node->node.height = max(node->node.height, node->node.prefHeight);
 }
 
 static void NU_Prepass(BreadthFirstSearch* bfs, Vector* scrollAutoNodes)
@@ -24,16 +24,16 @@ static void NU_Prepass(BreadthFirstSearch* bfs, Vector* scrollAutoNodes)
     NodeP* node;
     while (BreadthFirstSearch_Next(bfs, &node)) {
 
-        // set node hidden
+        // Set node hidden
         node->state = 1;
         if (node->layoutFlags & HIDDEN || (node->parent != NULL && (node->parent->layoutFlags & HIDDEN))) {
-            node->state = 2; // don't affect layout or draw node
+            node->state = 2; // Don't affect layout or draw node
         }
-        // node affects layout
+        // Node affects layout
         else {
             node->clippedAncestor = NULL;
 
-            // set / inherit absolute positioning
+            // Set / inherit absolute positioning
             node->positionAbsolute = 0;
             if (node->layoutFlags & POSITION_ABSOLUTE || (node->parent != NULL && (
                 node->parent->positionAbsolute || 
@@ -42,29 +42,36 @@ static void NU_Prepass(BreadthFirstSearch* bfs, Vector* scrollAutoNodes)
                 node->positionAbsolute = 1;
             }
 
-            // add node to list of scroll auto nodes
+            // Add node to list of scroll auto nodes
             if (node->layoutFlags & OVERFLOW_VERTICAL_SCROLL) {
                 Vector_Push(scrollAutoNodes, &node);
             }
 
-            // reset position
+            // Reset position
             node->node.x = 0.0f;
             node->node.y = 0.0f;
-
-            // constrain preferred/min/max width/height -> These are limited by the border and padding
-            // preferred width height bust also be constrained by min/max width/height
+ 
+            // Compute natural
             float natural_width = node->node.borderLeft + node->node.borderRight + node->node.padLeft + node->node.padRight;
             float natural_height = node->node.borderTop + node->node.borderBottom + node->node.padTop + node->node.padBottom;
-            node->node.minWidth = max(node->node.minWidth, natural_width);
-            node->node.minHeight = max(node->node.minHeight, natural_height);
-            node->node.maxWidth = max(max(node->node.maxWidth, natural_width), node->node.minWidth);
-            node->node.maxHeight = max(max(node->node.maxHeight, natural_height), node->node.minHeight);
-            node->preferred_width = min(max(node->preferred_width, node->node.minWidth), node->node.maxWidth);
-            node->preferred_height = min(max(node->preferred_height, node->node.minHeight), node->node.maxHeight);
 
-            // Set base width/height and reset content dimensions
-            node->node.width = max(node->preferred_width, natural_width);
-            node->node.height = max(node->preferred_height, natural_height);
+            // Enforce constraint -> max > min
+            node->node.maxWidth = max(node->node.maxWidth, node->node.minWidth);
+            node->node.maxHeight = max(node->node.maxHeight, node->node.minHeight);
+
+            // Enforce constraints -> pref >= min
+            if (node->node.prefWidth < node->node.minWidth) node->node.prefWidth = node->node.minWidth;
+            if (node->node.prefHeight < node->node.minHeight) node->node.prefHeight = node->node.minHeight;
+            
+            // Enforce constraint -> pref <= max
+            if (node->node.prefWidth > node->node.maxWidth) node->node.prefWidth = node->node.maxWidth;
+            if (node->node.prefHeight > node->node.maxHeight) node->node.prefHeight = node->node.maxHeight;
+
+            // Set base, enforce constraint -> base >= natural
+            node->node.width = max(node->node.prefWidth, natural_width);
+            node->node.height = max(node->node.prefHeight, natural_height);
+
+            // Reset
             node->node.contentWidth = 0;
             node->node.contentHeight = 0;
         }
@@ -88,7 +95,7 @@ static void NU_CalculateTextFitWidths(BreadthFirstSearch* bfs)
 
         // Increase width to account for text (text height will be accounted for later in NU_CalculateTextHeights())
         float natural_width = node->node.padLeft + node->node.padRight + node->node.borderLeft + node->node.borderRight;
-        node->node.width = max(text_width + natural_width, node->preferred_width);
+        node->node.width = max(text_width + natural_width, node->node.prefWidth);
 
         // Update content width
         node->node.contentWidth = text_width; 
@@ -681,7 +688,7 @@ static void NU_CalculateTextHeights(BreadthFirstSearch* bfs)
 
             // Increase height to account for text
             float natural_height = node->node.padTop + node->node.padBottom + node->node.borderTop + node->node.borderBottom;
-            node->node.height = max(text_height + natural_height, node->preferred_height);
+            node->node.height = max(text_height + natural_height, node->node.prefHeight);
             
             // Update content height
             node->node.contentHeight = text_height;
@@ -905,8 +912,8 @@ void NU_Repass(BreadthFirstSearch* bfs)
             // Set base width/height and reset content dimensions
             float natural_width = child->node.borderLeft + child->node.borderRight + child->node.padLeft + child->node.padRight;
             float natural_height = child->node.borderTop + child->node.borderBottom + child->node.padTop + child->node.padBottom;
-            child->node.width = max(child->preferred_width, natural_width);
-            child->node.height = max(child->preferred_height, natural_height);
+            child->node.width = max(child->node.prefWidth, natural_width);
+            child->node.height = max(child->node.prefHeight, natural_height);
             child->node.contentWidth = 0;
             child->node.contentHeight = 0;
 

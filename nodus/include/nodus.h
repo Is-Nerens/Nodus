@@ -26,6 +26,7 @@ typedef struct Node
     char* textContent;
     float x, y, width, height;
     float contentWidth, contentHeight;
+    uint16_t prefWidth, prefHeight;
     uint16_t minWidth, maxWidth, minHeight, maxHeight;
     int16_t left, right, top, bottom;
     uint8_t gap, padTop, padBottom, padLeft, padRight;

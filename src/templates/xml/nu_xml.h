@@ -297,7 +297,7 @@ int NU_Generate_Tree(char* src, TokenArray* tokens, struct Vector* textRefs)
                         uint16_t width;
                         if (String_To_Uint16(&width, ptext)) {
                             currentNode->overrideStyleFlags |= PROPERTY_FLAG_PREFERRED_WIDTH;
-                            currentNode->preferred_width = width;
+                            currentNode->node.prefWidth = width;
                         }
                         break;
 
@@ -324,7 +324,7 @@ int NU_Generate_Tree(char* src, TokenArray* tokens, struct Vector* textRefs)
                         uint16_t height;
                         if (String_To_Uint16(&height, ptext)) {
                             currentNode->overrideStyleFlags |= PROPERTY_FLAG_PREFERRED_HEIGHT;
-                            currentNode->preferred_height = height;
+                            currentNode->node.prefHeight = height;
                         }
                         break;
 

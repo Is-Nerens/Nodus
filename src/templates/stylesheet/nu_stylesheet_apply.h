@@ -17,10 +17,10 @@ static void NU_Apply_Style_Item_To_Node(NodeP* node, NU_Stylesheet_Item* item)
     STYLE_APPLY_LAYOUT_FLAG(PROPERTY_FLAG_HIDDEN, HIDDEN);                                 // Hidden or not
     STYLE_APPLY_LAYOUT_FLAG(PROPERTY_FLAG_IGNORE_MOUSE, IGNORE_MOUSE);                     // Ignore mouse or not
     if (STYLE_SHOULD_APPLY_TO_NODE(PROPERTY_FLAG_GAP)) node->node.gap = item->gap;
-    if (STYLE_SHOULD_APPLY_TO_NODE(PROPERTY_FLAG_PREFERRED_WIDTH)) node->preferred_width = item->preferred_width;
+    if (STYLE_SHOULD_APPLY_TO_NODE(PROPERTY_FLAG_PREFERRED_WIDTH)) node->node.prefWidth = item->prefWidth;
     if (STYLE_SHOULD_APPLY_TO_NODE(PROPERTY_FLAG_MIN_WIDTH)) node->node.minWidth = item->minWidth;
     if (STYLE_SHOULD_APPLY_TO_NODE(PROPERTY_FLAG_MAX_WIDTH)) node->node.maxWidth = item->maxWidth;
-    if (STYLE_SHOULD_APPLY_TO_NODE(PROPERTY_FLAG_PREFERRED_HEIGHT)) node->preferred_height = item->preferred_height;
+    if (STYLE_SHOULD_APPLY_TO_NODE(PROPERTY_FLAG_PREFERRED_HEIGHT)) node->node.prefHeight = item->prefHeight;
     if (STYLE_SHOULD_APPLY_TO_NODE(PROPERTY_FLAG_MIN_HEIGHT)) node->node.minHeight = item->minHeight;
     if (STYLE_SHOULD_APPLY_TO_NODE(PROPERTY_FLAG_MAX_HEIGHT)) node->node.maxHeight = item->maxHeight;
     if (STYLE_SHOULD_APPLY_TO_NODE(PROPERTY_FLAG_ALIGN_H)) node->horizontalAlignment = item->horizontalAlignment;
@@ -105,9 +105,6 @@ void NU_Apply_Stylesheet_To_Node(NodeP* node, NU_Stylesheet* ss)
 
 void NU_Apply_Pseudo_Style_To_Node(NodeP* node, NU_Stylesheet* ss, enum NU_Pseudo_Class pseudo)
 {
-    // Apply base style
-    NU_Apply_Stylesheet_To_Node(node, ss);
-    
     // Tag pseudo style match and apply
     NU_Stylesheet_Tag_Pseudo_Pair key = { node->type, pseudo };
     void* tag_pseudo_found = HashmapGet(&ss->tag_pseudo_item_hashmap, &key);

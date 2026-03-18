@@ -21,10 +21,10 @@ void NU_Stylesheet_Overwrite_Style_Item(NU_Stylesheet_Item* item, NU_Stylesheet_
 
     // Overwrite gap and size fields (branchless)
     item->gap              = item->gap              * !(overwriter->propertyFlags & PROPERTY_FLAG_GAP)              + overwriter->gap              * !!(overwriter->propertyFlags & PROPERTY_FLAG_GAP);
-    item->preferred_width  = item->preferred_width  * !(overwriter->propertyFlags & PROPERTY_FLAG_PREFERRED_WIDTH)  + overwriter->preferred_width  * !!(overwriter->propertyFlags & PROPERTY_FLAG_PREFERRED_WIDTH);
+    item->prefWidth  = item->prefWidth  * !(overwriter->propertyFlags & PROPERTY_FLAG_PREFERRED_WIDTH)  + overwriter->prefWidth  * !!(overwriter->propertyFlags & PROPERTY_FLAG_PREFERRED_WIDTH);
     item->minWidth         = item->minWidth         * !(overwriter->propertyFlags & PROPERTY_FLAG_MIN_WIDTH)        + overwriter->minWidth         * !!(overwriter->propertyFlags & PROPERTY_FLAG_MIN_WIDTH);
     item->maxWidth         = item->maxWidth         * !(overwriter->propertyFlags & PROPERTY_FLAG_MAX_WIDTH)        + overwriter->maxWidth         * !!(overwriter->propertyFlags & PROPERTY_FLAG_MAX_WIDTH);
-    item->preferred_height = item->preferred_height * !(overwriter->propertyFlags & PROPERTY_FLAG_PREFERRED_HEIGHT) + overwriter->preferred_height * !!(overwriter->propertyFlags & PROPERTY_FLAG_PREFERRED_HEIGHT);
+    item->prefHeight = item->prefHeight * !(overwriter->propertyFlags & PROPERTY_FLAG_PREFERRED_HEIGHT) + overwriter->prefHeight * !!(overwriter->propertyFlags & PROPERTY_FLAG_PREFERRED_HEIGHT);
     item->minHeight        = item->minHeight        * !(overwriter->propertyFlags & PROPERTY_FLAG_MIN_HEIGHT)       + overwriter->minHeight        * !!(overwriter->propertyFlags & PROPERTY_FLAG_MIN_HEIGHT);
     item->maxHeight        = item->maxHeight        * !(overwriter->propertyFlags & PROPERTY_FLAG_MAX_HEIGHT)       + overwriter->maxHeight        * !!(overwriter->propertyFlags & PROPERTY_FLAG_MAX_HEIGHT);
 
@@ -172,7 +172,7 @@ static void NU_Stylesheet_Parse_Property(NU_Stylesheet* ss, const enum NU_Style_
 
         // Set preferred width
         case STYLE_WIDTH_PROPERTY:
-            if (String_To_Uint16(&item->preferred_width, text))
+            if (String_To_Uint16(&item->prefWidth, text))
                 item->propertyFlags |= PROPERTY_FLAG_PREFERRED_WIDTH;
             break;
 
@@ -190,7 +190,7 @@ static void NU_Stylesheet_Parse_Property(NU_Stylesheet* ss, const enum NU_Style_
 
         // Set preferred height
         case STYLE_HEIGHT_PROPERTY:
-            if (String_To_Uint16(&item->preferred_height, text)) 
+            if (String_To_Uint16(&item->prefHeight, text)) 
                 item->propertyFlags |= PROPERTY_FLAG_PREFERRED_HEIGHT;
             break;
 
@@ -764,14 +764,20 @@ static int NU_Stylesheet_Parse(char* src, TokenArray* tokens, NU_Stylesheet* ss,
                     {
                         int tag = NU_Token_To_Tag(token);
                         enum NU_Pseudo_Class pseudo_class = Token_To_Pseudo_Class(following_token);
+
+                        // Construct key
                         struct NU_Stylesheet_Tag_Pseudo_Pair key = { tag, pseudo_class };
+
+                        // Query hashmap
                         void* found = HashmapGet(&ss->tag_pseudo_item_hashmap, &key);
 
-                        if (found != NULL) // Style item exists
+                        // Style item exists
+                        if (found != NULL)
                         {
                             NU_Stylesheet_Item* found_item = Vector_Get(&ss->items, *(u32*)found);
                             selectorIndexes[selectorCount] = *(u32*)found;
                         }
+                        // Style item does not exist -> add one
                         else
                         {
                             NU_Stylesheet_Item new_item;
@@ -782,7 +788,6 @@ static int NU_Stylesheet_Parse(char* src, TokenArray* tokens, NU_Stylesheet* ss,
                             Vector_Push(&ss->items, &new_item);
                             selectorIndexes[selectorCount] = (u32)(ss->items.size - 1);
                             HashmapSet(&ss->tag_pseudo_item_hashmap, &key, &selectorIndexes[selectorCount]); // Store item index
-
                         }
                     }
                     else {
@@ -814,8 +819,8 @@ static int NU_Stylesheet_Parse(char* src, TokenArray* tokens, NU_Stylesheet* ss,
                     char* src_class = &src[textRef->src_index];
                     src[textRef->src_index + textRef->char_count] = '\0';
 
-                    // Add class to set
-                    char* stored_class = LinearStringsetAdd(&ss->class_string_set, src_class);
+                    // Get stored class
+                    char* stored_class = LinearStringsetGet(&ss->class_string_set, src_class);
 
                     // If style item exists
                     void* found = HashmapGet(&ss->class_item_hashmap, &stored_class);
@@ -826,6 +831,11 @@ static int NU_Stylesheet_Parse(char* src, TokenArray* tokens, NU_Stylesheet* ss,
                     } 
                     else // does not exist -> add item
                     { 
+                        // Add class to string set
+                        LinearStringsetAdd(&ss->class_string_set, src_class);
+                        stored_class = LinearStringsetGet(&ss->class_string_set, src_class);
+
+                        // Add style item for class
                         NU_Stylesheet_Item new_item;
                         new_item.class = stored_class;
                         new_item.id = NULL;
@@ -853,25 +863,34 @@ static int NU_Stylesheet_Parse(char* src, TokenArray* tokens, NU_Stylesheet* ss,
                         char* src_class = &src[textRef->src_index];
                         src[textRef->src_index + textRef->char_count] = '\0';
 
-                        // Add class to set
-                        char* stored_class = LinearStringsetAdd(&ss->class_string_set, src_class);
-                        struct NU_Stylesheet_String_Pseudo_Pair key = { stored_class, pseudo_class };
-                        void* found = HashmapGet(&ss->class_pseudo_item_hashmap, &key);
-                        if (found != NULL) 
+                        // Get stored class
+                        char* stored_class = LinearStringsetGet(&ss->class_string_set, src_class);
+
+                        if (stored_class != NULL)
                         {
-                            NU_Stylesheet_Item* found_item = Vector_Get(&ss->items, *(u32*)found);
-                            selectorIndexes[selectorCount] = *(u32*)found;
-                        }
-                        else // does not exist -> add item
-                        {
-                            NU_Stylesheet_Item new_item;
-                            new_item.class = stored_class;
-                            new_item.id = NULL;
-                            new_item.tag = -1;
-                            new_item.propertyFlags = 0;
-                            Vector_Push(&ss->items, &new_item);
-                            selectorIndexes[selectorCount] = (u32)(ss->items.size - 1);
-                            HashmapSet(&ss->class_pseudo_item_hashmap, &key, &selectorIndexes[selectorCount]); // Store item index
+                            // Get stored class pseudo
+                            struct NU_Stylesheet_String_Pseudo_Pair key = { stored_class, pseudo_class };
+                            void* found = HashmapGet(&ss->class_pseudo_item_hashmap, &key);
+
+                            // No pseudo item exists for this class
+                            if (found == NULL) 
+                            {
+                                // Add pseudo style item
+                                NU_Stylesheet_Item new_item;
+                                new_item.class = stored_class;
+                                new_item.id = NULL;
+                                new_item.tag = -1;
+                                new_item.propertyFlags = 0;
+                                Vector_Push(&ss->items, &new_item);
+                                selectorIndexes[selectorCount] = (u32)(ss->items.size - 1);
+                                HashmapSet(&ss->class_pseudo_item_hashmap, &key, &selectorIndexes[selectorCount]); // Store item index
+                            }
+                            // Item found
+                            else
+                            {
+                                NU_Stylesheet_Item* found_item = Vector_Get(&ss->items, *(u32*)found);
+                                selectorIndexes[selectorCount] = *(u32*)found;
+                            }
                         }
                     }
                     else {
@@ -903,8 +922,8 @@ static int NU_Stylesheet_Parse(char* src, TokenArray* tokens, NU_Stylesheet* ss,
                     char* src_id = &src[textRef->src_index];
                     src[textRef->src_index + textRef->char_count] = '\0';
 
-                    // Add id to set
-                    char* stored_id = LinearStringsetAdd(&ss->id_string_set, src_id);
+                    // Get stored id
+                    char* stored_id = LinearStringsetGet(&ss->id_string_set, src_id);
 
                     // If style item exists
                     void* found = HashmapGet(&ss->id_item_hashmap, &stored_id);
@@ -915,6 +934,11 @@ static int NU_Stylesheet_Parse(char* src, TokenArray* tokens, NU_Stylesheet* ss,
                     }
                     else // does not exist -> add item
                     {
+                        // Add class to string set
+                        LinearStringsetAdd(&ss->id_string_set, src_id);
+                        stored_id = LinearStringsetGet(&ss->id_string_set, src_id);
+
+                        // Add style item for id
                         NU_Stylesheet_Item new_item;
                         new_item.class = NULL;
                         new_item.id = stored_id;
@@ -923,6 +947,7 @@ static int NU_Stylesheet_Parse(char* src, TokenArray* tokens, NU_Stylesheet* ss,
                         Vector_Push(&ss->items, &new_item);
                         selectorIndexes[selectorCount] = (u32)(ss->items.size - 1);
                         HashmapSet(&ss->id_item_hashmap, &stored_id, &selectorIndexes[selectorCount]); // Store item index
+                        LinearStringsetAdd(&ss->id_string_set, src_id);
                     }
 
                     i += 1;
@@ -942,25 +967,34 @@ static int NU_Stylesheet_Parse(char* src, TokenArray* tokens, NU_Stylesheet* ss,
                         char* src_id = &src[textRef->src_index];
                         src[textRef->src_index + textRef->char_count] = '\0';
 
-                        // Add id to set
-                        char* stored_id = LinearStringsetAdd(&ss->id_string_set, src_id);
-                        struct NU_Stylesheet_String_Pseudo_Pair key = { stored_id, pseudo_class };
-                        void* found = HashmapGet(&ss->id_pseudo_item_hashmap, &key);
-                        if (found != NULL) 
+                        // Get stored id
+                        char* stored_id = LinearStringsetGet(&ss->id_string_set, src_id);
+
+                        if (stored_id != NULL)
                         {
-                            NU_Stylesheet_Item* found_item = Vector_Get(&ss->items, *(u32*)found);
-                            selectorIndexes[selectorCount] = *(u32*)found;
-                        }
-                        else // does not exist -> add item
-                        {
-                            NU_Stylesheet_Item new_item;
-                            new_item.class = NULL;
-                            new_item.id = stored_id;
-                            new_item.tag = -1;
-                            new_item.propertyFlags = 0;
-                            Vector_Push(&ss->items, &new_item);
-                            selectorIndexes[selectorCount] = (u32)(ss->items.size - 1);
-                            HashmapSet(&ss->id_pseudo_item_hashmap, &key, &selectorIndexes[selectorCount]); // Store item index
+                            // Get stored id pseudo
+                            struct NU_Stylesheet_String_Pseudo_Pair key = { stored_id, pseudo_class };
+                            void* found = HashmapGet(&ss->id_pseudo_item_hashmap, &key);
+
+                            // No pseudo item exists for this id
+                            if (found == NULL) 
+                            {
+                                // Add pseudo style item
+                                NU_Stylesheet_Item new_item;
+                                new_item.class = NULL;
+                                new_item.id = stored_id;
+                                new_item.tag = -1;
+                                new_item.propertyFlags = 0;
+                                Vector_Push(&ss->items, &new_item);
+                                selectorIndexes[selectorCount] = (u32)(ss->items.size - 1);
+                                HashmapSet(&ss->id_pseudo_item_hashmap, &key, &selectorIndexes[selectorCount]); // Store item index
+                            }
+                            // Item found
+                            else
+                            {
+                                NU_Stylesheet_Item* found_item = Vector_Get(&ss->items, *(u32*)found);
+                                selectorIndexes[selectorCount] = *(u32*)found;
+                            }
                         }
                     }
                     else {

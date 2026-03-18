@@ -86,6 +86,7 @@ typedef struct Node
     char* textContent;
     float x, y, width, height;
     float contentWidth, contentHeight;
+    u16 prefWidth, prefHeight;
     u16 minWidth, maxWidth, minHeight, maxHeight;
     i16 left, right, top, bottom;
     u8 gap, padTop, padBottom, padLeft, padRight;
@@ -114,7 +115,6 @@ typedef struct NodeP
     u16 childCount;
     u16 eventFlags;
     u16 layoutFlags;
-    u16 preferred_width, preferred_height;
     u8 layer;
     u8 state;
     u8 fontId;
@@ -166,8 +166,8 @@ void NU_ApplyNodeDefaults(NodeP* node)
     node->node.borderR = node->node.borderG = node->node.borderB = 100;
     node->node.textR = node->node.textG = node->node.textB = 255;
     node->overrideStyleFlags = 0;
-    node->preferred_width = 0;
-    node->preferred_height = 0;
+    node->node.prefWidth = 0;
+    node->node.prefHeight = 0;
     node->fontId = 0;
     node->horizontalAlignment = 0;
     node->verticalAlignment = 0;

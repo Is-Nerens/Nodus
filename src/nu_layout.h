@@ -715,10 +715,10 @@ static void NU_PositionChildrenHorizontally(NodeP* node, bool includeNodeScrollb
             }
             else { // position absolute
                 child->node.x = node->node.x + node->node.padLeft + node->node.borderLeft;
-                if (child->node.left > 0.0f) {
+                if (child->node.left >= 0.0f) {
                     child->node.x = node->node.x + child->node.left + node->node.padLeft + node->node.borderLeft;
                 }
-                else if (child->node.right > 0.0f) {
+                else if (child->node.right >= 0.0f) {
                     float inner_width = node->node.width - node->node.padLeft - node->node.padRight - node->node.borderLeft - node->node.borderRight;
                     child->node.x = node->node.x + inner_width - child->node.width - child->node.right;
                 }
@@ -863,10 +863,10 @@ static void NU_PositionChildrenVertically(NodeP* node, bool includeNodeScrollbar
             }
             else { // position abosolute
                 child->node.y = node->node.y + node->node.padTop + node->node.borderTop;
-                if (child->node.top > 0.0f) {
+                if (child->node.top >= 0.0f) {
                     child->node.y = node->node.y + child->node.top + node->node.padTop + node->node.borderTop;
                 }
-                else if (child->node.bottom > 0.0f) {
+                else if (child->node.bottom >= 0.0f) {
                     float inner_height = node->node.height - node->node.padTop - node->node.padBottom - node->node.borderTop - node->node.borderBottom;
                     child->node.y = node->node.y + inner_height - child->node.height - child->node.bottom;
                 }
@@ -965,6 +965,4 @@ void NU_Layout()
         NU_GrowShrinkHeights(bfs, true);
         NU_CalculatePositions(bfs, true);
     }
-
-    GUI.recalculate_mouse_hover = true;
 }

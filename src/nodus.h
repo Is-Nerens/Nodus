@@ -39,16 +39,24 @@ struct NU_GUI
     Stringmap id_node_map;
     Container canvasContexts;
 
-    // state
-    NodeP* prev_hovered_node;
+    // Pseudo nodes
     NodeP* hovered_node;
+    NodeP* prev_hovered_node;
     NodeP* mouse_down_node;
+    NodeP* prev_mouse_down_node;
+    NodeP* focused_node;
+    NodeP* prev_focused_node;
+
+    // Scroll state
     NodeP* scroll_hovered_node;
     NodeP* scroll_mouse_down_node;
-    NodeP* focused_node;
+    float v_scroll_thumb_grab_offset;
+
+    // Mouse position state
     float mouseDownGlobalX;
     float mouseDownGlobalY;
-    float v_scroll_thumb_grab_offset;
+
+    // States
     bool running;
     bool awaiting_redraw;
     bool recalculate_mouse_hover;
@@ -58,7 +66,7 @@ struct NU_GUI
     struct NU_Stylesheet* stylesheet;
     SDL_GLContext gl_ctx;
 
-    // events
+    // Events
     Hashmap on_click_events;
     Hashmap on_input_changed_events;
     Hashmap on_drag_events;
@@ -75,7 +83,7 @@ struct NU_GUI
     Set deletedNodesWithRegisteredEvents;
     Uint32 SDL_CUSTOM_RENDER_EVENT;
 
-    // cursors
+    // Cursors
     SDL_Cursor* cursorDefault;
     SDL_Cursor* cursorPointer;
     SDL_Cursor* cursorText;
@@ -124,7 +132,7 @@ void NU_Internal_Quit()
     StringsetFree(&GUI.class_string_set);
     StringsetFree(&GUI.id_string_set);
     StringArena_Free(&GUI.nodeTextArena);
-    for (u32 i=0; i<GUI.stylesheets.size; i++)
+    for (u32 i=0; i<GUI.stylesheets.size; i++) 
     {
         NU_Stylesheet* stylesheet = Vector_Get(&GUI.stylesheets, i);
         NU_Stylesheet_Free(stylesheet);
@@ -211,14 +219,19 @@ int NU_Internal_Create_Gui(const char* xml_filepath, const char* css_filepath)
     GUI.cursorNwseResize = SDL_CreateSystemCursor(SDL_SYSTEM_CURSOR_NWSE_RESIZE);
     GUI.cursorNeswResize = SDL_CreateSystemCursor(SDL_SYSTEM_CURSOR_NESW_RESIZE);
 
-    // State
-    GUI.prev_hovered_node = NULL;
+    // Pseudo nodes
     GUI.hovered_node = NULL;
+    GUI.prev_hovered_node = NULL;
     GUI.mouse_down_node = NULL;
+    GUI.prev_mouse_down_node = NULL;
+    GUI.focused_node = NULL;
+    GUI.prev_focused_node = NULL;
+
+    // Scroll nodes
     GUI.scroll_hovered_node = NULL;
     GUI.scroll_mouse_down_node = NULL;
-    GUI.focused_node = NULL;
-    GUI.stylesheet = NULL;
+
+    // State
     GUI.running = false;
     GUI.awaiting_redraw = true;
     GUI.recalculate_mouse_hover = true;
@@ -241,6 +254,7 @@ int NU_Internal_Create_Gui(const char* xml_filepath, const char* css_filepath)
     }
 
     // Load css
+    GUI.stylesheet = NULL;
     u32 stylesheetHandle = NU_Internal_Load_Stylesheet(css_filepath);
     if (stylesheetHandle == 0) {
         NU_Internal_Quit();

@@ -39,6 +39,7 @@ void NU_Stylesheet_Init(NU_Stylesheet* ss)
 
     // do not apply certain properties
     item->propertyFlags &= ~PROPERTY_FLAG_IMAGE;
+    item->propertyFlags &= ~PROPERTY_FLAG_HIDDEN;
 
     // sizing
     item->maxWidth  = UINT16_MAX;

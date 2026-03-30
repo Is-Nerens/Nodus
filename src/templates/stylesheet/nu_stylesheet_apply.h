@@ -6,6 +6,7 @@
 #define STYLE_APPLY_LAYOUT_FLAG(prop, layout_mask) if ((item->propertyFlags & (prop)) && !(node->overrideStyleFlags & (prop))) node->layoutFlags = (node->layoutFlags & ~(layout_mask)) | (item->layoutFlags & (layout_mask))
 #define STYLE_SHOULD_APPLY_TO_NODE(mask) (item->propertyFlags & mask) && !(node->overrideStyleFlags & mask)
 
+// This should be optimised (branchless)
 static void NU_Apply_Style_Item_To_Node(NodeP* node, NU_Stylesheet_Item* item)
 {
     STYLE_APPLY_LAYOUT_FLAG(PROPERTY_FLAG_LAYOUT_VERTICAL, LAYOUT_VERTICAL); 
@@ -14,8 +15,8 @@ static void NU_Apply_Style_Item_To_Node(NodeP* node, NU_Stylesheet_Item* item)
     STYLE_APPLY_LAYOUT_FLAG(PROPERTY_FLAG_VERTICAL_SCROLL, OVERFLOW_VERTICAL_SCROLL);     // Overflow vertical scroll (or not)
     STYLE_APPLY_LAYOUT_FLAG(PROPERTY_FLAG_HORIZONTAL_SCROLL, OVERFLOW_HORIZONTAL_SCROLL); // Overflow horizontal scroll (or not)
     STYLE_APPLY_LAYOUT_FLAG(PROPERTY_FLAG_POSITION_ABSOLUTE, POSITION_ABSOLUTE);          // Absolute positioning (or not)
-    STYLE_APPLY_LAYOUT_FLAG(PROPERTY_FLAG_HIDDEN, HIDDEN);                                 // Hidden or not
-    STYLE_APPLY_LAYOUT_FLAG(PROPERTY_FLAG_IGNORE_MOUSE, IGNORE_MOUSE);                     // Ignore mouse or not
+    STYLE_APPLY_LAYOUT_FLAG(PROPERTY_FLAG_HIDDEN, HIDDEN);                                // Hidden or not
+    STYLE_APPLY_LAYOUT_FLAG(PROPERTY_FLAG_IGNORE_MOUSE, IGNORE_MOUSE);                    // Ignore mouse or not
     if (STYLE_SHOULD_APPLY_TO_NODE(PROPERTY_FLAG_GAP)) node->node.gap = item->gap;
     if (STYLE_SHOULD_APPLY_TO_NODE(PROPERTY_FLAG_PREFERRED_WIDTH)) node->node.prefWidth = item->prefWidth;
     if (STYLE_SHOULD_APPLY_TO_NODE(PROPERTY_FLAG_MIN_WIDTH)) node->node.minWidth = item->minWidth;
@@ -104,11 +105,20 @@ void NU_Apply_Stylesheet_To_Node(NodeP* node, NU_Stylesheet* ss)
 }
 
 void NU_Apply_Pseudo_Style_To_Node(NodeP* node, NU_Stylesheet* ss, enum NU_Pseudo_Class pseudo)
-{
+{   
+    if (node == NULL) return;
+
+    bool appliedBase = false;
+
     // Tag pseudo style match and apply
     NU_Stylesheet_Tag_Pseudo_Pair key = { node->type, pseudo };
     void* tag_pseudo_found = HashmapGet(&ss->tag_pseudo_item_hashmap, &key);
     if (tag_pseudo_found != NULL) {
+
+        // Apply base style
+        NU_Apply_Stylesheet_To_Node(node, ss); appliedBase = true;
+
+        // Apply tag pseudo style
         u32 index = *(u32*)tag_pseudo_found;
         NU_Stylesheet_Item* item = (NU_Stylesheet_Item*)Vector_Get(&ss->items, index);
         NU_Apply_Style_Item_To_Node(node, item);
@@ -121,6 +131,13 @@ void NU_Apply_Pseudo_Style_To_Node(NodeP* node, NU_Stylesheet* ss, enum NU_Pseud
             NU_Stylesheet_String_Pseudo_Pair key = { stored_class, pseudo };
             void* class_pseudo_found = HashmapGet(&ss->class_pseudo_item_hashmap, &key);
             if (class_pseudo_found != NULL) {
+
+                // Apply base style
+                if (!appliedBase) {
+                    NU_Apply_Stylesheet_To_Node(node, ss); appliedBase = true;
+                }
+
+                // Apply class pseudo style
                 u32 index = *(u32*)class_pseudo_found;
                 NU_Stylesheet_Item* item = (NU_Stylesheet_Item*)Vector_Get(&ss->items, index);
                 NU_Apply_Style_Item_To_Node(node, item);
@@ -135,6 +152,13 @@ void NU_Apply_Pseudo_Style_To_Node(NodeP* node, NU_Stylesheet* ss, enum NU_Pseud
             NU_Stylesheet_String_Pseudo_Pair key = { stored_id, pseudo };
             void* id_pseudo_found = HashmapGet(&ss->id_pseudo_item_hashmap, &key);
             if (id_pseudo_found != NULL) {
+
+                // Apply base style
+                if (!appliedBase) {
+                    NU_Apply_Stylesheet_To_Node(node, ss); appliedBase = true;
+                }
+
+                // Apply id pseudo style
                 u32 index = *(u32*)id_pseudo_found;
                 NU_Stylesheet_Item* item = (NU_Stylesheet_Item*)Vector_Get(&ss->items, index);
                 NU_Apply_Style_Item_To_Node(node, item);

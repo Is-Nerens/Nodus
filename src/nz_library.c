@@ -20,7 +20,7 @@ __declspec(dllexport) int NU_Running(void) {
     if (GUI.awaiting_redraw) 
     {
         NU_Layout();
-        if (GUI.recalculate_mouse_hover) NU_Mouse_Hover();
+        NU_Mouse_Hover();
         NU_Draw();
         CheckForResizeEvents();
     }
@@ -197,6 +197,10 @@ __declspec(dllexport) void NU_SHOW(Node* node) {
     NodeP* nodeP = NODEP_OF(node);
     nodeP->layoutFlags &= ~HIDDEN;
 }
+__declspec(dllexport) int NU_IS_SHOWN(Node* node) {
+    NodeP* nodeP = NODEP_OF(node);
+    return !(nodeP->layoutFlags & HIDDEN);
+}
 __declspec(dllexport) Node* NU_Get_Node_By_Id(const char* id) {
     void* found = StringmapGet(&GUI.id_node_map, id);
     if (found == NULL) return NULL;
@@ -212,6 +216,20 @@ __declspec(dllexport) NU_Nodelist NU_Get_Nodes_By_Class(const char* class) {
     while(DepthFirstSearch_Next(&dfs, &node)) {
         if (node->class != NULL && strcmp(class, node->class) == 0) {
             NU_Nodelist_Push(&result, &node->node);
+        }
+    }
+    DepthFirstSearch_Free(&dfs);
+    return result.nodelist;
+}
+__declspec(dllexport) NU_Nodelist NU_Get_Descendents_With_Class(Node* node, const char* class) {
+    NodeP* nodeP = NODEP_OF(node);
+    NU_Nodelist_Internal result;
+    NU_Nodelist_Init(&result, 8);
+    DepthFirstSearch dfs = DepthFirstSearch_Create(nodeP);
+    NodeP* currNode;
+    while(DepthFirstSearch_Next(&dfs, &currNode)) {
+        if (currNode->class != NULL && strcmp(class, currNode->class) == 0) {
+            NU_Nodelist_Push(&result, &currNode->node);
         }
     }
     DepthFirstSearch_Free(&dfs);
@@ -244,16 +262,24 @@ __declspec(dllexport) NU_Nodelist NU_Get_Children(Node* node) {
 __declspec(dllexport) Node* NU_Get_First_Descendent_With_Class(Node* node, const char* class) {
     NodeP* nodeP = NODEP_OF(node);
     Node* result = NULL;
-    DepthFirstSearch dfs = DepthFirstSearch_Create(nodeP);
-    NodeP* dfsNode;
-    while(DepthFirstSearch_Next(&dfs, &dfsNode)) {
-        if (strcmp(dfsNode->class, class) == 0) {
-            result = &dfsNode->node;
+    BreadthFirstSearch_Reset(&GUI.bfs, nodeP);
+    NodeP* bfsNode;
+    while(BreadthFirstSearch_Next(&GUI.bfs, &bfsNode)) {
+        if (strcmp(bfsNode->class, class) == 0) {
+            result = &bfsNode->node;
             break;
         }
     }
-    DepthFirstSearch_Free(&dfs);
     return result;
+}
+__declspec(dllexport) int NU_Descends_From(Node* node, Node* ancestor) {
+    if (node == NULL || ancestor == NULL) return 0;
+    Node* curr = NU_PARENT(node);
+    while(curr != NULL) {
+        if (curr == ancestor) return 1;
+        curr = NU_PARENT(curr);
+    }
+    return 0;
 }
 __declspec(dllexport) void NU_Nodelist_Free(NU_Nodelist* nodelist) {
     free(nodelist->nodes);

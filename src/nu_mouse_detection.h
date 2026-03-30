@@ -111,23 +111,18 @@ inline void TriggerOnMouseInEvent(Node* node, float mouseX, float mouseY)
 
 void NU_Mouse_Hover()
 {   
-    // remove potential pseudo style from current hovered node
-    if (GUI.hovered_node != NULL && GUI.hovered_node != GUI.mouse_down_node) {
-        NU_Apply_Stylesheet_To_Node(GUI.hovered_node, GUI.stylesheet);
-    }
-    GUI.prev_hovered_node = GUI.hovered_node;
     GUI.hovered_node = NULL;
     GUI.scroll_hovered_node = NULL;
     if (GUI.winManager.hoveredWindowID == -1) return;
 
-    // get local mouse coords
+    // Get local mouse coords
     float mouseX, mouseY; GetLocalMouseCoords(&GUI.winManager, &mouseX, &mouseY);
 
-    // create a traversal stack
+    // Create a traversal stack
     struct Vector stack;
     Vector_Reserve(&stack, sizeof(NodeP*), 32);
 
-    // add absolute root nodes to stack
+    // Add absolute root nodes to stack
     for (u32 i=0; i<GUI.winManager.absoluteRootNodes.size; i++) {
         NodeP* absolute_node = *(NodeP**)Vector_Get(&GUI.winManager.absoluteRootNodes, i);
         if (absolute_node->windowID == GUI.winManager.hoveredWindowID && NU_MouseIsOverNode(absolute_node, mouseX, mouseY)) {
@@ -135,7 +130,7 @@ void NU_Mouse_Hover()
         }
     }
 
-    // add window root nodes to stack
+    // Add window root nodes to stack
     for (u32 i=0; i<GUI.winManager.windowNodes.size; i++) {
         NodeP* node = *(NodeP**)Vector_Get(&GUI.winManager.windowNodes, i);
         if (node->windowID == GUI.winManager.hoveredWindowID){
@@ -148,17 +143,17 @@ void NU_Mouse_Hover()
     bool break_loop = false;
     while (stack.size > 0 && !break_loop) 
     {
-        // pop the stack
+        // Pop the stack
         NodeP* current_node = *(NodeP**)Vector_Get(&stack, stack.size - 1);
         if (!(current_node->layoutFlags & IGNORE_MOUSE)) {
             GUI.hovered_node = current_node;
         }
         stack.size -= 1;
 
-        // skip children
+        // Skip children
         if (current_node->type == NU_BUTTON) continue;
 
-        // iterate over children
+        // Iterate over children
         NodeP* child = current_node->firstChild;
         while(child != NULL) {
 
@@ -170,32 +165,20 @@ void NU_Mouse_Hover()
                 child = child->nextSibling; continue;
             }
 
-            // check for scroll hover
+            // Check for scroll hover
             if (child->layoutFlags & OVERFLOW_V_PROPERTY) {
                 bool overflow_v = child->node.contentHeight > child->node.height - child->node.borderTop - child->node.borderBottom;
                 if (overflow_v) GUI.scroll_hovered_node = child;
             }
             Vector_Push(&stack, &child);
 
-            // move to the next child
+            // Move to the next child
             child = child->nextSibling;
         }
     }
-
-    // apply pseudo style to hovered node
-    if (GUI.hovered_node != NULL && GUI.hovered_node != GUI.mouse_down_node) {
-        NU_Apply_Pseudo_Style_To_Node(GUI.hovered_node, GUI.stylesheet, PSEUDO_HOVER);
-        GUI.awaiting_redraw = true;
-    } 
     Vector_Free(&stack);
 
-    // hovered node changed -> must redraw later
-    if (GUI.prev_hovered_node != GUI.hovered_node) {
-        GUI.awaiting_redraw = true;
-    }
-
-
-    // on mouse in event triggered
+    // On mouse in event triggered
     if (GUI.hovered_node != NULL &&
         GUI.prev_hovered_node != GUI.hovered_node && 
         GUI.hovered_node->eventFlags & NU_EVENT_FLAG_ON_MOUSE_IN)
@@ -203,7 +186,7 @@ void NU_Mouse_Hover()
         TriggerOnMouseInEvent(&GUI.hovered_node->node, mouseX, mouseY);
     }
 
-    // on mouse out event triggered
+    // On mouse out event triggered
     if (GUI.prev_hovered_node != NULL && 
         GUI.prev_hovered_node != GUI.hovered_node && 
         GUI.prev_hovered_node->eventFlags & NU_EVENT_FLAG_ON_MOUSE_OUT)
@@ -211,5 +194,11 @@ void NU_Mouse_Hover()
         TriggerOnMouseOutEvent(&GUI.prev_hovered_node->node, mouseX, mouseY);
     }
 
-    GUI.recalculate_mouse_hover = false;
+    // Apply hover pseudo style
+    if (GUI.hovered_node != GUI.prev_hovered_node) {
+        if (GUI.prev_hovered_node != NULL && GUI.prev_hovered_node != GUI.mouse_down_node && GUI.prev_hovered_node != GUI.focused_node) NU_Apply_Stylesheet_To_Node(GUI.prev_hovered_node, GUI.stylesheet);
+        if (GUI.hovered_node != GUI.mouse_down_node && GUI.hovered_node != GUI.focused_node) NU_Apply_Pseudo_Style_To_Node(GUI.hovered_node, GUI.stylesheet, PSEUDO_HOVER);
+        GUI.prev_hovered_node = GUI.hovered_node;
+        GUI.awaiting_redraw = true;
+    }
 }

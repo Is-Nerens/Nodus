@@ -130,11 +130,14 @@ __declspec(dllimport) inline const char* NU_INPUT_TEXT_CONTENT(Node* node);
 __declspec(dllimport) Node* NU_HOVERED_NODE();
 __declspec(dllimport) inline void NU_SHOW(Node* node);
 __declspec(dllimport) inline void NU_HIDE(Node* node);
+__declspec(dllimport) int NU_IS_SHOWN(Node* node);
 __declspec(dllimport) Node* NU_Get_Node_By_Id(const char* id);
 __declspec(dllimport) NU_Nodelist NU_Get_Nodes_By_Class(char* const class);
+__declspec(dllimport) NU_Nodelist NU_Get_Descendents_With_Class(Node* node, char* const class);
 __declspec(dllimport) NU_Nodelist NU_Get_Nodes_By_Tag(NodeType type);
 __declspec(dllimport) NU_Nodelist NU_Get_Children(Node* node);
 __declspec(dllimport) Node* NU_Get_First_Descendent_With_Class(Node* node, const char* class);
+__declspec(dllimport) int NU_Descends_From(Node* node, Node* ancestor);
 __declspec(dllimport) void NU_Nodelist_Free(NU_Nodelist* nodelist);
 __declspec(dllimport) void NU_Set_Class(Node* node, const char* class);
 

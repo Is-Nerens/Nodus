@@ -644,7 +644,6 @@ static int NU_Stylesheet_Parse(char* src, TokenArray* tokens, NU_Stylesheet* ss,
     int succeeded = NU_Stylesheet_Parse_Fonts(ss, src, tokens, textRefs);
     if (!succeeded) {
         LinearStringmapFree(&imageFilepathToHandleMap);
-        LinearStringmapFree(&ss->fontNameIndexMap);
         return 0;
     }
 
@@ -654,7 +653,6 @@ static int NU_Stylesheet_Parse(char* src, TokenArray* tokens, NU_Stylesheet* ss,
     succeeded = NU_Stylesheet_Parse_Default(src, tokens, ss, textRefs, &imageFilepathToHandleMap);
     if (!succeeded) {
         LinearStringmapFree(&imageFilepathToHandleMap);
-        LinearStringmapFree(&ss->fontNameIndexMap);
         return 0;
     }
 
@@ -1062,6 +1060,5 @@ static int NU_Stylesheet_Parse(char* src, TokenArray* tokens, NU_Stylesheet* ss,
     }
 
     LinearStringmapFree(&imageFilepathToHandleMap);
-    LinearStringmapFree(&ss->fontNameIndexMap);
     return succeeded;
 }

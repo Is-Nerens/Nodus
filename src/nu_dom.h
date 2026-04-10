@@ -4,48 +4,7 @@
 
 void NU_DissociateNode(NodeP* node)
 {
-    // Remove registered events
-    if (node->eventFlags & NU_EVENT_FLAG_ON_CLICK) {
-        HashmapDelete(&GUI.on_click_events, &node->node);
-    }
-    if (node->eventFlags & NU_EVENT_FLAG_ON_INPUT_CHANGED) {
-        HashmapDelete(&GUI.on_input_changed_events, &node->node);
-    }
-    if (node->eventFlags & NU_EVENT_FLAG_ON_DRAG) {
-        HashmapDelete(&GUI.on_drag_events, &node->node);
-    }
-    if (node->eventFlags & NU_EVENT_FLAG_ON_RELEASED) {
-        HashmapDelete(&GUI.on_released_events, &node->node);
-    }
-    if (node->eventFlags & NU_EVENT_FLAG_ON_RESIZE) {
-        HashmapDelete(&GUI.on_resize_events, &node->node);
-        HashmapDelete(&GUI.node_resize_tracking, &node->node); 
-    }
-    if (node->eventFlags & NU_EVENT_FLAG_ON_MOUSE_DOWN) {
-        HashmapDelete(&GUI.on_mouse_down_events, &node->node);
-    }
-    if (node->eventFlags & NU_EVENT_FLAG_ON_MOUSE_UP) {
-        HashmapDelete(&GUI.on_mouse_up_events, &node->node);
-    }
-    if (node->eventFlags & NU_EVENT_FLAG_ON_MOUSE_DOWN_OUTSIDE) {
-        HashmapDelete(&GUI.on_mouse_down_outside_events, &node->node);
-    }
-    if (node->eventFlags & NU_EVENT_FLAG_ON_MOUSE_MOVED) {
-        HashmapDelete(&GUI.on_mouse_move_events, &node->node);
-    }
-    if (node->eventFlags & NU_EVENT_FLAG_ON_MOUSE_IN) {
-        HashmapDelete(&GUI.on_mouse_in_events, &node->node);
-    }
-    if (node->eventFlags & NU_EVENT_FLAG_ON_MOUSE_OUT) {
-        HashmapDelete(&GUI.on_mouse_out_events, &node->node);
-    }
-    if (node->eventFlags & NU_EVENT_FLAG_ON_INPUT_FOCUS) {
-        HashmapDelete(&GUI.on_input_focus_events, &node->node);
-    }
-    if (node->eventFlags & NU_EVENT_FLAG_ON_INPUT_DEFOCUS) {
-        HashmapDelete(&GUI.on_input_defocus_events, &node->node);
-    }
-
+    NU_Unregister_All_Non_Iterated_Events(node);
 
     switch(node->type) {
         case NU_WINDOW:

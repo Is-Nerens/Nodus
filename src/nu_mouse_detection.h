@@ -77,38 +77,6 @@ static bool NU_Mouse_Over_Node_V_Scrollbar(NodeP* node, float mouse_x, float mou
     return within_x_bound && within_y_bound;
 }
 
-inline void TriggerOnMouseOutEvent(Node* node, float mouseX, float mouseY)
-{
-    // on mouse out event triggered
-    void* found_cb = HashmapGet(&GUI.on_mouse_out_events, &node);
-    if (found_cb != NULL) {
-        struct NU_Callback_Info* cb_info = (struct NU_Callback_Info*)found_cb;
-        cb_info->event.mouse.mouseBtn = -1;
-        cb_info->event.mouse.mouseX = mouseX;
-        cb_info->event.mouse.mouseY = mouseY;
-        cb_info->event.mouse.deltaX = 0.0f;
-        cb_info->event.mouse.deltaY = 0.0f;
-        cb_info->event.mouse.wheelDelta = 0.0f;
-        cb_info->callback(cb_info->event, cb_info->args);
-    }
-}
-
-inline void TriggerOnMouseInEvent(Node* node, float mouseX, float mouseY)
-{
-    // on mouse out event triggered'
-    void* found_cb = HashmapGet(&GUI.on_mouse_in_events, &node);
-    if (found_cb != NULL) {
-        struct NU_Callback_Info* cb_info = (struct NU_Callback_Info*)found_cb;
-        cb_info->event.mouse.mouseBtn = -1;
-        cb_info->event.mouse.mouseX = mouseX;
-        cb_info->event.mouse.mouseY = mouseY;
-        cb_info->event.mouse.deltaX = 0.0f;
-        cb_info->event.mouse.deltaY = 0.0f;
-        cb_info->event.mouse.wheelDelta = 0.0f;
-        cb_info->callback(cb_info->event, cb_info->args);
-    }
-}
-
 void NU_Mouse_Hover()
 {   
     GUI.prev_hovered_node = GUI.hovered_node;
@@ -184,7 +152,7 @@ void NU_Mouse_Hover()
         GUI.prev_hovered_node != GUI.hovered_node && 
         GUI.hovered_node->eventFlags & NU_EVENT_FLAG_ON_MOUSE_IN)
     {
-        TriggerOnMouseInEvent(&GUI.hovered_node->node, mouseX, mouseY);
+        TriggerOnMouseInEvent(GUI.hovered_node, mouseX, mouseY);
     }
 
     // On mouse out event triggered
@@ -192,7 +160,7 @@ void NU_Mouse_Hover()
         GUI.prev_hovered_node != GUI.hovered_node && 
         GUI.prev_hovered_node->eventFlags & NU_EVENT_FLAG_ON_MOUSE_OUT)
     {
-        TriggerOnMouseOutEvent(&GUI.prev_hovered_node->node, mouseX, mouseY);
+        TriggerOnMouseOutEvent(GUI.prev_hovered_node, mouseX, mouseY);
     }
 
     // Apply hover pseudo style

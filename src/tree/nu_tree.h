@@ -15,6 +15,7 @@ typedef struct Tree
     u32 layerAllocsCapacity;
     u32 depth;
     u32 nodeCount;
+    Vector deletedButNotFreedNodes;
 } Tree;
 
 typedef void (*TreeDeleteCallback)(NodeP* node);
@@ -29,6 +30,8 @@ NodeP* TreeCreate(Tree* tree, NodeType rootType)
         if (i == 0) Nalloc_Init(&tree->layerAllocs[i], 1);
         else Nalloc_Init(&tree->layerAllocs[i], 100);
     }
+
+    Vector_Reserve(&tree->deletedButNotFreedNodes, sizeof(NodeP*), 25);
 
     // member variables
     tree->depth = 1;
@@ -195,8 +198,9 @@ void TreeDeleteLeaf(Tree* tree, NodeP* leaf, TreeDeleteCallback deleteCB)
     }
     
     if (deleteCB != NULL) deleteCB(leaf);
-    Nalloc* nalloc = &tree->layerAllocs[leaf->layer];
-    Nalloc_Free(nalloc, leaf);
+
+    // Add to list of deleted but not freed nodes
+    Vector_Push(&tree->deletedButNotFreedNodes, &leaf); leaf->state = 0;
 }
 
 void TreeDeleteNode(Tree* tree, NodeP* node, TreeDeleteCallback deleteCB)
@@ -235,14 +239,22 @@ void TreeDeleteNode(Tree* tree, NodeP* node, TreeDeleteCallback deleteCB)
 
         if (deleteCB != NULL) deleteCB(cur);
 
-        Nalloc* nalloc = &tree->layerAllocs[cur->layer];
-        Nalloc_Free(nalloc, cur);
-
+        // Add to list of deleted but not freed nodes
+        Vector_Push(&tree->deletedButNotFreedNodes, &cur); cur->state = 0;
         tree->nodeCount--;
     }
 
     // finally unlink + delete node itself
     TreeDeleteLeaf(tree, node, deleteCB);
-
     Vector_Free(&stack);
+}
+
+void TreeFreeDeleted(Tree* tree)
+{
+    for (int i=0; i<tree->deletedButNotFreedNodes.size; i++) {
+        NodeP* deletedNode = *(NodeP**)Vector_Get(&tree->deletedButNotFreedNodes, i);
+        Nalloc* nalloc = &tree->layerAllocs[deletedNode->layer];
+        Nalloc_Free(nalloc, deletedNode);
+    }
+    Vector_Clear(&tree->deletedButNotFreedNodes);
 }

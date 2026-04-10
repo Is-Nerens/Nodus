@@ -25,6 +25,14 @@ __declspec(dllexport) int NU_Running(void) {
         CheckForResizeEvents();
     }
 
+    // Safely unregister deleted nodes from iterated hashmaps
+    // and free node memory
+    for (int i=0; i<GUI.tree.deletedButNotFreedNodes.size; i++) {
+        NodeP* node = *(NodeP**)Vector_Get(&GUI.tree.deletedButNotFreedNodes, i);
+        NU_Unregister_All_Iterated_Events(node);
+    }
+    TreeFreeDeleted(&GUI.tree);
+
     // Wait for next event, with timeout to save CPU
     SDL_WaitEventTimeout(&event, GetFrametime());
 
@@ -191,17 +199,7 @@ __declspec(dllexport) void NU_SET_INPUT_TEXT_CONTENT(Node* node, const char* tex
     NU_Font* font = Stylesheet_Get_Font(GUI.stylesheet, nodeP->fontId);
     InputText* inputText = &nodeP->typeData.input.inputText;
     InputText_SetText(inputText, nodeP, font, text);
-
-    // Trigger On input changed event
-    if (nodeP->eventFlags & NU_EVENT_FLAG_ON_INPUT_CHANGED) {
-        void* found_cb = HashmapGet(&GUI.on_input_changed_events, &node);
-        if (found_cb != NULL) {
-            struct NU_Callback_Info* cb_info = (struct NU_Callback_Info*)found_cb;
-            strcpy(cb_info->event.input.text, "");
-            cb_info->callback(cb_info->event, cb_info->args);
-        }
-    }
-
+    TriggerOnInputChangedEvent(nodeP, "");
     GUI.awaiting_redraw = true;
 }
 __declspec(dllexport) void NU_FOCUS_ON_INPUT(Node* node) {
@@ -220,12 +218,7 @@ __declspec(dllexport) void NU_FOCUS_ON_INPUT(Node* node) {
             InputText_Defocus(&prevFocusedNode->typeData.input.inputText);
 
             // Trigger defocus event
-            Node* node = &prevFocusedNode->node;
-            void* found_cb = HashmapGet(&GUI.on_input_defocus_events, &node);
-            if (found_cb != NULL) {
-                struct NU_Callback_Info* cb_info = (struct NU_Callback_Info*)found_cb;
-                cb_info->callback(cb_info->event, cb_info->args);
-            }
+            TriggerOnInputDefocusEvent(prevFocusedNode);
 
             // Remove focus style prev focused node
             NU_Apply_Stylesheet_To_Node(prevFocusedNode, GUI.stylesheet);
@@ -245,12 +238,7 @@ __declspec(dllexport) void NU_FOCUS_ON_INPUT(Node* node) {
         SDL_StartTextInput(GetSDL_Window(&GUI.winManager, GUI.focused_node->windowID));
 
         // Trigger focus event
-        void* found_cb = HashmapGet(&GUI.on_input_focus_events, &node);
-        if (found_cb != NULL) {
-            struct NU_Callback_Info* cb_info = (struct NU_Callback_Info*)found_cb;
-            cb_info->callback(cb_info->event, cb_info->args);
-        }
-
+        TriggerOnInputFocusEvent(nodeP);
         NU_Render();
     }
 }
@@ -395,7 +383,7 @@ __declspec(dllexport) void NU_Register_Event(
   NU_Callback callback, 
   enum NU_Event_Type event_type) 
 {
-  NU_Internal_Register_Event(node, args, callback, event_type);
+    NU_Internal_Register_Event(node, args, callback, event_type);
 }
 
 // -----------------------------

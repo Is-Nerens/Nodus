@@ -60,3 +60,62 @@ struct NU_Callback_Info
     void* args;
     NU_Callback callback;
 };
+
+typedef struct NU_EventSystem {
+    Hashmap on_click_events;
+    Hashmap on_input_changed_events;
+    Hashmap on_drag_events;
+    Hashmap on_released_events;
+    Hashmap on_resize_events;
+    Hashmap node_resize_tracking; 
+    Hashmap on_mouse_down_events;
+    Hashmap on_mouse_up_events;
+    Hashmap on_mouse_down_outside_events;
+    Hashmap on_mouse_move_events;
+    Hashmap on_mouse_in_events;
+    Hashmap on_mouse_out_events;
+    Hashmap on_mouse_wheel_events;
+    Hashmap on_input_focus_events;
+    Hashmap on_input_defocus_events;
+} NU_EventSystem;
+
+// ----------------------------
+// --- Function Definitions ---
+// ----------------------------
+void EventSystem_Init();
+
+void EventSystem_Free();
+
+void NU_Internal_Register_Event(
+    Node* node, 
+    void* args, 
+    NU_Callback callback, 
+    enum NU_Event_Type 
+    event_type
+);
+
+void NU_Unregister_All_Events(NodeP* node);
+
+void TriggerOnMouseInEvent(NodeP* nodeP, float mouseX, float mouseY);
+
+void TriggerOnMouseOutEvent(NodeP* nodeP, float mouseX, float mouseY);
+
+void TriggerOnMouseDownEvent(NodeP* nodeP, float mouseX, float mouseY, int mouseBtn);
+
+void TriggerOnClickEvent(NodeP* nodeP, float mouseX, float mouseY, int mouseBtn);
+
+void TriggerOnInputFocusEvent(NodeP* nodeP);
+
+void TriggerOnInputDefocusEvent(NodeP* nodeP);
+
+void TriggerOnInputChangedEvent(NodeP* nodeP, const char* text);
+
+void CheckForResizeEvents();
+
+void TriggerAllMouseupEvents(float mouseX, float mouseY, int mouseBtn);
+
+void TriggerAllMouseMoveEvents(float mouseX, float mouseY, float mouseDeltaX, float mouseDeltaY);
+
+void TriggerAllMouseWheelEvents(float wheelDelta);
+
+void TriggerAllMouseDownOutsideEvents(float mouseX, float mouseY, int mouseBtn);

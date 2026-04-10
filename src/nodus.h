@@ -28,6 +28,7 @@
 #include <tree/nu_nodelist.h>
 #include <window/nu_window_manager_structs.h>
 #include <rendering/nu_renderer.h>
+#include <events/nu_event_defs.h>
 
 struct NU_GUI
 {
@@ -67,21 +68,8 @@ struct NU_GUI
     SDL_GLContext gl_ctx;
 
     // Events
-    Hashmap on_click_events;
-    Hashmap on_input_changed_events;
-    Hashmap on_drag_events;
-    Hashmap on_released_events;
-    Hashmap on_resize_events;
-    Hashmap node_resize_tracking; 
-    Hashmap on_mouse_down_events;
-    Hashmap on_mouse_up_events;
-    Hashmap on_mouse_down_outside_events;
-    Hashmap on_mouse_move_events;
-    Hashmap on_mouse_in_events;
-    Hashmap on_mouse_out_events;
-    Hashmap on_mouse_wheel_events;
-    Hashmap on_input_focus_events;
-    Hashmap on_input_defocus_events;
+    NU_EventSystem eventSystem;
+
     Set deletedNodesWithRegisteredEvents;
     Uint32 SDL_CUSTOM_RENDER_EVENT;
 
@@ -121,7 +109,6 @@ struct NU_GUI GUI;
 #include <nu_layout.h>
 #include <input_text/nu_input_text.h>
 #include <nu_draw.h>
-#include <events/nu_event_structs.h>
 #include <nu_mouse_detection.h>
 #include <events/nu_events.h>
 #include <nu_dom.h>
@@ -140,27 +127,12 @@ void NU_Internal_Quit()
         NU_Stylesheet_Free(stylesheet);
     }
     Vector_Free(&GUI.stylesheets);
-    HashmapFree(&GUI.on_click_events);
-    HashmapFree(&GUI.on_input_changed_events);
-    HashmapFree(&GUI.on_drag_events);
-    HashmapFree(&GUI.on_released_events);
-    HashmapFree(&GUI.on_resize_events);
-    HashmapFree(&GUI.node_resize_tracking);
-    HashmapFree(&GUI.on_mouse_down_events);
-    HashmapFree(&GUI.on_mouse_up_events);
-    HashmapFree(&GUI.on_mouse_down_outside_events);
-    HashmapFree(&GUI.on_mouse_move_events);
-    HashmapFree(&GUI.on_mouse_in_events);
-    HashmapFree(&GUI.on_mouse_out_events);
-    HashmapFree(&GUI.on_mouse_wheel_events);
-    HashmapFree(&GUI.on_input_focus_events);
-    HashmapFree(&GUI.on_input_defocus_events);
     Container_Free(&GUI.canvasContexts);
     Vertex_RGB_List_Free(&GUI.borderRectVertices);
     Index_List_Free(&GUI.borderRectIndices);
     BreadthFirstSearch_Free(&GUI.bfs);
     ReverseBreadthFirstSearch_Free(&GUI.rbfs);
-    SetFree(&GUI.deletedNodesWithRegisteredEvents);
+    EventSystem_Free();
     SDL_Quit();
 }
 
@@ -190,23 +162,8 @@ int NU_Internal_Create_Gui(const char* xml_filepath, const char* css_filepath)
     // Init stylesheets vector
     Vector_Reserve(&GUI.stylesheets, sizeof(NU_Stylesheet), 2);
 
-    // Events
-    HashmapInit(&GUI.on_click_events,              sizeof(Node*), sizeof(struct NU_Callback_Info), 50);
-    HashmapInit(&GUI.on_input_changed_events,      sizeof(Node*), sizeof(struct NU_Callback_Info), 10);
-    HashmapInit(&GUI.on_drag_events,               sizeof(Node*), sizeof(struct NU_Callback_Info), 10);
-    HashmapInit(&GUI.on_released_events,           sizeof(Node*), sizeof(struct NU_Callback_Info), 10);
-    HashmapInit(&GUI.on_resize_events,             sizeof(Node*), sizeof(struct NU_Callback_Info), 10);
-    HashmapInit(&GUI.node_resize_tracking,         sizeof(Node*), sizeof(NU_NodeDimensions)      , 10);
-    HashmapInit(&GUI.on_mouse_down_events,         sizeof(Node*), sizeof(struct NU_Callback_Info), 10);
-    HashmapInit(&GUI.on_mouse_up_events,           sizeof(Node*), sizeof(struct NU_Callback_Info), 10);
-    HashmapInit(&GUI.on_mouse_down_outside_events, sizeof(Node*), sizeof(struct NU_Callback_Info), 10);
-    HashmapInit(&GUI.on_mouse_move_events,         sizeof(Node*), sizeof(struct NU_Callback_Info), 10);
-    HashmapInit(&GUI.on_mouse_in_events,           sizeof(Node*), sizeof(struct NU_Callback_Info), 10);
-    HashmapInit(&GUI.on_mouse_out_events,          sizeof(Node*), sizeof(struct NU_Callback_Info), 10);
-    HashmapInit(&GUI.on_mouse_wheel_events,        sizeof(Node*), sizeof(struct NU_Callback_Info), 10);
-    HashmapInit(&GUI.on_input_focus_events,        sizeof(Node*), sizeof(struct NU_Callback_Info), 10);
-    HashmapInit(&GUI.on_input_defocus_events,      sizeof(Node*), sizeof(struct NU_Callback_Info), 10);
-    SetInit(&GUI.deletedNodesWithRegisteredEvents, sizeof(Node*), 16);
+    // Init Event System (allocates memory)
+    EventSystem_Init();
 
     // Init layout and draw datastructures
     Vector_Reserve(&GUI.layoutScrollAutoNodes, sizeof(NodeP*), 20);

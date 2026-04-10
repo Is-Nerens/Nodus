@@ -111,6 +111,7 @@ inline void TriggerOnMouseInEvent(Node* node, float mouseX, float mouseY)
 
 void NU_Mouse_Hover()
 {   
+    GUI.prev_hovered_node = GUI.hovered_node;
     GUI.hovered_node = NULL;
     GUI.scroll_hovered_node = NULL;
     if (GUI.winManager.hoveredWindowID == -1) return;
@@ -198,7 +199,6 @@ void NU_Mouse_Hover()
     if (GUI.hovered_node != GUI.prev_hovered_node) {
         if (GUI.prev_hovered_node != NULL && GUI.prev_hovered_node != GUI.mouse_down_node && GUI.prev_hovered_node != GUI.focused_node) NU_Apply_Stylesheet_To_Node(GUI.prev_hovered_node, GUI.stylesheet);
         if (GUI.hovered_node != GUI.mouse_down_node && GUI.hovered_node != GUI.focused_node) NU_Apply_Pseudo_Style_To_Node(GUI.hovered_node, GUI.stylesheet, PSEUDO_HOVER);
-        GUI.prev_hovered_node = GUI.hovered_node;
         GUI.awaiting_redraw = true;
     }
 }

@@ -471,33 +471,36 @@ void InputText_CopyToClipboard(InputText* text)
     text->buffer[highlightEnd] = temp;
 }
 
-inline void InputText_PasteFromClipboard(InputText* text, NodeP* node, NU_Font* font)
+void InputText_SetText(InputText* text, NodeP* node, NU_Font* font, const char* str)
 {
-    // Get clipboard text
-    char* clip = SDL_GetClipboardText();
-    if (!clip || clip[0] == '\0') return;  // nothing to paste
+    if (!str || str[0] == '\0') return;  // nothing to paste
+
+    text->cursorBytes = 0;
+    text->decimalByteIndex = -1;
+    text->highlightBytes = 0;
+    text->highlightOffset = 0.0f;
+    text->cursorOffset = 0.0f;
+    text->textOffset = 0.0f;
+    text->numBytes = 0;
+    text->buffer[text->numBytes] = '\0';
 
     // Compute length of valid characters
     int validBytes = 0;
     int hasDecimal = (text->type == 1 && text->decimalByteIndex != -1);
 
     // Scan clipboard once to count valid bytes
-    for (char* p = clip; *p; )
+    for (const char* p = str; *p; )
     {
         unsigned char c = (unsigned char)*p;
 
-        if (text->type == 0) // text input: accept everything
-        {
+        if (text->type == 0) {// text input: accept everything
             validBytes++;
         }
-        else if (text->type == 1) // number input
-        {
-            if (c >= '0' && c <= '9')
-            {
+        else if (text->type == 1) {// number input
+            if (c >= '0' && c <= '9') {
                 validBytes++;
             }
-            else if (c == '.' && !hasDecimal)
-            {
+            else if (c == '.' && !hasDecimal) {
                 validBytes++;
                 hasDecimal = 1; // mark decimal will be inserted
             }
@@ -506,16 +509,11 @@ inline void InputText_PasteFromClipboard(InputText* text, NodeP* node, NU_Font* 
         p++;
     }
 
-    if (validBytes == 0)
-    {
-        SDL_free(clip);
-        return; // nothing valid to paste
-    }
+    if (validBytes == 0) return; // nothing valid to paste
 
     // Allocate buffer if needed
     int required = text->numBytes + validBytes + 1;
-    if (required > text->capacity)
-    {
+    if (required > text->capacity) {
         text->capacity *= 2;
         if (text->capacity < required) text->capacity = required;
         text->buffer = realloc(text->buffer, text->capacity);
@@ -532,28 +530,25 @@ inline void InputText_PasteFromClipboard(InputText* text, NodeP* node, NU_Font* 
     int dstIndex = text->cursorBytes;
     hasDecimal = (text->type == 1 && text->decimalByteIndex != -1); // reset for insertion
 
-    for (char* p = clip; *p; )
+    for (const char* p = str; *p; )
     {
         unsigned char c = (unsigned char)*p;
 
-        if (text->type == 0) // text input: accept everything
-        {
+        // text input: accept everything
+        if (text->type == 0) {
             text->buffer[dstIndex++] = c;
         }
         else if (text->type == 1) // number input
         {
-            if (c >= '0' && c <= '9')
-            {
+            if (c >= '0' && c <= '9') {
                 text->buffer[dstIndex++] = c;
             }
-            else if (c == '.' && !hasDecimal)
-            {
+            else if (c == '.' && !hasDecimal) {
                 text->buffer[dstIndex++] = '.';
                 text->decimalByteIndex = dstIndex - 1;
                 hasDecimal = 1;
             }
         }
-
         p++;
     }
 
@@ -563,6 +558,16 @@ inline void InputText_PasteFromClipboard(InputText* text, NodeP* node, NU_Font* 
     text->cursorBytes += inserted;
     text->highlightBytes = text->cursorBytes;
     text->buffer[text->numBytes] = '\0';
+    InputText_UpdateCusorTextOffsets(text, node, font, 1);
+}
+
+inline void InputText_PasteFromClipboard(InputText* text, NodeP* node, NU_Font* font)
+{
+    // Get clipboard text
+    char* clip = SDL_GetClipboardText();
+    if (!clip || clip[0] == '\0') return;  // nothing to paste
+
+    InputText_SetText(text, node, font, clip);
 
     SDL_free(clip);
     InputText_UpdateCusorTextOffsets(text, node, font, 1);

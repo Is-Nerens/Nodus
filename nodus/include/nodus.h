@@ -60,7 +60,9 @@ enum NU_Event_Type
     NU_EVENT_ON_MOUSE_MOVED,
     NU_EVENT_ON_MOUSE_IN,
     NU_EVENT_ON_MOUSE_OUT,
-    NU_EVENT_ON_MOUSE_WHEEL
+    NU_EVENT_ON_MOUSE_WHEEL,
+    NU_EVENT_ON_INPUT_FOCUS,
+    NU_EVENT_ON_INPUT_DEFOCUS,
 };
 
 typedef struct NU_Event_Info_Mouse
@@ -127,6 +129,8 @@ __declspec(dllimport) inline Node* NU_CREATE_NODE(Node* parent, NodeType type);
 __declspec(dllimport) inline void NU_DELETE_NODE(Node* node);
 __declspec(dllimport) inline void NU_SHIFT_NODE_IN_PARENT(Node* node, int index);
 __declspec(dllimport) inline const char* NU_INPUT_TEXT_CONTENT(Node* node);
+__declspec(dllimport) void NU_FOCUS_ON_INPUT(Node* node);
+__declspec(dllimport) void NU_SET_INPUT_TEXT_CONTENT(Node* node, const char* text);
 __declspec(dllimport) Node* NU_HOVERED_NODE();
 __declspec(dllimport) inline void NU_SHOW(Node* node);
 __declspec(dllimport) inline void NU_HIDE(Node* node);

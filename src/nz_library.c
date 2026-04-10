@@ -185,6 +185,75 @@ __declspec(dllexport) const char* NU_INPUT_TEXT_CONTENT(Node* node) {
     if (nodeP->type != NU_INPUT) return NULL;
     return nodeP->typeData.input.inputText.buffer;
 }
+__declspec(dllexport) void NU_SET_INPUT_TEXT_CONTENT(Node* node, const char* text) {
+    NodeP* nodeP = NODEP_OF(node);
+    if (nodeP->type != NU_INPUT) return;
+    NU_Font* font = Stylesheet_Get_Font(GUI.stylesheet, nodeP->fontId);
+    InputText* inputText = &nodeP->typeData.input.inputText;
+    InputText_SetText(inputText, nodeP, font, text);
+
+    // Trigger On input changed event
+    if (nodeP->eventFlags & NU_EVENT_FLAG_ON_INPUT_CHANGED) {
+        void* found_cb = HashmapGet(&GUI.on_input_changed_events, &node);
+        if (found_cb != NULL) {
+            struct NU_Callback_Info* cb_info = (struct NU_Callback_Info*)found_cb;
+            strcpy(cb_info->event.input.text, "");
+            cb_info->callback(cb_info->event, cb_info->args);
+        }
+    }
+
+    GUI.awaiting_redraw = true;
+}
+__declspec(dllexport) void NU_FOCUS_ON_INPUT(Node* node) {
+    NodeP* nodeP = NODEP_OF(node);
+    if (nodeP->type != NU_INPUT) return;
+
+    NodeP* prevFocusedNode = GUI.focused_node;
+    GUI.focused_node = nodeP;
+
+
+    if (GUI.focused_node != prevFocusedNode)
+    {   
+        // Defocus prev focused input node
+        if (prevFocusedNode != NULL)
+        {
+            InputText_Defocus(&prevFocusedNode->typeData.input.inputText);
+
+            // Trigger defocus event
+            Node* node = &prevFocusedNode->node;
+            void* found_cb = HashmapGet(&GUI.on_input_defocus_events, &node);
+            if (found_cb != NULL) {
+                struct NU_Callback_Info* cb_info = (struct NU_Callback_Info*)found_cb;
+                cb_info->callback(cb_info->event, cb_info->args);
+            }
+
+            // Remove focus style prev focused node
+            NU_Apply_Stylesheet_To_Node(prevFocusedNode, GUI.stylesheet);
+            if (prevFocusedNode == GUI.hovered_node) {
+                NU_Apply_Pseudo_Style_To_Node(GUI.focused_node, GUI.stylesheet, PSEUDO_HOVER);
+            }
+            else if (prevFocusedNode == GUI.mouse_down_node) {
+                NU_Apply_Pseudo_Style_To_Node(GUI.focused_node, GUI.stylesheet, PSEUDO_PRESS);
+            }
+        }
+
+        // Focus on input node 
+        NU_Apply_Pseudo_Style_To_Node(GUI.focused_node, GUI.stylesheet, PSEUDO_FOCUS);
+        NU_Font* font = Stylesheet_Get_Font(GUI.stylesheet, GUI.focused_node->fontId);
+        InputText_Focus(&GUI.focused_node->typeData.input.inputText, GUI.focused_node, font); 
+        InputText_MousePlaceCursor(&GUI.focused_node->typeData.input.inputText, GUI.focused_node, font, 0.0f);
+        SDL_StartTextInput(GetSDL_Window(&GUI.winManager, GUI.focused_node->windowID));
+
+        // Trigger focus event
+        void* found_cb = HashmapGet(&GUI.on_input_focus_events, &node);
+        if (found_cb != NULL) {
+            struct NU_Callback_Info* cb_info = (struct NU_Callback_Info*)found_cb;
+            cb_info->callback(cb_info->event, cb_info->args);
+        }
+
+        NU_Render();
+    }
+}
 __declspec(dllexport) Node* NU_HOVERED_NODE() {
     if (!GUI.hovered_node) return NULL;
     return &GUI.hovered_node->node;

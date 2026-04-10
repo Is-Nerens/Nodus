@@ -57,6 +57,14 @@ void NU_Internal_Register_Event(Node* node, void* args, NU_Callback callback, en
             nodeP->eventFlags |= NU_EVENT_FLAG_ON_MOUSE_WHEEL;
             HashmapSet(&GUI.on_mouse_wheel_events, &node, &cb_info);
             break;
+        case NU_EVENT_ON_INPUT_FOCUS:
+            nodeP->eventFlags |= NU_EVENT_FLAG_ON_INPUT_FOCUS;
+            HashmapSet(&GUI.on_input_focus_events, &node, &cb_info);
+            break;
+        case NU_EVENT_ON_INPUT_DEFOCUS:
+            nodeP->eventFlags |= NU_EVENT_FLAG_ON_INPUT_DEFOCUS;
+            HashmapSet(&GUI.on_input_defocus_events, &node, &cb_info);
+            break;
     }
 }
 
@@ -435,6 +443,7 @@ bool EventWatcher(void* data, SDL_Event* event)
         float mouseY = GUI.mouseDownGlobalY - win_y;
 
         // Set mouse down node
+        GUI.prev_mouse_down_node = GUI.mouse_down_node;
         GUI.mouse_down_node = GUI.hovered_node;
 
         // If mouse is hovered over scroll thumb -> set scroll mouse down node
@@ -474,48 +483,70 @@ bool EventWatcher(void* data, SDL_Event* event)
             }
         } 
 
-        // Set focused node
+        // Update focused node and prev focused node
         NodeP* prevFocusedNode = GUI.focused_node;
-        if (GUI.hovered_node != NULL && GUI.hovered_node->type == NU_INPUT) {
+        if (GUI.hovered_node && GUI.hovered_node->type == NU_INPUT) {
             GUI.focused_node = GUI.hovered_node;
         }
         else {
             GUI.focused_node = NULL;
-            SDL_StopTextInput(SDL_GetWindowFromID(event->window.windowID));
         }
 
-        // Defocus prev focused input node
-        if (prevFocusedNode != NULL && GUI.focused_node != prevFocusedNode) {
-            InputText_Defocus(&prevFocusedNode->typeData.input.inputText);
-        }
-
-        // Focus on input node
-        if (GUI.focused_node) {
+        // Focus on new input node
+        if (GUI.focused_node != NULL && GUI.focused_node->type == NU_INPUT && GUI.focused_node != prevFocusedNode)
+        {
             NU_Font* font = Stylesheet_Get_Font(GUI.stylesheet, GUI.focused_node->fontId);
             InputText_Focus(&GUI.focused_node->typeData.input.inputText, GUI.focused_node, font); 
             InputText_MousePlaceCursor(&GUI.focused_node->typeData.input.inputText, GUI.focused_node, font, mouseX);
             SDL_StartTextInput(GetSDL_Window(&GUI.winManager, GUI.focused_node->windowID));
-        }
 
-        // Apply PRESS pseudo style
-        if (GUI.mouse_down_node != GUI.prev_mouse_down_node) {
-            if (GUI.prev_mouse_down_node != NULL && GUI.prev_mouse_down_node != GUI.focused_node) NU_Apply_Stylesheet_To_Node(GUI.prev_mouse_down_node, GUI.stylesheet);
-            if (GUI.mouse_down_node != GUI.focused_node) NU_Apply_Pseudo_Style_To_Node(GUI.mouse_down_node, GUI.stylesheet, PSEUDO_PRESS);
-            GUI.prev_mouse_down_node = GUI.mouse_down_node;
+            // Trigger focus event
+            if (GUI.focused_node->eventFlags & NU_EVENT_FLAG_ON_INPUT_FOCUS) {
+                Node* node = &GUI.focused_node->node;
+                void* found_cb = HashmapGet(&GUI.on_input_focus_events, &node);
+                if (found_cb != NULL) {
+                    struct NU_Callback_Info* cb_info = (struct NU_Callback_Info*)found_cb;
+                    cb_info->callback(cb_info->event, cb_info->args);
+                }
+            }
+
             GUI.awaiting_redraw = true;
         }
 
-        // Apply FOCUS psudo style
-        if (GUI.focused_node != GUI.prev_focused_node) {
-            if (GUI.prev_focused_node != NULL) NU_Apply_Stylesheet_To_Node(GUI.prev_focused_node, GUI.stylesheet);
-            NU_Apply_Pseudo_Style_To_Node(GUI.focused_node, GUI.stylesheet, PSEUDO_FOCUS);
-            GUI.prev_focused_node = GUI.focused_node;
+        // Defocus prev focused input node
+        if (prevFocusedNode != NULL && prevFocusedNode->type == NU_INPUT && prevFocusedNode != GUI.focused_node)
+        {
+            InputText_Defocus(&prevFocusedNode->typeData.input.inputText);
+
+            // Trigger defocus event
+            if (prevFocusedNode->eventFlags & NU_EVENT_FLAG_ON_INPUT_DEFOCUS) {
+                Node* node = &prevFocusedNode->node;
+                void* found_cb = HashmapGet(&GUI.on_input_defocus_events, &node);
+                if (found_cb != NULL) {
+                    struct NU_Callback_Info* cb_info = (struct NU_Callback_Info*)found_cb;
+                    cb_info->callback(cb_info->event, cb_info->args);
+                }
+            }
+
+            // Remove focus pseudo from prev focused node
+            NU_Apply_Stylesheet_To_Node(prevFocusedNode, GUI.stylesheet);
+
+            GUI.awaiting_redraw = true;
+        }
+
+        if (!(GUI.focused_node && GUI.focused_node->type == NU_INPUT))
+        {
+            // Disable text typing events
+            SDL_StopTextInput(SDL_GetWindowFromID(event->window.windowID));
+        }
+
+        // Apply PRESS pseudo style
+        if (GUI.mouse_down_node && GUI.mouse_down_node != GUI.focused_node) {
+            NU_Apply_Pseudo_Style_To_Node(GUI.mouse_down_node, GUI.stylesheet, PSEUDO_PRESS);
             GUI.awaiting_redraw = true;
         }
 
         TriggerAllMouseDownOutsideEvents(mouseX, mouseY, (int)event->button.button);
-
-        GUI.awaiting_redraw = true;
     }
     // ------------------------------------------------------------------------------------
     // --- Released mouse button ----------------------------------------------------------
@@ -551,7 +582,6 @@ bool EventWatcher(void* data, SDL_Event* event)
                 float mouseX = GUI.mouseDownGlobalX - win_x;
                 float mouseY = GUI.mouseDownGlobalY - win_y;
 
-
                 // If there is a click event assigned to the pressed node
                 if (GUI.hovered_node->eventFlags & NU_EVENT_FLAG_ON_CLICK) 
                 {
@@ -560,19 +590,20 @@ bool EventWatcher(void* data, SDL_Event* event)
                     if (found_cb != NULL) {
                         struct NU_Callback_Info* cb_info = (struct NU_Callback_Info*)found_cb;
                         cb_info->event.mouse.mouseBtn = (int)event->button.button;
+                        cb_info->event.mouse.mouseX = mouseX;
+                        cb_info->event.mouse.mouseY = mouseY;
                         cb_info->callback(cb_info->event, cb_info->args);
                     }
                 }
             }
 
-            // Remove psuedo PRESS
             if (GUI.mouse_down_node && GUI.mouse_down_node != GUI.focused_node) {
 
                 // Apply psuedo HOVER
                 if (GUI.mouse_down_node == GUI.hovered_node) {
                     NU_Apply_Pseudo_Style_To_Node(GUI.hovered_node, GUI.stylesheet, PSEUDO_HOVER);
                 }
-                // Remove pseudo PRESS
+                // Reset style
                 else {
                     NU_Apply_Stylesheet_To_Node(GUI.mouse_down_node, GUI.stylesheet);
                 }
@@ -581,9 +612,7 @@ bool EventWatcher(void* data, SDL_Event* event)
             }
 
             // There is no longer a pressed node
-            GUI.prev_mouse_down_node = GUI.mouse_down_node;
             GUI.mouse_down_node = NULL;
-            GUI.prev_mouse_down_node = NULL;
         }
 
         // if focused on input text node

@@ -80,6 +80,8 @@ struct NU_GUI
     Hashmap on_mouse_in_events;
     Hashmap on_mouse_out_events;
     Hashmap on_mouse_wheel_events;
+    Hashmap on_input_focus_events;
+    Hashmap on_input_defocus_events;
     Set deletedNodesWithRegisteredEvents;
     Uint32 SDL_CUSTOM_RENDER_EVENT;
 
@@ -151,6 +153,8 @@ void NU_Internal_Quit()
     HashmapFree(&GUI.on_mouse_in_events);
     HashmapFree(&GUI.on_mouse_out_events);
     HashmapFree(&GUI.on_mouse_wheel_events);
+    HashmapFree(&GUI.on_input_focus_events);
+    HashmapFree(&GUI.on_input_defocus_events);
     Container_Free(&GUI.canvasContexts);
     Vertex_RGB_List_Free(&GUI.borderRectVertices);
     Index_List_Free(&GUI.borderRectIndices);
@@ -200,6 +204,8 @@ int NU_Internal_Create_Gui(const char* xml_filepath, const char* css_filepath)
     HashmapInit(&GUI.on_mouse_in_events,           sizeof(Node*), sizeof(struct NU_Callback_Info), 10);
     HashmapInit(&GUI.on_mouse_out_events,          sizeof(Node*), sizeof(struct NU_Callback_Info), 10);
     HashmapInit(&GUI.on_mouse_wheel_events,        sizeof(Node*), sizeof(struct NU_Callback_Info), 10);
+    HashmapInit(&GUI.on_input_focus_events,        sizeof(Node*), sizeof(struct NU_Callback_Info), 10);
+    HashmapInit(&GUI.on_input_defocus_events,      sizeof(Node*), sizeof(struct NU_Callback_Info), 10);
     SetInit(&GUI.deletedNodesWithRegisteredEvents, sizeof(Node*), 16);
 
     // Init layout and draw datastructures

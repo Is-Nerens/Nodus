@@ -39,6 +39,12 @@ void NU_DissociateNode(NodeP* node)
     if (node->eventFlags & NU_EVENT_FLAG_ON_MOUSE_OUT) {
         HashmapDelete(&GUI.on_mouse_out_events, &node->node);
     }
+    if (node->eventFlags & NU_EVENT_FLAG_ON_INPUT_FOCUS) {
+        HashmapDelete(&GUI.on_input_focus_events, &node->node);
+    }
+    if (node->eventFlags & NU_EVENT_FLAG_ON_INPUT_DEFOCUS) {
+        HashmapDelete(&GUI.on_input_defocus_events, &node->node);
+    }
 
 
     switch(node->type) {

@@ -59,7 +59,10 @@
 
 typedef enum NodeType
 {
-    NU_WINDOW, NU_BOX, NU_BUTTON, NU_INPUT, NU_CANVAS, NU_IMAGE, NU_TABLE, NU_THEAD, NU_ROW, NU_NAT,
+    NU_WINDOW, NU_BOX, NU_BUTTON, 
+    NU_INPUT, NU_CANVAS, NU_IMAGE, 
+    NU_TABLE, NU_THEAD, NU_ROW, NU_NAT,
+    NU_FRAME
 } NodeType;
 
 typedef struct InputTypeData {
@@ -175,20 +178,32 @@ void NU_ApplyNodeDefaults(NodeP* node)
     node->verticalTextAlignment = 1;
     node->positionAbsolute = 0;
     
-    // set defaults based on node type
-    if (node->type == NU_TABLE) {
-        node->overrideStyleFlags |= PROPERTY_FLAG_LAYOUT_VERTICAL; // Enforce vertical direction
+    // Set defaults based on node type
+    switch (node->type)
+    {
+    case NU_TABLE:
+        node->overrideStyleFlags |= PROPERTY_FLAG_LAYOUT_VERTICAL;
         node->layoutFlags |= LAYOUT_VERTICAL;
-    }
-    else if (node->type == NU_THEAD || node->type == NU_ROW) {
-        node->overrideStyleFlags |= PROPERTY_FLAG_GROW; // Enforce horizontal growth
+        break;
+    case NU_THEAD:
+        node->overrideStyleFlags |= PROPERTY_FLAG_GROW;
         node->layoutFlags |= GROW_HORIZONTAL;
-    }
-    else if (node->type == NU_INPUT) {
+        break;
+    case NU_ROW:
+        node->overrideStyleFlags |= PROPERTY_FLAG_GROW;
+        node->layoutFlags |= GROW_HORIZONTAL;
+        break;
+    case NU_INPUT:
         InputText_Init(&node->typeData.input.inputText);
-    }
-    else if (node->type == NU_CANVAS) {
+        break;
+    case NU_CANVAS:
         node->typeData.canvas.ctxHandle = -1;
+        break;
+    case NU_FRAME:
+        node->overrideStyleFlags |= PROPERTY_FLAG_HIDE_BACKGROUND;
+        break;
+    default:
+        break;
     }
     if (node->type != NU_WINDOW) {
         node->windowID = node->parent->windowID;

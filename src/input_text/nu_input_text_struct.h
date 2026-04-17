@@ -12,6 +12,7 @@ typedef struct InputText {
     u16 highlightBytes;
     u8 type; // 0 -> text, 1 -> number
     bool dragging;
+    bool updateOffsetsPostLayout;
 } InputText;
 
 // Initialises an InputText struct and allocated memory for the UTF8 string

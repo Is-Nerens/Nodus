@@ -15,6 +15,7 @@ typedef struct Tree
     u32 layerAllocsCapacity;
     u32 depth;
     u32 nodeCount;
+    Vector deleteStack; // preallocated (reduce fragmentation)
     Vector deletedButNotFreedNodes;
 } Tree;
 
@@ -32,6 +33,7 @@ NodeP* TreeCreate(Tree* tree, NodeType rootType)
     }
 
     Vector_Reserve(&tree->deletedButNotFreedNodes, sizeof(NodeP*), 25);
+    Vector_Reserve(&tree->deleteStack, sizeof(NodeP*), 100);
 
     // member variables
     tree->depth = 1;
@@ -210,13 +212,10 @@ void TreeDeleteNode(Tree* tree, NodeP* node, TreeDeleteCallback deleteCB)
         return;
     }
 
-    Vector stack;
-    Vector_Reserve(&stack, sizeof(NodeP*), 100);
-
     // push children only (NOT node itself)
     NodeP* sib = node->firstChild;
     while (sib != NULL) {
-        Vector_Push(&stack, &sib);
+        Vector_Push(&tree->deleteStack, &sib);
         sib = sib->nextSibling;
     }
 
@@ -225,15 +224,15 @@ void TreeDeleteNode(Tree* tree, NodeP* node, TreeDeleteCallback deleteCB)
     node->lastChild = NULL;
     node->childCount = 0;
 
-    while (stack.size > 0) {
+    while (tree->deleteStack.size > 0) {
 
-        NodeP* cur = *(NodeP**)Vector_Get(&stack, stack.size-1);
-        stack.size--;
+        NodeP* cur = *(NodeP**)Vector_Get(&tree->deleteStack, tree->deleteStack.size-1);
+        tree->deleteStack.size--;
 
         // push children
         NodeP* c = cur->firstChild;
         while (c != NULL) {
-            Vector_Push(&stack, &c);
+            Vector_Push(&tree->deleteStack, &c);
             c = c->nextSibling;
         }
 
@@ -246,7 +245,6 @@ void TreeDeleteNode(Tree* tree, NodeP* node, TreeDeleteCallback deleteCB)
 
     // finally unlink + delete node itself
     TreeDeleteLeaf(tree, node, deleteCB);
-    Vector_Free(&stack);
 }
 
 void TreeFreeDeleted(Tree* tree)

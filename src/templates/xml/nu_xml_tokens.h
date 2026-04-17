@@ -20,6 +20,7 @@ const char* nu_xml_type_keywords[] = {
     "window", "box", "button",
     "input", "canvas", "image",
     "table", "thead", "row",
+    "frame"
 };
 
 typedef enum NU_XML_TOKEN
@@ -52,6 +53,7 @@ typedef enum NU_XML_TOKEN
     TABLE_TAG,
     TABLE_HEAD_TAG,
     ROW_TAG,
+    FRAME_TAG,
 
     // xml misc
     OPEN_TAG,
@@ -117,7 +119,7 @@ NU_XML_TOKEN NU_Word_To_Property_Token(char* word, u8 wordLen)
 
 NodeType NU_TokenToNodeType(NU_XML_TOKEN token)
 {
-    if (token < WINDOW_TAG || token > ROW_TAG) return NU_NAT;
+    if (token < WINDOW_TAG || token > FRAME_TAG) return NU_NAT;
     return token - NU_XML_PROPERTY_COUNT;
 }
 

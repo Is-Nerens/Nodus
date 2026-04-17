@@ -233,9 +233,11 @@ __declspec(dllexport) void NU_FOCUS_ON_INPUT(Node* node) {
         // Focus on input node 
         NU_Apply_Pseudo_Style_To_Node(GUI.focused_node, GUI.stylesheet, PSEUDO_FOCUS);
         NU_Font* font = Stylesheet_Get_Font(GUI.stylesheet, GUI.focused_node->fontId);
-        InputText_Focus(&GUI.focused_node->typeData.input.inputText, GUI.focused_node, font); 
-        InputText_MousePlaceCursor(&GUI.focused_node->typeData.input.inputText, GUI.focused_node, font, 0.0f);
+        InputText_MousePlaceCursor(&GUI.focused_node->typeData.input.inputText, GUI.focused_node, font, 1000000.0f);
         SDL_StartTextInput(GetSDL_Window(&GUI.winManager, GUI.focused_node->windowID));
+
+        // Defer offsets calculation
+        GUI.focused_node->typeData.input.inputText.updateOffsetsPostLayout = true;
 
         // Trigger focus event
         TriggerOnInputFocusEvent(nodeP);

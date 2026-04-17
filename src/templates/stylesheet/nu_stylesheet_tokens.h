@@ -4,7 +4,7 @@
 #define STYLE_PROPERTY_LAST  STYLE_FONT_WEIGHT
 
 #define STYLE_TAG_SELECTOR_FIRST STYLE_WINDOW_SELECTOR
-#define STYLE_TAG_SELECTOR_LAST  STYLE_ROW_SELECTOR
+#define STYLE_TAG_SELECTOR_LAST  STYLE_FRAME_SELECTOR
 
 #define STYLE_SPECIAL_SELECTOR_FIRST STYLE_FONT_CREATION_SELECTOR
 #define STYLE_SPECIAL_SELECTOR_LAST  STYLE_DEFAULT_SELECTOR
@@ -37,6 +37,7 @@ static const char* style_keywords[] = {
     "window", "box", "button", 
     "input", "canvas", "image", 
     "table", "thead", "row", 
+    "frame"
     "@font", "@default",
     "hover", "press", "focus",
 };
@@ -101,6 +102,7 @@ enum NU_Style_Token
     STYLE_TABLE_SELECTOR,
     STYLE_THEAD_SELECTOR,
     STYLE_ROW_SELECTOR,
+    STYLE_FRAME_SELECTOR,
 
     // --- Special selectors ---
     STYLE_FONT_CREATION_SELECTOR,

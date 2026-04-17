@@ -81,9 +81,13 @@ void NU_DrawInputNodeContent(NodeP* node, float winWidth, float winHeight, NU_Cl
     NU_Font* node_font = Stylesheet_Get_Font(GUI.stylesheet, node->fontId);
     InputText* inputText = &node->typeData.input.inputText;
 
+    if (inputText->updateOffsetsPostLayout) {
+        inputText->updateOffsetsPostLayout = false;
+        InputText_ComputeCursorTextOffset_PlaceEnd(inputText, node, node_font);
+    }
+
     // construct and draw highlight mesh
-    if (GUI.focused_node != NULL && node == GUI.focused_node
-        && InputText_IsHighlighting(inputText)) 
+    if (GUI.focused_node != NULL && node == GUI.focused_node && InputText_IsHighlighting(inputText)) 
     {
         Vertex_RGB_List highlightVertices; Vertex_RGB_List_Init(&highlightVertices, 4);
         Index_List highlightIndices; Index_List_Init(&highlightIndices, 6);

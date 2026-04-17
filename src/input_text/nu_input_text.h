@@ -37,6 +37,20 @@ void InputText_UpdateCusorTextOffsets(InputText* text, NodeP* node, NU_Font* fon
     }
 }
 
+void InputText_ComputeCursorTextOffset_PlaceEnd(InputText* text, NodeP* node, NU_Font* font)
+{
+    // Compute offsets
+    float textWidth = NU_Calculate_Text_Unwrapped_Width(font, text->buffer);
+    float innerWidth = node->node.width
+        - node->node.borderLeft
+        - node->node.borderRight
+        - node->node.padLeft
+        - node->node.padRight;
+    if (textWidth > innerWidth) text->textOffset = innerWidth - textWidth;
+    else text->textOffset = 0.0f;
+    text->cursorOffset = textWidth + text->textOffset;
+}
+
 // Updates the highlightOffset and textOffset
 void InputText_UpdateHighlightTextOffsets(InputText* text, NodeP* node, NU_Font* font, i8 moveDelta) 
 {
@@ -73,20 +87,9 @@ void InputText_UpdateHighlightTextOffsets(InputText* text, NodeP* node, NU_Font*
     }
 }
 
-// Moves cursor to the end of the text, highlights everything
-void InputText_Focus(InputText* text, NodeP* node, NU_Font* font)
-{
-    // text->cursorBytes = text->numBytes;
-    text->highlightBytes = 0;
-    text->dragging = true;
-}
-
 // Resets the cursor position, cursor offset and text offset
 void InputText_Defocus(InputText* text)
 {
-    text->textOffset = 0.0f;
-    text->cursorBytes = 0;
-    text->highlightBytes = 0;
     text->dragging = false;
 }
 
@@ -300,8 +303,10 @@ int InputText_MoveCursorLeft(InputText* text, NodeP* node, NU_Font* font)
         text->cursorBytes--;
 
     // update book-keeping and return
-     InputText_UpdateCusorTextOffsets(text, node, font, -1);\
-     text->highlightBytes = text->cursorBytes;
+    InputText_UpdateCusorTextOffsets(text, node, font, -1);
+    text->highlightBytes = text->cursorBytes;
+
+    printf("focus %f\n", text->textOffset);
     return 1;
 }
 
@@ -415,6 +420,7 @@ void InputText_MousePlaceCursor(InputText* text, NodeP* node, NU_Font* font, flo
         InputText_UpdateCusorTextOffsets(text, node, font, 1);
     }
     text->highlightBytes = text->cursorBytes;
+    text->dragging = true;
 }
 
 int InputText_MouseDrag(InputText* text, NodeP* node, NU_Font* font, float mouseX)
@@ -478,9 +484,6 @@ void InputText_SetText(InputText* text, NodeP* node, NU_Font* font, const char* 
     text->cursorBytes = 0;
     text->decimalByteIndex = -1;
     text->highlightBytes = 0;
-    text->highlightOffset = 0.0f;
-    text->cursorOffset = 0.0f;
-    text->textOffset = 0.0f;
     text->numBytes = 0;
     text->buffer[text->numBytes] = '\0';
 
@@ -552,13 +555,17 @@ void InputText_SetText(InputText* text, NodeP* node, NU_Font* font, const char* 
         p++;
     }
 
+
+
     // Update text state
     int inserted = dstIndex - text->cursorBytes;
     text->numBytes += inserted;
     text->cursorBytes += inserted;
     text->highlightBytes = text->cursorBytes;
     text->buffer[text->numBytes] = '\0';
-    InputText_UpdateCusorTextOffsets(text, node, font, 1);
+
+    // Defer offsets calculation
+    text->updateOffsetsPostLayout = true;
 }
 
 inline void InputText_PasteFromClipboard(InputText* text, NodeP* node, NU_Font* font)

@@ -18,7 +18,10 @@ typedef struct NU_Stylesheet NU_Stylesheet;
 // Visible structs
 typedef enum NodeType
 {
-    NU_WINDOW, NU_BOX, NU_BUTTON, NU_INPUT, NU_CANVAS, NU_IMAGE, NU_TABLE, NU_THEAD, NU_ROW, NU_NAT,
+    NU_WINDOW, NU_BOX, NU_BUTTON,
+    NU_INPUT, NU_CANVAS, NU_IMAGE, 
+    NU_TABLE, NU_THEAD, NU_ROW, NU_NAT,
+    NU_FRAME
 } NodeType;
 
 typedef struct Node

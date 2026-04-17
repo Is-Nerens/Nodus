@@ -171,7 +171,7 @@ bool EventWatcher(void* data, SDL_Event* event)
         TriggerAllMouseMoveEvents(mouseX, mouseY, event->motion.xrel, event->motion.yrel);
 
         // if focused on text input -> update highlighting
-        if (GUI.focused_node != NULL && GUI.focused_node->type == NU_INPUT) {
+        if (GUI.focused_node != NULL) {
             NodeP* node = GUI.focused_node;
             NU_Font* font = Stylesheet_Get_Font(GUI.stylesheet, node->fontId);
             if (InputText_MouseDrag(&node->typeData.input.inputText, node, font, mouseX)) {
@@ -241,17 +241,21 @@ bool EventWatcher(void* data, SDL_Event* event)
             GUI.focused_node = NULL;
         }
 
-        // Focus on new input node
-        if (GUI.focused_node != NULL && GUI.focused_node->type == NU_INPUT && GUI.focused_node != prevFocusedNode)
+        // Place cursor on input node
+        if (GUI.focused_node != NULL) 
         {
             NU_Font* font = Stylesheet_Get_Font(GUI.stylesheet, GUI.focused_node->fontId);
-            InputText_Focus(&GUI.focused_node->typeData.input.inputText, GUI.focused_node, font); 
-            InputText_MousePlaceCursor(&GUI.focused_node->typeData.input.inputText, GUI.focused_node, font, mouseX);
-            SDL_StartTextInput(GetSDL_Window(&GUI.winManager, GUI.focused_node->windowID));
 
-            // Trigger focus event
-            TriggerOnInputFocusEvent(GUI.focused_node);
+            if (GUI.focused_node != prevFocusedNode) {
+                InputText_MousePlaceCursor(&GUI.focused_node->typeData.input.inputText, GUI.focused_node, font, mouseX);
+                SDL_StartTextInput(GetSDL_Window(&GUI.winManager, GUI.focused_node->windowID));
 
+                // Trigger focus event
+                TriggerOnInputFocusEvent(GUI.focused_node);
+            }
+            else {
+                InputText_MousePlaceCursor(&GUI.focused_node->typeData.input.inputText, GUI.focused_node, font, mouseX);
+            }
             GUI.awaiting_redraw = true;
         }
 
@@ -269,7 +273,7 @@ bool EventWatcher(void* data, SDL_Event* event)
             GUI.awaiting_redraw = true;
         }
 
-        if (!(GUI.focused_node && GUI.focused_node->type == NU_INPUT))
+        if (!(GUI.focused_node))
         {
             // Disable text typing events
             SDL_StopTextInput(SDL_GetWindowFromID(event->window.windowID));
@@ -340,7 +344,7 @@ bool EventWatcher(void* data, SDL_Event* event)
         }
 
         // if focused on input text node
-        if (GUI.focused_node != NULL && GUI.focused_node->type == NU_INPUT) {
+        if (GUI.focused_node != NULL) {
             InputText_MouseUp(&GUI.focused_node->typeData.input.inputText);
             GUI.awaiting_redraw = true;
         }

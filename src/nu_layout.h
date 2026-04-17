@@ -83,7 +83,8 @@ static void NU_CalculateTextFitWidths(BreadthFirstSearch* bfs)
     NodeP* node;
     while (BreadthFirstSearch_Next(bfs, &node)) {
 
-        if (node->state == 2 || node->node.textContent == NULL) continue;
+        // Filter out
+        if (node->state == 2 || node->node.textContent == NULL || node->type == NU_FRAME) continue;
 
         NU_Font* node_font = Stylesheet_Get_Font(GUI.stylesheet, node->fontId);
 
@@ -666,7 +667,9 @@ static void NU_CalculateTextHeights(BreadthFirstSearch* bfs)
 {
     NodeP* node;
     while (BreadthFirstSearch_Next(bfs, &node)) {
-        if (node->state == 2) continue;
+
+        // Filter out
+        if (node->state == 2 || node->type == NU_FRAME) continue;
 
         if (node->type == NU_INPUT) {
             NU_Font* node_font = Stylesheet_Get_Font(GUI.stylesheet, node->fontId);

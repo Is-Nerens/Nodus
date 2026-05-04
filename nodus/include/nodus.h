@@ -21,7 +21,7 @@ typedef enum NodeType
     NU_WINDOW, NU_BOX, NU_BUTTON,
     NU_INPUT, NU_CANVAS, NU_IMAGE, 
     NU_TABLE, NU_THEAD, NU_ROW, NU_NAT,
-    NU_FRAME
+    NU_FRAME, NU_IMPORT
 } NodeType;
 
 typedef struct Node
@@ -168,6 +168,16 @@ __declspec(dllimport) NU_RGB NU_RGB_From_Hex(const char* hex);
 __declspec(dllimport) void NU_Border_Rect(
     int contextID,
     float x, float y, float w, float h,
+    float thickness,
+    NU_RGB border_col,
+    NU_RGB fill_col
+);
+
+__declspec(dllimport) void NU_Triangle(
+    int contextID,
+    float x1, float y1, 
+    float x2, float y2, 
+    float x3, float y3,
     float thickness,
     NU_RGB border_col,
     NU_RGB fill_col

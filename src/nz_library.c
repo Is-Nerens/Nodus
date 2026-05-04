@@ -420,6 +420,17 @@ __declspec(dllexport) void NU_Border_Rect(
 {
     NU_Internal_Border_Rect(contextID, x, y, w, h, thickness, border_col, fill_col);
 }
+__declspec(dllexport) void NU_Triangle(
+    int contextID,
+    float x1, float y1, 
+    float x2, float y2, 
+    float x3, float y3,
+    float thickness,
+    NU_RGB border_col,
+    NU_RGB fill_col)
+{
+    NU_Internal_Triangle(contextID, x1, y1, x2, y2, x3, y3, thickness, border_col, fill_col);
+} 
 __declspec(dllexport) void NU_Line(
     int contextID,
     float x1, float y1, float x2, float y2,

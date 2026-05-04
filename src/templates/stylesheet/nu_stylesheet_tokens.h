@@ -37,7 +37,7 @@ static const char* style_keywords[] = {
     "window", "box", "button", 
     "input", "canvas", "image", 
     "table", "thead", "row", 
-    "frame"
+    "frame",
     "@font", "@default",
     "hover", "press", "focus",
 };

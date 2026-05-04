@@ -1,18 +1,224 @@
-// DATA LAYOUT
-// [header: 4 bytes][data][\n]
-
 #pragma once
+#include <stdio.h>
 #include <stdint.h>
 #include <string.h>
-#include <stdio.h>
+#include <stdarg.h>
 
 
+
+// -----------------------------------------------------------------------------------
+// --- This is a custom string allocator. The purpose is to reduce heap fragmentation.
+// --- A pool allocator will be used for small string allocations.
+// -----------------------------------------------------------------------------------
+typedef struct SallocChunk SallocChunk;
+struct SallocChunk {
+    SallocChunk* next;
+};
+
+typedef struct SallocBlock SallocBlock;
+struct SallocBlock {
+    void* block;
+    SallocBlock* next;
+};
+
+typedef struct Salloc {
+    SallocChunk* freeChunk;
+    SallocBlock* blockStart;
+    uint32_t chunksPerBlock;
+    uint32_t chunkSize;
+    int init;
+} Salloc;
+
+__declspec(thread) Salloc salloc = {0};
+
+static void SallocEnsureInit()
+{
+    if (!salloc.init) 
+    {
+        size_t itemSize = 32;
+        size_t itemsPerBlock = 256;
+        size_t stride = sizeof(SallocChunk) + itemSize;
+
+        void* block = malloc(itemsPerBlock * stride);
+        if (!block) return;
+
+        SallocBlock* node = (SallocBlock*)malloc(sizeof(SallocBlock));
+        if (!node) {
+            free(block);
+            return;
+        }
+
+        char* ptr = (char*)block;
+
+        for (size_t i=0; i<itemsPerBlock-1; i++) {
+            SallocChunk* chunk = (SallocChunk*)(ptr + i * stride);
+            SallocChunk* next  = (SallocChunk*)(ptr + (i+1) * stride);
+            chunk->next = next;
+        }
+
+        SallocChunk* last = (SallocChunk*)(ptr + (itemsPerBlock-1) * stride);
+        last->next = NULL;
+        salloc.freeChunk = (SallocChunk*)block;
+        salloc.blockStart = node;
+        salloc.chunksPerBlock = itemsPerBlock;
+        salloc.chunkSize = itemSize;
+        node->block = block;
+        node->next  = NULL;
+    }
+
+    salloc.init = 1;
+}
+
+int SallocExpand(size_t extraChunks)
+{
+    if (extraChunks == 0) return 0;
+    size_t stride = sizeof(SallocChunk) + salloc.chunkSize;
+    void* extraBlock = malloc(extraChunks * stride);
+    if (extraBlock == NULL) return 0;
+    SallocBlock* blockStart = (SallocBlock*)malloc(sizeof(SallocBlock));
+    if (blockStart == NULL) {
+        free(extraBlock);
+        return 0;
+    }
+    char* ptr = (char*)extraBlock;
+    for (size_t i=0; i<extraChunks-1; i++) {
+        SallocChunk* chunk = (SallocChunk*)(ptr + i * stride);
+        SallocChunk* next  = (SallocChunk*)(ptr + (i+1) * stride);
+        chunk->next = next;
+    }
+    SallocChunk* last = (SallocChunk*)(ptr + (extraChunks-1) * stride);
+    last->next = salloc.freeChunk;
+    salloc.freeChunk = (SallocChunk*)extraBlock;
+    blockStart->block = extraBlock;
+    blockStart->next  = salloc.blockStart;
+    salloc.blockStart  = blockStart;
+    return 1;
+}
+
+void* SallocAlloc(size_t size)
+{
+    // Use malloc for large allocation
+    if (size > 32) return malloc(size);
+
+    SallocEnsureInit();
+
+    // Use pool allocator for small allocation
+    if (salloc.freeChunk == NULL) {
+        if (!SallocExpand(salloc.chunksPerBlock)) return NULL;
+    }
+    SallocChunk* result = salloc.freeChunk;
+    salloc.freeChunk = salloc.freeChunk->next;
+    return (void*)(result + 1);
+}
+
+void SallocFree(void* ptr, size_t size)
+{
+    if (!salloc.init) return;
+
+    // Used malloc for large allocation
+    if (size > 32) {
+        free(ptr);
+        return;
+    }
+
+    // Free small allocation from pool allocator
+    SallocChunk* freed = ((SallocChunk*)ptr) - 1;
+    freed->next = salloc.freeChunk;
+    salloc.freeChunk = freed;
+}
+
+
+
+
+
+
+// -----------------------------------------------------------------------------------
+// --- These functions serve as alternatives to <string.h> standard implementations 
+// --- The purpose is to avoid using unsafe deprecated string functions that trigger 
+// --- compiler warnings. And give these functions proper names because eish!            
+// -----------------------------------------------------------------------------------
+inline size_t stringLen(const char* str)
+{
+    return strlen(str);
+}
+
+inline void stringCopy(char* dest, size_t destSize, const char* src)
+{
+    strcpy_s(dest, destSize, src);
+}
+
+inline int stringEquals(const char* strA, const char* strB)
+{
+    return (strcmp(strA, strB) == 0);
+}
+
+inline void stringNullTerminate(char* str, size_t bufSize)
+{
+    str[bufSize - 1] = '\0';
+}
+
+inline void stringNullTerminateAt(char* str, size_t bufSize, size_t index)
+{
+    if (index >= bufSize) index = bufSize - 1;
+    str[index] = '\0';
+}
+
+inline int stringFormat(char* buf, size_t bufSize, const char* format, ...)
+{
+    va_list args;
+    va_start(args, format);
+    int n = vsnprintf(buf, bufSize, format, args);
+    va_end(args);
+    return n;
+}
+
+inline int stringAppend(char* dest, size_t destSize, const char* src)
+{
+    size_t len = strlen(dest);
+    if (len >= destSize) return 0;
+    int n = snprintf(dest + len, destSize - len, "%s", src);
+    return (n >= 0 && (size_t)n < (destSize - len));
+}
+
+inline int stringContains(const char* str, const char* subStr)
+{
+    return strstr(str, subStr) != NULL;
+}
+
+inline int stringFind(const char* str, const char* subStr)
+{
+    const char* pos = strstr(str, subStr);
+    return pos ? (int)(pos - str) : -1;
+}
+
+inline int stringStartsWith(const char* str, const char* prefix)
+{
+    size_t len = strlen(prefix);
+    return strncmp(str, prefix, len) == 0;
+}
+
+inline int stringEndsWith(const char* str, const char* suffix)
+{
+    size_t strLen = strlen(str);
+    size_t sufLen = strlen(suffix);
+    if (sufLen > strLen) return 0;
+    return strcmp(str + strLen - sufLen, suffix) == 0;
+}
+
+
+
+// ------------------------------------------------------------------------
+// --- This is an implementation of utf8 encoded heap allocated strings ---
+// ------------------------------------------------------------------------
+
+// DATA LAYOUT
+// [header: 4 bytes][data][\n]
 typedef unsigned char* String;
 
 String StringCreate(const char* str)
 {
     uint32_t length = (uint32_t)strlen(str);
-    String result = malloc(4 + length + 1);
+    String result = SallocAlloc(4 + length + 1);
     if (!result) return NULL;
     memcpy(result, &length, sizeof(uint32_t));
     memcpy(result + 4, str, length);
@@ -22,21 +228,11 @@ String StringCreate(const char* str)
 
 String StringCreateBuffer(uint32_t bytes)
 {
-    String result = malloc(bytes + 4 + 1);
+    String result = SallocAlloc(bytes + 4 + 1);
     if (!result) return NULL;
     memcpy(result, &bytes, sizeof(uint32_t));
     result[bytes + 4] = '\0';
     return result;
-}
-
-inline void StringFree(String str)
-{
-    free(str);
-}
-
-inline char* StringCstr(String str)
-{
-    return (char*)str + 4;
 }
 
 inline uint32_t StringLen(String string)
@@ -44,13 +240,24 @@ inline uint32_t StringLen(String string)
     return *(uint32_t*)string;
 }
 
+inline void StringFree(String str)
+{
+    if (str == NULL) return;
+    SallocFree(str, StringLen(str));
+}
+
+inline char* StringCstr(String str)
+{
+    return (char*)str + 4;
+}
+
 uint32_t NextUTF8Codepoint(String string, int* i)
-{   
+{
     char* cStr = StringCstr(string);
     unsigned char* p = (unsigned char*)cStr + *i;
     uint32_t cp;
 
-    if (*i >= StringLen(string)) return 0;  // end of string
+    if (*p == 0) return 0;  // end of string
 
     if ((*p & 0x80) == 0) {
         cp = *p++;
@@ -87,6 +294,12 @@ uint32_t NextUTF8Codepoint(String string, int* i)
     return cp;
 }
 
+inline uint32_t GetUTF32Codepoint(String string, int index) 
+{
+    uint32_t codepoint;
+    memcpy(&codepoint, StringCstr(string) + index * 4, 4);
+    return codepoint;
+}
 
 String StringConcat(String a, String b)
 {
@@ -97,7 +310,7 @@ String StringConcat(String a, String b)
 
     // allocate space for return string
     String output = NULL;
-    output = malloc(aLen + bLen + 4 + 1);
+    output = SallocAlloc(aLen + bLen + 4 + 1);
     if (output == NULL) return NULL;
 
     // copy data from string a and b
@@ -119,7 +332,7 @@ String StringConcatCstr(String a, char* b)
 
     // allocate space for return string
     String output = NULL;
-    output = malloc(aLen + bLen + 4 + 1);
+    output = SallocAlloc(aLen + bLen + 4 + 1);
     if (output == NULL) return NULL;
 
     // copy data from string a and b
@@ -141,7 +354,7 @@ String CstrConcatString(char* a, String b)
     
     // allocate space for return string
     String output = NULL;
-    output = malloc(aLen + bLen + 4 + 1);
+    output = SallocAlloc(aLen + bLen + 4 + 1);
     if (output == NULL) return NULL;
 
     // copy data from string a and b
@@ -158,7 +371,7 @@ String CstrConcatString(char* a, String b)
 inline String StringCopy(String string)
 {
     uint32_t bytes = StringLen(string) + 4 + 1;
-    String copy = malloc(bytes);
+    String copy = SallocAlloc(bytes);
     memcpy(copy, string, bytes);
     return copy;
 }
@@ -219,7 +432,7 @@ String StringReplaceFirst(String string, String target, String replacement)
 
     // construct result string
     uint32_t length = StringLen(string) - StringLen(target) + StringLen(replacement);
-    String result = malloc(length + 4 + 1);
+    String result = SallocAlloc(length + 4 + 1);
     if (!result) return NULL;
     memcpy(StringCstr(result), StringCstr(string), match);
     memcpy(StringCstr(result) + match, StringCstr(replacement), StringLen(replacement));
@@ -246,7 +459,7 @@ String StringRemoveSuffix(String string, String suffix)
 
     // construct new string without suffix
     uint32_t newLength = StringLen(string) - StringLen(suffix);
-    String result = malloc(newLength + 4 + 1);
+    String result = SallocAlloc(newLength + 4 + 1);
     if (!result) return NULL;
     memcpy(StringCstr(result), StringCstr(string), newLength);
 

@@ -61,8 +61,8 @@ typedef enum NodeType
 {
     NU_WINDOW, NU_BOX, NU_BUTTON, 
     NU_INPUT, NU_CANVAS, NU_IMAGE, 
-    NU_TABLE, NU_THEAD, NU_ROW, NU_NAT,
-    NU_FRAME
+    NU_TABLE, NU_THEAD, NU_ROW,
+    NU_FRAME, NU_IMPORT, NU_NAT
 } NodeType;
 
 typedef struct InputTypeData {
@@ -201,6 +201,7 @@ void NU_ApplyNodeDefaults(NodeP* node)
         break;
     case NU_FRAME:
         node->overrideStyleFlags |= PROPERTY_FLAG_HIDE_BACKGROUND;
+        node->layoutFlags |= HIDE_BACKGROUND;
         break;
     default:
         break;

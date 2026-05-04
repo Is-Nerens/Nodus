@@ -1,7 +1,12 @@
 #pragma once 
 
-#define NU_XML_PROPERTY_COUNT 44
-const char* nu_xml_property_keywords[] = {
+#define XML_PROPERTY_FIRST ID_PROPERTY
+#define XML_PROPERTY_LAST IMPORT_SRC_PROPERTY
+
+#define XML_TAG_FIRST WINDOW_TAG
+#define XML_TAG_LAST IMPORT_TAG
+
+const char* nu_xml_keywords[] = {
     "id", "class",
     "dir", "grow", "overflow-v", "overflow-h", "position", "hide", "ignore-mouse", "gap",
     "width", "min-width", "max-width", "height", "min-height", "max-height",
@@ -13,19 +18,20 @@ const char* nu_xml_property_keywords[] = {
     "padding", "padding-top", "padding-bottom", "padding-left", "padding-right",
     "image-src",
     "input-type",
-};
+    "src",
 
-#define NU_XML_TYPE_COUNT 9
-const char* nu_xml_type_keywords[] = {
     "window", "box", "button",
     "input", "canvas", "image",
     "table", "thead", "row",
-    "frame"
+    "frame", "import"
 };
-
 typedef enum NU_XML_TOKEN
-{
-    // properties
+{   
+    // -------------------------------------------------------------
+    // --- These enums positionally correspond to keywords above ---
+    // -------------------------------------------------------------
+
+    // Properties
     ID_PROPERTY, CLASS_PROPERTY, 
     LAYOUT_DIRECTION_PROPERTY, GROW_PROPERTY,
     OVERFLOW_V_PROPERTY, OVERFLOW_H_PROPERTY,
@@ -41,9 +47,9 @@ typedef enum NU_XML_TOKEN
     BORDER_WIDTH_PROPERTY, BORDER_TOP_WIDTH_PROPERTY, BORDER_BOTTOM_WIDTH_PROPERTY, BORDER_LEFT_WIDTH_PROPERTY, BORDER_RIGHT_WIDTH_PROPERTY,
     BORDER_RADIUS_PROPERTY, BORDER_TOP_LEFT_RADIUS_PROPERTY, BORDER_TOP_RIGHT_RADIUS_PROPERTY, BORDER_BOTTOM_LEFT_RADIUS_PROPERTY, BORDER_BOTTOM_RIGHT_RADIUS_PROPERTY,
     PADDING_PROPERTY, PADDING_TOP_PROPERTY, PADDING_BOTTOM_PROPERTY, PADDING_LEFT_PROPERTY, PADDING_RIGHT_PROPERTY,
-    IMAGE_SOURCE_PROPERTY, INPUT_TYPE_PROPERTY,
+    IMAGE_SOURCE_PROPERTY, INPUT_TYPE_PROPERTY, IMPORT_SRC_PROPERTY,
 
-    // types
+    // Tags
     WINDOW_TAG,
     BOX_TAG,
     BUTTON_TAG,
@@ -54,8 +60,12 @@ typedef enum NU_XML_TOKEN
     TABLE_HEAD_TAG,
     ROW_TAG,
     FRAME_TAG,
+    IMPORT_TAG,
 
-    // xml misc
+    // -----------------------------------------------------
+    // --- These enums do not correspond to any keywords ---
+    // -----------------------------------------------------
+    // Misc
     OPEN_TAG,
     CLOSE_TAG,
     OPEN_END_TAG,
@@ -78,19 +88,8 @@ typedef struct Text_Ref
 NU_XML_TOKEN NU_Word_To_Token(char* word, u8 wordLen)
 {
     word[wordLen] = '\0';
-
-    // check property keywords
-    for (int i=0; i<NU_XML_PROPERTY_COUNT; i++) {
-        if (strcmp(word, nu_xml_property_keywords[i]) == 0) {
-            return i;
-        }
-    }
-
-    // check type keywords
-    for (int i=0; i<NU_XML_TYPE_COUNT; i++) {
-        if (strcmp(word, nu_xml_type_keywords[i]) == 0) {
-            return i + NU_XML_PROPERTY_COUNT;
-        }
+    for (int i = XML_PROPERTY_FIRST; i<= XML_TAG_LAST; i++) {
+        if (stringEquals(word, nu_xml_keywords[i])) return (enum NU_XML_TOKEN)i;
     }
     return UNDEFINED;
 }
@@ -98,10 +97,8 @@ NU_XML_TOKEN NU_Word_To_Token(char* word, u8 wordLen)
 NU_XML_TOKEN NU_Word_To_Tag_Token(char* word, u8 wordLen)
 {
     word[wordLen] = '\0';
-    for (int i=0; i<NU_XML_TYPE_COUNT; i++) {
-        if (strcmp(word, nu_xml_type_keywords[i]) == 0) {
-            return i + NU_XML_PROPERTY_COUNT;
-        }
+    for (int i = XML_TAG_FIRST; i<= XML_TAG_LAST; i++) {
+        if (stringEquals(word, nu_xml_keywords[i])) return (enum NU_XML_TOKEN)i;
     }
     return UNDEFINED_TAG;
 }
@@ -109,21 +106,19 @@ NU_XML_TOKEN NU_Word_To_Tag_Token(char* word, u8 wordLen)
 NU_XML_TOKEN NU_Word_To_Property_Token(char* word, u8 wordLen)
 {
     word[wordLen] = '\0';
-    for (int i=0; i<NU_XML_PROPERTY_COUNT; i++) {
-        if (strcmp(word, nu_xml_property_keywords[i]) == 0) {
-            return i;
-        }
+    for (int i = XML_PROPERTY_FIRST; i<= XML_PROPERTY_LAST; i++) {
+        if (stringEquals(word, nu_xml_keywords[i])) return (enum NU_XML_TOKEN)i;
     }
     return UNDEFINED_PROPERTY;
 }
 
 NodeType NU_TokenToNodeType(NU_XML_TOKEN token)
 {
-    if (token < WINDOW_TAG || token > FRAME_TAG) return NU_NAT;
-    return token - NU_XML_PROPERTY_COUNT;
+    if (token < XML_TAG_FIRST || token > XML_TAG_LAST) return NU_NAT;
+    return token - XML_TAG_FIRST;
 }
 
 int NU_Is_Token_Property(NU_XML_TOKEN t)
 {
-    return (t >= ID_PROPERTY && t <= INPUT_TYPE_PROPERTY) || t == UNDEFINED_PROPERTY; 
+    return (t >= XML_PROPERTY_FIRST && t <= XML_PROPERTY_LAST) || t == UNDEFINED_PROPERTY; 
 }

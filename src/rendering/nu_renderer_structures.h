@@ -81,6 +81,8 @@ typedef struct {
     // State
     int fontID;
     CanvasLayerType currentLayerType;
+    float canvasWidth;
+    float canvasHeight;
 } NU_Canvas_Context;
 
 void RGB_From_Hex(const char* hexstring, NU_RGB* result)

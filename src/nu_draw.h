@@ -395,6 +395,8 @@ void NU_Draw()
             float clip_left   = canvas_node->node.x + canvas_node->node.borderLeft + canvas_node->node.padLeft;
             float clip_right  = canvas_node->node.x + canvas_node->node.width - canvas_node->node.borderRight - canvas_node->node.padRight;
             NU_Canvas_Context* ctx = Container_Get(&GUI.canvasContexts, canvas_node->typeData.canvas.ctxHandle); 
+            ctx->canvasWidth = canvas_node->node.width;
+            ctx->canvasHeight = canvas_node->node.height;
 
             // Draw each canvas layer
             for (u32 l=0; l<ctx->canvasLayers.size; l++) {

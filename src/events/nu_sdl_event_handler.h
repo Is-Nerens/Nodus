@@ -39,7 +39,7 @@ bool EventWatcher(void* data, SDL_Event* event)
         {
             NodeP* inputNode = GUI.focused_node;
             NU_Font* font = Stylesheet_Get_Font(GUI.stylesheet, inputNode->fontId);
-            InputText* inputText = &inputNode->typeData.input.inputText;
+            InputText* inputText = Container_Get(&GUI.textInputs, inputNode->typeData.input.textInputHandle);
             SDL_Keymod mods = event->key.mod;
 
             bool textChanged = false;
@@ -114,7 +114,7 @@ bool EventWatcher(void* data, SDL_Event* event)
     else if (event->type == SDL_EVENT_TEXT_INPUT) {
 
         NU_Font* font = Stylesheet_Get_Font(GUI.stylesheet, GUI.focused_node->fontId);
-        InputText* inputText = &GUI.focused_node->typeData.input.inputText;
+        InputText* inputText = Container_Get(&GUI.textInputs, GUI.focused_node->typeData.input.textInputHandle);
         
         int updated = 0;
         if (InputText_IsHighlighting(inputText)) {
@@ -174,7 +174,8 @@ bool EventWatcher(void* data, SDL_Event* event)
         if (GUI.focused_node != NULL) {
             NodeP* node = GUI.focused_node;
             NU_Font* font = Stylesheet_Get_Font(GUI.stylesheet, node->fontId);
-            if (InputText_MouseDrag(&node->typeData.input.inputText, node, font, mouseX)) {
+            InputText* inputText = Container_Get(&GUI.textInputs, node->typeData.input.textInputHandle);
+            if (InputText_MouseDrag(inputText, node, font, mouseX)) {
                 GUI.awaiting_redraw = true;
             }
         }
@@ -245,16 +246,17 @@ bool EventWatcher(void* data, SDL_Event* event)
         if (GUI.focused_node != NULL) 
         {
             NU_Font* font = Stylesheet_Get_Font(GUI.stylesheet, GUI.focused_node->fontId);
+            InputText* inputText = Container_Get(&GUI.textInputs, GUI.focused_node->typeData.input.textInputHandle);
 
             if (GUI.focused_node != prevFocusedNode) {
-                InputText_MousePlaceCursor(&GUI.focused_node->typeData.input.inputText, GUI.focused_node, font, mouseX);
+                InputText_MousePlaceCursor(inputText, GUI.focused_node, font, mouseX);
                 SDL_StartTextInput(GetSDL_Window(&GUI.winManager, GUI.focused_node->windowID));
 
                 // Trigger focus event
                 TriggerOnInputFocusEvent(GUI.focused_node);
             }
             else {
-                InputText_MousePlaceCursor(&GUI.focused_node->typeData.input.inputText, GUI.focused_node, font, mouseX);
+                InputText_MousePlaceCursor(inputText, GUI.focused_node, font, mouseX);
             }
             GUI.awaiting_redraw = true;
         }
@@ -262,7 +264,9 @@ bool EventWatcher(void* data, SDL_Event* event)
         // Defocus prev focused input node
         if (prevFocusedNode != NULL && prevFocusedNode->type == NU_INPUT && prevFocusedNode != GUI.focused_node)
         {
-            InputText_Defocus(&prevFocusedNode->typeData.input.inputText);
+            InputText* inputText = Container_Get(&GUI.textInputs, prevFocusedNode->typeData.input.textInputHandle);
+
+            InputText_Defocus(inputText);
 
             // Trigger defocus event
             TriggerOnInputDefocusEvent(prevFocusedNode);
@@ -345,7 +349,8 @@ bool EventWatcher(void* data, SDL_Event* event)
 
         // if focused on input text node
         if (GUI.focused_node != NULL) {
-            InputText_MouseUp(&GUI.focused_node->typeData.input.inputText);
+            InputText* inputText = Container_Get(&GUI.textInputs, GUI.focused_node->typeData.input.textInputHandle);
+            InputText_MouseUp(inputText);
             GUI.awaiting_redraw = true;
         }
     }

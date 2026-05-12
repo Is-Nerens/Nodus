@@ -30,6 +30,7 @@ void InputText_Init(InputText* text)
     text->decimalByteIndex = -1;
     text->type = 0;
     text->dragging = false;
+    text->updateOffsetsPostLayout = false;
 }
 
 // Frees the underlying UTF8 string memory

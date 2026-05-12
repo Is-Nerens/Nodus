@@ -424,10 +424,11 @@ void NU_Parse_Property(const enum NU_XML_TOKEN token, NodeP* currentNode, char* 
         case INPUT_TYPE_PROPERTY:
             if (currentNode->type != NU_INPUT) break;
             currentNode->overrideStyleFlags |= PROPERTY_FLAG_INPUT_TYPE;
+            InputText* inputText = Container_Get(&GUI.textInputs, currentNode->typeData.input.textInputHandle);
             if (strcmp(ptext, "number") == 0) {
-                currentNode->typeData.input.inputText.type = 1;
+                inputText->type = 1;
             } else {
-                currentNode->typeData.input.inputText.type = 0;
+                inputText->type = 0;
             }
             break;  
 
@@ -496,6 +497,10 @@ int NU_Parse_Component(NodeP* currentNode, char* src, TokenArray* tokens, struct
                 // ----------------------------------------
                 if (currentNode->type == NU_WINDOW) { // If node is a window -> create SDL window
                     CreateSubwindow(&GUI.winManager, currentNode);
+                }
+                else if (currentNode->type == NU_INPUT) {
+                    InputText inputText; InputText_Init(&inputText);
+                    currentNode->typeData.input.textInputHandle = Container_Add(&GUI.textInputs, &inputText);
                 }
                 else if (currentNode->type == NU_TABLE) {
                     ctx = GENCTX_IN_CONTENT_OF_TABLE_WITHOUT_CHILDREN;
@@ -708,6 +713,9 @@ int NU_Generate_Tree(char* src, TokenArray* tokens, struct Vector* textRefs)
                     // ----------------------------------------
                     if (currentNode->type == NU_WINDOW) { // If node is a window -> create SDL window
                         CreateSubwindow(&GUI.winManager, currentNode);
+                    } else if (currentNode->type == NU_INPUT) {
+                        InputText inputText; InputText_Init(&inputText);
+                        currentNode->typeData.input.textInputHandle = Container_Add(&GUI.textInputs, &inputText);
                     }
                     else if (currentNode->type == NU_TABLE) {
                         ctx = GENCTX_IN_CONTENT_OF_TABLE_WITHOUT_CHILDREN;

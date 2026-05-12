@@ -70,7 +70,7 @@ void TreeAddLayer(Tree* tree)
     u32 newCapacity = tree->layerAllocsCapacity * 2;
     tree->layerAllocs = realloc(tree->layerAllocs, sizeof(Nalloc) * newCapacity);
     for (u32 i=tree->layerAllocsCapacity; i<newCapacity; i++) {
-        Nalloc_Init(&tree->layerAllocs[i], 100);
+        Nalloc_Init(&tree->layerAllocs[i], 128);
     }
     tree->layerAllocsCapacity = newCapacity;
 }

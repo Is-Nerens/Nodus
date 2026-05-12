@@ -420,12 +420,12 @@ void Construct_Scroll_Thumb(NodeP* node,
 
 void NU_ConstructInputCursorMesh(
     NodeP* node,
+    InputText* inputText,
     Vertex_RGB_List* vertices, 
     Index_List* indices)
 {
     Node* n = &node->node;
-
-    float x = n->x + n->borderLeft + n->padLeft + node->typeData.input.inputText.cursorOffset;
+    float x = n->x + n->borderLeft + n->padLeft + inputText->cursorOffset;
     float y = n->y + n->borderTop + n->padTop;
     float innerHeight = n->height - n->borderTop  - n->borderBottom - n->padTop - n->padBottom;
 
@@ -472,13 +472,14 @@ void NU_ConstructInputCursorMesh(
 
 void NU_ConstructInputHighlightMesh(
     NodeP* node,
+    InputText* inputText,
     Vertex_RGB_List* vertices, 
     Index_List* indices)
 {
     Node* n = &node->node;
 
-    float cursorX = n->x + n->borderLeft + n->padLeft + node->typeData.input.inputText.cursorOffset;
-    float highlightX = n->x + n->borderLeft + n->padLeft + node->typeData.input.inputText.highlightOffset;
+    float cursorX = n->x + n->borderLeft + n->padLeft + inputText->cursorOffset;
+    float highlightX = n->x + n->borderLeft + n->padLeft + inputText->highlightOffset;
     float x = highlightX; if (cursorX < x) x = cursorX;
     float y = n->y + n->borderTop + n->padTop;
     float width = fabs(cursorX - highlightX);

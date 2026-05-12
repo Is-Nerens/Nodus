@@ -79,7 +79,7 @@ void NU_DrawClippedNodeTextContent(NodeP* node, float winWidth, float winHeight,
 void NU_DrawInputNodeContent(NodeP* node, float winWidth, float winHeight, NU_ClipBounds* clip)
 {   
     NU_Font* node_font = Stylesheet_Get_Font(GUI.stylesheet, node->fontId);
-    InputText* inputText = &node->typeData.input.inputText;
+    InputText* inputText = Container_Get(&GUI.textInputs, node->typeData.input.textInputHandle);
 
     if (inputText->updateOffsetsPostLayout) {
         inputText->updateOffsetsPostLayout = false;
@@ -91,7 +91,7 @@ void NU_DrawInputNodeContent(NodeP* node, float winWidth, float winHeight, NU_Cl
     {
         Vertex_RGB_List highlightVertices; Vertex_RGB_List_Init(&highlightVertices, 4);
         Index_List highlightIndices; Index_List_Init(&highlightIndices, 6);
-        NU_ConstructInputHighlightMesh(node, &highlightVertices, &highlightIndices);
+        NU_ConstructInputHighlightMesh(node, inputText, &highlightVertices, &highlightIndices);
         Draw_Clipped_Vertex_RGB_List(
             &highlightVertices, &highlightIndices,
             winWidth, winHeight, 
@@ -106,7 +106,7 @@ void NU_DrawInputNodeContent(NodeP* node, float winWidth, float winHeight, NU_Cl
     // generate and draw text
     Vertex_RGB_UV_List clipped_text_vertices; Vertex_RGB_UV_List_Init(&clipped_text_vertices, 1000);
     Index_List clipped_text_indices; Index_List_Init(&clipped_text_indices, 600);
-    float textPosX = node->node.x + node->node.borderLeft + node->node.padLeft + node->typeData.input.inputText.textOffset;
+    float textPosX = node->node.x + node->node.borderLeft + node->node.padLeft + inputText->textOffset;
     float textPosY = node->node.y + node->node.borderTop  + node->node.padTop;
     float r = (float)node->node.textR / 255.0f;
     float g = (float)node->node.textG / 255.0f;
@@ -123,7 +123,7 @@ void NU_DrawInputNodeContent(NodeP* node, float winWidth, float winHeight, NU_Cl
 
         Vertex_RGB_List cursorVertices; Vertex_RGB_List_Init(&cursorVertices, 4);
         Index_List cursorIndices; Index_List_Init(&cursorIndices, 6);
-        NU_ConstructInputCursorMesh(node, &cursorVertices, &cursorIndices);
+        NU_ConstructInputCursorMesh(node, inputText, &cursorVertices, &cursorIndices);
         Draw_Clipped_Vertex_RGB_List(
             &cursorVertices, &cursorIndices,
             winWidth, winHeight, 
@@ -370,7 +370,6 @@ void NU_GenerateDrawlists()
 void NU_Draw()
 {
     NU_GenerateDrawlists();
-
     
     // Initialise text vertex and index buffers (per font)
     Vertex_RGB_UV_List text_relative_vertex_buffers[GUI.stylesheet->fonts.size];
@@ -474,11 +473,14 @@ void NU_Draw()
             if (node->node.textContent != NULL) { // draw node's textContent
                 NU_DrawClippedNodeTextContent(node, winW, winH, clip);
             }
-            else if (node->type == NU_INPUT && node->typeData.input.inputText.numBytes > 0) { // draw input node's text
-                NU_ClipBounds innerClip = *clip;
-                innerClip.clip_left += node->node.borderLeft + node->node.padLeft;
-                innerClip.clip_right -= node->node.borderRight + node->node.padRight; 
-                NU_DrawInputNodeContent(node, winW, winH, &innerClip);
+            else if (node->type == NU_INPUT) { // draw input node's text
+                InputText* inputText = Container_Get(&GUI.textInputs, node->typeData.input.textInputHandle);
+                if (inputText->numBytes > 0) {
+                    NU_ClipBounds innerClip = *clip;
+                    innerClip.clip_left += node->node.borderLeft + node->node.padLeft;
+                    innerClip.clip_right -= node->node.borderRight + node->node.padRight; 
+                    NU_DrawInputNodeContent(node, winW, winH, &innerClip);
+                }
             }
             if (node->typeData.image.glImageHandle && node->type != NU_CANVAS && node->type != NU_INPUT) { // draw node image
                 NU_DrawClippedNodeImage(node, winW, winH, clip);
@@ -515,13 +517,16 @@ void NU_Draw()
             }
 
             // construct text mesh for input node's text input
-            else if (node->type == NU_INPUT && node->typeData.input.inputText.numBytes > 0) {
-                NU_ClipBounds clip = {0};
-                clip.clip_top = node->node.y;
-                clip.clip_left = node->node.x + node->node.borderLeft + node->node.padLeft;
-                clip.clip_right = node->node.x + node->node.width - node->node.borderRight - node->node.padRight;
-                clip.clip_bottom = node->node.y + node->node.height + 1000;
-                NU_DrawInputNodeContent(node, winW, winH, &clip);
+            else if (node->type == NU_INPUT) {
+                InputText* inputText = Container_Get(&GUI.textInputs, node->typeData.input.textInputHandle);
+                if (inputText->numBytes > 0) {
+                    NU_ClipBounds clip = {0};
+                    clip.clip_top = node->node.y;
+                    clip.clip_left = node->node.x + node->node.borderLeft + node->node.padLeft;
+                    clip.clip_right = node->node.x + node->node.width - node->node.borderRight - node->node.padRight;
+                    clip.clip_bottom = node->node.y + node->node.height + 1000;
+                    NU_DrawInputNodeContent(node, winW, winH, &clip);
+                }
             }
 
             // draw node image
@@ -550,11 +555,14 @@ void NU_Draw()
             if (node->node.textContent != NULL) { // draw node's textContent
                 NU_DrawClippedNodeTextContent(node, winW, winH, clip);
             }
-            else if (node->type == NU_INPUT && node->typeData.input.inputText.numBytes > 0) { // draw input node's text
-                NU_ClipBounds innerClip = *clip;
-                innerClip.clip_left += node->node.borderLeft + node->node.padLeft;
-                innerClip.clip_right -= node->node.borderRight + node->node.padRight; 
-                NU_DrawInputNodeContent(node, winW, winH, &innerClip);
+            else if (node->type == NU_INPUT) { // draw input node's text
+                InputText* inputText = Container_Get(&GUI.textInputs, node->typeData.input.textInputHandle);
+                if (inputText->numBytes > 0) {
+                    NU_ClipBounds innerClip = *clip;
+                    innerClip.clip_left += node->node.borderLeft + node->node.padLeft;
+                    innerClip.clip_right -= node->node.borderRight + node->node.padRight; 
+                    NU_DrawInputNodeContent(node, winW, winH, &innerClip);
+                }
             }
             if (node->typeData.image.glImageHandle && node->type != NU_CANVAS && node->type != NU_INPUT) { // draw node image
                 NU_DrawClippedNodeImage(node, winW, winH, clip);
@@ -562,7 +570,7 @@ void NU_Draw()
         }
         SDL_GL_SwapWindow(window); 
     }
-    
+
     // -----------------------
     // --- Free memory -------
     // -----------------------

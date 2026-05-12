@@ -39,6 +39,7 @@ struct NU_GUI
     Stringset id_string_set;
     Stringmap id_node_map;
     Container canvasContexts;
+    Container textInputs;
 
     // Pseudo nodes
     NodeP* hovered_node;
@@ -128,6 +129,7 @@ void NU_Internal_Quit()
     }
     Vector_Free(&GUI.stylesheets);
     Container_Free(&GUI.canvasContexts);
+    Container_Free(&GUI.textInputs);
     Vertex_RGB_List_Free(&GUI.borderRectVertices);
     Index_List_Free(&GUI.borderRectIndices);
     BreadthFirstSearch_Free(&GUI.bfs);
@@ -156,8 +158,9 @@ int NU_Internal_Create_Gui(const char* xml_filepath, const char* css_filepath)
     StringsetInit(&GUI.id_string_set, 1024, 100);
     StringmapInit(&GUI.id_node_map, sizeof(NodeP*), 100, 1024);
 
-    // Init canvas context container
+    // Init canvas context and text input containers
     GUI.canvasContexts = Container_Create(sizeof(NU_Canvas_Context));
+    GUI.textInputs = Container_Create(sizeof(InputText));
 
     // Init stylesheets vector
     Vector_Reserve(&GUI.stylesheets, sizeof(NU_Stylesheet), 2);
@@ -236,5 +239,6 @@ int NU_Internal_Create_Gui(const char* xml_filepath, const char* css_filepath)
     // Event watcher
     SDL_AddEventWatch(EventWatcher, NULL);
 
-    return 1; // Success
+    // Success
+    return 1; 
 }

@@ -66,7 +66,7 @@ typedef enum NodeType
 } NodeType;
 
 typedef struct InputTypeData {
-    InputText inputText;
+    int textInputHandle;
 } InputTypeData;
 
 typedef struct ImageTypeData {
@@ -104,7 +104,7 @@ typedef struct NodeP
 {
     Node node;
     NodeType type;
-    NodeTypeData typeData;
+    NodeTypeData typeData; // 4 bytes
     struct NodeP* parent;
     struct NodeP* nextSibling;
     struct NodeP* prevSibling;
@@ -196,7 +196,7 @@ void NU_ApplyNodeDefaults(NodeP* node)
         node->layoutFlags |= GROW_HORIZONTAL;
         break;
     case NU_INPUT:
-        InputText_Init(&node->typeData.input.inputText);
+        node->typeData.input.textInputHandle = -1;
         break;
     case NU_CANVAS:
         node->typeData.canvas.ctxHandle = -1;

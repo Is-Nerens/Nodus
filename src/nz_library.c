@@ -177,6 +177,13 @@ __declspec(dllexport) Node* NU_CREATE_NODE(Node* parent, NodeType type) {
     if (parent == NULL || type == NU_WINDOW) return NULL; // Nodus doesn't yet support window creation
     NodeP* parentP = NODEP_OF(parent);
     NodeP* node = TreeCreateNode(&GUI.tree, parentP, type);
+
+    if (type == NU_INPUT) {
+        InputText inputText;
+        InputText_Init(&inputText);
+        node->typeData.input.textInputHandle = Container_Add(&GUI.textInputs, &inputText);
+    }
+
     NU_Apply_Stylesheet_To_Node(node, GUI.stylesheet);
     return &node->node;
 }
@@ -196,13 +203,14 @@ __declspec(dllexport) void NU_REPARENT_NODE(Node* node, Node* newParent) {
 __declspec(dllexport) const char* NU_INPUT_TEXT_CONTENT(Node* node) {
     NodeP* nodeP = NODEP_OF(node);
     if (nodeP->type != NU_INPUT) return NULL;
-    return nodeP->typeData.input.inputText.buffer;
+    InputText* inputText = Container_Get(&GUI.textInputs, nodeP->typeData.input.textInputHandle);
+    return inputText->buffer;
 }
 __declspec(dllexport) void NU_SET_INPUT_TEXT_CONTENT(Node* node, const char* text) {
     NodeP* nodeP = NODEP_OF(node);
     if (nodeP->type != NU_INPUT) return;
     NU_Font* font = Stylesheet_Get_Font(GUI.stylesheet, nodeP->fontId);
-    InputText* inputText = &nodeP->typeData.input.inputText;
+    InputText* inputText = Container_Get(&GUI.textInputs, nodeP->typeData.input.textInputHandle);
     InputText_SetText(inputText, nodeP, font, text);
     TriggerOnInputChangedEvent(nodeP, "");
     GUI.awaiting_redraw = true;
@@ -220,7 +228,8 @@ __declspec(dllexport) void NU_FOCUS_ON_INPUT(Node* node) {
         // Defocus prev focused input node
         if (prevFocusedNode != NULL)
         {
-            InputText_Defocus(&prevFocusedNode->typeData.input.inputText);
+            InputText* inputText = Container_Get(&GUI.textInputs, prevFocusedNode->typeData.input.textInputHandle);
+            InputText_Defocus(inputText);
 
             // Trigger defocus event
             TriggerOnInputDefocusEvent(prevFocusedNode);
@@ -238,11 +247,12 @@ __declspec(dllexport) void NU_FOCUS_ON_INPUT(Node* node) {
         // Focus on input node 
         NU_Apply_Pseudo_Style_To_Node(GUI.focused_node, GUI.stylesheet, PSEUDO_FOCUS);
         NU_Font* font = Stylesheet_Get_Font(GUI.stylesheet, GUI.focused_node->fontId);
-        InputText_MousePlaceCursor(&GUI.focused_node->typeData.input.inputText, GUI.focused_node, font, 1000000.0f);
+        InputText* inputText = Container_Get(&GUI.textInputs, GUI.focused_node->typeData.input.textInputHandle);
+        InputText_MousePlaceCursor(inputText, GUI.focused_node, font, 1000000.0f);
         SDL_StartTextInput(GetSDL_Window(&GUI.winManager, GUI.focused_node->windowID));
 
         // Defer offsets calculation
-        GUI.focused_node->typeData.input.inputText.updateOffsetsPostLayout = true;
+        inputText->updateOffsetsPostLayout = true;
 
         // Trigger focus event
         TriggerOnInputFocusEvent(nodeP);

@@ -188,6 +188,11 @@ __declspec(dllexport) void NU_SHIFT_NODE_IN_PARENT(Node* node, int index) {
     NodeP* nodeP = NODEP_OF(node);
     TreeShiftNodeInParent(&GUI.tree, nodeP, index);
 }
+__declspec(dllexport) void NU_REPARENT_NODE(Node* node, Node* newParent) {
+    NodeP* nodeP = NODEP_OF(node);
+    NodeP* newParentP = NODEP_OF(newParent);
+    TreeReparentNode(&GUI.tree, nodeP, newParentP);
+}
 __declspec(dllexport) const char* NU_INPUT_TEXT_CONTENT(Node* node) {
     NodeP* nodeP = NODEP_OF(node);
     if (nodeP->type != NU_INPUT) return NULL;
@@ -431,6 +436,22 @@ __declspec(dllexport) void NU_Triangle(
 {
     NU_Internal_Triangle(contextID, x1, y1, x2, y2, x3, y3, thickness, border_col, fill_col);
 } 
+__declspec(dllexport) void NU_Vline(
+    int contextID,
+    float x, float y, float height,
+    float thickness,
+    NU_RGB col) 
+{
+    NU_Internal_Vline(contextID, x, y, height, thickness, col);
+}
+__declspec(dllexport) void NU_Hline(
+    int contextID,
+    float x, float y, float width,
+    float thickness,
+    NU_RGB col) 
+{
+    NU_Internal_Hline(contextID, x, y, width, thickness, col);
+}
 __declspec(dllexport) void NU_Line(
     int contextID,
     float x1, float y1, float x2, float y2,

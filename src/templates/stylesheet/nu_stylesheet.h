@@ -46,10 +46,10 @@ void NU_Stylesheet_Init(NU_Stylesheet* ss)
     item->maxHeight = UINT16_MAX;
 
     // positioning
-    item->left = -1;
-    item->right = -1;
-    item->top = -1;
-    item->bottom = -1;
+    item->left = INT16_MIN;
+    item->right = INT16_MIN;
+    item->top = INT16_MIN;
+    item->bottom = INT16_MIN;
 
     // colors
     item->backgroundR = 50;

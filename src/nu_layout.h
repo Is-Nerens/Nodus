@@ -188,7 +188,7 @@ static void NU_GrowShrinkChildWidths(NodeP* node, bool includeNodeScrollbarThick
 
         if (child->state != 2 && child->type != NU_WINDOW && 
             child->layoutFlags & POSITION_ABSOLUTE &&
-            child->node.left >= 0 && child->node.right >= 0) 
+            child->node.left >= 0.0f && child->node.left != INT16_MIN && child->node.right >= 0.0f && child->node.right != INT16_MIN) 
         {
             float expandedWidth = remainingWidth - child->node.left - child->node.right;
             if (expandedWidth > child->node.width) child->node.width = expandedWidth;
@@ -403,7 +403,7 @@ static void NU_GrowShrinkChildHeights(NodeP* node, bool includeNodeScrollbarThic
 
         if (child->state != 2 && child->type != NU_WINDOW && 
             child->layoutFlags & POSITION_ABSOLUTE &&
-            child->node.top >= 0 && child->node.bottom >= 0)
+            child->node.top >= 0.0f && child->node.top != INT16_MIN && child->node.bottom >= 0.0f && child->node.bottom != INT16_MIN)
         {
             float expandedHeight = remainingHeight - child->node.top - child->node.bottom;
             if (expandedHeight > child->node.height) child->node.height = expandedHeight;
@@ -718,10 +718,10 @@ static void NU_PositionChildrenHorizontally(NodeP* node, bool includeNodeScrollb
             }
             else { // position absolute
                 child->node.x = node->node.x + node->node.padLeft + node->node.borderLeft;
-                if (child->node.left >= 0.0f) {
+                if (child->node.left != INT16_MIN) {
                     child->node.x = node->node.x + child->node.left + node->node.padLeft + node->node.borderLeft;
                 }
-                else if (child->node.right >= 0.0f) {
+                else if (child->node.right != INT16_MIN) {
                     float inner_width = node->node.width - node->node.padLeft - node->node.padRight - node->node.borderLeft - node->node.borderRight;
                     child->node.x = node->node.x + inner_width - child->node.width - child->node.right;
                 }
@@ -765,10 +765,10 @@ static void NU_PositionChildrenHorizontally(NodeP* node, bool includeNodeScrollb
             }
             else { // position absolute 
                 child->node.x = node->node.x + node->node.padLeft + node->node.borderLeft;
-                if (child->node.left > 0.0f) {
+                if (child->node.left != INT16_MIN) {
                     child->node.x = node->node.x + child->node.left + node->node.padLeft + node->node.borderLeft;
                 }
-                else if (child->node.right > 0.0f) {
+                else if (child->node.right != INT16_MIN) {
                     float inner_width = node->node.width - node->node.padLeft - node->node.padRight - node->node.borderLeft - node->node.borderRight;
                     child->node.x = node->node.x + inner_width - child->node.width - child->node.right;
                 }

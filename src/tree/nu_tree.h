@@ -168,6 +168,51 @@ void TreeShiftNodeInParent(Tree* tree, NodeP* node, int index)
     if (index == parent->childCount - 1) parent->lastChild = node;
 }
 
+void TreeReparentNode(Tree* tree, NodeP* node, NodeP* newParent)
+{
+    if (!node || !newParent) return;
+    if (node->parent == newParent) return;
+    if (node == newParent) return;
+
+    // Guard: ensure newParent is not a descendant of node
+    NodeP* ancestor = newParent->parent;
+    while (ancestor != NULL) {
+        if (ancestor == node) return;
+        ancestor = ancestor->parent;
+    }
+
+    NodeP* oldParent = node->parent;
+
+    // Detach from old parent's sibling chain
+    if (node->prevSibling) node->prevSibling->nextSibling = node->nextSibling;
+    else oldParent->firstChild = node->nextSibling;
+
+    if (node->nextSibling) node->nextSibling->prevSibling = node->prevSibling;
+    else oldParent->lastChild = node->prevSibling;
+
+    oldParent->childCount--;
+
+    // Attach to new parent as last child
+    node->parent = newParent;
+    node->prevSibling = newParent->lastChild;
+    node->nextSibling = NULL;
+    node->clippedAncestor = NULL;
+    node->layer = newParent->layer + 1;
+    if (node->type != NU_WINDOW) {
+        node->windowID = newParent->windowID;
+    }
+
+    if (newParent->firstChild == NULL) {
+        newParent->firstChild = node;
+        newParent->lastChild = node;
+    }
+    else {
+        newParent->lastChild->nextSibling = node;
+        newParent->lastChild = node;
+    }
+    newParent->childCount++;
+}
+
 void TreeDeleteLeaf(Tree* tree, NodeP* leaf, TreeDeleteCallback deleteCB)
 {
     tree->nodeCount--;

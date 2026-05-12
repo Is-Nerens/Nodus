@@ -131,6 +131,7 @@ __declspec(dllimport) inline int NU_CHILD_COUNT(Node* node);
 __declspec(dllimport) inline Node* NU_CREATE_NODE(Node* parent, NodeType type);
 __declspec(dllimport) inline void NU_DELETE_NODE(Node* node);
 __declspec(dllimport) inline void NU_SHIFT_NODE_IN_PARENT(Node* node, int index);
+__declspec(dllimport) inline void NU_REPARENT_NODE(Node* node, Node* newParent);
 __declspec(dllimport) inline const char* NU_INPUT_TEXT_CONTENT(Node* node);
 __declspec(dllimport) void NU_FOCUS_ON_INPUT(Node* node);
 __declspec(dllimport) void NU_SET_INPUT_TEXT_CONTENT(Node* node, const char* text);
@@ -181,6 +182,20 @@ __declspec(dllimport) void NU_Triangle(
     float thickness,
     NU_RGB border_col,
     NU_RGB fill_col
+);
+
+__declspec(dllimport) void NU_Vline(
+    int contextID,
+    float x, float y, float height,
+    float thickness,
+    NU_RGB col
+);
+
+__declspec(dllimport) void NU_Hline(
+    int contextID,
+    float x, float y, float width,
+    float thickness,
+    NU_RGB col
 );
 
 __declspec(dllimport) void NU_Line(

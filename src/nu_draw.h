@@ -136,6 +136,46 @@ void NU_DrawInputNodeContent(NodeP* node, float winWidth, float winHeight, NU_Cl
     }
 }
 
+void NU_DrawCanvasContent(NodeP* canvas_node,float winW, float winH)
+{
+    float offset_x = canvas_node->node.x + canvas_node->node.borderLeft + canvas_node->node.padLeft;
+    float offset_y = canvas_node->node.y + canvas_node->node.borderTop + canvas_node->node.padTop;
+    float clip_top    = canvas_node->node.y + canvas_node->node.borderTop + canvas_node->node.padTop;
+    float clip_bottom = canvas_node->node.y + canvas_node->node.height - canvas_node->node.borderBottom - canvas_node->node.padBottom;
+    float clip_left   = canvas_node->node.x + canvas_node->node.borderLeft + canvas_node->node.padLeft;
+    float clip_right  = canvas_node->node.x + canvas_node->node.width - canvas_node->node.borderRight - canvas_node->node.padRight;
+    NU_Canvas_Context* ctx = Container_Get(&GUI.canvasContexts, canvas_node->typeData.canvas.ctxHandle); 
+    ctx->canvasWidth = canvas_node->node.width;
+    ctx->canvasHeight = canvas_node->node.height;
+
+    // Draw each canvas layer
+    for (u32 l=0; l<ctx->canvasLayers.size; l++) {
+        CanvasLayer* layer = Vector_Get(&ctx->canvasLayers, l);
+        
+        // Shape layer
+        if (layer->type == NU_CANVAS_SHAPE_LAYER) {
+            Draw_Clipped_Vertex_RGB_List(
+                &layer->vertexData.shapeVertices, &layer->indices,
+                winW, winH, 
+                offset_x, offset_y,
+                clip_top, clip_bottom, clip_left, clip_right 
+            );
+        }
+        // Text layer
+        else 
+        {
+            NU_Font* font = Stylesheet_Get_Font(GUI.stylesheet, layer->fontID);
+            NU_Render_Text(
+                &layer->vertexData.textVertices, &layer->indices, 
+                font, 
+                winW, winH, 
+                offset_x, offset_y,
+                clip_top, clip_bottom, clip_left, clip_right
+            );
+        }
+    }
+}
+
 void NU_DrawClippedNodeBorderRect(NodeP* node, float winWidth, float winHeight, NU_ClipBounds* clip)
 {
     Vertex_RGB_List vertices;
@@ -384,49 +424,7 @@ void NU_Draw()
         Vertex_RGB_List_Clear(&GUI.borderRectVertices);
         Index_List_Clear(&GUI.borderRectIndices);
 
-        // draw canvas api content
-        for (u32 n=0; n<drawList->canvasNodes.size; n++)
-        {
-            NodeP* canvas_node = *(NodeP**)Vector_Get(&drawList->canvasNodes, n);
-            float offset_x = canvas_node->node.x + canvas_node->node.borderLeft + canvas_node->node.padLeft;
-            float offset_y = canvas_node->node.y + canvas_node->node.borderTop + canvas_node->node.padTop;
-            float clip_top    = canvas_node->node.y + canvas_node->node.borderTop + canvas_node->node.padTop;
-            float clip_bottom = canvas_node->node.y + canvas_node->node.height - canvas_node->node.borderBottom - canvas_node->node.padBottom;
-            float clip_left   = canvas_node->node.x + canvas_node->node.borderLeft + canvas_node->node.padLeft;
-            float clip_right  = canvas_node->node.x + canvas_node->node.width - canvas_node->node.borderRight - canvas_node->node.padRight;
-            NU_Canvas_Context* ctx = Container_Get(&GUI.canvasContexts, canvas_node->typeData.canvas.ctxHandle); 
-            ctx->canvasWidth = canvas_node->node.width;
-            ctx->canvasHeight = canvas_node->node.height;
-
-            // Draw each canvas layer
-            for (u32 l=0; l<ctx->canvasLayers.size; l++) {
-                CanvasLayer* layer = Vector_Get(&ctx->canvasLayers, l);
-                
-                // Shape layer
-                if (layer->type == NU_CANVAS_SHAPE_LAYER) {
-                    Draw_Clipped_Vertex_RGB_List(
-                        &layer->vertexData.shapeVertices, &layer->indices,
-                        winW, winH, 
-                        offset_x, offset_y,
-                        clip_top, clip_bottom, clip_left, clip_right 
-                    );
-                }
-                // Text layer
-                else 
-                {
-                    NU_Font* font = Stylesheet_Get_Font(GUI.stylesheet, layer->fontID);
-                    NU_Render_Text(
-                        &layer->vertexData.textVertices, &layer->indices, 
-                        font, 
-                        winW, winH, 
-                        offset_x, offset_y,
-                        clip_top, clip_bottom, clip_left, clip_right
-                    );
-                }
-            }
-        }   
-
-        // construct text meshes and draw images
+        // construct text meshes and draw images and canvas content
         for (u32 n=0; n<drawList->relativeNodes.size; n++) 
         {
             // construct text mesh for node's textContent
@@ -451,6 +449,9 @@ void NU_Draw()
             if (node->typeData.image.glImageHandle && node->type != NU_CANVAS && node->type != NU_INPUT) {
                 NU_DrawNodeImage(node, winW, winH);
             }
+
+            // draw canvas content
+            if (node->type == NU_CANVAS) NU_DrawCanvasContent(node, winW, winH);
         }
         
         // draw text

@@ -352,6 +352,168 @@ void NU_Internal_Triangle(
     indices->size += additional_indices;
 }
 
+void NU_Internal_Vline(int contextID, float x, float y, float height, float thickness, NU_RGB col)
+{
+    NU_Canvas_Context* ctx = Container_Get(&GUI.canvasContexts, contextID); 
+    if (ctx == NULL) return;
+
+    float canvasWidth = ctx->canvasWidth;
+    float canvasHeight = ctx->canvasHeight;
+
+    // Skip if line is not visible on canvas
+    if (x < -thickness || x > canvasWidth + thickness || y > canvasHeight || y + height < 0.0f) {
+        return;
+    }
+
+    // Constrain to avoid large numbers
+    if (y < 0.0f) y = 0.0f;
+    if (y + height > canvasHeight) height = canvasHeight - y;
+
+    // Check if it is necessary to create a new layer
+    if (ctx->canvasLayers.size == 0 || ctx->currentLayerType == NU_CANVAS_TEXT_LAYER) {
+        NU_New_Canvas_Layer(ctx, NU_CANVAS_SHAPE_LAYER);
+    }
+
+    // Get vertex and index lists
+    CanvasLayer* layer = NU_Canvas_Current_Layer(ctx);
+    Vertex_RGB_List* vertices = &layer->vertexData.shapeVertices;
+    Index_List* indices = &layer->indices;
+
+    // --- Allocate extra space in vertex and index lists ---
+    u32 additional_vertices = 4;    
+    u32 additional_indices = 6;          
+    if (vertices->size + additional_vertices > vertices->capacity) Vertex_RGB_List_Grow(vertices, additional_vertices);
+    if (indices->size + additional_indices > indices->capacity) Index_List_Grow(indices, additional_indices);
+
+    // Add pixel alignment offset
+    x += 0.5f;
+    float half_thick = thickness * 0.5f;
+ 
+    // Create mesh
+    u32 vertex_offset = vertices->size;
+
+    // Bottom point (y) - thick -
+    vertices->array[vertex_offset].x = x - half_thick;
+    vertices->array[vertex_offset].y = y;
+    vertices->array[vertex_offset].r = col.r;
+    vertices->array[vertex_offset].g = col.g;
+    vertices->array[vertex_offset].b = col.b;
+
+    // Bottom point (y) - thick + 
+    vertices->array[vertex_offset + 1].x = x + half_thick;
+    vertices->array[vertex_offset + 1].y = y;
+    vertices->array[vertex_offset + 1].r = col.r;
+    vertices->array[vertex_offset + 1].g = col.g;
+    vertices->array[vertex_offset + 1].b = col.b;
+
+    // Top point (y1) - thick -
+    vertices->array[vertex_offset + 2].x = x - half_thick;
+    vertices->array[vertex_offset + 2].y = y + height;
+    vertices->array[vertex_offset + 2].r = col.r;
+    vertices->array[vertex_offset + 2].g = col.g;
+    vertices->array[vertex_offset + 2].b = col.b;
+
+    // Top point (y1) - thick + 
+    vertices->array[vertex_offset + 3].x = x + half_thick;
+    vertices->array[vertex_offset + 3].y = y + height;
+    vertices->array[vertex_offset + 3].r = col.r;
+    vertices->array[vertex_offset + 3].g = col.g;
+    vertices->array[vertex_offset + 3].b = col.b;
+
+    // Indices
+    u32* indices_write = indices->array + indices->size;
+    *indices_write++ = vertex_offset;
+    *indices_write++ = vertex_offset + 1;
+    *indices_write++ = vertex_offset + 2;
+    *indices_write++ = vertex_offset + 1;
+    *indices_write++ = vertex_offset + 2;
+    *indices_write++ = vertex_offset + 3;
+
+    vertices->size += additional_vertices;
+    indices->size += additional_indices;
+}
+
+void NU_Internal_Hline(int contextID, float x, float y, float width, float thickness, NU_RGB col)
+{
+    NU_Canvas_Context* ctx = Container_Get(&GUI.canvasContexts, contextID); 
+    if (ctx == NULL) return;
+
+    float canvasWidth = ctx->canvasWidth;
+    float canvasHeight = ctx->canvasHeight;
+
+    // Skip if line is not visible on canvas
+    if (y < -thickness || y > canvasHeight + thickness || x > canvasWidth || x + width < 0.0f) {
+        return;
+    }
+
+    // Constrain to avoid large numbers
+    if (x < 0.0f) x = 0.0f;
+    if (x + width > canvasWidth) width = canvasWidth - x;
+
+    // Check if it is necessary to create a new layer
+    if (ctx->canvasLayers.size == 0 || ctx->currentLayerType == NU_CANVAS_TEXT_LAYER) {
+        NU_New_Canvas_Layer(ctx, NU_CANVAS_SHAPE_LAYER);
+    }
+
+    // Get vertex and index lists
+    CanvasLayer* layer = NU_Canvas_Current_Layer(ctx);
+    Vertex_RGB_List* vertices = &layer->vertexData.shapeVertices;
+    Index_List* indices = &layer->indices;
+
+    // --- Allocate extra space in vertex and index lists ---
+    u32 additional_vertices = 4;    
+    u32 additional_indices = 6;          
+    if (vertices->size + additional_vertices > vertices->capacity) Vertex_RGB_List_Grow(vertices, additional_vertices);
+    if (indices->size + additional_indices > indices->capacity) Index_List_Grow(indices, additional_indices);
+
+    // Add pixel alignment offset
+    y += 0.5f;
+    float half_thick = thickness * 0.5f;
+    
+    // Create mesh
+    u32 vertex_offset = vertices->size;
+
+    // Left point (x) - thick -
+    vertices->array[vertex_offset].x = x;
+    vertices->array[vertex_offset].y = y - half_thick;
+    vertices->array[vertex_offset].r = col.r;
+    vertices->array[vertex_offset].g = col.g;
+    vertices->array[vertex_offset].b = col.b;
+
+    // Left point (x) - thick + 
+    vertices->array[vertex_offset + 1].x = x;
+    vertices->array[vertex_offset + 1].y = y + half_thick;
+    vertices->array[vertex_offset + 1].r = col.r;
+    vertices->array[vertex_offset + 1].g = col.g;
+    vertices->array[vertex_offset + 1].b = col.b;
+
+    // Right point (x1) - thick -
+    vertices->array[vertex_offset + 2].x = x + width;
+    vertices->array[vertex_offset + 2].y = y - half_thick;
+    vertices->array[vertex_offset + 2].r = col.r;
+    vertices->array[vertex_offset + 2].g = col.g;
+    vertices->array[vertex_offset + 2].b = col.b;
+
+    // Right point (x1) - thick + 
+    vertices->array[vertex_offset + 3].x = x + width;
+    vertices->array[vertex_offset + 3].y = y + half_thick;
+    vertices->array[vertex_offset + 3].r = col.r;
+    vertices->array[vertex_offset + 3].g = col.g;
+    vertices->array[vertex_offset + 3].b = col.b;
+
+    // Indices
+    u32* indices_write = indices->array + indices->size;
+    *indices_write++ = vertex_offset;
+    *indices_write++ = vertex_offset + 1;
+    *indices_write++ = vertex_offset + 2;
+    *indices_write++ = vertex_offset + 1;
+    *indices_write++ = vertex_offset + 2;
+    *indices_write++ = vertex_offset + 3;
+
+    vertices->size += additional_vertices;
+    indices->size += additional_indices;
+}
+
 void NU_Internal_Line(
     int contextID,
     float x1, float y1, float x2, float y2,
@@ -367,9 +529,9 @@ void NU_Internal_Line(
     float canvasHeight = ctx->canvasHeight;
 
     // Skip if line is not visible on canvas
-    if ((x1 < twoThick && x2 < twoThick) || 
+    if ((x1 < -twoThick && x2 < -twoThick) || 
         (x1 > ctx->canvasWidth && x2 > ctx->canvasWidth) || 
-        (y1 < twoThick && y2 < twoThick) || 
+        (y1 < -twoThick && y2 < -twoThick) || 
         (y1 > ctx->canvasHeight + twoThick && y2 > ctx->canvasHeight + twoThick)) {
         return;
     }
@@ -557,9 +719,9 @@ void NU_Internal_Dashed_Line(
     float canvasHeight = ctx->canvasHeight;
 
     // Skip if line is not visible on canvas
-    if ((x1 < twoThick && x2 < twoThick) || 
+    if ((x1 < -twoThick && x2 < -twoThick) || 
         (x1 > ctx->canvasWidth && x2 > ctx->canvasWidth) || 
-        (y1 < twoThick && y2 < twoThick) || 
+        (y1 < -twoThick && y2 < -twoThick) || 
         (y1 > ctx->canvasHeight + twoThick && y2 > ctx->canvasHeight + twoThick)) {
         return;
     }

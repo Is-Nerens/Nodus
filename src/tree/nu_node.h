@@ -164,13 +164,15 @@ void NU_ApplyNodeDefaults(NodeP* node)
     node->layoutFlags = 0;
     node->node.maxWidth = UINT16_MAX;
     node->node.maxHeight = UINT16_MAX;
-    node->node.left = node->node.right = node->node.top = node->node.bottom = -1;
+    node->node.prefWidth = 0;
+    node->node.prefHeight = 0;
+    node->node.left = node->node.right = node->node.top = node->node.bottom = INT16_MIN;
     node->node.backgroundR = node->node.backgroundG = node->node.backgroundB = 50;
     node->node.borderR = node->node.borderG = node->node.borderB = 100;
     node->node.textR = node->node.textG = node->node.textB = 255;
     node->overrideStyleFlags = 0;
-    node->node.prefWidth = 0;
-    node->node.prefHeight = 0;
+    node->scrollX = 0.0f;
+    node->scrollV = 0.0f;
     node->fontId = 0;
     node->horizontalAlignment = 0;
     node->verticalAlignment = 0;

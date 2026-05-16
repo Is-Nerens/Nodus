@@ -1,5 +1,4 @@
 #pragma once
-#include <stdio.h>
 #include <stdint.h>
 #include <string.h>
 #include <stdarg.h>
@@ -114,19 +113,15 @@ void* SallocAlloc(size_t size)
 void SallocFree(void* ptr, size_t size)
 {
     if (!salloc.init) return;
-
-    // Used malloc for large allocation
     if (size > 32) {
         free(ptr);
         return;
     }
 
-    // Free small allocation from pool allocator
     SallocChunk* freed = ((SallocChunk*)ptr) - 1;
     freed->next = salloc.freeChunk;
     salloc.freeChunk = freed;
 }
-
 
 
 
@@ -218,7 +213,8 @@ typedef unsigned char* String;
 String StringCreate(const char* str)
 {
     uint32_t length = (uint32_t)strlen(str);
-    String result = SallocAlloc(4 + length + 1);
+    uint32_t allocSize = length + 5;
+    String result = SallocAlloc(allocSize);
     if (!result) return NULL;
     memcpy(result, &length, sizeof(uint32_t));
     memcpy(result + 4, str, length);
@@ -228,13 +224,13 @@ String StringCreate(const char* str)
 
 String StringCreateBuffer(uint32_t bytes)
 {
-    String result = SallocAlloc(bytes + 4 + 1);
+    uint32_t allocSize = bytes + 5;
+    String result = SallocAlloc(allocSize);
     if (!result) return NULL;
     memcpy(result, &bytes, sizeof(uint32_t));
     result[bytes + 4] = '\0';
     return result;
 }
-
 inline uint32_t StringLen(String string)
 {
     return *(uint32_t*)string;
@@ -243,7 +239,7 @@ inline uint32_t StringLen(String string)
 inline void StringFree(String str)
 {
     if (str == NULL) return;
-    SallocFree(str, StringLen(str));
+    SallocFree(str, StringLen(str) + 5);
 }
 
 inline char* StringCstr(String str)
@@ -310,7 +306,7 @@ String StringConcat(String a, String b)
 
     // allocate space for return string
     String output = NULL;
-    output = SallocAlloc(aLen + bLen + 4 + 1);
+    output = SallocAlloc(aLen + bLen + 5);
     if (output == NULL) return NULL;
 
     // copy data from string a and b
@@ -332,7 +328,7 @@ String StringConcatCstr(String a, char* b)
 
     // allocate space for return string
     String output = NULL;
-    output = SallocAlloc(aLen + bLen + 4 + 1);
+    output = SallocAlloc(aLen + bLen + 5);
     if (output == NULL) return NULL;
 
     // copy data from string a and b
@@ -354,7 +350,7 @@ String CstrConcatString(char* a, String b)
     
     // allocate space for return string
     String output = NULL;
-    output = SallocAlloc(aLen + bLen + 4 + 1);
+    output = SallocAlloc(aLen + bLen + 5);
     if (output == NULL) return NULL;
 
     // copy data from string a and b
@@ -370,7 +366,7 @@ String CstrConcatString(char* a, String b)
 
 inline String StringCopy(String string)
 {
-    uint32_t bytes = StringLen(string) + 4 + 1;
+    uint32_t bytes = StringLen(string) + 5;
     String copy = SallocAlloc(bytes);
     memcpy(copy, string, bytes);
     return copy;
@@ -432,7 +428,7 @@ String StringReplaceFirst(String string, String target, String replacement)
 
     // construct result string
     uint32_t length = StringLen(string) - StringLen(target) + StringLen(replacement);
-    String result = SallocAlloc(length + 4 + 1);
+    String result = SallocAlloc(length + 5);
     if (!result) return NULL;
     memcpy(StringCstr(result), StringCstr(string), match);
     memcpy(StringCstr(result) + match, StringCstr(replacement), StringLen(replacement));
@@ -459,7 +455,7 @@ String StringRemoveSuffix(String string, String suffix)
 
     // construct new string without suffix
     uint32_t newLength = StringLen(string) - StringLen(suffix);
-    String result = SallocAlloc(newLength + 4 + 1);
+    String result = SallocAlloc(newLength + 5);
     if (!result) return NULL;
     memcpy(StringCstr(result), StringCstr(string), newLength);
 

@@ -1,13 +1,13 @@
 #pragma once
 
 #define STYLE_PROPERTY_FIRST STYLE_LAYOUT_DIRECTION_PROPERTY
-#define STYLE_PROPERTY_LAST  STYLE_FONT_WEIGHT
+#define STYLE_PROPERTY_LAST  STYLE_SCROLL_THUMB_MIN_SIZE
 
 #define STYLE_TAG_SELECTOR_FIRST STYLE_WINDOW_SELECTOR
 #define STYLE_TAG_SELECTOR_LAST  STYLE_FRAME_SELECTOR
 
 #define STYLE_SPECIAL_SELECTOR_FIRST STYLE_FONT_CREATION_SELECTOR
-#define STYLE_SPECIAL_SELECTOR_LAST  STYLE_DEFAULT_SELECTOR
+#define STYLE_SPECIAL_SELECTOR_LAST  STYLE_SCROLL_TRACK_SELECTOR
 
 #define STYLE_PSEUDO_FIRST STYLE_HOVER_PSEUDO
 #define STYLE_PSEUDO_LAST  STYLE_FOCUS_PSEUDO
@@ -17,28 +17,24 @@ static const char* style_keywords[] = {
     "overflow-v", "overflow-h", 
     "position", "hide", 
     "ignore-mouse", "gap",
-    "width", 
-    "min-width", "max-width", 
-    "height",  
-    "min-height", "max-height",
-    "align-h", "align-v", 
-    "text-align-h", "text-align-v",
+    "width", "min-width", "max-width", 
+    "height", "min-height", "max-height",
+    "align-h", "align-v", "text-align-h", "text-align-v",
     "left", "right", "top", "bottom",
     "background", "border-colour", "text-colour",
-    "border", 
-    "border-top", "border-bottom", "border-left", "border-right",
+    "border", "border-top", "border-bottom", "border-left", "border-right",
     "border-radius", 
     "border-radius-top-left", "border-radius-top-right", "border-radius-bottom-left", "border-radius-bottom-right",
-    "padding", 
-    "padding-top", "padding-bottom", "padding-left", "padding-right", 
+    "padding", "padding-top", "padding-bottom", "padding-left", "padding-right", 
     "image-src", 
     "input-type",
     "font", "src", "size", "weight",
+    "scrollbar-overlay", "thum-min-size",
     "window", "box", "button", 
     "input", "canvas", "image", 
     "table", "thead", "row", 
     "frame",
-    "@font", "@default",
+    "@font", "@default", "@scrollbar", "@scrollbar-thumb", "@scrollbar-track",
     "hover", "press", "focus",
 };
 
@@ -91,6 +87,8 @@ enum NU_Style_Token
     STYLE_FONT_SRC,
     STYLE_FONT_SIZE,
     STYLE_FONT_WEIGHT,
+    STYLE_SCROLLBAR_OVERLAY,
+    STYLE_SCROLL_THUMB_MIN_SIZE,
 
     // --- Tag selectors ---
     STYLE_WINDOW_SELECTOR,
@@ -107,6 +105,9 @@ enum NU_Style_Token
     // --- Special selectors ---
     STYLE_FONT_CREATION_SELECTOR,
     STYLE_DEFAULT_SELECTOR,
+    STYLE_SCROLLBAR_SELECTOR,
+    STYLE_SCROLL_THUMB_SELECTOR,
+    STYLE_SCROLL_TRACK_SELECTOR,
 
     // --- Pseudos ---
     STYLE_HOVER_PSEUDO,

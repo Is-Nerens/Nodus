@@ -27,43 +27,46 @@ void NU_Stylesheet_Init(NU_Stylesheet* ss)
 
     // Create default style item
     NU_Stylesheet_Item* item = &ss->defaultStyleItem;
-
-    // zero base
-    memset(item, 0, sizeof(NU_Stylesheet_Item));
-
-    // apply all properties
-    item->propertyFlags = ~(uint64_t)0;
-
-    // do not apply certain properties
-    item->propertyFlags &= ~PROPERTY_FLAG_IMAGE;
+    memset(item, 0, sizeof(NU_Stylesheet_Item)); // zero base
+    item->propertyFlags = ~(uint64_t)0; // apply all properties
+    item->propertyFlags &= ~PROPERTY_FLAG_IMAGE; // do not apply certain properties
     item->propertyFlags &= ~PROPERTY_FLAG_HIDDEN;
-
-    // sizing
-    item->maxWidth  = UINT16_MAX;
+    item->maxWidth  = UINT16_MAX; // sizing
     item->maxHeight = UINT16_MAX;
-
-    // positioning
-    item->left = INT16_MIN;
+    item->left = INT16_MIN; // positioning
     item->right = INT16_MIN;
     item->top = INT16_MIN;
     item->bottom = INT16_MIN;
-
-    // colors
-    item->backgroundR = 50;
+    item->backgroundR = 50; // colors
     item->backgroundG = 50;
     item->backgroundB = 50;
-
     item->borderR = 100;
     item->borderG = 100;
     item->borderB = 100;
-
     item->textR = 255;
     item->textG = 255;
     item->textB = 255;
-
-    // alignment
-    item->horizontalTextAlignment = 1;
+    item->horizontalTextAlignment = 1; // alignment
     item->verticalTextAlignment = 1;
+
+    // Set default scrollbar styles
+    memset(&ss->scrollbarStyle, 0, sizeof(NU_Stylesheet_Scrollbar_Style)); // zero base
+    ss->scrollbarStyle.width = 8;
+    ss->scrollbarStyle.height = 8;
+    ss->scrollbarStyle.overlay = false;
+    ss->scrollbarStyle.thumbMinSize = 4;
+    ss->scrollbarStyle.thumbBackgroundR = 210;
+    ss->scrollbarStyle.thumbBackgroundG = 210;
+    ss->scrollbarStyle.thumbBackgroundB = 210;
+    ss->scrollbarStyle.thumbBorderR = 240;
+    ss->scrollbarStyle.thumbBorderG = 240;
+    ss->scrollbarStyle.thumbBorderB = 240;
+    ss->scrollbarStyle.trackBackgroundR = 40;
+    ss->scrollbarStyle.trackBackgroundG = 40;
+    ss->scrollbarStyle.trackBackgroundB = 40;
+    ss->scrollbarStyle.trackBorderR = 40;
+    ss->scrollbarStyle.trackBorderG = 40;
+    ss->scrollbarStyle.trackBorderB = 40;
 }
 
 void NU_Stylesheet_Free(NU_Stylesheet* ss)

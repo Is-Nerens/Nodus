@@ -42,7 +42,10 @@ static int AssertSelectionClosingBraceGrammar(TokenArray* tokens, int i)
         next_token == STYLE_ID_SELECTOR || 
         NU_Is_Tag_Selector_Token(next_token) || 
         next_token == STYLE_FONT_CREATION_SELECTOR ||
-        next_token == STYLE_DEFAULT_SELECTOR) 
+        next_token == STYLE_DEFAULT_SELECTOR || 
+        next_token == STYLE_SCROLLBAR_SELECTOR ||
+        next_token == STYLE_SCROLL_THUMB_SELECTOR ||
+        next_token == STYLE_SCROLL_TRACK_SELECTOR) 
     {
         return 1;
     } 

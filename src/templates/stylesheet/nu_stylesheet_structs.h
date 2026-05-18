@@ -38,21 +38,41 @@ typedef struct NU_Stylesheet_Item
     u8 inputType;
 } NU_Stylesheet_Item;
 
+typedef struct NU_Stylesheet_Scrollbar_Style {
+    // Bar
+    u8 width;
+    u8 height;
+    bool overlay;
+    // Thumb
+    u8 thumbMinSize;
+    u8 thumbBorderTop, thumbBorderBottom, thumbBorderLeft, thumbBorderRight;
+    u8 thumbBorderRadiusTl, thumbBorderRadiusTr, thumbBorderRadiusBl, thumbBorderRadiusBr;
+    u8 thumbBackgroundR, thumbBackgroundG, thumbBackgroundB;
+    u8 thumbBorderR, thumbBorderG, thumbBorderB;
+    // Track
+    u8 trackPadTop, trackPadBottom, trackPadLeft, trackPadRight;
+    u8 trackBorderTop, trackBorderBottom, trackBorderLeft, trackBorderRight;
+    u8 trackBorderRadiusTl, trackBorderRadiusTr, trackBorderRadiusBl, trackBorderRadiusBr;
+    u8 trackBackgroundR, trackBackgroundG, trackBackgroundB;
+    u8 trackBorderR, trackBorderG, trackBorderB;
+} NU_Stylesheet_Scrollbar_Style;
+
 typedef struct NU_Stylesheet
 {
-    struct Array items;
-    struct Array pseudoItems;
+    Array items;
+    Array pseudoItems;
     LinearStringset class_string_set;
     LinearStringset id_string_set;
-    struct Hashmap class_item_hashmap;
-    struct Hashmap id_item_hashmap;
-    struct Hashmap tag_item_hashmap;
-    struct Hashmap tag_pseudo_item_hashmap; 
-    struct Hashmap class_pseudo_item_hashmap;
-    struct Hashmap id_pseudo_item_hashmap;
+    Hashmap class_item_hashmap;
+    Hashmap id_item_hashmap;
+    Hashmap tag_item_hashmap;
+    Hashmap tag_pseudo_item_hashmap; 
+    Hashmap class_pseudo_item_hashmap;
+    Hashmap id_pseudo_item_hashmap;
     LinearStringmap fontNameIndexMap;
     Container fonts;
     NU_Stylesheet_Item defaultStyleItem;
+    NU_Stylesheet_Scrollbar_Style scrollbarStyle;
 } NU_Stylesheet;
 
 struct Style_Text_Ref

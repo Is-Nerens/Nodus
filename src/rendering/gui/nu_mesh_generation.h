@@ -9,7 +9,7 @@ void Generate_Corner_Segment(
     float radius, 
     float borderThicknessStart, float borderThicknessEnd, 
     float width, float height, float z,
-    float b_r, float b_g, float b_b,
+    float bR, float bG, float bB,
     float bgR, float bgG, float bgB, 
     int cp, 
     int cornerIndex, int hideBackground)
@@ -35,15 +35,15 @@ void Generate_Corner_Segment(
         vertices->array[vertOffset].x = anchor.x + offsetX;
         vertices->array[vertOffset].y = anchor.y + offsetY;
         vertices->array[vertOffset].z = z;
-        vertices->array[vertOffset].r = b_r;
-        vertices->array[vertOffset].g = b_g;
-        vertices->array[vertOffset].b = b_b;
+        vertices->array[vertOffset].r = bR;
+        vertices->array[vertOffset].g = bG;
+        vertices->array[vertOffset].b = bB;
         vertices->array[outerIndex].x = anchor.x;
         vertices->array[outerIndex].y = anchor.y;
         vertices->array[outerIndex].z = z;
-        vertices->array[outerIndex].r = b_r;
-        vertices->array[outerIndex].g = b_g;
-        vertices->array[outerIndex].b = b_b;
+        vertices->array[outerIndex].r = bR;
+        vertices->array[outerIndex].g = bG;
+        vertices->array[outerIndex].b = bB;
 
         // -- Set value for innser and outer background vertices ---
         if (!hideBackground) {
@@ -126,17 +126,17 @@ void Generate_Corner_Segment(
         innerPtr[i].x = innerX;
         innerPtr[i].y = innerY;
         innerPtr[i].z = z;
-        innerPtr[i].r = b_r;
-        innerPtr[i].g = b_g;
-        innerPtr[i].b = b_b;
+        innerPtr[i].r = bR;
+        innerPtr[i].g = bG;
+        innerPtr[i].b = bB;
 
         // --- Compute outer vertex ---
         outerPtr[i].x = anchor.x + cosA * radius;
         outerPtr[i].y = anchor.y + sinA * radius;
         outerPtr[i].z = z;
-        outerPtr[i].r = b_r;
-        outerPtr[i].g = b_g;
-        outerPtr[i].b = b_b;
+        outerPtr[i].r = bR;
+        outerPtr[i].g = bG;
+        outerPtr[i].b = bB;
 
         // --- Compute background vertex ---
         if (!hideBackground) {
@@ -190,10 +190,7 @@ int CornerPoints(float r)
 }
 
 void Construct_Border_Rect(
-    NodeP* node,
-    float z,
-    float screen_width, 
-    float screen_height,
+    NodeP* node, float z,
     Vertex_RGB_List* vertices, Index_List* indices
 )
 {
@@ -324,10 +321,9 @@ void Construct_Border_Rect(
     indices->size = (int)(indices_write - indices->array);
 }
 
-void Construct_Scroll_Thumb(NodeP* node,
-    float z,
-    float screen_width, 
-    float screen_height,
+void Construct_Scrollbar(
+    NodeP* node, float z,
+    NU_Stylesheet_Scrollbar_Style* scrollbarStyle,
     Vertex_RGB_List* vertices, Index_List* indices
 )
 {
@@ -345,25 +341,28 @@ void Construct_Scroll_Thumb(NodeP* node,
     float inner_height_w_pad = track_height - n->padTop - n->padBottom;
     float inner_proportion_of_content_height = inner_height_w_pad / scroll_view_height;
     float thumb_height = inner_proportion_of_content_height * track_height;
-
     float x = n->x + n->width - n->borderRight - 8.0f;
     float y = n->y + n->borderTop;
     float thumb_y = n->y + n->borderTop + (node->scrollV * (track_height - thumb_height));
-    float w = 8.0f;
+    float w = scrollbarStyle->width;
 
-    float trackR = 0.18039f;
-    float trackG = 0.184313f;
-    float trackB = 0.19607f;
+    float trackR = scrollbarStyle->trackBackgroundR / 255.0f;
+    float trackG = scrollbarStyle->trackBackgroundG / 255.0f;
+    float trackB = scrollbarStyle->trackBackgroundB / 255.0f;
+
+    float thumbR = scrollbarStyle->thumbBackgroundR / 255.0f;
+    float thumbG = scrollbarStyle->thumbBackgroundG / 255.0f;
+    float thumbB = scrollbarStyle->thumbBackgroundB / 255.0f;
 
     u32 vertOffset = vertices->size;
     vertices->array[vertOffset + 0] = (vertex_rgb){ x, y, z, trackR, trackG, trackB }; // Background Rect TL
     vertices->array[vertOffset + 1] = (vertex_rgb){ x + w, y, z, trackR, trackG, trackB }; // Background Rect TR
     vertices->array[vertOffset + 2] = (vertex_rgb){ x, y + track_height, z, trackR, trackG, trackB }; // Background Rect BL
     vertices->array[vertOffset + 3] = (vertex_rgb){ x + w, y + track_height, z, trackR, trackG, trackB }; // Background Rect BR
-    vertices->array[vertOffset + 4] = (vertex_rgb){ x, thumb_y, z, 0.9f, 0.9f, 0.9f }; // Background Thumb TL
-    vertices->array[vertOffset + 5] = (vertex_rgb){ x + w, thumb_y, z, 0.9f, 0.9f, 0.9f }; // Background Thumb TR
-    vertices->array[vertOffset + 6] = (vertex_rgb){ x, thumb_y + thumb_height, z, 0.9f, 0.9f, 0.9f }; // Background Thumb BL
-    vertices->array[vertOffset + 7] = (vertex_rgb){ x + w, thumb_y + thumb_height, z, 0.9f, 0.9f, 0.9f }; // Background Thumb BR
+    vertices->array[vertOffset + 4] = (vertex_rgb){ x, thumb_y, z, thumbR, thumbG, thumbB }; // Background Thumb TL
+    vertices->array[vertOffset + 5] = (vertex_rgb){ x + w, thumb_y, z, thumbR, thumbG, thumbB }; // Background Thumb TR
+    vertices->array[vertOffset + 6] = (vertex_rgb){ x, thumb_y + thumb_height, z, thumbR, thumbG, thumbB }; // Background Thumb BL
+    vertices->array[vertOffset + 7] = (vertex_rgb){ x + w, thumb_y + thumb_height, z, thumbR, thumbG, thumbB }; // Background Thumb BR
 
     // Indices
     u32* indices_write = indices->array + indices->size;
@@ -385,8 +384,7 @@ void Construct_Scroll_Thumb(NodeP* node,
 }
 
 void NU_ConstructInputCursorMesh(
-    NodeP* node,
-    float z,
+    NodeP* node, float z,
     InputText* inputText,
     Vertex_RGB_List* vertices, 
     Index_List* indices)
@@ -415,8 +413,7 @@ void NU_ConstructInputCursorMesh(
 }
 
 void NU_ConstructInputHighlightMesh(
-    NodeP* node,
-    float z,
+    NodeP* node, float z,
     InputText* inputText,
     Vertex_RGB_List* vertices, 
     Index_List* indices)

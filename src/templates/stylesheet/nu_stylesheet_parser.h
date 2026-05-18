@@ -15,16 +15,16 @@ void NU_Stylesheet_Overwrite_Style_Item(NU_Stylesheet_Item* item, NU_Stylesheet_
     item->layoutFlags = (item->layoutFlags & ~POSITION_ABSOLUTE)               | ((overwriter->layoutFlags & POSITION_ABSOLUTE)               * !!(overwriter->propertyFlags & PROPERTY_FLAG_POSITION_ABSOLUTE));
     item->layoutFlags = (item->layoutFlags & ~HIDDEN)                          | ((overwriter->layoutFlags & HIDDEN)                          * !!(overwriter->propertyFlags & PROPERTY_FLAG_HIDDEN));
     item->layoutFlags = (item->layoutFlags & ~IGNORE_MOUSE)                    | ((overwriter->layoutFlags & IGNORE_MOUSE)                    * !!(overwriter->propertyFlags & PROPERTY_FLAG_IGNORE_MOUSE));
-    item->layoutFlags = (item->layoutFlags & ~HIDE_BACKGROUND)                 | ((overwriter->layoutFlags & HIDE_BACKGROUND) * !!(overwriter->propertyFlags & PROPERTY_FLAG_HIDE_BACKGROUND));
+    item->layoutFlags = (item->layoutFlags & ~HIDE_BACKGROUND)                 | ((overwriter->layoutFlags & HIDE_BACKGROUND)                 * !!(overwriter->propertyFlags & PROPERTY_FLAG_HIDE_BACKGROUND));
 
     // Overwrite gap and size fields (branchless)
-    item->gap              = item->gap              * !(overwriter->propertyFlags & PROPERTY_FLAG_GAP)              + overwriter->gap              * !!(overwriter->propertyFlags & PROPERTY_FLAG_GAP);
+    item->gap        = item->gap        * !(overwriter->propertyFlags & PROPERTY_FLAG_GAP)              + overwriter->gap        * !!(overwriter->propertyFlags & PROPERTY_FLAG_GAP);
     item->prefWidth  = item->prefWidth  * !(overwriter->propertyFlags & PROPERTY_FLAG_PREFERRED_WIDTH)  + overwriter->prefWidth  * !!(overwriter->propertyFlags & PROPERTY_FLAG_PREFERRED_WIDTH);
-    item->minWidth         = item->minWidth         * !(overwriter->propertyFlags & PROPERTY_FLAG_MIN_WIDTH)        + overwriter->minWidth         * !!(overwriter->propertyFlags & PROPERTY_FLAG_MIN_WIDTH);
-    item->maxWidth         = item->maxWidth         * !(overwriter->propertyFlags & PROPERTY_FLAG_MAX_WIDTH)        + overwriter->maxWidth         * !!(overwriter->propertyFlags & PROPERTY_FLAG_MAX_WIDTH);
+    item->minWidth   = item->minWidth   * !(overwriter->propertyFlags & PROPERTY_FLAG_MIN_WIDTH)        + overwriter->minWidth   * !!(overwriter->propertyFlags & PROPERTY_FLAG_MIN_WIDTH);
+    item->maxWidth   = item->maxWidth   * !(overwriter->propertyFlags & PROPERTY_FLAG_MAX_WIDTH)        + overwriter->maxWidth   * !!(overwriter->propertyFlags & PROPERTY_FLAG_MAX_WIDTH);
     item->prefHeight = item->prefHeight * !(overwriter->propertyFlags & PROPERTY_FLAG_PREFERRED_HEIGHT) + overwriter->prefHeight * !!(overwriter->propertyFlags & PROPERTY_FLAG_PREFERRED_HEIGHT);
-    item->minHeight        = item->minHeight        * !(overwriter->propertyFlags & PROPERTY_FLAG_MIN_HEIGHT)       + overwriter->minHeight        * !!(overwriter->propertyFlags & PROPERTY_FLAG_MIN_HEIGHT);
-    item->maxHeight        = item->maxHeight        * !(overwriter->propertyFlags & PROPERTY_FLAG_MAX_HEIGHT)       + overwriter->maxHeight        * !!(overwriter->propertyFlags & PROPERTY_FLAG_MAX_HEIGHT);
+    item->minHeight  = item->minHeight  * !(overwriter->propertyFlags & PROPERTY_FLAG_MIN_HEIGHT)       + overwriter->minHeight  * !!(overwriter->propertyFlags & PROPERTY_FLAG_MIN_HEIGHT);
+    item->maxHeight  = item->maxHeight  * !(overwriter->propertyFlags & PROPERTY_FLAG_MAX_HEIGHT)       + overwriter->maxHeight  * !!(overwriter->propertyFlags & PROPERTY_FLAG_MAX_HEIGHT);
 
     // Overwrite alignments (branchless)
     item->horizontalAlignment     = item->horizontalAlignment     * !(overwriter->propertyFlags & PROPERTY_FLAG_ALIGN_H)      + overwriter->horizontalAlignment     * !!(overwriter->propertyFlags & PROPERTY_FLAG_ALIGN_H);
@@ -626,6 +626,186 @@ static int NU_Stylesheet_Parse_Default(char* src, TokenArray* tokens, NU_Stylesh
     return 1;
 }
 
+void NU_Stylesheet_Parse_Scrollbar_Property(NU_Stylesheet* ss, const enum NU_Style_Token token, const char* text, int textLen)
+{   
+    u8 property;
+    switch (token)
+    {   
+        case STYLE_WIDTH_PROPERTY:
+            if (String_To_u8(&property, text)) {
+                ss->scrollbarStyle.width = property;
+            }
+            break;
+        case STYLE_HEIGHT_PROPERTY:
+            if (String_To_u8(&property, text)) {
+                ss->scrollbarStyle.height = property;
+            }
+            break;
+        case STYLE_SCROLLBAR_OVERLAY:
+            if (stringEquals(text, "true")) {
+                ss->scrollbarStyle.overlay = true;
+            }
+            break;
+        default:
+            break;
+    }
+}
+
+void NU_Stylesheet_Parse_Scroll_Thumb_Property(NU_Stylesheet* ss, const enum NU_Style_Token token, const char* text, int textLen)
+{
+    u8 property;
+    struct RGB rgb;
+    switch (token)
+    {
+        case STYLE_BACKGROUND_COLOUR_PROPERTY:
+            if (Parse_Hexcode(text, textLen, &rgb)) {
+                ss->scrollbarStyle.thumbBackgroundR = rgb.r;
+                ss->scrollbarStyle.thumbBackgroundG = rgb.g;
+                ss->scrollbarStyle.thumbBackgroundB = rgb.b;
+            }
+            break;
+        case STYLE_BORDER_COLOUR_PROPERTY:
+            if (Parse_Hexcode(text, textLen, &rgb)) {
+                ss->scrollbarStyle.thumbBorderR = rgb.r;
+                ss->scrollbarStyle.thumbBorderG = rgb.g;
+                ss->scrollbarStyle.thumbBorderB = rgb.b;
+            }
+            break;
+        case STYLE_BORDER_WIDTH_PROPERTY:
+            if (String_To_u8(&property, text)) {
+                ss->scrollbarStyle.thumbBorderTop    = property;
+                ss->scrollbarStyle.thumbBorderBottom = property;
+                ss->scrollbarStyle.thumbBorderLeft   = property;
+                ss->scrollbarStyle.thumbBorderRight  = property;
+            }
+            break;
+        case STYLE_BORDER_TOP_WIDTH_PROPERTY:
+            String_To_u8(&ss->scrollbarStyle.thumbBorderTop, text); // 0 if parse fails
+            break;
+        case STYLE_BORDER_BOTTOM_WIDTH_PROPERTY:
+            String_To_u8(&ss->scrollbarStyle.thumbBorderBottom, text); // 0 if parse fails
+            break;
+        case STYLE_BORDER_LEFT_WIDTH_PROPERTY:
+            String_To_u8(&ss->scrollbarStyle.thumbBorderLeft, text); // 0 if parse fails
+            break;
+        case STYLE_BORDER_RIGHT_WIDTH_PROPERTY:
+            String_To_u8(&ss->scrollbarStyle.thumbBorderRight, text); // 0 if parse fails
+            break;
+        case STYLE_BORDER_RADIUS_PROPERTY:
+            if (String_To_u8(&property, text)) {
+                ss->scrollbarStyle.thumbBorderRadiusTl = property;
+                ss->scrollbarStyle.thumbBorderRadiusTr = property;
+                ss->scrollbarStyle.thumbBorderRadiusBl = property;
+                ss->scrollbarStyle.thumbBorderRadiusBr = property;
+            }
+            break;
+        case STYLE_BORDER_TOP_LEFT_RADIUS_PROPERTY:
+            String_To_u8(&ss->scrollbarStyle.thumbBorderRadiusTl, text); // 0 if parse fails
+            break;
+        case STYLE_BORDER_TOP_RIGHT_RADIUS_PROPERTY:
+            String_To_u8(&ss->scrollbarStyle.thumbBorderRadiusTr, text); // 0 if parse fails
+            break;
+        case STYLE_BORDER_BOTTOM_LEFT_RADIUS_PROPERTY:
+            String_To_u8(&ss->scrollbarStyle.thumbBorderRadiusBl, text); // 0 if parse fails
+            break;
+        case STYLE_BORDER_BOTTOM_RIGHT_RADIUS_PROPERTY:
+            String_To_u8(&ss->scrollbarStyle.thumbBorderRadiusBr, text); // 0 if parse fails
+            break;
+        case STYLE_SCROLL_THUMB_MIN_SIZE:
+            if (String_To_u8(&property, text)) {
+                ss->scrollbarStyle.thumbMinSize = property;
+            }
+            break;
+        default: // Invalid property (ignore)
+            break;
+    }
+}
+
+void NU_Stylesheet_Parse_Scroll_Track_Property(NU_Stylesheet* ss, const enum NU_Style_Token token, const char* text, int textLen)
+{
+    u8 property;
+    struct RGB rgb;
+    switch (token) 
+    {
+        case STYLE_BACKGROUND_COLOUR_PROPERTY:  
+            if (Parse_Hexcode(text, textLen, &rgb)) {
+                ss->scrollbarStyle.trackBackgroundR = rgb.r;
+                ss->scrollbarStyle.trackBackgroundG = rgb.g;
+                ss->scrollbarStyle.trackBackgroundB = rgb.b;
+            }
+            break;
+        case STYLE_BORDER_COLOUR_PROPERTY:
+            if (Parse_Hexcode(text, textLen, &rgb)) {
+                ss->scrollbarStyle.trackBorderR = rgb.r;
+                ss->scrollbarStyle.trackBorderG = rgb.g;
+                ss->scrollbarStyle.trackBorderB = rgb.b;
+            }
+            break;
+        case STYLE_BORDER_WIDTH_PROPERTY:
+            if (String_To_u8(&property, text)) {
+                ss->scrollbarStyle.trackBorderTop    = property;
+                ss->scrollbarStyle.trackBorderBottom = property;
+                ss->scrollbarStyle.trackBorderLeft   = property;
+                ss->scrollbarStyle.trackBorderRight  = property;
+            }
+            break;
+        case STYLE_BORDER_TOP_WIDTH_PROPERTY:
+            String_To_u8(&ss->scrollbarStyle.trackBorderTop, text);
+            break;
+        case STYLE_BORDER_BOTTOM_WIDTH_PROPERTY:
+            String_To_u8(&ss->scrollbarStyle.trackBorderBottom, text);
+            break;
+        case STYLE_BORDER_LEFT_WIDTH_PROPERTY:
+            String_To_u8(&ss->scrollbarStyle.trackBorderLeft, text);
+            break;
+        case STYLE_BORDER_RIGHT_WIDTH_PROPERTY:
+            String_To_u8(&ss->scrollbarStyle.trackBorderRight, text);
+            break;
+        case STYLE_BORDER_RADIUS_PROPERTY:
+            if (String_To_u8(&property, text)) {
+                ss->scrollbarStyle.trackBorderRadiusTl = property;
+                ss->scrollbarStyle.trackBorderRadiusTr = property;
+                ss->scrollbarStyle.trackBorderRadiusBl = property;
+                ss->scrollbarStyle.trackBorderRadiusBr = property;
+            }
+            break;
+        case STYLE_BORDER_TOP_LEFT_RADIUS_PROPERTY:
+            String_To_u8(&ss->scrollbarStyle.trackBorderRadiusTl, text);
+            break;
+        case STYLE_BORDER_TOP_RIGHT_RADIUS_PROPERTY:
+            String_To_u8(&ss->scrollbarStyle.trackBorderRadiusTr, text);
+            break;
+        case STYLE_BORDER_BOTTOM_LEFT_RADIUS_PROPERTY:
+            String_To_u8(&ss->scrollbarStyle.trackBorderRadiusBl, text);
+            break;
+        case STYLE_BORDER_BOTTOM_RIGHT_RADIUS_PROPERTY:
+            String_To_u8(&ss->scrollbarStyle.trackBorderRadiusBr, text);
+            break;
+        case STYLE_PADDING_PROPERTY:
+            if (String_To_u8(&property, text)) {
+                ss->scrollbarStyle.trackPadTop    = property;
+                ss->scrollbarStyle.trackPadBottom = property;
+                ss->scrollbarStyle.trackPadLeft   = property;
+                ss->scrollbarStyle.trackPadRight  = property;
+            }
+            break;
+        case STYLE_PADDING_TOP_PROPERTY:
+            String_To_u8(&ss->scrollbarStyle.trackPadTop, text);
+            break;
+        case STYLE_PADDING_BOTTOM_PROPERTY:
+            String_To_u8(&ss->scrollbarStyle.trackPadBottom, text);
+            break;
+        case STYLE_PADDING_LEFT_PROPERTY:
+            String_To_u8(&ss->scrollbarStyle.trackPadLeft, text);
+            break;
+        case STYLE_PADDING_RIGHT_PROPERTY:
+            String_To_u8(&ss->scrollbarStyle.trackPadRight, text);
+            break;
+        default: // Invalid property (ignore)
+            break;
+    }
+}
+
 static int NU_Stylesheet_Parse(char* src, TokenArray* tokens, NU_Stylesheet* ss, struct Array* textRefs)
 {
     // -----------------------
@@ -657,7 +837,10 @@ static int NU_Stylesheet_Parse(char* src, TokenArray* tokens, NU_Stylesheet* ss,
     // ----------------------
     // --- Parser Context ---
     // ----------------------
-    int ctx = 0;                    // 0 == standard selector; 1 == font creation selector; 2 == default selector
+    /* 0 == standard selector; 1 == font creation selector; 2 == default selector; 
+       3 == scrollbar selector; 4 == scroll thumb selector; 5 == scroll track selector;
+    */
+    int ctx = 0;
     u32 selectorIndexes[64];
     int selectorCount = 0;
 
@@ -690,6 +873,21 @@ static int NU_Stylesheet_Parse(char* src, TokenArray* tokens, NU_Stylesheet* ss,
         }
         else if (token == STYLE_DEFAULT_SELECTOR) {
             ctx = 2;
+            i += 2;
+            continue;
+        }
+        else if (token == STYLE_SCROLLBAR_SELECTOR) {
+            ctx = 3;
+            i += 2;
+            continue;
+        }
+        else if (token == STYLE_SCROLL_THUMB_SELECTOR) {
+            ctx = 4;
+            i += 2;
+            continue;
+        }
+        else if (token == STYLE_SCROLL_TRACK_SELECTOR) {
+            ctx = 5;
             i += 2;
             continue;
         }
@@ -1035,10 +1233,22 @@ static int NU_Stylesheet_Parse(char* src, TokenArray* tokens, NU_Stylesheet* ss,
             char c = src[textRef->src_index];
             char* text = &src[textRef->src_index];
             src[textRef->src_index + textRef->char_count] = '\0';
-                
-            if (ctx == 0)
-            {
-                NU_Stylesheet_Parse_Property(ss, token, &item, text, textRef->char_count, &imageFilepathToHandleMap);
+
+            switch (ctx) {
+                case 0:
+                    NU_Stylesheet_Parse_Property(ss, token, &item, text, textRef->char_count, &imageFilepathToHandleMap);
+                    break;
+                case 3:
+                    NU_Stylesheet_Parse_Scrollbar_Property(ss, token, text, textRef->char_count);
+                    break;
+                case 4:
+                    NU_Stylesheet_Parse_Scroll_Thumb_Property(ss, token, text, textRef->char_count);
+                    break;
+                case 5:
+                    NU_Stylesheet_Parse_Scroll_Track_Property(ss, token, text, textRef->char_count);
+                    break;
+                default:
+                    break;
             }
 
             i += 3;

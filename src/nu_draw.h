@@ -176,7 +176,7 @@ void NU_DrawClippedNodeBorderRect(NodeP* node, float z, float winWidth, float wi
     Index_List indices;
     Vertex_RGB_List_Init(&vertices, 100);
     Index_List_Init(&indices, 100);
-    Construct_Border_Rect(node, z, winWidth, winHeight, &vertices, &indices);
+    Construct_Border_Rect(node, z, &vertices, &indices);
     Draw_Clipped_Vertex_RGB_List(&vertices, &indices, winWidth, winHeight, 0.0f, 0.0f, clip->clip_top, clip->clip_bottom, clip->clip_left, clip->clip_right);
     Vertex_RGB_List_Free(&vertices);
     Index_List_Free(&indices);
@@ -400,10 +400,10 @@ void NU_Draw()
         for (u32 n=0; n<drawList->relativeNodes.size; n++) {
             NodeP* node = *(NodeP**)ArrayGet(&drawList->relativeNodes, n);
             float z = (float)(node->layer);
-            Construct_Border_Rect(node, z, winW, winH, &GUI.borderRectVertices, &GUI.borderRectIndices);
+            Construct_Border_Rect(node, z, &GUI.borderRectVertices, &GUI.borderRectIndices);
             if (node->layoutFlags & OVERFLOW_VERTICAL_SCROLL 
                 && node->node.contentHeight > (node->node.height - node->node.padTop - node->node.padBottom - node->node.borderTop - node->node.borderBottom)) {
-                Construct_Scroll_Thumb(node, z + 0.5f, winW, winH, &GUI.borderRectVertices, &GUI.borderRectIndices);
+                Construct_Scrollbar(node, z + 0.5f, &GUI.stylesheet.scrollbarStyle, &GUI.borderRectVertices, &GUI.borderRectIndices);
             }
         }
         
@@ -496,10 +496,10 @@ void NU_Draw()
         for (u32 n=0; n<drawList->absoluteNodes.size; n++) { // construct border rect vertices and indices for each node
             NodeP* node = *(NodeP**)ArrayGet(&drawList->absoluteNodes, n);
             float z = (float)(node->layer) + 128.0f;
-            Construct_Border_Rect(node, z, winW, winH, &GUI.borderRectVertices, &GUI.borderRectIndices);
+            Construct_Border_Rect(node, z, &GUI.borderRectVertices, &GUI.borderRectIndices);
             if (node->layoutFlags & OVERFLOW_VERTICAL_SCROLL 
                 && node->node.contentHeight > (node->node.height - node->node.padTop - node->node.padBottom - node->node.borderTop - node->node.borderBottom)) {
-                Construct_Scroll_Thumb(node, z + 0.5f, winW, winH, &GUI.borderRectVertices, &GUI.borderRectIndices);
+                Construct_Scrollbar(node, z + 0.5f, &GUI.stylesheet.scrollbarStyle, &GUI.borderRectVertices, &GUI.borderRectIndices);
             }
         }
         Draw_Vertex_RGB_List(&GUI.borderRectVertices, &GUI.borderRectIndices, winW, winH, 0.0f, 0.0f); // draw border rects in one call

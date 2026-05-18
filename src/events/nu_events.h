@@ -291,7 +291,7 @@ void CheckForResizeEvents()
 
             // Skip if node was recently deleted
             NodeP* nodeP = NODEP_OF(node);
-            if (nodeP->state == 0) continue;
+            if (NodeStateDeleted(nodeP)) continue;
 
             // Get current dimensions
             void* dims_get = HashmapGet(resizeTrackingHmap, &node);
@@ -330,7 +330,7 @@ void TriggerAllMouseupEvents(float mouseX, float mouseY, int mouseBtn)
 
             // Skip if node was recently deleted
             NodeP* nodeP = NODEP_OF(node);
-            if (nodeP->state == 0) continue;
+            if (NodeStateDeleted(nodeP)) continue;
 
             // Set calback event values and trigger
             cb_info->event.mouse.mouseBtn = mouseBtn;
@@ -360,7 +360,7 @@ void TriggerAllMouseMoveEvents(float mouseX, float mouseY, float mouseDeltaX, fl
 
             // Skip if node was recently deleted
             NodeP* nodeP = NODEP_OF(node);
-            if (nodeP->state == 0) continue;
+            if (NodeStateDeleted(nodeP)) continue;
 
             // Set callback event values and trigger
             cb_info->event.mouse.mouseBtn = -1;
@@ -390,7 +390,7 @@ void TriggerAllMouseWheelEvents(float wheelDelta)
 
             // Skip if node was recently deleted
             NodeP* nodeP = NODEP_OF(node);
-            if (nodeP->state == 0) continue;
+            if (NodeStateDeleted(nodeP)) continue;
 
             // Set calback event values and trigger
             cb_info->event.mouse.wheelDelta = wheelDelta;
@@ -415,7 +415,7 @@ void TriggerAllMouseDownOutsideEvents(float mouseX, float mouseY, int mouseBtn)
 
             // Skip if node was recently deleted OR node is hovered
             NodeP* nodeP = NODEP_OF(node);
-            if (nodeP->state == 0 || node == &GUI.hovered_node->node) continue;
+            if (NodeStateDeleted(nodeP) || node == &GUI.hovered_node->node) continue;
 
             // Set calback event values and trigger
             cb_info->event.mouse.mouseBtn = mouseBtn;

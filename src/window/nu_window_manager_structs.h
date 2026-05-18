@@ -1,19 +1,14 @@
 #pragma once 
 #include <SDL3/SDL.h>
 #include <GL/glew.h>
-#include <datastructures/vector.h>
-#include <datastructures/hashmap.h>
-#include <datastructures/container.h>
 #include <tree/nu_node.h>
 
 typedef struct NU_WindowDrawlist
 {
-    Vector relativeNodes;
-    Vector absoluteNodes;
-    Vector canvasNodes;
-    Vector clippedRelativeNodes;
-    Vector clippedAbsoluteNodes;
-    Vector clippedCanvasNodes;
+    Array relativeNodes;
+    Array absoluteNodes;
+    Array clippedRelativeNodes;
+    Array clippedAbsoluteNodes;
 } NU_WindowDrawlist;
 
 typedef struct NU_Window
@@ -26,8 +21,8 @@ typedef struct NU_Window
 typedef struct NU_WindowManager
 {   
     Container windows;
-    Vector windowNodes;
-    Vector absoluteRootNodes;
+    Array windowNodes;
+    Array absoluteRootNodes;
     Hashmap clipMap;
     int hoveredWindowID;
     int rootWindowID;

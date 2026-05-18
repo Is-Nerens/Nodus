@@ -78,7 +78,7 @@ void NU_Apply_Stylesheet_To_Node(NodeP* node, NU_Stylesheet* ss)
     // 2. Apply tag match
     void* tag_found = HashmapGet(&ss->tag_item_hashmap, &node->type); 
     if (tag_found != NULL) { 
-        NU_Stylesheet_Item* item = (NU_Stylesheet_Item*)Vector_Get(&ss->items, *(u32*)tag_found);
+        NU_Stylesheet_Item* item = (NU_Stylesheet_Item*)ArrayGet(&ss->items, *(u32*)tag_found);
         NU_Apply_Style_Item_To_Node(node, item);
     }
 
@@ -88,7 +88,7 @@ void NU_Apply_Stylesheet_To_Node(NodeP* node, NU_Stylesheet* ss)
         if (stored_class != NULL) {
             void* class_found = HashmapGet(&ss->class_item_hashmap, &stored_class);
             if (class_found != NULL) {
-                NU_Stylesheet_Item* item = (NU_Stylesheet_Item*)Vector_Get(&ss->items, *(u32*)class_found);
+                NU_Stylesheet_Item* item = (NU_Stylesheet_Item*)ArrayGet(&ss->items, *(u32*)class_found);
                 NU_Apply_Style_Item_To_Node(node, item);
             }
         }
@@ -100,7 +100,7 @@ void NU_Apply_Stylesheet_To_Node(NodeP* node, NU_Stylesheet* ss)
         if (stored_id != NULL) {
             void* id_found = HashmapGet(&ss->id_item_hashmap, &stored_id);
             if (id_found != NULL) {
-                NU_Stylesheet_Item* item = (NU_Stylesheet_Item*)Vector_Get(&ss->items, *(u32*)id_found);
+                NU_Stylesheet_Item* item = (NU_Stylesheet_Item*)ArrayGet(&ss->items, *(u32*)id_found);
                 NU_Apply_Style_Item_To_Node(node, item);
             }
         }
@@ -123,7 +123,7 @@ void NU_Apply_Pseudo_Style_To_Node(NodeP* node, NU_Stylesheet* ss, enum NU_Pseud
 
         // Apply tag pseudo style
         u32 index = *(u32*)tag_pseudo_found;
-        NU_Stylesheet_Item* item = (NU_Stylesheet_Item*)Vector_Get(&ss->items, index);
+        NU_Stylesheet_Item* item = (NU_Stylesheet_Item*)ArrayGet(&ss->items, index);
         NU_Apply_Style_Item_To_Node(node, item);
     }
 
@@ -142,7 +142,7 @@ void NU_Apply_Pseudo_Style_To_Node(NodeP* node, NU_Stylesheet* ss, enum NU_Pseud
 
                 // Apply class pseudo style
                 u32 index = *(u32*)class_pseudo_found;
-                NU_Stylesheet_Item* item = (NU_Stylesheet_Item*)Vector_Get(&ss->items, index);
+                NU_Stylesheet_Item* item = (NU_Stylesheet_Item*)ArrayGet(&ss->items, index);
                 NU_Apply_Style_Item_To_Node(node, item);
             }
         }
@@ -163,7 +163,7 @@ void NU_Apply_Pseudo_Style_To_Node(NodeP* node, NU_Stylesheet* ss, enum NU_Pseud
 
                 // Apply id pseudo style
                 u32 index = *(u32*)id_pseudo_found;
-                NU_Stylesheet_Item* item = (NU_Stylesheet_Item*)Vector_Get(&ss->items, index);
+                NU_Stylesheet_Item* item = (NU_Stylesheet_Item*)ArrayGet(&ss->items, index);
                 NU_Apply_Style_Item_To_Node(node, item);
             }
         }

@@ -38,7 +38,7 @@ bool EventWatcher(void* data, SDL_Event* event)
         if (GUI.focused_node != NULL) 
         {
             NodeP* inputNode = GUI.focused_node;
-            NU_Font* font = Stylesheet_Get_Font(GUI.stylesheet, inputNode->fontId);
+            NU_Font* font = Stylesheet_Get_Font(&GUI.stylesheet, inputNode->fontId);
             InputText* inputText = Container_Get(&GUI.textInputs, inputNode->typeData.input.textInputHandle);
             SDL_Keymod mods = event->key.mod;
 
@@ -104,7 +104,7 @@ bool EventWatcher(void* data, SDL_Event* event)
 
             if (textChanged) {
                 TriggerOnInputChangedEvent(inputNode, "");
-                NU_Apply_Pseudo_Style_To_Node(GUI.focused_node, GUI.stylesheet, PSEUDO_FOCUS);
+                NU_Apply_Pseudo_Style_To_Node(GUI.focused_node, &GUI.stylesheet, PSEUDO_FOCUS);
             }
         }
     }
@@ -113,7 +113,7 @@ bool EventWatcher(void* data, SDL_Event* event)
     // ------------------------------------------------------------------------------------
     else if (event->type == SDL_EVENT_TEXT_INPUT) {
 
-        NU_Font* font = Stylesheet_Get_Font(GUI.stylesheet, GUI.focused_node->fontId);
+        NU_Font* font = Stylesheet_Get_Font(&GUI.stylesheet, GUI.focused_node->fontId);
         InputText* inputText = Container_Get(&GUI.textInputs, GUI.focused_node->typeData.input.textInputHandle);
         
         int updated = 0;
@@ -128,7 +128,7 @@ bool EventWatcher(void* data, SDL_Event* event)
         
         if (updated) {
             TriggerOnInputChangedEvent(GUI.focused_node, event->text.text);
-            NU_Apply_Pseudo_Style_To_Node(GUI.focused_node, GUI.stylesheet, PSEUDO_FOCUS);
+            NU_Apply_Pseudo_Style_To_Node(GUI.focused_node, &GUI.stylesheet, PSEUDO_FOCUS);
         }
 
         GUI.awaiting_redraw |= updated;
@@ -173,7 +173,7 @@ bool EventWatcher(void* data, SDL_Event* event)
         // if focused on text input -> update highlighting
         if (GUI.focused_node != NULL) {
             NodeP* node = GUI.focused_node;
-            NU_Font* font = Stylesheet_Get_Font(GUI.stylesheet, node->fontId);
+            NU_Font* font = Stylesheet_Get_Font(&GUI.stylesheet, node->fontId);
             InputText* inputText = Container_Get(&GUI.textInputs, node->typeData.input.textInputHandle);
             if (InputText_MouseDrag(inputText, node, font, mouseX)) {
                 GUI.awaiting_redraw = true;
@@ -245,7 +245,7 @@ bool EventWatcher(void* data, SDL_Event* event)
         // Place cursor on input node
         if (GUI.focused_node != NULL) 
         {
-            NU_Font* font = Stylesheet_Get_Font(GUI.stylesheet, GUI.focused_node->fontId);
+            NU_Font* font = Stylesheet_Get_Font(&GUI.stylesheet, GUI.focused_node->fontId);
             InputText* inputText = Container_Get(&GUI.textInputs, GUI.focused_node->typeData.input.textInputHandle);
 
             if (GUI.focused_node != prevFocusedNode) {
@@ -272,7 +272,7 @@ bool EventWatcher(void* data, SDL_Event* event)
             TriggerOnInputDefocusEvent(prevFocusedNode);
 
             // Remove focus pseudo from prev focused node
-            NU_Apply_Stylesheet_To_Node(prevFocusedNode, GUI.stylesheet);
+            NU_Apply_Stylesheet_To_Node(prevFocusedNode, &GUI.stylesheet);
 
             GUI.awaiting_redraw = true;
         }
@@ -285,7 +285,7 @@ bool EventWatcher(void* data, SDL_Event* event)
 
         // Apply PRESS pseudo style
         if (GUI.mouse_down_node && GUI.mouse_down_node != GUI.focused_node) {
-            NU_Apply_Pseudo_Style_To_Node(GUI.mouse_down_node, GUI.stylesheet, PSEUDO_PRESS);
+            NU_Apply_Pseudo_Style_To_Node(GUI.mouse_down_node, &GUI.stylesheet, PSEUDO_PRESS);
             GUI.awaiting_redraw = true;
         }
 
@@ -333,11 +333,11 @@ bool EventWatcher(void* data, SDL_Event* event)
 
                 // Apply psuedo HOVER
                 if (GUI.mouse_down_node == GUI.hovered_node) {
-                    NU_Apply_Pseudo_Style_To_Node(GUI.hovered_node, GUI.stylesheet, PSEUDO_HOVER);
+                    NU_Apply_Pseudo_Style_To_Node(GUI.hovered_node, &GUI.stylesheet, PSEUDO_HOVER);
                 }
                 // Reset style
                 else {
-                    NU_Apply_Stylesheet_To_Node(GUI.mouse_down_node, GUI.stylesheet);
+                    NU_Apply_Stylesheet_To_Node(GUI.mouse_down_node, &GUI.stylesheet);
                 }
 
                 GUI.awaiting_redraw = true;

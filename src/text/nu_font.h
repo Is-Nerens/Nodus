@@ -1,6 +1,5 @@
 #pragma once
 #include <freetype/freetype.h>
-#include <datastructures/vector.h>
 #include "nu_default_font.h"
 
 FT_Library nu_global_freetype;
@@ -28,7 +27,7 @@ typedef struct NU_Font_Atlas {
 
 typedef struct NU_Font
 {
-    Vector glyphs;
+    Array glyphs;
     float kerning_table[95][95];
     int height_pixels;
     float y_max;
@@ -93,7 +92,7 @@ void NU_Normalise_Glyph_UVs(NU_Font* font)
 {
     for (u32 i=0; i<font->glyphs.size; i++)
     {
-        NU_Glyph* glyph = (NU_Glyph*)Vector_Get(&font->glyphs, i);
+        NU_Glyph* glyph = (NU_Glyph*)ArrayGet(&font->glyphs, i);
         glyph->uv_y0 /= font->atlas.height;
         glyph->uv_y1 /= font->atlas.height;
     }
@@ -160,7 +159,7 @@ int NU_Create_Font_From_Face(NU_Font* font, FT_Face face, int height_pixels, boo
     font->line_height   = (float)(face->size->metrics.height >> 6);
 
     // Init font storage
-    Vector_Reserve(&font->glyphs, sizeof(NU_Glyph), 95);
+    ArrayInit(&font->glyphs, sizeof(NU_Glyph), 95);
     NU_Font_Atlas_Create(&font->atlas, 512, 128, channels);
 
     // Render and save each ASCII glyph 32..126
@@ -185,8 +184,8 @@ int NU_Create_Font_From_Face(NU_Font* font, FT_Face face, int height_pixels, boo
         glyph.bearingX = face->glyph->bitmap_left;
         glyph.bearingY = face->glyph->bitmap_top;
         glyph.advance  = (float)(face->glyph->advance.x >> 6);
-        Vector_Push(&font->glyphs, &glyph);
-        NU_Glyph* stored_glyph = Vector_Get(&font->glyphs, glyph_char - 32);
+        ArrayPush(&font->glyphs, &glyph);
+        NU_Glyph* stored_glyph = ArrayGet(&font->glyphs, glyph_char - 32);
 
         // Store bitmap in font atlas
         NU_Font_Atlas_Add_Glyph(&font->atlas, stored_glyph, bmp);
@@ -243,5 +242,5 @@ int NU_Font_Create_Default(NU_Font* font, int height_pixels, bool subpixel_rende
 void NU_Font_Free(NU_Font* font)
 {
     free(font->atlas.buffer);
-    Vector_Free(&font->glyphs);
+    ArrayFree(&font->glyphs);
 }

@@ -12,6 +12,11 @@
 #define HIDDEN                          (1ULL << 7)
 #define IGNORE_MOUSE                    (1ULL << 8)
 
+// State flags
+#define STATE_FLAG_HIDDEN       (1 << 0)
+#define STATE_FLAG_POS_ABSOLUTE (1 << 1)
+#define STATE_FLAG_DELETED      (1 << 2)
+
 // Property flags
 #define PROPERTY_FLAG_LAYOUT_VERTICAL   (1ULL << 0)
 #define PROPERTY_FLAG_GROW              (1ULL << 1)
@@ -119,14 +124,13 @@ typedef struct NodeP
     u16 eventFlags;
     u16 layoutFlags;
     u8 layer;
-    u8 state;
+    u8 stateFlags;
     u8 fontId;
     u8 windowID;
     char horizontalAlignment;
     char verticalAlignment;
     char horizontalTextAlignment;
     char verticalTextAlignment;
-    u8 positionAbsolute;
 } NodeP;
 
 
@@ -178,7 +182,6 @@ void NU_ApplyNodeDefaults(NodeP* node)
     node->verticalAlignment = 0;
     node->horizontalTextAlignment = 1;
     node->verticalTextAlignment = 1;
-    node->positionAbsolute = 0;
     
     // Set defaults based on node type
     switch (node->type)
@@ -211,4 +214,19 @@ void NU_ApplyNodeDefaults(NodeP* node)
     if (node->type != NU_WINDOW) {
         node->windowID = node->parent->windowID;
     }
+}
+
+inline bool NodeStateHidden(NodeP* node)
+{
+    return (node->stateFlags & STATE_FLAG_HIDDEN) != 0;
+}
+
+inline bool NodeStatePosAbsolute(NodeP* node)
+{
+    return (node->stateFlags & STATE_FLAG_POS_ABSOLUTE) != 0;
+}
+
+inline bool NodeStateDeleted(NodeP* node)
+{
+    return (node->stateFlags & STATE_FLAG_DELETED) != 0;
 }

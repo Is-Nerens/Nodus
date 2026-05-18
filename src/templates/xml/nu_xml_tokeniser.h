@@ -1,11 +1,10 @@
 #pragma once
 #include <stdint.h>
-#include <datastructures/string.h>
-#include <datastructures/utf8_parser_word.h>
+#include <datastructures/UTF8_Parser_Word.h>
 #include "nu_xml_tokens.h"
 #include "nu_xml_grammar_assertions.h"
 
-void NU_Tokenise(String src, TokenArray* tokenVectorOut, Vector* textRefsOut)
+void NU_Tokenise(String src, TokenArray* tokenVectorOut, Array* textRefsOut)
 {
     ParserWord word;
     ParserWordInit(&word);
@@ -56,7 +55,7 @@ void NU_Tokenise(String src, TokenArray* tokenVectorOut, Vector* textRefsOut)
                 if (textLen > 0) {
                     TokenArray_Add(tokenVectorOut, TEXT_CONTENT);
                     Text_Ref ref = { tokenVectorOut->size, i - textLen - 1, textLen };
-                    Vector_Push(textRefsOut, &ref);
+                    ArrayPush(textRefsOut, &ref);
                     textLen=0;
                 }
 
@@ -70,7 +69,7 @@ void NU_Tokenise(String src, TokenArray* tokenVectorOut, Vector* textRefsOut)
                 if (textLen > 0) {
                     TokenArray_Add(tokenVectorOut, TEXT_CONTENT);
                     Text_Ref ref = { tokenVectorOut->size, i - textLen - 1, textLen };
-                    Vector_Push(textRefsOut, &ref);
+                    ArrayPush(textRefsOut, &ref);
                     textLen=0;
                 }
 
@@ -178,7 +177,7 @@ void NU_Tokenise(String src, TokenArray* tokenVectorOut, Vector* textRefsOut)
             if (c == '"') {
                 if (word.length > 0) {
                     struct Text_Ref ref = { tokenVectorOut->size, i - word.length - 1, word.length };
-                    Vector_Push(textRefsOut, &ref);
+                    ArrayPush(textRefsOut, &ref);
                     ParserWordClear(&word);
                 }
                 TokenArray_Add(tokenVectorOut, PROPERTY_VALUE);

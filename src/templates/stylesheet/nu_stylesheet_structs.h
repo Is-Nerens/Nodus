@@ -1,3 +1,5 @@
+#pragma once
+
 typedef struct NU_Stylesheet_Tag_Pseudo_Pair
 {
     int tag;
@@ -38,8 +40,8 @@ typedef struct NU_Stylesheet_Item
 
 typedef struct NU_Stylesheet
 {
-    struct Vector items;
-    struct Vector pseudoItems;
+    struct Array items;
+    struct Array pseudoItems;
     LinearStringset class_string_set;
     LinearStringset id_string_set;
     struct Hashmap class_item_hashmap;

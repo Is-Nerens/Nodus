@@ -6,7 +6,6 @@
 #include "nu_node_alloc.h"
 #include "nu_nodelist.h"
 #include "nu_tree_traversal.h"
-#include <datastructures/vector.h>
 
 typedef struct Tree
 {
@@ -15,8 +14,8 @@ typedef struct Tree
     u32 layerAllocsCapacity;
     u32 depth;
     u32 nodeCount;
-    Vector deleteStack; // preallocated (reduce fragmentation)
-    Vector deletedButNotFreedNodes;
+    Array deleteStack; // preallocated (reduce fragmentation)
+    Array deletedButNotFreedNodes;
 } Tree;
 
 typedef void (*TreeDeleteCallback)(NodeP* node);
@@ -32,8 +31,8 @@ NodeP* TreeCreate(Tree* tree, NodeType rootType)
         else Nalloc_Init(&tree->layerAllocs[i], 100);
     }
 
-    Vector_Reserve(&tree->deletedButNotFreedNodes, sizeof(NodeP*), 25);
-    Vector_Reserve(&tree->deleteStack, sizeof(NodeP*), 100);
+    ArrayInit(&tree->deletedButNotFreedNodes, sizeof(NodeP*), 25);
+    ArrayInit(&tree->deleteStack, sizeof(NodeP*), 100);
 
     // member variables
     tree->depth = 1;
@@ -49,7 +48,7 @@ NodeP* TreeCreate(Tree* tree, NodeType rootType)
     root->clippedAncestor = NULL;
     root->childCount = 0;
     root->layer = 0;
-    root->state = 1;
+    root->stateFlags = 0;
     NU_ApplyNodeDefaults(root);
     tree->root = root;
     return root;
@@ -97,7 +96,7 @@ NodeP* TreeCreateNode(Tree* tree, NodeP* parent, NodeType type)
     newNode->clippedAncestor = NULL;
     newNode->childCount = 0;
     newNode->layer = parent->layer + 1;
-    newNode->state = 1;
+    newNode->stateFlags = 0;
     NU_ApplyNodeDefaults(newNode);
 
     // parent has no children
@@ -247,7 +246,8 @@ void TreeDeleteLeaf(Tree* tree, NodeP* leaf, TreeDeleteCallback deleteCB)
     if (deleteCB != NULL) deleteCB(leaf);
 
     // Add to list of deleted but not freed nodes
-    Vector_Push(&tree->deletedButNotFreedNodes, &leaf); leaf->state = 0;
+    ArrayPush(&tree->deletedButNotFreedNodes, &leaf); 
+    leaf->stateFlags |= STATE_FLAG_DELETED;
 }
 
 void TreeDeleteNode(Tree* tree, NodeP* node, TreeDeleteCallback deleteCB)
@@ -260,7 +260,7 @@ void TreeDeleteNode(Tree* tree, NodeP* node, TreeDeleteCallback deleteCB)
     // push children only (NOT node itself)
     NodeP* sib = node->firstChild;
     while (sib != NULL) {
-        Vector_Push(&tree->deleteStack, &sib);
+        ArrayPush(&tree->deleteStack, &sib);
         sib = sib->nextSibling;
     }
 
@@ -271,20 +271,20 @@ void TreeDeleteNode(Tree* tree, NodeP* node, TreeDeleteCallback deleteCB)
 
     while (tree->deleteStack.size > 0) {
 
-        NodeP* cur = *(NodeP**)Vector_Get(&tree->deleteStack, tree->deleteStack.size-1);
+        NodeP* cur = *(NodeP**)ArrayGet(&tree->deleteStack, tree->deleteStack.size-1);
         tree->deleteStack.size--;
 
         // push children
         NodeP* c = cur->firstChild;
         while (c != NULL) {
-            Vector_Push(&tree->deleteStack, &c);
+            ArrayPush(&tree->deleteStack, &c);
             c = c->nextSibling;
         }
 
         if (deleteCB != NULL) deleteCB(cur);
 
         // Add to list of deleted but not freed nodes
-        Vector_Push(&tree->deletedButNotFreedNodes, &cur); cur->state = 0;
+        ArrayPush(&tree->deletedButNotFreedNodes, &cur); cur->stateFlags |= STATE_FLAG_DELETED;
         tree->nodeCount--;
     }
 
@@ -295,9 +295,9 @@ void TreeDeleteNode(Tree* tree, NodeP* node, TreeDeleteCallback deleteCB)
 void TreeFreeDeleted(Tree* tree)
 {
     for (int i=0; i<tree->deletedButNotFreedNodes.size; i++) {
-        NodeP* deletedNode = *(NodeP**)Vector_Get(&tree->deletedButNotFreedNodes, i);
+        NodeP* deletedNode = *(NodeP**)ArrayGet(&tree->deletedButNotFreedNodes, i);
         Nalloc* nalloc = &tree->layerAllocs[deletedNode->layer];
         Nalloc_Free(nalloc, deletedNode);
     }
-    Vector_Clear(&tree->deletedButNotFreedNodes);
+    ArrayClear(&tree->deletedButNotFreedNodes);
 }

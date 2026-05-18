@@ -11,22 +11,24 @@
 // --- Nodus Includes ---
 // ----------------------
 #include <utils/nu_int.h>
-#include <datastructures/vector.h>
-#include <datastructures/string.h>
-#include <datastructures/container.h>
-#include <datastructures/stringset.h>
-#include <datastructures/hashmap.h>
-#include <datastructures/set.h>
-#include <datastructures/stringmap.h>
-#include <datastructures/linear_stringmap.h>
-#include <datastructures/string_arena.h>
-#include <datastructures/hashmap.h>
+#include <datastructures/Array.h>
+#include <datastructures/String.h>
+#include <datastructures/Container.h>
+#include <datastructures/Stringset.h>
+#include <datastructures/Hashmap.h>
+#include <datastructures/Set.h>
+#include <datastructures/Stringmap.h>
+#include <datastructures/Linear_Stringmap.h>
+#include <datastructures/Linear_Stringset.h>
+#include <datastructures/String_Arena.h>
+#include <datastructures/Hashmap.h>
 #include <text/nu_font.h>
-#include <rendering/nu_renderer_structures.h>
 #include <tree/nu_node.h>
 #include <tree/nu_tree.h>
 #include <tree/nu_nodelist.h>
+#include <rendering/nu_renderer_structures.h>
 #include <window/nu_window_manager_structs.h>
+#include <templates/stylesheet/nu_stylesheet_structs.h>
 #include <rendering/nu_renderer.h>
 #include <events/nu_event_defs.h>
 
@@ -64,8 +66,7 @@ struct NU_GUI
     bool recalculate_mouse_hover;
 
     // styles
-    Vector stylesheets;
-    struct NU_Stylesheet* stylesheet;
+    NU_Stylesheet stylesheet;
     SDL_GLContext gl_ctx;
 
     // Events
@@ -89,7 +90,7 @@ struct NU_GUI
     // Layout and draw datastructures
     BreadthFirstSearch bfs;
     ReverseBreadthFirstSearch rbfs;
-    Vector layoutScrollAutoNodes;
+    Array layoutScrollAutoNodes;
     Vertex_RGB_List borderRectVertices;
     Index_List borderRectIndices;
 };
@@ -122,12 +123,7 @@ void NU_Internal_Quit()
     StringsetFree(&GUI.class_string_set);
     StringsetFree(&GUI.id_string_set);
     StringArena_Free(&GUI.nodeTextArena);
-    for (u32 i=0; i<GUI.stylesheets.size; i++) 
-    {
-        NU_Stylesheet* stylesheet = Vector_Get(&GUI.stylesheets, i);
-        NU_Stylesheet_Free(stylesheet);
-    }
-    Vector_Free(&GUI.stylesheets);
+    NU_Stylesheet_Free(&GUI.stylesheet);
     Container_Free(&GUI.canvasContexts);
     Container_Free(&GUI.textInputs);
     Vertex_RGB_List_Free(&GUI.borderRectVertices);
@@ -147,6 +143,7 @@ int NU_Internal_Create_Gui(const char* xml_filepath, const char* css_filepath)
     SDL_GL_SetAttribute(SDL_GL_CONTEXT_PROFILE_MASK, SDL_GL_CONTEXT_PROFILE_CORE);
     SDL_GL_SetAttribute(SDL_GL_MULTISAMPLEBUFFERS, 1);
     SDL_GL_SetAttribute(SDL_GL_MULTISAMPLESAMPLES, 4);
+    SDL_GL_SetAttribute(SDL_GL_DEPTH_SIZE, 24);
     SDL_SetHint("SDL_MOUSE_FOCUS_CLICKTHROUGH", "1");
 
     // Init Window Manager -> create the main window (hidden)
@@ -162,14 +159,11 @@ int NU_Internal_Create_Gui(const char* xml_filepath, const char* css_filepath)
     GUI.canvasContexts = Container_Create(sizeof(NU_Canvas_Context));
     GUI.textInputs = Container_Create(sizeof(InputText));
 
-    // Init stylesheets vector
-    Vector_Reserve(&GUI.stylesheets, sizeof(NU_Stylesheet), 2);
-
     // Init Event System (allocates memory)
     EventSystem_Init();
 
     // Init layout and draw datastructures
-    Vector_Reserve(&GUI.layoutScrollAutoNodes, sizeof(NodeP*), 20);
+    ArrayInit(&GUI.layoutScrollAutoNodes, sizeof(NodeP*), 20);
     Vertex_RGB_List_Init(&GUI.borderRectVertices, 5000); 
     Index_List_Init(&GUI.borderRectIndices, 15000);
 
@@ -220,15 +214,13 @@ int NU_Internal_Create_Gui(const char* xml_filepath, const char* css_filepath)
     }
 
     // Load css
-    GUI.stylesheet = NULL;
-    u32 stylesheetHandle = NU_Internal_Load_Stylesheet(css_filepath);
-    if (stylesheetHandle == 0) {
+    if (!NU_Stylesheet_Create(&GUI.stylesheet, css_filepath)) {
         NU_Internal_Quit();
         return 0;
     }
 
     // Apply css
-    if (!NU_Internal_Apply_Stylesheet(stylesheetHandle)) {
+    if (!NU_Internal_Apply_Stylesheet(&GUI.stylesheet)) {
         NU_Internal_Quit();
         return 0;
     }

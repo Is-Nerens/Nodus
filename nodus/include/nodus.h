@@ -104,10 +104,6 @@ __declspec(dllimport) int NU_Create_Gui(const char* xml_filepath, const char* cs
 __declspec(dllimport) void NU_Quit(void);
 __declspec(dllimport) int NU_Running(void);
 
-// Stylesheet functions
-__declspec(dllimport) uint32_t NU_Load_Stylesheet(const char* css_filepath);
-__declspec(dllimport) int NU_Apply_Stylesheet(uint32_t stylesheet_handle);
-
 // Window functions
 __declspec(dllimport) void NU_Set_Window_Fullscreen(Node* node);
 __declspec(dllimport) void NU_Set_Window_Windowed(Node* node);

@@ -2,7 +2,6 @@
 #include <stdlib.h>
 #include <stdio.h>
 #include <errno.h>
-#include <datastructures/string.h>
 
 String FileReadUTF8(const char* filepath)
 {

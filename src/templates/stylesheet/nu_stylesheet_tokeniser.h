@@ -1,10 +1,9 @@
 #pragma once
-#include <datastructures/string.h>
-#include <datastructures/utf8_parser_word.h>
+#include <datastructures/UTF8_Parser_Word.h>
 #include "../nu_token_array.h"
 
 
-static void NU_Style_Tokenise(String src, TokenArray* tokens, struct Vector* textRefs)
+static void NU_Style_Tokenise(String src, TokenArray* tokens, struct Array* textRefs)
 {
     ParserWord word;
     ParserWordInit(&word);
@@ -69,7 +68,7 @@ static void NU_Style_Tokenise(String src, TokenArray* tokens, struct Vector* tex
             // Add property text reference
             if (word.length > 0) {
                 struct Style_Text_Ref ref = { tokens->size, i - word.length - 1, word.length };
-                Vector_Push(textRefs, &ref);
+                ArrayPush(textRefs, &ref);
                 TokenArray_Add(tokens, STYLE_PROPERTY_VALUE);
                 ParserWordClear(&word);
             }
@@ -91,7 +90,7 @@ static void NU_Style_Tokenise(String src, TokenArray* tokens, struct Vector* tex
             // Add property text reference
             if (word.length > 0) {
                 struct Style_Text_Ref ref = { tokens->size, i - word.length - 1, word.length };
-                Vector_Push(textRefs, &ref);
+                ArrayPush(textRefs, &ref);
                 TokenArray_Add(tokens, STYLE_PROPERTY_VALUE);
                 ParserWordClear(&word);
             }
@@ -111,7 +110,7 @@ static void NU_Style_Tokenise(String src, TokenArray* tokens, struct Vector* tex
             else if (ctx == 4 && word.length > 0) {
                 // Add text reference
                 struct Style_Text_Ref ref = { tokens->size, i - word.length - 1, word.length };
-                Vector_Push(textRefs, &ref);
+                ArrayPush(textRefs, &ref);
                 TokenArray_Add(tokens, STYLE_CLASS_SELECTOR);
                 ParserWordClear(&word);
             }
@@ -120,7 +119,7 @@ static void NU_Style_Tokenise(String src, TokenArray* tokens, struct Vector* tex
             else if (ctx == 5 && word.length > 0) {
                 // Add text reference
                 struct Style_Text_Ref ref = { tokens->size, i - word.length - 1, word.length };
-                Vector_Push(textRefs, &ref);
+                ArrayPush(textRefs, &ref);
                 TokenArray_Add(tokens, STYLE_ID_SELECTOR);
                 ParserWordClear(&word);
             }
@@ -129,7 +128,7 @@ static void NU_Style_Tokenise(String src, TokenArray* tokens, struct Vector* tex
             else if (ctx == 7 && word.length > 0) {
                 // Add text reference
                 struct Style_Text_Ref ref = { tokens->size, i - word.length - 1, word.length };
-                Vector_Push(textRefs, &ref);
+                ArrayPush(textRefs, &ref);
                 TokenArray_Add(tokens, STYLE_FONT_NAME);
                 ParserWordClear(&word);
             }
@@ -170,7 +169,7 @@ static void NU_Style_Tokenise(String src, TokenArray* tokens, struct Vector* tex
             else if (ctx == 4 && word.length > 0) {
                 // Add text reference
                 struct Style_Text_Ref ref = { tokens->size, i - word.length - 1, word.length };
-                Vector_Push(textRefs, &ref);
+                ArrayPush(textRefs, &ref);
                 TokenArray_Add(tokens, STYLE_CLASS_SELECTOR);
                 ctx=0;
             }
@@ -179,7 +178,7 @@ static void NU_Style_Tokenise(String src, TokenArray* tokens, struct Vector* tex
             else if (ctx == 5 && word.length > 0) {
                 // Add text reference
                 struct Style_Text_Ref ref = { tokens->size, i - word.length - 1, word.length };
-                Vector_Push(textRefs, &ref);
+                ArrayPush(textRefs, &ref);
                 TokenArray_Add(tokens, STYLE_ID_SELECTOR);
                 ctx=0;
             }
@@ -193,7 +192,7 @@ static void NU_Style_Tokenise(String src, TokenArray* tokens, struct Vector* tex
             else if (ctx == 3 && word.length > 0) {
                 // Add text reference
                 struct Style_Text_Ref ref = { tokens->size, i - word.length - 1, word.length };
-                Vector_Push(textRefs, &ref);
+                ArrayPush(textRefs, &ref);
                 TokenArray_Add(tokens, STYLE_PROPERTY_VALUE);
                 ctx=2;
             }
@@ -209,7 +208,7 @@ static void NU_Style_Tokenise(String src, TokenArray* tokens, struct Vector* tex
 
                 // Add text reference
                 struct Style_Text_Ref ref = { tokens->size, i - word.length - 1, word.length };
-                Vector_Push(textRefs, &ref);
+                ArrayPush(textRefs, &ref);
                 TokenArray_Add(tokens, STYLE_FONT_NAME);
             }
 

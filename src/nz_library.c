@@ -28,7 +28,7 @@ __declspec(dllexport) int NU_Running(void) {
     // Safely unregister deleted nodes from iterated hashmaps
     // and free node memory
     for (int i=0; i<GUI.tree.deletedButNotFreedNodes.size; i++) {
-        NodeP* node = *(NodeP**)Vector_Get(&GUI.tree.deletedButNotFreedNodes, i);
+        NodeP* node = *(NodeP**)ArrayGet(&GUI.tree.deletedButNotFreedNodes, i);
         NU_Unregister_All_Iterated_Events(node);
     }
     TreeFreeDeleted(&GUI.tree);
@@ -44,17 +44,6 @@ __declspec(dllexport) void NU_Render()
     SDL_zero(e);
     e.type = GUI.SDL_CUSTOM_RENDER_EVENT;
     SDL_PushEvent(&e);   
-}
-
-
-// ----------------------------
-// --- Stylesheet functions ---
-// ----------------------------
-__declspec(dllexport) u32 NU_Load_Stylesheet(const char* filepath) {
-    return NU_Internal_Load_Stylesheet(filepath);
-}
-__declspec(dllexport) int NU_Apply_Stylesheet(u32 stylesheet_handle) {
-    return NU_Internal_Apply_Stylesheet(stylesheet_handle);
 }
 
 // ------------------------
@@ -184,7 +173,7 @@ __declspec(dllexport) Node* NU_CREATE_NODE(Node* parent, NodeType type) {
         node->typeData.input.textInputHandle = Container_Add(&GUI.textInputs, &inputText);
     }
 
-    NU_Apply_Stylesheet_To_Node(node, GUI.stylesheet);
+    NU_Apply_Stylesheet_To_Node(node, &GUI.stylesheet);
     return &node->node;
 }
 __declspec(dllexport) void NU_DELETE_NODE(Node* node) {
@@ -209,7 +198,7 @@ __declspec(dllexport) const char* NU_INPUT_TEXT_CONTENT(Node* node) {
 __declspec(dllexport) void NU_SET_INPUT_TEXT_CONTENT(Node* node, const char* text) {
     NodeP* nodeP = NODEP_OF(node);
     if (nodeP->type != NU_INPUT) return;
-    NU_Font* font = Stylesheet_Get_Font(GUI.stylesheet, nodeP->fontId);
+    NU_Font* font = Stylesheet_Get_Font(&GUI.stylesheet, nodeP->fontId);
     InputText* inputText = Container_Get(&GUI.textInputs, nodeP->typeData.input.textInputHandle);
     InputText_SetText(inputText, nodeP, font, text);
     TriggerOnInputChangedEvent(nodeP, "");
@@ -235,18 +224,18 @@ __declspec(dllexport) void NU_FOCUS_ON_INPUT(Node* node) {
             TriggerOnInputDefocusEvent(prevFocusedNode);
 
             // Remove focus style prev focused node
-            NU_Apply_Stylesheet_To_Node(prevFocusedNode, GUI.stylesheet);
+            NU_Apply_Stylesheet_To_Node(prevFocusedNode, &GUI.stylesheet);
             if (prevFocusedNode == GUI.hovered_node) {
-                NU_Apply_Pseudo_Style_To_Node(GUI.focused_node, GUI.stylesheet, PSEUDO_HOVER);
+                NU_Apply_Pseudo_Style_To_Node(GUI.focused_node, &GUI.stylesheet, PSEUDO_HOVER);
             }
             else if (prevFocusedNode == GUI.mouse_down_node) {
-                NU_Apply_Pseudo_Style_To_Node(GUI.focused_node, GUI.stylesheet, PSEUDO_PRESS);
+                NU_Apply_Pseudo_Style_To_Node(GUI.focused_node, &GUI.stylesheet, PSEUDO_PRESS);
             }
         }
 
         // Focus on input node 
-        NU_Apply_Pseudo_Style_To_Node(GUI.focused_node, GUI.stylesheet, PSEUDO_FOCUS);
-        NU_Font* font = Stylesheet_Get_Font(GUI.stylesheet, GUI.focused_node->fontId);
+        NU_Apply_Pseudo_Style_To_Node(GUI.focused_node, &GUI.stylesheet, PSEUDO_FOCUS);
+        NU_Font* font = Stylesheet_Get_Font(&GUI.stylesheet, GUI.focused_node->fontId);
         InputText* inputText = Container_Get(&GUI.textInputs, GUI.focused_node->typeData.input.textInputHandle);
         InputText_MousePlaceCursor(inputText, GUI.focused_node, font, 1000000.0f);
         SDL_StartTextInput(GetSDL_Window(&GUI.winManager, GUI.focused_node->windowID));
@@ -369,7 +358,7 @@ __declspec(dllexport) void NU_Set_Class(Node* node, const char* class) {
     // Look for class in gui class string set
     char* gui_class_get = StringsetGet(&GUI.class_string_set, class);
     if (gui_class_get == NULL) { // Not found? Look in the stylesheet
-        char* style_class_get = LinearStringsetGet(&GUI.stylesheet->class_string_set, class);
+        char* style_class_get = LinearStringsetGet(&GUI.stylesheet.class_string_set, class);
 
         // If found in the stylesheet -> add it to the gui class set
         if (style_class_get) {
@@ -381,11 +370,11 @@ __declspec(dllexport) void NU_Set_Class(Node* node, const char* class) {
     }
 
     // Update styling
-    NU_Apply_Stylesheet_To_Node(nodeP, GUI.stylesheet);
+    NU_Apply_Stylesheet_To_Node(nodeP, &GUI.stylesheet);
     if (nodeP == GUI.scroll_mouse_down_node) {
-        NU_Apply_Pseudo_Style_To_Node(nodeP, GUI.stylesheet, PSEUDO_PRESS);
+        NU_Apply_Pseudo_Style_To_Node(nodeP, &GUI.stylesheet, PSEUDO_PRESS);
     } else if (nodeP == GUI.hovered_node) {
-        NU_Apply_Pseudo_Style_To_Node(nodeP, GUI.stylesheet, PSEUDO_HOVER);
+        NU_Apply_Pseudo_Style_To_Node(nodeP, &GUI.stylesheet, PSEUDO_HOVER);
     }
 
     GUI.awaiting_redraw = true;

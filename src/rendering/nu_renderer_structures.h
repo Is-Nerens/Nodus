@@ -4,31 +4,25 @@
 #include <math.h>
 
 typedef struct {
+    float x, y;
+} vec2;
+
+typedef struct {
     float r, g, b;
 } NU_RGB;
 
 typedef struct {
-    float x;
-    float y;
-} vec2;
-
-typedef struct {
-    float x; 
-    float y;
-    float r;
-    float g;
-    float b;
+    float x, y, z; 
+    float r, g, b;
 } vertex_rgb;
 
 typedef struct {
-    float x;
-    float y;
-    float u;
-    float v;
+    float x, y, z;
+    float u, v;
 } vertex_uv;
 
 typedef struct {
-    float x, y;
+    float x, y, z;
     float r, g, b;
     float u, v;
 } vertex_rgb_uv;
@@ -57,32 +51,29 @@ typedef struct {
     u32 capacity;
 } Vertex_RGB_UV_List;
 
-typedef enum {
-    NU_CANVAS_UNDEFINED_LAYER,
-    NU_CANVAS_SHAPE_LAYER,
-    NU_CANVAS_TEXT_LAYER,
-} CanvasLayerType;
-
 typedef struct {
-    Vertex_RGB_List shapeVertices;
-    Vertex_RGB_UV_List textVertices;
-} CanvasVertexData;
-
-typedef struct {
-    CanvasVertexData vertexData; // Can be Vertex_RGB_List or Vertex_RGB_UV_List depending on the type
+    Vertex_RGB_List vertices;
     Index_List indices;
-    CanvasLayerType type;
-    int fontID;
-} CanvasLayer;
+} CanvasShapeLayer;
 
 typedef struct {
-    Vector canvasLayers; // Vector<CanvasLayer>
+    Vertex_RGB_UV_List vertices;
+    Index_List indices;
+    int fontID;
+} CanvasTextLayer;
+
+typedef struct {
+    CanvasShapeLayer shapeLayer;
+    Array textLayers;
 
     // State
+    bool isShapeLayer;
     int fontID;
-    CanvasLayerType currentLayerType;
+    int z;
+    int textLayerIndex;
     float canvasWidth;
     float canvasHeight;
+    NodeP* node;
 } NU_Canvas_Context;
 
 void RGB_From_Hex(const char* hexstring, NU_RGB* result)

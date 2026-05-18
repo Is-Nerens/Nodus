@@ -24,7 +24,7 @@ enum XMLGenCtx
 typedef struct 
 {
     TokenArray tokens;
-    Vector textRefs;
+    Array textRefs;
 } TokenTextRefsPair;
 
 void NU_Parse_Property(const enum NU_XML_TOKEN token, NodeP* currentNode, char* ptext, struct Text_Ref* current_text_ref, LinearStringmap* imageFilepathToHandleMap)
@@ -437,11 +437,11 @@ void NU_Parse_Property(const enum NU_XML_TOKEN token, NodeP* currentNode, char* 
     }
 }
 
-int NU_Parse_Component(NodeP* currentNode, char* src, TokenArray* tokens, struct Vector* textRefs, LinearStringmap* imageFilepathToHandleMap)
+int NU_Parse_Component(NodeP* currentNode, char* src, TokenArray* tokens, struct Array* textRefs, LinearStringmap* imageFilepathToHandleMap)
 {
     enum XMLGenCtx ctx = GENCTX_GLOBAL; 
     struct Text_Ref* current_text_ref;
-    if (textRefs->size > 0) current_text_ref = Vector_Get(textRefs, 0);
+    if (textRefs->size > 0) current_text_ref = ArrayGet(textRefs, 0);
     uint32_t text_content_ref_index = 0;
     uint32_t text_ref_index = 0;
 
@@ -576,7 +576,7 @@ int NU_Parse_Component(NodeP* currentNode, char* src, TokenArray* tokens, struct
                 currentNode->type == NU_BUTTON ||
                 currentNode->type == NU_IMAGE) 
             {
-                current_text_ref = Vector_Get(textRefs, text_ref_index);
+                current_text_ref = ArrayGet(textRefs, text_ref_index);
                 char c = src[current_text_ref->src_index];
                 char* text = &src[current_text_ref->src_index];
                 src[current_text_ref->src_index + current_text_ref->char_count] = '\0';
@@ -600,7 +600,7 @@ int NU_Parse_Component(NodeP* currentNode, char* src, TokenArray* tokens, struct
                 // -----------------------
                 // Get property value text
                 // -----------------------
-                current_text_ref = Vector_Get(textRefs, text_ref_index++);
+                current_text_ref = ArrayGet(textRefs, text_ref_index++);
                 char* ptext = &src[current_text_ref->src_index];
                 src[current_text_ref->src_index + current_text_ref->char_count] = '\0';
 
@@ -620,7 +620,7 @@ int NU_Parse_Component(NodeP* currentNode, char* src, TokenArray* tokens, struct
     return 1;
 }
 
-int NU_Generate_Tree(char* src, TokenArray* tokens, struct Vector* textRefs)
+int NU_Generate_Tree(char* src, TokenArray* tokens, struct Array* textRefs)
 {
     // --------------------
     // Enforce root grammar
@@ -639,7 +639,7 @@ int NU_Generate_Tree(char* src, TokenArray* tokens, struct Vector* textRefs)
     // Get first property text reference
     // ---------------------------------
     struct Text_Ref* current_text_ref;
-    if (textRefs->size > 0) current_text_ref = Vector_Get(textRefs, 0);
+    if (textRefs->size > 0) current_text_ref = ArrayGet(textRefs, 0);
     uint32_t text_content_ref_index = 0;
     uint32_t text_ref_index = 0;
 
@@ -815,7 +815,7 @@ int NU_Generate_Tree(char* src, TokenArray* tokens, struct Vector* textRefs)
                 currentNode->type == NU_BUTTON ||
                 currentNode->type == NU_IMAGE) 
             {
-                current_text_ref = Vector_Get(textRefs, text_ref_index);
+                current_text_ref = ArrayGet(textRefs, text_ref_index);
                 char c = src[current_text_ref->src_index];
                 char* text = &src[current_text_ref->src_index];
                 src[current_text_ref->src_index + current_text_ref->char_count] = '\0';
@@ -839,7 +839,7 @@ int NU_Generate_Tree(char* src, TokenArray* tokens, struct Vector* textRefs)
                 // -----------------------
                 // Get property value text
                 // -----------------------
-                current_text_ref = Vector_Get(textRefs, text_ref_index++);
+                current_text_ref = ArrayGet(textRefs, text_ref_index++);
                 char* ptext = &src[current_text_ref->src_index];
                 src[current_text_ref->src_index + current_text_ref->char_count] = '\0';
 
@@ -865,7 +865,7 @@ int NU_Generate_Tree(char* src, TokenArray* tokens, struct Vector* textRefs)
                                 // Build (tokens, text refs) pair
                                 TokenTextRefsPair tokenTextRefs;
                                 tokenTextRefs.tokens = TokenArray_Create(512);
-                                Vector_Reserve(&tokenTextRefs.textRefs, sizeof(struct Text_Ref), 128);
+                                ArrayInit(&tokenTextRefs.textRefs, sizeof(struct Text_Ref), 128);
 
                                 // Tokenise component
                                 NU_Tokenise(componentSrc, &tokenTextRefs.tokens, &tokenTextRefs.textRefs);
@@ -928,20 +928,20 @@ int NU_Internal_Load_XML(const char* filepath)
     
     // Init token and text ref vectors
     TokenArray tokens = TokenArray_Create(8000);
-    struct Vector textRefs; Vector_Reserve(&textRefs, sizeof(struct Text_Ref), 2000);
+    struct Array textRefs; ArrayInit(&textRefs, sizeof(struct Text_Ref), 2000);
 
     // Tokenise and generate
     NU_Tokenise(src, &tokens, &textRefs); 
     if (!NU_Generate_Tree(StringCstr(src), &tokens, &textRefs)) {
         TokenArray_Free(&tokens);
-        Vector_Free(&textRefs);
+        ArrayFree(&textRefs);
         StringFree(src);
         return 0;
     }
 
     // Free memory
     TokenArray_Free(&tokens);
-    Vector_Free(&textRefs);
+    ArrayFree(&textRefs);
     StringFree(src);
     return 1;
 }

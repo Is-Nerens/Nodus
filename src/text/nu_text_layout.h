@@ -65,8 +65,8 @@ float NU_Calculate_Text_Min_Wrap_Width(NU_Font* font, const char* string)
             if (word_len > 0)
             {
                 // Remove tiny extra x space before first glyph and after last glyph in the word
-                NU_Glyph* first_glyph_in_word = (NU_Glyph*)Vector_Get(&font->glyphs, string[word_start_i] - 32);
-                NU_Glyph* last_glyph_in_word = (NU_Glyph*)Vector_Get(&font->glyphs, string[word_start_i + word_len - 1] - 32);
+                NU_Glyph* first_glyph_in_word = (NU_Glyph*)ArrayGet(&font->glyphs, string[word_start_i] - 32);
+                NU_Glyph* last_glyph_in_word = (NU_Glyph*)ArrayGet(&font->glyphs, string[word_start_i + word_len - 1] - 32);
                 word_width -= last_glyph_in_word->advance - last_glyph_in_word->bearingX - last_glyph_in_word->width - first_glyph_in_word->bearingX;
                 if (word_width > result) result = word_width;
             }
@@ -76,7 +76,7 @@ float NU_Calculate_Text_Min_Wrap_Width(NU_Font* font, const char* string)
         }
         else
         {
-            NU_Glyph* glyph = (NU_Glyph*)Vector_Get(&font->glyphs, word_c - 32);
+            NU_Glyph* glyph = (NU_Glyph*)ArrayGet(&font->glyphs, word_c - 32);
             float kern = 0.0f;
             if (prev_char) kern = font->kerning_table[prev_char - 32][word_c - 32];
             word_width += glyph->advance + kern;
@@ -91,7 +91,7 @@ float NU_Calculate_FreeText_Height_From_Wrap_Width(NU_Font* font, const char* st
 {
     int string_len = strlen(string);
     if (string_len == 0) return 0.0f;
-    NU_Glyph* first_glyph = (NU_Glyph*)Vector_Get(&font->glyphs, string[0] - 32);
+    NU_Glyph* first_glyph = (NU_Glyph*)ArrayGet(&font->glyphs, string[0] - 32);
     float pen_x = -first_glyph->bearingX;
     int wraps = 0;
     for (int i=0; i<string_len; i++)
@@ -100,7 +100,7 @@ float NU_Calculate_FreeText_Height_From_Wrap_Width(NU_Font* font, const char* st
 
         if (c == ' ' && i > 0)
         {
-            NU_Glyph* space_glyph = (NU_Glyph*)Vector_Get(&font->glyphs, string[i] - 32);
+            NU_Glyph* space_glyph = (NU_Glyph*)ArrayGet(&font->glyphs, string[i] - 32);
             float space_advance = space_glyph->advance + font->kerning_table[string[i-1] - 32][string[i] - 32];
 
             // Calculate width of next word
@@ -109,21 +109,21 @@ float NU_Calculate_FreeText_Height_From_Wrap_Width(NU_Font* font, const char* st
             while (j < string_len)
             {
                 if (string[j] == ' ') break;
-                NU_Glyph* g = (NU_Glyph*)Vector_Get(&font->glyphs, string[j] - 32);
+                NU_Glyph* g = (NU_Glyph*)ArrayGet(&font->glyphs, string[j] - 32);
                 next_word_width += g->advance;
                 if (j > i + 1) next_word_width += font->kerning_table[string[j-1] - 32][string[j] - 32]; // Kerning
                 j++;
             }
             if (j - i - 1 > 0)
             {
-                NU_Glyph* word_last_g = (NU_Glyph*)Vector_Get(&font->glyphs, string[j-1] - 32);
+                NU_Glyph* word_last_g = (NU_Glyph*)ArrayGet(&font->glyphs, string[j-1] - 32);
                 next_word_width -= word_last_g->bearingX;
             }
 
             // If next word overflows width -> wrap onto new line
             if (pen_x + space_advance + next_word_width > width + 1.0f)
             {
-                first_glyph = (NU_Glyph*)Vector_Get(&font->glyphs, string[i + 1] - 32);
+                first_glyph = (NU_Glyph*)ArrayGet(&font->glyphs, string[i + 1] - 32);
                 pen_x = -first_glyph->bearingX;
                 wraps++;
             }
@@ -134,7 +134,7 @@ float NU_Calculate_FreeText_Height_From_Wrap_Width(NU_Font* font, const char* st
         }
         else
         {
-            NU_Glyph* glyph = (NU_Glyph*)Vector_Get(&font->glyphs, string[i] - 32);
+            NU_Glyph* glyph = (NU_Glyph*)ArrayGet(&font->glyphs, string[i] - 32);
             pen_x += glyph->advance;
             if (i != 0) { // Kerning
                 pen_x += font->kerning_table[string[i-1] - 32][string[i] - 32];
@@ -153,16 +153,16 @@ float NU_Calculate_Text_Unwrapped_Width(NU_Font* font, const char* string)
     for (int i=0; i<string_len; i++)
     {
         char c = string[i];
-        NU_Glyph* g = (NU_Glyph*)Vector_Get(&font->glyphs, c - 32);
+        NU_Glyph* g = (NU_Glyph*)ArrayGet(&font->glyphs, c - 32);
         width += g->advance;
         if (i > 0) width += font->kerning_table[string[i-1] - 32][string[i] - 32]; // Kerning
     }
-    NU_Glyph* first_glyph = (NU_Glyph*)Vector_Get(&font->glyphs, string[0] - 32);
-    NU_Glyph* last_glyph = (NU_Glyph*)Vector_Get(&font->glyphs, string[string_len - 1] - 32);
+    NU_Glyph* first_glyph = (NU_Glyph*)ArrayGet(&font->glyphs, string[0] - 32);
+    NU_Glyph* last_glyph = (NU_Glyph*)ArrayGet(&font->glyphs, string[string_len - 1] - 32);
     return width - first_glyph->bearingX - last_glyph->bearingX;
 }
 
-void NU_Add_Glyph_Mesh(Vertex_RGB_UV_List* vertices, Index_List* indices, NU_Glyph* glyph, float pen_x, float pen_y, float r, float g, float b)
+void NU_Add_Glyph_Mesh(Vertex_RGB_UV_List* vertices, Index_List* indices, NU_Glyph* glyph, float pen_x, float pen_y, float z, float r, float g, float b)
 {
     float left = pen_x + glyph->bearingX;
     float top = pen_y - glyph->bearingY;
@@ -170,6 +170,7 @@ void NU_Add_Glyph_Mesh(Vertex_RGB_UV_List* vertices, Index_List* indices, NU_Gly
     int vertex_offset = vertices->size;
     vertices->array[vertex_offset].x = left;
     vertices->array[vertex_offset].y = top;
+    vertices->array[vertex_offset].z = z;
     vertices->array[vertex_offset].r = r;
     vertices->array[vertex_offset].g = g;
     vertices->array[vertex_offset].b = b;
@@ -177,6 +178,7 @@ void NU_Add_Glyph_Mesh(Vertex_RGB_UV_List* vertices, Index_List* indices, NU_Gly
     vertices->array[vertex_offset].v = glyph->uv_y0;
     vertices->array[vertex_offset + 1].x = left + (float)glyph->width;
     vertices->array[vertex_offset + 1].y = top;
+    vertices->array[vertex_offset + 1].z = z;
     vertices->array[vertex_offset + 1].r = r;
     vertices->array[vertex_offset + 1].g = g;
     vertices->array[vertex_offset + 1].b = b;
@@ -184,6 +186,7 @@ void NU_Add_Glyph_Mesh(Vertex_RGB_UV_List* vertices, Index_List* indices, NU_Gly
     vertices->array[vertex_offset + 1].v = glyph->uv_y0;
     vertices->array[vertex_offset + 2].x = left;
     vertices->array[vertex_offset + 2].y = bottom;
+    vertices->array[vertex_offset + 2].z = z;
     vertices->array[vertex_offset + 2].r = r;
     vertices->array[vertex_offset + 2].g = g;
     vertices->array[vertex_offset + 2].b = b;
@@ -191,6 +194,7 @@ void NU_Add_Glyph_Mesh(Vertex_RGB_UV_List* vertices, Index_List* indices, NU_Gly
     vertices->array[vertex_offset + 2].v = glyph->uv_y1;
     vertices->array[vertex_offset + 3].x = left + (float)glyph->width;
     vertices->array[vertex_offset + 3].y = bottom;
+    vertices->array[vertex_offset + 3].z = z;
     vertices->array[vertex_offset + 3].r = r;
     vertices->array[vertex_offset + 3].g = g;
     vertices->array[vertex_offset + 3].b = b;
@@ -207,7 +211,7 @@ void NU_Add_Glyph_Mesh(Vertex_RGB_UV_List* vertices, Index_List* indices, NU_Gly
     indices->size += 6;
 }
 
-void NU_Generate_Text_Mesh(Vertex_RGB_UV_List* vertices, Index_List* indices, NU_Font* font, const char* string, float x, float y, float r, float g, float b, float maxWidth)
+void NU_Generate_Text_Mesh(Vertex_RGB_UV_List* vertices, Index_List* indices, NU_Font* font, const char* string, float x, float y, float z, float r, float g, float b, float maxWidth)
 {
     int string_len = strlen(string);
     if (string_len == 0) return;
@@ -220,7 +224,7 @@ void NU_Generate_Text_Mesh(Vertex_RGB_UV_List* vertices, Index_List* indices, NU
     if (vertices->size + additional_vertices > vertices->capacity) Vertex_RGB_UV_List_Grow(vertices, additional_vertices);
     if (indices->size + additional_indices > indices->capacity) Index_List_Grow(indices, additional_indices);
 
-    NU_Glyph* first_glyph = (NU_Glyph*)Vector_Get(&font->glyphs, string[0] - 32);
+    NU_Glyph* first_glyph = (NU_Glyph*)ArrayGet(&font->glyphs, string[0] - 32);
 
     float pen_x = x - first_glyph->bearingX;
     float pen_y = y + font->ascent;
@@ -230,7 +234,7 @@ void NU_Generate_Text_Mesh(Vertex_RGB_UV_List* vertices, Index_List* indices, NU
 
         if (c == ' ' && i > 0)
         {
-            NU_Glyph* space_glyph = (NU_Glyph*)Vector_Get(&font->glyphs, string[i] - 32);
+            NU_Glyph* space_glyph = (NU_Glyph*)ArrayGet(&font->glyphs, string[i] - 32);
             float space_advance = space_glyph->advance + font->kerning_table[string[i-1] - 32][string[i] - 32];
 
             // Calculate width of next word
@@ -239,37 +243,37 @@ void NU_Generate_Text_Mesh(Vertex_RGB_UV_List* vertices, Index_List* indices, NU
             while (j < string_len)
             {
                 if (string[j] == ' ') break;
-                NU_Glyph* g = (NU_Glyph*)Vector_Get(&font->glyphs, string[j] - 32);
+                NU_Glyph* g = (NU_Glyph*)ArrayGet(&font->glyphs, string[j] - 32);
                 next_word_width += g->advance;
                 if (j > i + 1) next_word_width += font->kerning_table[string[j-1] - 32][string[j] - 32]; // Kerning
                 j++;
             }
             if (j - i - 1 > 0)
             {
-                NU_Glyph* word_last_g = (NU_Glyph*)Vector_Get(&font->glyphs, string[j - 1] - 32);
+                NU_Glyph* word_last_g = (NU_Glyph*)ArrayGet(&font->glyphs, string[j - 1] - 32);
                 next_word_width -= word_last_g->bearingX;
             }
 
             // If next word overflows width -> wrap onto new line
             if (pen_x - x + space_advance + next_word_width > maxWidth + 1.0f)
             {
-                first_glyph = (NU_Glyph*)Vector_Get(&font->glyphs, string[i + 1] - 32);
+                first_glyph = (NU_Glyph*)ArrayGet(&font->glyphs, string[i + 1] - 32);
                 pen_x = x - first_glyph->bearingX;
                 pen_y += font->line_height;
             }
             else
             {
-                NU_Glyph* glyph = (NU_Glyph*)Vector_Get(&font->glyphs, c - 32);
+                NU_Glyph* glyph = (NU_Glyph*)ArrayGet(&font->glyphs, c - 32);
                 pen_x += font->kerning_table[string[i-1] - 32][string[i] - 32]; // Kerning
-                NU_Add_Glyph_Mesh(vertices, indices, glyph, pen_x, pen_y, r, g, b);
+                NU_Add_Glyph_Mesh(vertices, indices, glyph, pen_x, pen_y, z, r, g, b);
                 pen_x += space_advance;
             }
         }
         else
         {
-            NU_Glyph* glyph = (NU_Glyph*)Vector_Get(&font->glyphs, string[i] - 32);
+            NU_Glyph* glyph = (NU_Glyph*)ArrayGet(&font->glyphs, string[i] - 32);
             if (i > 0) pen_x += font->kerning_table[string[i-1] - 32][string[i] - 32]; // Kerning
-            NU_Add_Glyph_Mesh(vertices, indices, glyph, pen_x, pen_y, r, g, b);
+            NU_Add_Glyph_Mesh(vertices, indices, glyph, pen_x, pen_y, z, r, g, b);
             pen_x += glyph->advance;
         }
     }
@@ -291,7 +295,7 @@ u32 NU_Calculate_Unwrapped_Text_Cursorbytes(NU_Font* font, const char* string, f
         if (cp == 0) break; // end of string
 
         // Lookup glyph (assumes font->glyphs starts at ASCII 32)
-        NU_Glyph* g = (NU_Glyph*)Vector_Get(&font->glyphs, cp - 32);
+        NU_Glyph* g = (NU_Glyph*)ArrayGet(&font->glyphs, cp - 32);
         if (!g) continue; // skip missing glyphs
 
         // Add kerning from previous glyph

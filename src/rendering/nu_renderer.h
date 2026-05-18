@@ -47,7 +47,7 @@ int NU_Draw_Init()
     // ---------------
     const char* borderRectVertSrc =
     "#version 330 core\n"
-    "layout(location = 0) in vec2 aPos;\n"
+    "layout(location = 0) in vec3 aPos;\n"
     "layout(location = 1) in vec3 aColor;\n"
     "out vec3 vColor;\n"
     "out vec2 vScreenPos;\n"
@@ -59,7 +59,7 @@ int NU_Draw_Init()
     "    // Convert screen position (pixels) to NDC for gl_Position\n"
     "    float ndc_x = ((aPos.x + uOffsetX) / uScreenWidth) * 2.0 - 1.0;\n"
     "    float ndc_y = 1.0 - ((aPos.y + uOffsetY) / uScreenHeight) * 2.0;\n"
-    "    gl_Position = vec4(ndc_x, ndc_y, 0.0, 1.0);\n"
+    "    gl_Position = vec4(ndc_x, ndc_y, aPos.z * 0.003f, 1.0);\n"
     "    vColor = aColor;\n"
     "    vScreenPos = vec2(aPos.x + uOffsetX, aPos.y + uOffsetY);\n"
     "}\n";
@@ -96,7 +96,7 @@ int NU_Draw_Init()
     // -----------------
     const char* imageVertSrc =
     "#version 330 core\n"
-    "layout(location = 0) in vec2 aPos;\n"
+    "layout(location = 0) in vec3 aPos;\n"
     "layout(location = 1) in vec2 aUV;\n"
     "out vec2 vUV;\n"
     "out vec2 vScreenPos;\n"
@@ -106,9 +106,9 @@ int NU_Draw_Init()
     "    // Convert screen position (pixels) to NDC for gl_Position\n"
     "    float ndc_x = (aPos.x / uScreenWidth) * 2.0 - 1.0;\n"
     "    float ndc_y = 1.0 - (aPos.y / uScreenHeight) * 2.0;\n"
-    "    gl_Position = vec4(ndc_x, ndc_y, 0.0, 1.0);\n"
+    "    gl_Position = vec4(ndc_x, ndc_y, aPos.z * 0.003f, 1.0);\n"
     "    vUV = aUV;\n"
-    "    vScreenPos = aPos;\n"
+    "    vScreenPos = vec2(aPos.x, aPos.y);\n"
     "}\n";
     const char* imageFragSrc =
     "#version 330 core\n"
@@ -161,9 +161,9 @@ int NU_Draw_Init()
     glBindVertexArray(borderVao);
     glGenBuffers(1, &borderVbo);
     glBindBuffer(GL_ARRAY_BUFFER, borderVbo);
-    glVertexAttribPointer(0, 2, GL_FLOAT, GL_FALSE, sizeof(vertex_rgb), (void*)0); // x,y
+    glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, sizeof(vertex_rgb), (void*)0); // x,y,z
     glEnableVertexAttribArray(0);
-    glVertexAttribPointer(1, 3, GL_FLOAT, GL_TRUE, sizeof(vertex_rgb), (void*)(2 * sizeof(float))); // r,g,b
+    glVertexAttribPointer(1, 3, GL_FLOAT, GL_TRUE, sizeof(vertex_rgb), (void*)(3 * sizeof(float))); // r,g,b
     glEnableVertexAttribArray(1);
     glGenBuffers(1, &borderEbo);
     glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, borderEbo);
@@ -174,9 +174,9 @@ int NU_Draw_Init()
     glBindVertexArray(imageVao);
     glGenBuffers(1, &imageVbo);
     glBindBuffer(GL_ARRAY_BUFFER, imageVbo);
-    glVertexAttribPointer(0, 2, GL_FLOAT, GL_FALSE, sizeof(vertex_uv), (void*)0); // x,y
+    glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, sizeof(vertex_uv), (void*)0); // x,y,z
     glEnableVertexAttribArray(0);
-    glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, sizeof(vertex_uv), (void*)(2 * sizeof(float))); // u,v
+    glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, sizeof(vertex_uv), (void*)(3 * sizeof(float))); // u,v
     glEnableVertexAttribArray(1);
     glGenBuffers(1, &imageEbo);
     glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, imageEbo);
@@ -191,7 +191,7 @@ int NU_Draw_Init()
     // ----------------
     const char* textVertexSrc = 
     "#version 330 core\n"
-    "layout(location = 0) in vec2 aPos;\n"
+    "layout(location = 0) in vec3 aPos;\n"
     "layout(location = 1) in vec3 aColor;\n"
     "layout(location = 2) in vec2 aUV;\n"
     "out vec3 vColor;\n"
@@ -204,7 +204,7 @@ int NU_Draw_Init()
     "void main() {\n"
     "    float ndc_x = ((aPos.x + uOffsetX) / uScreenWidth) * 2.0 - 1.0;\n"
     "    float ndc_y = 1.0 - ((aPos.y + uOffsetY) / uScreenHeight) * 2.0;\n"
-    "    gl_Position = vec4(ndc_x, ndc_y, 0.0, 1.0);\n"
+    "    gl_Position = vec4(ndc_x, ndc_y, aPos.z * 0.003f, 1.0);\n"
     "    vColor = aColor;\n"
     "    vUV = aUV;\n"
     "    vScreenPos = vec2(aPos.x + uOffsetX, aPos.y + uOffsetY);\n"
@@ -288,11 +288,11 @@ int NU_Draw_Init()
     glBindVertexArray(text_vao);
     glGenBuffers(1, &text_vbo);
     glBindBuffer(GL_ARRAY_BUFFER, text_vbo);
-    glVertexAttribPointer(0, 2, GL_FLOAT, GL_FALSE, sizeof(vertex_rgb_uv), (void*)0); // x,y
+    glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, sizeof(vertex_rgb_uv), (void*)0); // x,y,z
     glEnableVertexAttribArray(0);
-    glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, sizeof(vertex_rgb_uv), (void*)(2 * sizeof(float))); // r,g,b
+    glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, sizeof(vertex_rgb_uv), (void*)(3 * sizeof(float))); // r,g,b
     glEnableVertexAttribArray(1);
-    glVertexAttribPointer(2, 2, GL_FLOAT, GL_FALSE, sizeof(vertex_rgb_uv), (void*)(5 * sizeof(float))); // u,v
+    glVertexAttribPointer(2, 2, GL_FLOAT, GL_FALSE, sizeof(vertex_rgb_uv), (void*)(6 * sizeof(float))); // u,v
     glEnableVertexAttribArray(2);
     glGenBuffers(1, &text_ebo);
     glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, text_ebo);
@@ -367,17 +367,17 @@ void Draw_Clipped_Vertex_RGB_List
 // -------------------------------
 void NU_Draw_Image(
     float x, float y, 
-    float w, float h, 
+    float w, float h, float z,
     float screen_width, float screen_height,
     float clip_top, float clip_bottom, float clip_left, float clip_right, 
     GLuint image_handle)
 {
     // Mesh 
     vertex_uv vertices[4] = {
-        { x,     y,     0.0f, 0.0f }, // top-left
-        { x+w,   y,     1.0f, 0.0f }, // top-right
-        { x,     y+h,   0.0f, 1.0f }, // bottom-left
-        { x+w,   y+h,   1.0f, 1.0f }, // bottom-right
+        { x,     y,   z, 0.0f, 0.0f }, // top-left
+        { x+w,   y,   z, 1.0f, 0.0f }, // top-right
+        { x,     y+h, z, 0.0f, 1.0f }, // bottom-left
+        { x+w,   y+h, z, 1.0f, 1.0f }, // bottom-right
     };
     GLuint indices[6] = { 0, 1, 2, 1, 2, 3 };
 

@@ -12,10 +12,26 @@ int NU_Internal_Get_Canvas_Context(Node* node)
     if (nodeP->typeData.canvas.ctxHandle != -1) return nodeP->typeData.canvas.ctxHandle;
 
     // Create a new canvas ctx
-    NU_Canvas_Context ctx; 
-    ctx.currentLayerType = NU_CANVAS_UNDEFINED_LAYER;
+    NU_Canvas_Context ctx;
+    ctx.isShapeLayer = true; 
     ctx.fontID = 0;
-    Vector_Reserve(&ctx.canvasLayers, sizeof(CanvasLayer), 50);
+    ctx.z = 0;
+    ctx.textLayerIndex = 0;
+    ctx.node = nodeP;
+    ArrayInit(&ctx.textLayers, sizeof(CanvasTextLayer), 4);
+
+    // Create default text layer
+    CanvasTextLayer textLayer;
+    textLayer.fontID = 0;
+    Vertex_RGB_UV_List_Init(&textLayer.vertices, 256);
+    Index_List_Init(&textLayer.indices, 512);
+    ArrayPush(&ctx.textLayers, &textLayer);
+
+    // Create shape layer
+    Vertex_RGB_List_Init(&ctx.shapeLayer.vertices, 1024);
+    Index_List_Init(&ctx.shapeLayer.indices, 2048);
+
+    // Add ctx
     int ctxId = Container_Add(&GUI.canvasContexts, &ctx);
     nodeP->typeData.canvas.ctxHandle = ctxId;
     return ctxId;
@@ -27,14 +43,18 @@ void NU_DeleteCanvasContext(int contextID)
     if (ctx == NULL) return;
 
     // Free vertices and indices of each layer
-    for (u32 i=0; i<ctx->canvasLayers.size; i++) {
-        CanvasLayer* layer = Vector_Get(&ctx->canvasLayers, i);
-        if (layer->type == NU_CANVAS_SHAPE_LAYER) Vertex_RGB_List_Free(&layer->vertexData.shapeVertices);
-        else Vertex_RGB_UV_List_Free(&layer->vertexData.textVertices);
+    for (u32 i=0; i<ctx->textLayers.size; i++) {
+        CanvasTextLayer* layer = ArrayGet(&ctx->textLayers, i);
+        Vertex_RGB_UV_List_Free(&layer->vertices);
         Index_List_Free(&layer->indices);
     }
-    Vector_Free(&ctx->canvasLayers);
+    ArrayFree(&ctx->textLayers);
 
+    // Free vertices and indices of shape layer
+    Vertex_RGB_List_Free(&ctx->shapeLayer.vertices);
+    Index_List_Free(&ctx->shapeLayer.indices);
+
+    // Remove ctx
     Container_Remove(&GUI.canvasContexts, contextID);
 }
 
@@ -43,41 +63,23 @@ void NU_Internal_Clear_Canvas(int contextID)
     NU_Canvas_Context* ctx = Container_Get(&GUI.canvasContexts, contextID); 
     if (ctx == NULL) return;
 
-    // Free vertices and indices of each layer
-    for (u32 i=0; i<ctx->canvasLayers.size; i++) {
-        CanvasLayer* layer = Vector_Get(&ctx->canvasLayers, i);
-        if (layer->type == NU_CANVAS_SHAPE_LAYER) Vertex_RGB_List_Free(&layer->vertexData.shapeVertices);
-        else Vertex_RGB_UV_List_Free(&layer->vertexData.textVertices);
-        Index_List_Free(&layer->indices);
+    // Clear vertices and indices of each text layer (except layer 0)
+    for (u32 i=0; i<ctx->textLayers.size; i++) {
+        CanvasTextLayer* layer = ArrayGet(&ctx->textLayers, i);
+        Vertex_RGB_UV_List_Clear(&layer->vertices);
+        Index_List_Clear(&layer->indices);
+        layer->fontID = 0;
     }
 
-    // Clear layers
-    Vector_Clear(&ctx->canvasLayers);
+    // Clear vertices and indices of shape layer
+    Vertex_RGB_List_Clear(&ctx->shapeLayer.vertices);
+    Index_List_Clear(&ctx->shapeLayer.indices);
 
-    // uninit ctx state
+    // Reset state
     ctx->fontID = 0;
-    ctx->currentLayerType = NU_CANVAS_UNDEFINED_LAYER;
-}
-
-void NU_New_Canvas_Layer(NU_Canvas_Context* ctx, CanvasLayerType type)
-{
-    CanvasLayer* layer = Vector_Push_Empty(&ctx->canvasLayers);
-    layer->type = type;
-    if (type == NU_CANVAS_SHAPE_LAYER) {
-        Vertex_RGB_List_Init(&layer->vertexData.shapeVertices, 128);
-    }
-    else {
-        Vertex_RGB_UV_List_Init(&layer->vertexData.textVertices, 128);
-        layer->fontID = ctx->fontID;
-    }
-    Index_List_Init(&layer->indices, 128);
-    ctx->currentLayerType = type;
-}
-
-inline CanvasLayer* NU_Canvas_Current_Layer(NU_Canvas_Context* ctx)
-{
-    CanvasLayer* layer = Vector_Get(&ctx->canvasLayers, ctx->canvasLayers.size - 1);
-    return layer;
+    ctx->z = 0;
+    ctx->textLayerIndex = 0;
+    ctx->isShapeLayer = true;
 }
 
 void NU_Internal_Border_Rect(
@@ -97,15 +99,15 @@ void NU_Internal_Border_Rect(
     // Skip function if rect is not visible
     if (x + w < 0.0f || x > ctx->canvasWidth || y + h < 0.0f || y > ctx->canvasHeight) return;
 
-    // Check if it is necessary to create a new layer
-    if (ctx->canvasLayers.size == 0 || ctx->currentLayerType == NU_CANVAS_TEXT_LAYER) {
-        NU_New_Canvas_Layer(ctx, NU_CANVAS_SHAPE_LAYER);
+    // Switching from text -> shape, increase depth
+    if (!ctx->isShapeLayer) {
+        ctx->isShapeLayer = true;
+        ctx->z++;
     }
 
     // Get vertex and index lists
-    CanvasLayer* layer = NU_Canvas_Current_Layer(ctx);
-    Vertex_RGB_List* vertices = &layer->vertexData.shapeVertices;
-    Index_List* indices = &layer->indices;
+    Vertex_RGB_List* vertices = &ctx->shapeLayer.vertices;
+    Index_List* indices = &ctx->shapeLayer.indices;
 
     // --- Allocate extra space in vertex and index lists ---
     u32 additional_vertices = 12;    
@@ -115,89 +117,43 @@ void NU_Internal_Border_Rect(
 
     u32 vertex_offset = vertices->size;
 
+    float z = (float)(ctx->node->layer) + ctx->z * 0.05f;
+
     // Outer TL
-    vertices->array[vertex_offset].x = x;
-    vertices->array[vertex_offset].y = y;
-    vertices->array[vertex_offset].r = border_col.r;
-    vertices->array[vertex_offset].g = border_col.g;
-    vertices->array[vertex_offset].b = border_col.b;
+    vertices->array[vertex_offset] = (vertex_rgb){ x, y, z, border_col.r, border_col.g, border_col.b };
 
     // Outer TR
-    vertices->array[vertex_offset + 1].x = x + w;
-    vertices->array[vertex_offset + 1].y = y;
-    vertices->array[vertex_offset + 1].r = border_col.r;
-    vertices->array[vertex_offset + 1].g = border_col.g;
-    vertices->array[vertex_offset + 1].b = border_col.b;
+    vertices->array[vertex_offset + 1] = (vertex_rgb){ x + w, y, z, border_col.r, border_col.g, border_col.b };
 
     // Outer BL
-    vertices->array[vertex_offset + 2].x = x;
-    vertices->array[vertex_offset + 2].y = y + h;
-    vertices->array[vertex_offset + 2].r = border_col.r;
-    vertices->array[vertex_offset + 2].g = border_col.g;
-    vertices->array[vertex_offset + 2].b = border_col.b;
+    vertices->array[vertex_offset + 2] = (vertex_rgb){ x, y + h, z, border_col.r, border_col.g, border_col.b };
 
     // Outer BR
-    vertices->array[vertex_offset + 3].x = x + w;
-    vertices->array[vertex_offset + 3].y = y + h;
-    vertices->array[vertex_offset + 3].r = border_col.r;
-    vertices->array[vertex_offset + 3].g = border_col.g;
-    vertices->array[vertex_offset + 3].b = border_col.b;
+    vertices->array[vertex_offset + 3] = (vertex_rgb){ x + w, y + h, z, border_col.r, border_col.g, border_col.b };
 
     // Inner TL
-    vertices->array[vertex_offset + 4].x = x + thickness;
-    vertices->array[vertex_offset + 4].y = y + thickness;
-    vertices->array[vertex_offset + 4].r = border_col.r;
-    vertices->array[vertex_offset + 4].g = border_col.g;
-    vertices->array[vertex_offset + 4].b = border_col.b;
+    vertices->array[vertex_offset + 4] = (vertex_rgb){ x + thickness, y + thickness, z, border_col.r, border_col.g, border_col.b };
 
     // Inner TR
-    vertices->array[vertex_offset + 5].x = x + w - thickness;
-    vertices->array[vertex_offset + 5].y = y + thickness;
-    vertices->array[vertex_offset + 5].r = border_col.r;
-    vertices->array[vertex_offset + 5].g = border_col.g;
-    vertices->array[vertex_offset + 5].b = border_col.b;
+    vertices->array[vertex_offset + 5] = (vertex_rgb){ x + w - thickness, y + thickness, z, border_col.r, border_col.g, border_col.b };
 
     // Inner BL
-    vertices->array[vertex_offset + 6].x = x + thickness;
-    vertices->array[vertex_offset + 6].y = y + h - thickness;
-    vertices->array[vertex_offset + 6].r = border_col.r;
-    vertices->array[vertex_offset + 6].g = border_col.g;
-    vertices->array[vertex_offset + 6].b = border_col.b;
+    vertices->array[vertex_offset + 6] = (vertex_rgb){ x + thickness, y + h - thickness, z, border_col.r, border_col.g, border_col.b };
 
     // Inner BR
-    vertices->array[vertex_offset + 7].x = x + w - thickness;
-    vertices->array[vertex_offset + 7].y = y + h - thickness;
-    vertices->array[vertex_offset + 7].r = border_col.r;
-    vertices->array[vertex_offset + 7].g = border_col.g;
-    vertices->array[vertex_offset + 7].b = border_col.b;
+    vertices->array[vertex_offset + 7] = (vertex_rgb){ x + w - thickness, y + h - thickness, z, border_col.r, border_col.g, border_col.b };
 
     // Fill TL
-    vertices->array[vertex_offset + 8].x = x + thickness;
-    vertices->array[vertex_offset + 8].y = y + thickness;
-    vertices->array[vertex_offset + 8].r = fill_col.r;
-    vertices->array[vertex_offset + 8].g = fill_col.g;
-    vertices->array[vertex_offset + 8].b = fill_col.b;
+    vertices->array[vertex_offset + 8] = (vertex_rgb){ x + thickness, y + thickness, z, fill_col.r, fill_col.g, fill_col.b };
 
     // Fill TR
-    vertices->array[vertex_offset + 9].x = x + w - thickness;
-    vertices->array[vertex_offset + 9].y = y + thickness;
-    vertices->array[vertex_offset + 9].r = fill_col.r;
-    vertices->array[vertex_offset + 9].g = fill_col.g;
-    vertices->array[vertex_offset + 9].b = fill_col.b;
+    vertices->array[vertex_offset + 9] = (vertex_rgb){ x + w - thickness, y + thickness, z, fill_col.r, fill_col.g, fill_col.b };
 
     // Fill BL
-    vertices->array[vertex_offset + 10].x = x + thickness;
-    vertices->array[vertex_offset + 10].y = y + h - thickness;
-    vertices->array[vertex_offset + 10].r = fill_col.r;
-    vertices->array[vertex_offset + 10].g = fill_col.g;
-    vertices->array[vertex_offset + 10].b = fill_col.b;
+    vertices->array[vertex_offset + 10] = (vertex_rgb){ x + thickness, y + h - thickness, z, fill_col.r, fill_col.g, fill_col.b };
 
     // Fill BR
-    vertices->array[vertex_offset + 11].x = x + w - thickness;
-    vertices->array[vertex_offset + 11].y = y + h - thickness;
-    vertices->array[vertex_offset + 11].r = fill_col.r;
-    vertices->array[vertex_offset + 11].g = fill_col.g;
-    vertices->array[vertex_offset + 11].b = fill_col.b;
+    vertices->array[vertex_offset + 11] = (vertex_rgb){ x + w - thickness, y + h - thickness, z, fill_col.r, fill_col.g, fill_col.b };
 
     // Indices
     u32* indices_write = indices->array + indices->size;
@@ -263,19 +219,19 @@ void NU_Internal_Triangle(
     float maxX = fmaxf(x1, fmaxf(x2, x3));
     float minY = fminf(y1, fminf(y2, y3));
     float maxY = fmaxf(y1, fmaxf(y2, y3));
-    if (maxX < 0.0f || minX > ctx->canvasWidth || maxY < 0.0f || minY > ctx->canvasHeight) {
-        return;
-    }
+    if (maxX < 0.0f || minX > ctx->canvasWidth || maxY < 0.0f || minY > ctx->canvasHeight) return;
 
-    // Check if it is necessary to create a new layer
-    if (ctx->canvasLayers.size == 0 || ctx->currentLayerType == NU_CANVAS_TEXT_LAYER) {
-        NU_New_Canvas_Layer(ctx, NU_CANVAS_SHAPE_LAYER);
+    // Switching from text -> shape, increase depth
+    if (!ctx->isShapeLayer) {
+        ctx->isShapeLayer = true;
+        ctx->z++;
     }
 
     // Get vertex and index lists
-    CanvasLayer* layer = NU_Canvas_Current_Layer(ctx);
-    Vertex_RGB_List* vertices = &layer->vertexData.shapeVertices;
-    Index_List* indices = &layer->indices;
+    Vertex_RGB_List* vertices = &ctx->shapeLayer.vertices;
+    Index_List* indices = &ctx->shapeLayer.indices;
+
+    float z = (float)(ctx->node->layer) + ctx->z * 0.05f;
 
     // --- Allocate extra space in vertex and index lists ---
     u32 additional_vertices = 6;    
@@ -301,18 +257,15 @@ void NU_Internal_Triangle(
 
     // --- Inner triangle (fill) ---
     vertices->array[vertex_offset + 3] = (vertex_rgb){
-        x1 + dx1 * thickness,
-        y1 + dy1 * thickness,
+        x1 + dx1 * thickness, y1 + dy1 * thickness, z,
         fill_col.r, fill_col.g, fill_col.b
     };
     vertices->array[vertex_offset + 4] = (vertex_rgb){
-        x2 + dx2 * thickness,
-        y2 + dy2 * thickness,
+        x2 + dx2 * thickness, y2 + dy2 * thickness, z,
         fill_col.r, fill_col.g, fill_col.b
     };
     vertices->array[vertex_offset + 5] = (vertex_rgb){
-        x3 + dx3 * thickness,
-        y3 + dy3 * thickness,
+        x3 + dx3 * thickness, y3 + dy3 * thickness, z,
         fill_col.r, fill_col.g, fill_col.b
     };
 
@@ -361,23 +314,23 @@ void NU_Internal_Vline(int contextID, float x, float y, float height, float thic
     float canvasHeight = ctx->canvasHeight;
 
     // Skip if line is not visible on canvas
-    if (x < -thickness || x > canvasWidth + thickness || y > canvasHeight || y + height < 0.0f) {
-        return;
-    }
+    if (x < -thickness || x > canvasWidth + thickness || y > canvasHeight || y + height < 0.0f) return;
 
     // Constrain to avoid large numbers
     if (y < 0.0f) y = 0.0f;
     if (y + height > canvasHeight) height = canvasHeight - y;
 
-    // Check if it is necessary to create a new layer
-    if (ctx->canvasLayers.size == 0 || ctx->currentLayerType == NU_CANVAS_TEXT_LAYER) {
-        NU_New_Canvas_Layer(ctx, NU_CANVAS_SHAPE_LAYER);
+    // Switching from text -> shape, increase depth
+    if (!ctx->isShapeLayer) {
+        ctx->isShapeLayer = true;
+        ctx->z++;
     }
 
     // Get vertex and index lists
-    CanvasLayer* layer = NU_Canvas_Current_Layer(ctx);
-    Vertex_RGB_List* vertices = &layer->vertexData.shapeVertices;
-    Index_List* indices = &layer->indices;
+    Vertex_RGB_List* vertices = &ctx->shapeLayer.vertices;
+    Index_List* indices = &ctx->shapeLayer.indices;
+
+    float z = (float)(ctx->node->layer) + ctx->z * 0.05f;
 
     // --- Allocate extra space in vertex and index lists ---
     u32 additional_vertices = 4;    
@@ -391,34 +344,10 @@ void NU_Internal_Vline(int contextID, float x, float y, float height, float thic
  
     // Create mesh
     u32 vertex_offset = vertices->size;
-
-    // Bottom point (y) - thick -
-    vertices->array[vertex_offset].x = x - half_thick;
-    vertices->array[vertex_offset].y = y;
-    vertices->array[vertex_offset].r = col.r;
-    vertices->array[vertex_offset].g = col.g;
-    vertices->array[vertex_offset].b = col.b;
-
-    // Bottom point (y) - thick + 
-    vertices->array[vertex_offset + 1].x = x + half_thick;
-    vertices->array[vertex_offset + 1].y = y;
-    vertices->array[vertex_offset + 1].r = col.r;
-    vertices->array[vertex_offset + 1].g = col.g;
-    vertices->array[vertex_offset + 1].b = col.b;
-
-    // Top point (y1) - thick -
-    vertices->array[vertex_offset + 2].x = x - half_thick;
-    vertices->array[vertex_offset + 2].y = y + height;
-    vertices->array[vertex_offset + 2].r = col.r;
-    vertices->array[vertex_offset + 2].g = col.g;
-    vertices->array[vertex_offset + 2].b = col.b;
-
-    // Top point (y1) - thick + 
-    vertices->array[vertex_offset + 3].x = x + half_thick;
-    vertices->array[vertex_offset + 3].y = y + height;
-    vertices->array[vertex_offset + 3].r = col.r;
-    vertices->array[vertex_offset + 3].g = col.g;
-    vertices->array[vertex_offset + 3].b = col.b;
+    vertices->array[vertex_offset] = (vertex_rgb){ x - half_thick, y, z, col.r, col.g, col.b }; // Bottom point (y) - thick -
+    vertices->array[vertex_offset + 1] = (vertex_rgb){ x + half_thick, y, z, col.r, col.g, col.b }; // Bottom point (y) - thick + 
+    vertices->array[vertex_offset + 2] = (vertex_rgb){ x - half_thick, y + height, z, col.r, col.g, col.b }; // Top point (y1) - thick -
+    vertices->array[vertex_offset + 3] = (vertex_rgb){ x + half_thick, y + height, z, col.r, col.g, col.b }; // Top point (y1) - thick + 
 
     // Indices
     u32* indices_write = indices->array + indices->size;
@@ -442,23 +371,23 @@ void NU_Internal_Hline(int contextID, float x, float y, float width, float thick
     float canvasHeight = ctx->canvasHeight;
 
     // Skip if line is not visible on canvas
-    if (y < -thickness || y > canvasHeight + thickness || x > canvasWidth || x + width < 0.0f) {
-        return;
-    }
+    if (y < -thickness || y > canvasHeight + thickness || x > canvasWidth || x + width < 0.0f) return;
 
     // Constrain to avoid large numbers
     if (x < 0.0f) x = 0.0f;
     if (x + width > canvasWidth) width = canvasWidth - x;
 
-    // Check if it is necessary to create a new layer
-    if (ctx->canvasLayers.size == 0 || ctx->currentLayerType == NU_CANVAS_TEXT_LAYER) {
-        NU_New_Canvas_Layer(ctx, NU_CANVAS_SHAPE_LAYER);
+    // Switching from text -> shape, increase depth
+    if (!ctx->isShapeLayer) {
+        ctx->isShapeLayer = true;
+        ctx->z++;
     }
 
     // Get vertex and index lists
-    CanvasLayer* layer = NU_Canvas_Current_Layer(ctx);
-    Vertex_RGB_List* vertices = &layer->vertexData.shapeVertices;
-    Index_List* indices = &layer->indices;
+    Vertex_RGB_List* vertices = &ctx->shapeLayer.vertices;
+    Index_List* indices = &ctx->shapeLayer.indices;
+
+    float z = (float)(ctx->node->layer) + ctx->z * 0.05f;
 
     // --- Allocate extra space in vertex and index lists ---
     u32 additional_vertices = 4;    
@@ -472,34 +401,10 @@ void NU_Internal_Hline(int contextID, float x, float y, float width, float thick
     
     // Create mesh
     u32 vertex_offset = vertices->size;
-
-    // Left point (x) - thick -
-    vertices->array[vertex_offset].x = x;
-    vertices->array[vertex_offset].y = y - half_thick;
-    vertices->array[vertex_offset].r = col.r;
-    vertices->array[vertex_offset].g = col.g;
-    vertices->array[vertex_offset].b = col.b;
-
-    // Left point (x) - thick + 
-    vertices->array[vertex_offset + 1].x = x;
-    vertices->array[vertex_offset + 1].y = y + half_thick;
-    vertices->array[vertex_offset + 1].r = col.r;
-    vertices->array[vertex_offset + 1].g = col.g;
-    vertices->array[vertex_offset + 1].b = col.b;
-
-    // Right point (x1) - thick -
-    vertices->array[vertex_offset + 2].x = x + width;
-    vertices->array[vertex_offset + 2].y = y - half_thick;
-    vertices->array[vertex_offset + 2].r = col.r;
-    vertices->array[vertex_offset + 2].g = col.g;
-    vertices->array[vertex_offset + 2].b = col.b;
-
-    // Right point (x1) - thick + 
-    vertices->array[vertex_offset + 3].x = x + width;
-    vertices->array[vertex_offset + 3].y = y + half_thick;
-    vertices->array[vertex_offset + 3].r = col.r;
-    vertices->array[vertex_offset + 3].g = col.g;
-    vertices->array[vertex_offset + 3].b = col.b;
+    vertices->array[vertex_offset] = (vertex_rgb){ x, y - half_thick, z, col.r, col.g, col.b }; // Left point (x) - thick -
+    vertices->array[vertex_offset + 1] = (vertex_rgb){ x, y + half_thick, z, col.r, col.g, col.b }; // Left point (x) - thick + 
+    vertices->array[vertex_offset + 2] = (vertex_rgb){ x + width, y - half_thick, z, col.r, col.g, col.b }; // Right point (x1) - thick -
+    vertices->array[vertex_offset + 3] = (vertex_rgb){ x + width, y + half_thick, z, col.r, col.g, col.b }; // Right point (x1) - thick + 
 
     // Indices
     u32* indices_write = indices->array + indices->size;
@@ -623,15 +528,17 @@ void NU_Internal_Line(
         x2 = nx2; y2 = ny2;
     }
 
-    // Check if it is necessary to create a new layer
-    if (ctx->canvasLayers.size == 0 || ctx->currentLayerType == NU_CANVAS_TEXT_LAYER) {
-        NU_New_Canvas_Layer(ctx, NU_CANVAS_SHAPE_LAYER);
+    // Switching from text -> shape, increase depth
+    if (!ctx->isShapeLayer) {
+        ctx->isShapeLayer = true;
+        ctx->z++;
     }
 
     // Get vertex and index lists
-    CanvasLayer* layer = NU_Canvas_Current_Layer(ctx);
-    Vertex_RGB_List* vertices = &layer->vertexData.shapeVertices;
-    Index_List* indices = &layer->indices;
+    Vertex_RGB_List* vertices = &ctx->shapeLayer.vertices;
+    Index_List* indices = &ctx->shapeLayer.indices;
+
+    float z = (float)(ctx->node->layer) + ctx->z * 0.05f;
 
     // --- Allocate extra space in vertex and index lists ---
     u32 additional_vertices = 4;    
@@ -659,35 +566,10 @@ void NU_Internal_Line(
 
 
     u32 vertex_offset = vertices->size;
-
-    // V1 -> thick -
-    vertices->array[vertex_offset].x = x1 - px;
-    vertices->array[vertex_offset].y = y1 - py;
-    vertices->array[vertex_offset].r = col.r;
-    vertices->array[vertex_offset].g = col.g;
-    vertices->array[vertex_offset].b = col.b;
-
-    // V1 -> thick + 
-    vertices->array[vertex_offset + 1].x = x1 + px;
-    vertices->array[vertex_offset + 1].y = y1 + py;
-    vertices->array[vertex_offset + 1].r = col.r;
-    vertices->array[vertex_offset + 1].g = col.g;
-    vertices->array[vertex_offset + 1].b = col.b;
-
-    // V2 -> thick -
-    vertices->array[vertex_offset + 2].x = x2 - px;
-    vertices->array[vertex_offset + 2].y = y2 - py;
-    vertices->array[vertex_offset + 2].r = col.r;
-    vertices->array[vertex_offset + 2].g = col.g;
-    vertices->array[vertex_offset + 2].b = col.b;
-
-    // V2 -> thick + 
-    vertices->array[vertex_offset + 3].x = x2 + px;
-    vertices->array[vertex_offset + 3].y = y2 + py;
-    vertices->array[vertex_offset + 3].r = col.r;
-    vertices->array[vertex_offset + 3].g = col.g;
-    vertices->array[vertex_offset + 3].b = col.b;
-
+    vertices->array[vertex_offset] = (vertex_rgb){ x1 - px, y1 - py, z, col.r, col.g, col.b }; // V1 -> thick -
+    vertices->array[vertex_offset + 1] = (vertex_rgb){ x1 + px, y1 + py, z, col.r, col.g, col.b }; // V1 -> thick + 
+    vertices->array[vertex_offset + 2] = (vertex_rgb){ x2 - px, y2 - py, z, col.r, col.g, col.b }; // V2 -> thick -
+    vertices->array[vertex_offset + 3] = (vertex_rgb){ x2 + px, y2 + py, z, col.r, col.g, col.b }; // V2 -> thick + 
 
     // Indices
     u32* indices_write = indices->array + indices->size;
@@ -883,15 +765,18 @@ void NU_Internal_Dashed_Line(
     float step_x = dx * inv_len;
     float step_y = dy * inv_len;
 
-    // Add new layer if necessary
-    if (ctx->canvasLayers.size == 0 || ctx->currentLayerType == NU_CANVAS_TEXT_LAYER) {
-        NU_New_Canvas_Layer(ctx, NU_CANVAS_SHAPE_LAYER);
+
+    // Switching from text -> shape, increase depth
+    if (!ctx->isShapeLayer) {
+        ctx->isShapeLayer = true;
+        ctx->z++;
     }
 
-    // Get layer, vertices and indice
-    CanvasLayer* layer = NU_Canvas_Current_Layer(ctx);
-    Vertex_RGB_List* vertices = &layer->vertexData.shapeVertices;
-    Index_List* indices = &layer->indices;
+    // Get vertex and index lists
+    Vertex_RGB_List* vertices = &ctx->shapeLayer.vertices;
+    Index_List* indices = &ctx->shapeLayer.indices;
+
+    float z = (float)(ctx->node->layer) + ctx->z * 0.05f;
 
     // Calculate number of vertices and indices are needed
     float pattern_len = 0.0f;
@@ -938,10 +823,10 @@ void NU_Internal_Dashed_Line(
             
             u32 v0 = vertices->size;
             vertex_rgb* v = vertices->array + v0;
-            v[0] = (vertex_rgb){ sx1 - perp_x, sy1 - perp_y, col.r, col.g, col.b };
-            v[1] = (vertex_rgb){ sx1 + perp_x, sy1 + perp_y, col.r, col.g, col.b };
-            v[2] = (vertex_rgb){ sx2 - perp_x, sy2 - perp_y, col.r, col.g, col.b };
-            v[3] = (vertex_rgb){ sx2 + perp_x, sy2 + perp_y, col.r, col.g, col.b };
+            v[0] = (vertex_rgb){ sx1 - perp_x, sy1 - perp_y, z, col.r, col.g, col.b };
+            v[1] = (vertex_rgb){ sx1 + perp_x, sy1 + perp_y, z, col.r, col.g, col.b };
+            v[2] = (vertex_rgb){ sx2 - perp_x, sy2 - perp_y, z, col.r, col.g, col.b };
+            v[3] = (vertex_rgb){ sx2 + perp_x, sy2 + perp_y, z, col.r, col.g, col.b };
             
             u32* id = indices->array + indices->size;
             id[0] = v0;
@@ -967,10 +852,30 @@ void NU_Internal_Set_Canvas_Font(int contextID, const char* fontName)
     NU_Canvas_Context* ctx = Container_Get(&GUI.canvasContexts, contextID); 
     if (ctx == NULL) return;
 
-    // Get fontID from font name
-    void* found = LinearStringmapGet(&GUI.stylesheet->fontNameIndexMap, fontName);
+    // Get fontID
+    void* found = LinearStringmapGet(&GUI.stylesheet.fontNameIndexMap, fontName);
     int fontID = *(int*)found;
+
+    // If already using that font -> return early
+    if (ctx->fontID == fontID) return;
+
+    // Update fontID in use
     ctx->fontID = fontID;
+    ctx->textLayerIndex++;
+
+    // Create new text layer
+    if (ctx->textLayerIndex > ctx->textLayers.size-1) {
+        CanvasTextLayer textLayer;
+        textLayer.fontID = fontID;
+        Vertex_RGB_UV_List_Init(&textLayer.vertices, 512);
+        Index_List_Init(&textLayer.indices, 1024);
+        ArrayPush(&ctx->textLayers, &textLayer);
+    }
+    // Reuse exising layer
+    else {
+        CanvasTextLayer* existingLayer = ArrayGet(&ctx->textLayers, ctx->textLayerIndex);
+        existingLayer->fontID = fontID;
+    }
 }
 
 void NU_Internal_Text(
@@ -985,31 +890,28 @@ void NU_Internal_Text(
     if (ctx == NULL) return;
 
     // Skip if text is not visible on large virtual canvas
-    NU_Font* font = Stylesheet_Get_Font(GUI.stylesheet, ctx->fontID);
+    NU_Font* font = Stylesheet_Get_Font(&GUI.stylesheet, ctx->fontID);
     float textWidth = NU_Calculate_Text_Unwrapped_Width(font, string); if (textWidth > wrapWidth) textWidth = wrapWidth;
     float textHeight = NU_Calculate_FreeText_Height_From_Wrap_Width(font, string, wrapWidth);
     if (x > ctx->canvasWidth || x + textWidth < 0.0f || y > ctx->canvasHeight || y + textHeight < 0.0f) return;
 
-    // Create layer if there are no layers
-    if (ctx->canvasLayers.size == 0) {
-        NU_New_Canvas_Layer(ctx, NU_CANVAS_TEXT_LAYER);
+    // Switching from shape -> text, increase depth
+    if (ctx->isShapeLayer) {
+        ctx->isShapeLayer = false;
+        ctx->z++;
     }
 
-    // Get current layer
-    CanvasLayer* layer = NU_Canvas_Current_Layer(ctx);
-
-    // Check if it is necessary to create a new layer -> if the current layer is a shape layer OR the current layer's fontID is different to ctx->fontID (because the user called NU_Internal_Set_Canvas_Font())
-    if (ctx->currentLayerType == NU_CANVAS_SHAPE_LAYER || layer->fontID != ctx->fontID) {
-        NU_New_Canvas_Layer(ctx, NU_CANVAS_TEXT_LAYER);
-        layer = NU_Canvas_Current_Layer(ctx);
-    }
+    // Get text layer
+    CanvasTextLayer* textLayer = ArrayGet(&ctx->textLayers, ctx->textLayerIndex);
 
     // Get vertex and index lists
-    Vertex_RGB_UV_List* vertices = &layer->vertexData.textVertices;
-    Index_List* indices = &layer->indices;
+    Vertex_RGB_UV_List* vertices = &textLayer->vertices;
+    Index_List* indices = &textLayer->indices;
+
+    float z = (float)(ctx->node->layer) + ctx->z * 0.05f;
 
     // Generate text mesh
-    NU_Generate_Text_Mesh(vertices, indices, font, string, x, y, col.r, col.g, col.b, wrapWidth);
+    NU_Generate_Text_Mesh(vertices, indices, font, string, x, y, z, col.r, col.g, col.b, wrapWidth);
 }
 
 float NU_Internal_Text_Height(int contextID, float wrapWidth, const char* string)
@@ -1017,7 +919,7 @@ float NU_Internal_Text_Height(int contextID, float wrapWidth, const char* string
     NU_Canvas_Context* ctx = Container_Get(&GUI.canvasContexts, contextID); 
     if (ctx == NULL) return 0.0f; // node type is not valid therefore there is no context
 
-    NU_Font* font = Stylesheet_Get_Font(GUI.stylesheet, ctx->fontID);
+    NU_Font* font = Stylesheet_Get_Font(&GUI.stylesheet, ctx->fontID);
     return NU_Calculate_FreeText_Height_From_Wrap_Width(font, string, wrapWidth);
 }
 
@@ -1026,7 +928,7 @@ float NU_Internal_Text_Width(int contextID, const char* string)
     NU_Canvas_Context* ctx = Container_Get(&GUI.canvasContexts, contextID); 
     if (ctx == NULL) return 0.0f; // node type is not valid therefore there is no context
 
-    NU_Font* font = Stylesheet_Get_Font(GUI.stylesheet, ctx->fontID);
+    NU_Font* font = Stylesheet_Get_Font(&GUI.stylesheet, ctx->fontID);
     return NU_Calculate_Text_Unwrapped_Width(font, string);
 }
 
@@ -1034,6 +936,6 @@ float NU_Internal_Text_Line_Height(int contextID)
 {
     NU_Canvas_Context* ctx = Container_Get(&GUI.canvasContexts, contextID); 
     if (ctx == NULL) return 0.0f; // node type is not valid therefore there is no context
-    NU_Font* font = Stylesheet_Get_Font(GUI.stylesheet, ctx->fontID);
+    NU_Font* font = Stylesheet_Get_Font(&GUI.stylesheet, ctx->fontID);
     return font->line_height;
 }

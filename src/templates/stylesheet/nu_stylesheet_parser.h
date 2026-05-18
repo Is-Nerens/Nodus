@@ -1,7 +1,5 @@
 #pragma once
 #include "nu_stylesheet_grammar_assertions.h"
-#include <datastructures/linear_stringmap.h>
-#include <datastructures/linear_stringset.h>
 #include "../nu_token_array.h"
 
 // You might not like it, but this is what *peak performance looks like
@@ -471,13 +469,13 @@ static void NU_Stylesheet_Parse_Property(NU_Stylesheet* ss, const enum NU_Style_
     }
 }
 
-struct Style_Text_Ref* BinarySearchTextRef(Vector* textRefs, int targetTokenIndex) {
+struct Style_Text_Ref* BinarySearchTextRef(Array* textRefs, int targetTokenIndex) {
     int left = 0;
     int right = textRefs->size - 1;
 
     while (left <= right) {
         int mid = left + (right - left) / 2;
-        struct Style_Text_Ref* textRef = (struct Style_Text_Ref*)Vector_Get(textRefs, mid);
+        struct Style_Text_Ref* textRef = (struct Style_Text_Ref*)ArrayGet(textRefs, mid);
 
         if (textRef->NU_Token_index == targetTokenIndex) {
             return textRef;  // found
@@ -491,7 +489,7 @@ struct Style_Text_Ref* BinarySearchTextRef(Vector* textRefs, int targetTokenInde
     return NULL;  // not found
 }
 
-static int NU_Stylesheet_Parse_Fonts(NU_Stylesheet* ss, char* src, TokenArray* tokens, struct Vector* textRefs)
+static int NU_Stylesheet_Parse_Fonts(NU_Stylesheet* ss, char* src, TokenArray* tokens, struct Array* textRefs)
 {
     // State
     int inFontSelector = 0;
@@ -586,7 +584,7 @@ static int NU_Stylesheet_Parse_Fonts(NU_Stylesheet* ss, char* src, TokenArray* t
     return 1;
 }
 
-static int NU_Stylesheet_Parse_Default(char* src, TokenArray* tokens, NU_Stylesheet* ss, struct Vector* textRefs, LinearStringmap* imageFilepathToHandleMap)
+static int NU_Stylesheet_Parse_Default(char* src, TokenArray* tokens, NU_Stylesheet* ss, struct Array* textRefs, LinearStringmap* imageFilepathToHandleMap)
 {
     int inDefaultSelector = 0;
 
@@ -628,7 +626,7 @@ static int NU_Stylesheet_Parse_Default(char* src, TokenArray* tokens, NU_Stylesh
     return 1;
 }
 
-static int NU_Stylesheet_Parse(char* src, TokenArray* tokens, NU_Stylesheet* ss, struct Vector* textRefs)
+static int NU_Stylesheet_Parse(char* src, TokenArray* tokens, NU_Stylesheet* ss, struct Array* textRefs)
 {
     // -----------------------
     
@@ -713,7 +711,7 @@ static int NU_Stylesheet_Parse(char* src, TokenArray* tokens, NU_Stylesheet* ss,
             if (ctx == 0) {   
                 for (int j=0; j<selectorCount; j++) {
                     u32 item_index = selectorIndexes[j];
-                    NU_Stylesheet_Item* curr_item = Vector_Get(&ss->items, item_index);
+                    NU_Stylesheet_Item* curr_item = ArrayGet(&ss->items, item_index);
 
                     // Update current item
                     NU_Stylesheet_Overwrite_Style_Item(curr_item, &item);
@@ -735,7 +733,7 @@ static int NU_Stylesheet_Parse(char* src, TokenArray* tokens, NU_Stylesheet* ss,
                     
                     // Style item exists
                     if (found != NULL) {
-                        NU_Stylesheet_Item* found_item = Vector_Get(&ss->items, *(u32*)found);
+                        NU_Stylesheet_Item* found_item = ArrayGet(&ss->items, *(u32*)found);
                         selectorIndexes[selectorCount] = *(u32*)found;
                     } 
                     // Style item does not exist -> add one
@@ -745,7 +743,7 @@ static int NU_Stylesheet_Parse(char* src, TokenArray* tokens, NU_Stylesheet* ss,
                         new_item.id = NULL;
                         new_item.tag = tag;
                         new_item.propertyFlags = 0;
-                        Vector_Push(&ss->items, &new_item);
+                        ArrayPush(&ss->items, &new_item);
                         selectorIndexes[selectorCount] = (u32)(ss->items.size - 1);
                         HashmapSet(&ss->tag_item_hashmap, &tag, &selectorIndexes[selectorCount]); // Store item index
                     }
@@ -772,7 +770,7 @@ static int NU_Stylesheet_Parse(char* src, TokenArray* tokens, NU_Stylesheet* ss,
                         // Style item exists
                         if (found != NULL)
                         {
-                            NU_Stylesheet_Item* found_item = Vector_Get(&ss->items, *(u32*)found);
+                            NU_Stylesheet_Item* found_item = ArrayGet(&ss->items, *(u32*)found);
                             selectorIndexes[selectorCount] = *(u32*)found;
                         }
                         // Style item does not exist -> add one
@@ -783,7 +781,7 @@ static int NU_Stylesheet_Parse(char* src, TokenArray* tokens, NU_Stylesheet* ss,
                             new_item.id = NULL;
                             new_item.tag = tag;
                             new_item.propertyFlags = 0;
-                            Vector_Push(&ss->items, &new_item);
+                            ArrayPush(&ss->items, &new_item);
                             selectorIndexes[selectorCount] = (u32)(ss->items.size - 1);
                             HashmapSet(&ss->tag_pseudo_item_hashmap, &key, &selectorIndexes[selectorCount]); // Store item index
                         }
@@ -813,7 +811,7 @@ static int NU_Stylesheet_Parse(char* src, TokenArray* tokens, NU_Stylesheet* ss,
                 if (next_token == STYLE_SELECTOR_COMMA || next_token == STYLE_SELECTOR_OPEN_BRACE)  
                 {
                     // Get class string
-                    textRef = (struct Style_Text_Ref*)Vector_Get(textRefs, textRefIndex++);
+                    textRef = (struct Style_Text_Ref*)ArrayGet(textRefs, textRefIndex++);
                     char* src_class = &src[textRef->src_index];
                     src[textRef->src_index + textRef->char_count] = '\0';
 
@@ -824,7 +822,7 @@ static int NU_Stylesheet_Parse(char* src, TokenArray* tokens, NU_Stylesheet* ss,
                     void* found = HashmapGet(&ss->class_item_hashmap, &stored_class);
                     if (found != NULL) 
                     {
-                        NU_Stylesheet_Item* found_item = Vector_Get(&ss->items, *(u32*)found);
+                        NU_Stylesheet_Item* found_item = ArrayGet(&ss->items, *(u32*)found);
                         selectorIndexes[selectorCount] = *(u32*)found;
                     } 
                     else // does not exist -> add item
@@ -839,7 +837,7 @@ static int NU_Stylesheet_Parse(char* src, TokenArray* tokens, NU_Stylesheet* ss,
                         new_item.id = NULL;
                         new_item.tag = -1;
                         new_item.propertyFlags = 0;
-                        Vector_Push(&ss->items, &new_item);
+                        ArrayPush(&ss->items, &new_item);
                         selectorIndexes[selectorCount] = (u32)(ss->items.size - 1);
                         HashmapSet(&ss->class_item_hashmap, &stored_class, &selectorIndexes[selectorCount]); // Store item index
                     }
@@ -857,7 +855,7 @@ static int NU_Stylesheet_Parse(char* src, TokenArray* tokens, NU_Stylesheet* ss,
                         enum NU_Pseudo_Class pseudo_class = Token_To_Pseudo_Class(following_token);
 
                         // Get class string
-                        textRef = (struct Style_Text_Ref*)Vector_Get(textRefs, textRefIndex++);
+                        textRef = (struct Style_Text_Ref*)ArrayGet(textRefs, textRefIndex++);
                         char* src_class = &src[textRef->src_index];
                         src[textRef->src_index + textRef->char_count] = '\0';
 
@@ -879,14 +877,14 @@ static int NU_Stylesheet_Parse(char* src, TokenArray* tokens, NU_Stylesheet* ss,
                                 new_item.id = NULL;
                                 new_item.tag = -1;
                                 new_item.propertyFlags = 0;
-                                Vector_Push(&ss->items, &new_item);
+                                ArrayPush(&ss->items, &new_item);
                                 selectorIndexes[selectorCount] = (u32)(ss->items.size - 1);
                                 HashmapSet(&ss->class_pseudo_item_hashmap, &key, &selectorIndexes[selectorCount]); // Store item index
                             }
                             // Item found
                             else
                             {
-                                NU_Stylesheet_Item* found_item = Vector_Get(&ss->items, *(u32*)found);
+                                NU_Stylesheet_Item* found_item = ArrayGet(&ss->items, *(u32*)found);
                                 selectorIndexes[selectorCount] = *(u32*)found;
                             }
                         }
@@ -916,7 +914,7 @@ static int NU_Stylesheet_Parse(char* src, TokenArray* tokens, NU_Stylesheet* ss,
                 if (next_token == STYLE_SELECTOR_COMMA || next_token == STYLE_SELECTOR_OPEN_BRACE)  
                 {
                     // Get id string
-                    textRef = (struct Style_Text_Ref*)Vector_Get(textRefs, textRefIndex++);
+                    textRef = (struct Style_Text_Ref*)ArrayGet(textRefs, textRefIndex++);
                     char* src_id = &src[textRef->src_index];
                     src[textRef->src_index + textRef->char_count] = '\0';
 
@@ -927,7 +925,7 @@ static int NU_Stylesheet_Parse(char* src, TokenArray* tokens, NU_Stylesheet* ss,
                     void* found = HashmapGet(&ss->id_item_hashmap, &stored_id);
                     if (found != NULL)
                     {
-                        NU_Stylesheet_Item* found_item = Vector_Get(&ss->items, *(u32*)found);
+                        NU_Stylesheet_Item* found_item = ArrayGet(&ss->items, *(u32*)found);
                         selectorIndexes[selectorCount] = *(u32*)found;
                     }
                     else // does not exist -> add item
@@ -942,7 +940,7 @@ static int NU_Stylesheet_Parse(char* src, TokenArray* tokens, NU_Stylesheet* ss,
                         new_item.id = stored_id;
                         new_item.tag = -1;
                         new_item.propertyFlags = 0;
-                        Vector_Push(&ss->items, &new_item);
+                        ArrayPush(&ss->items, &new_item);
                         selectorIndexes[selectorCount] = (u32)(ss->items.size - 1);
                         HashmapSet(&ss->id_item_hashmap, &stored_id, &selectorIndexes[selectorCount]); // Store item index
                         LinearStringsetAdd(&ss->id_string_set, src_id);
@@ -961,7 +959,7 @@ static int NU_Stylesheet_Parse(char* src, TokenArray* tokens, NU_Stylesheet* ss,
                         enum NU_Pseudo_Class pseudo_class = Token_To_Pseudo_Class(following_token);
 
                         // Get id string
-                        textRef = (struct Style_Text_Ref*)Vector_Get(textRefs, textRefIndex++);
+                        textRef = (struct Style_Text_Ref*)ArrayGet(textRefs, textRefIndex++);
                         char* src_id = &src[textRef->src_index];
                         src[textRef->src_index + textRef->char_count] = '\0';
 
@@ -983,14 +981,14 @@ static int NU_Stylesheet_Parse(char* src, TokenArray* tokens, NU_Stylesheet* ss,
                                 new_item.id = stored_id;
                                 new_item.tag = -1;
                                 new_item.propertyFlags = 0;
-                                Vector_Push(&ss->items, &new_item);
+                                ArrayPush(&ss->items, &new_item);
                                 selectorIndexes[selectorCount] = (u32)(ss->items.size - 1);
                                 HashmapSet(&ss->id_pseudo_item_hashmap, &key, &selectorIndexes[selectorCount]); // Store item index
                             }
                             // Item found
                             else
                             {
-                                NU_Stylesheet_Item* found_item = Vector_Get(&ss->items, *(u32*)found);
+                                NU_Stylesheet_Item* found_item = ArrayGet(&ss->items, *(u32*)found);
                                 selectorIndexes[selectorCount] = *(u32*)found;
                             }
                         }
@@ -1033,7 +1031,7 @@ static int NU_Stylesheet_Parse(char* src, TokenArray* tokens, NU_Stylesheet* ss,
             if (!AssertPropertyIdentifierGrammar(tokens, i)) { succeeded = 0; break; }
 
             // Get property value text
-            textRef = (struct Style_Text_Ref*)Vector_Get(textRefs, textRefIndex++);
+            textRef = (struct Style_Text_Ref*)ArrayGet(textRefs, textRefIndex++);
             char c = src[textRef->src_index];
             char* text = &src[textRef->src_index];
             src[textRef->src_index + textRef->char_count] = '\0';

@@ -460,6 +460,73 @@ void Construct_BorderRect(
     indices->size = (int)(indices_write - indices->array);
 }
 
+
+static inline u32 PackRGBA(u8 r, u8 g, u8 b, u8 a)
+{
+    return ((u32)r << 0) |
+           ((u32)g << 8) |
+           ((u32)b << 16) |
+           ((u32)a << 24);
+}
+
+void Add_NodeRectRenderData(
+    NodeP* node, float z, 
+    float scissorX, float scissorY, float scissorW, float scissorH,
+    Array* borderRects
+)
+{
+    Node* n = &node->node;
+
+    u8 alpha = 255;
+    if (node->layoutFlags & HIDE_BACKGROUND) alpha = 0;
+
+    BorderRectRenderData* renderData = ArrayPushEmpty(borderRects);
+    renderData->x = floorf(n->x);
+    renderData->y = floorf(n->y);
+    renderData->z = z;
+    renderData->w = floorf(n->x + n->width)  - renderData->x;
+    renderData->h = floorf(n->y + n->height) - renderData->y;
+
+    // Constrain border radii against floored dimensions
+    float borderRadiusTl = n->borderRadiusTl;
+    float borderRadiusTr = n->borderRadiusTr;
+    float borderRadiusBl = n->borderRadiusBl;
+    float borderRadiusBr = n->borderRadiusBr;
+    float top_radii_sum    = borderRadiusTl + borderRadiusTr;
+    float bottom_radii_sum = borderRadiusBl + borderRadiusBr;
+    float left_radii_sum   = borderRadiusTl + borderRadiusBl;
+    float right_radii_sum  = borderRadiusTr + borderRadiusBr;
+    if (top_radii_sum    > renderData->w) { float scale = renderData->w / top_radii_sum;    borderRadiusTl *= scale; borderRadiusTr *= scale; }
+    if (bottom_radii_sum > renderData->w) { float scale = renderData->w / bottom_radii_sum; borderRadiusBl *= scale; borderRadiusBr *= scale; }
+    if (left_radii_sum   > renderData->h) { float scale = renderData->h / left_radii_sum;   borderRadiusTl *= scale; borderRadiusBl *= scale; }
+    if (right_radii_sum  > renderData->h) { float scale = renderData->h / right_radii_sum;  borderRadiusTr *= scale; borderRadiusBr *= scale; }
+
+    renderData->backgroundRGBA = PackRGBA(
+        n->backgroundR,
+        n->backgroundG,
+        n->backgroundB,
+        alpha
+    );
+    renderData->borderRGBA = PackRGBA(
+        n->borderR,
+        n->borderG,
+        n->borderB,
+        255
+    );
+    renderData->radiusTl = borderRadiusTl;
+    renderData->radiusTr = borderRadiusTr;
+    renderData->radiusBl = borderRadiusBl;
+    renderData->radiusBr = borderRadiusBr;
+    renderData->borderTop = n->borderTop;
+    renderData->borderBottom = n->borderBottom;
+    renderData->borderLeft = n->borderLeft;
+    renderData->borderRight = n->borderRight;
+    renderData->scissorX = scissorX;
+    renderData->scissorY = scissorY;
+    renderData->scissorW = scissorW;
+    renderData->scissorH = scissorH;
+}
+
 void Construct_Scrollbar(
     NodeP* node, float z,
     NU_Stylesheet_Scrollbar_Style* scrollbarStyle,

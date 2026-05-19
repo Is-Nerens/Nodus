@@ -52,7 +52,6 @@ typedef struct {
 } Vertex_RGB_UV_List;
 
 typedef struct BorderRectRenderData {
-    // Vertex attributes
     float x, y, z;
     float w, h;
     u32 backgroundRGBA;

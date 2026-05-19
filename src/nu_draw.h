@@ -136,7 +136,7 @@ void NU_DrawInputNodeContent(NodeP* node, float z, float winWidth, float winHeig
     }
 }
 
-void NU_DrawCanvasContent(NodeP* canvas_node,float winW, float winH)
+void NU_DrawCanvasContent(NodeP* canvas_node, float winW, float winH)
 {
     float offset_x = canvas_node->node.x + canvas_node->node.borderLeft + canvas_node->node.padLeft;
     float offset_y = canvas_node->node.y + canvas_node->node.borderTop + canvas_node->node.padTop;
@@ -369,6 +369,7 @@ void NU_Draw()
 
     Vertex_RGB_List_Clear(&GUI.borderRectVertices); 
     Index_List_Clear(&GUI.borderRectIndices);
+    ArrayClear(&GUI.borderRects);
 
     NodeP* focusedInputNode = NULL;
 
@@ -396,7 +397,8 @@ void NU_Draw()
         for (u32 n=0; n<drawList->relativeNodes.size; n++) {
             NodeP* node = *(NodeP**)ArrayGet(&drawList->relativeNodes, n);
             float z = (float)(node->layer);
-            Construct_NodeBorderRect(node, z, &GUI.borderRectVertices, &GUI.borderRectIndices);
+            Add_NodeRectRenderData(node, z, 0.0f, 0.0f, winW, winH, &GUI.borderRects);
+
             if (node->layoutFlags & OVERFLOW_VERTICAL_SCROLL 
                 && node->node.contentHeight > (node->node.height - node->node.padTop - node->node.padBottom - node->node.borderTop - node->node.borderBottom)) {
                 Construct_Scrollbar(node, z + 0.5f, &GUI.stylesheet.scrollbarStyle, &GUI.borderRectVertices, &GUI.borderRectIndices);
@@ -407,6 +409,8 @@ void NU_Draw()
         Draw_Vertex_RGB_List(&GUI.borderRectVertices, &GUI.borderRectIndices, winW, winH, 0.0f, 0.0f);
         Vertex_RGB_List_Clear(&GUI.borderRectVertices);
         Index_List_Clear(&GUI.borderRectIndices);
+
+        Draw_SDF_Border_Rects(GUI.borderRects, winW, winH); ArrayClear(&GUI.borderRects);
 
         // construct text meshes and draw images and canvas content
         for (u32 n=0; n<drawList->relativeNodes.size; n++) 
@@ -492,13 +496,16 @@ void NU_Draw()
         for (u32 n=0; n<drawList->absoluteNodes.size; n++) { // construct border rect vertices and indices for each node
             NodeP* node = *(NodeP**)ArrayGet(&drawList->absoluteNodes, n);
             float z = (float)(node->layer) + 128.0f;
-            Construct_NodeBorderRect(node, z, &GUI.borderRectVertices, &GUI.borderRectIndices);
+
+            Add_NodeRectRenderData(node, z, 0.0f, 0.0f, winW, winH, &GUI.borderRects);
+
             if (node->layoutFlags & OVERFLOW_VERTICAL_SCROLL 
                 && node->node.contentHeight > (node->node.height - node->node.padTop - node->node.padBottom - node->node.borderTop - node->node.borderBottom)) {
                 Construct_Scrollbar(node, z + 0.5f, &GUI.stylesheet.scrollbarStyle, &GUI.borderRectVertices, &GUI.borderRectIndices);
             }
         }
         Draw_Vertex_RGB_List(&GUI.borderRectVertices, &GUI.borderRectIndices, winW, winH, 0.0f, 0.0f); // draw border rects in one call
+        Draw_SDF_Border_Rects(GUI.borderRects, winW, winH); ArrayClear(&GUI.borderRects);
 
         // construct text meshes & draw images
         for (u32 n=0; n<drawList->absoluteNodes.size; n++) 

@@ -29,7 +29,7 @@ static const char* style_keywords[] = {
     "image-src", 
     "input-type",
     "font", "src", "size", "weight",
-    "scrollbar-overlay", "thum-min-size",
+    "scrollbar-overlay", "thumb-min-size",
     "window", "box", "button", 
     "input", "canvas", "image", 
     "table", "thead", "row", 

@@ -178,9 +178,10 @@ static void NU_CalculateFitSizeHeights(ReverseBreadthFirstSearch* rbfs)
     }
 }
 
-static void NU_GrowShrinkChildWidths(NodeP* node, bool includeNodeScrollbarThickness)
+static void NU_GrowShrinkChildWidths(NodeP* node, float scrollbarThickness)
 {
     float remainingWidth = node->node.width - node->node.padLeft - node->node.padRight - node->node.borderLeft - node->node.borderRight;
+    remainingWidth -= !!(node->layoutFlags & OVERFLOW_VERTICAL_SCROLL) * scrollbarThickness;
 
     // ---------------------------------------------------------------------------------------
     // --- Expand widths of absolute elements if left and right distances are both defined ---
@@ -200,8 +201,6 @@ static void NU_GrowShrinkChildWidths(NodeP* node, bool includeNodeScrollbarThick
         // move to the next child
         child = child->nextSibling;
     }
-
-    remainingWidth -= ((node->layoutFlags & OVERFLOW_VERTICAL_SCROLL) && includeNodeScrollbarThickness) * 8.0f;
 
     // ------------------------------------------------
     // If node lays out children vertically ---------
@@ -393,9 +392,10 @@ static void NU_GrowShrinkChildWidths(NodeP* node, bool includeNodeScrollbarThick
     }
 }
 
-static void NU_GrowShrinkChildHeights(NodeP* node, bool includeNodeScrollbarThickness)
+static void NU_GrowShrinkChildHeights(NodeP* node, float scrollbarThickness)
 {
     float remainingHeight = node->node.height - node->node.padTop - node->node.padBottom - node->node.borderTop - node->node.borderBottom;
+    remainingHeight -= !!(node->layoutFlags & OVERFLOW_HORIZONTAL_SCROLL) * scrollbarThickness;
     
     // ----------------------------------------------------------------------------------------
     // --- Expand heights of absolute elements if top and bottom distances are both defined ---
@@ -415,8 +415,6 @@ static void NU_GrowShrinkChildHeights(NodeP* node, bool includeNodeScrollbarThic
         // move to the next child
         child = child->nextSibling;
     }
-
-    remainingHeight -= ((node->layoutFlags & OVERFLOW_HORIZONTAL_SCROLL) && includeNodeScrollbarThickness) * 8.0f;
 
     if (!(node->layoutFlags & LAYOUT_VERTICAL))
     {   
@@ -532,25 +530,25 @@ static void NU_GrowShrinkChildHeights(NodeP* node, bool includeNodeScrollbarThic
     }
 }
 
-static void NU_GrowShrinkWidths(BreadthFirstSearch* bfs, bool includeNodeScrollbarThickness)
+static void NU_GrowShrinkWidths(BreadthFirstSearch* bfs, float scrollbarThickness)
 {
     NodeP* node;
     while (BreadthFirstSearch_Next(bfs, &node)) {
         if (NodeStateHidden(node) || node->type == NU_ROW || node->type == NU_TABLE) continue;
-        NU_GrowShrinkChildWidths(node, includeNodeScrollbarThickness);
+        NU_GrowShrinkChildWidths(node, scrollbarThickness);
     }
 }
 
-static void NU_GrowShrinkHeights(BreadthFirstSearch* bfs, bool includeNodeScrollbarThickness)
+static void NU_GrowShrinkHeights(BreadthFirstSearch* bfs, float scrollbarThickness)
 {
     NodeP* node;
     while (BreadthFirstSearch_Next(bfs, &node)) {
         if (NodeStateHidden(node) || node->type == NU_TABLE) continue;
-        NU_GrowShrinkChildHeights(node, includeNodeScrollbarThickness);
+        NU_GrowShrinkChildHeights(node, scrollbarThickness);
     }
 }
 
-static void NU_CalculateTableColumnWidths(BreadthFirstSearch* bfs, bool includeNodeScrollbarThickness)
+static void NU_CalculateTableColumnWidths(BreadthFirstSearch* bfs, float scrollbarThickness)
 {
     DepthFirstSearch flexWidthDFS = DepthFirstSearch_Reserve();
 
@@ -599,8 +597,8 @@ static void NU_CalculateTableColumnWidths(BreadthFirstSearch* bfs, bool includeN
         // -----------------------------------------------
         // --- Apply widest column widths to all cells ---
         // -----------------------------------------------
-        float table_inner_width = node->node.width - node->node.borderLeft - node->node.borderRight - node->node.padLeft - node->node.padRight
-        - ((node->layoutFlags & OVERFLOW_VERTICAL_SCROLL) && includeNodeScrollbarThickness) * 8.0f;
+        float table_inner_width = node->node.width - node->node.borderLeft - node->node.borderRight - node->node.padLeft - node->node.padRight;
+        table_inner_width -= !!(node->layoutFlags & OVERFLOW_VERTICAL_SCROLL) * scrollbarThickness;
         float remaining_table_inner_width = table_inner_width;
         for (int k=0; k<widest_cell_in_each_column.size; k++) {
             remaining_table_inner_width -= *(float*)ArrayGet(&widest_cell_in_each_column, k);
@@ -648,7 +646,7 @@ static void NU_CalculateTableColumnWidths(BreadthFirstSearch* bfs, bool includeN
                 NodeP* dfsNode;
                 DepthFirstSearch_Reset(&flexWidthDFS, cell);
                 while(DepthFirstSearch_Next(&flexWidthDFS, &dfsNode)) {
-                    NU_GrowShrinkChildWidths(dfsNode, includeNodeScrollbarThickness);
+                    NU_GrowShrinkChildWidths(dfsNode, scrollbarThickness);
                 }
 
                 // Move to the next cell
@@ -701,7 +699,7 @@ static void NU_CalculateTextHeights(BreadthFirstSearch* bfs)
     }
 }
 
-static void NU_PositionChildrenHorizontally(NodeP* node, bool includeNodeScrollbarThickness)
+static void NU_PositionChildrenHorizontally(NodeP* node, float scrollbarThickness)
 {
     // layout dir -> top to bottom
     if (node->layoutFlags & LAYOUT_VERTICAL)
@@ -737,8 +735,9 @@ static void NU_PositionChildrenHorizontally(NodeP* node, bool includeNodeScrollb
     else
     {
         // calculate remaining width (optimise this by caching this value inside node's content width variable)
-        float remainingWidth = (node->node.width - node->node.padLeft - node->node.padRight - node->node.borderLeft - node->node.borderRight);
-        remainingWidth -= ((node->layoutFlags & OVERFLOW_VERTICAL_SCROLL) && includeNodeScrollbarThickness) * 8.0f;
+        float remainingWidth = node->node.width - node->node.padLeft - node->node.padRight - node->node.borderLeft - node->node.borderRight;
+        remainingWidth -= !!(node->layoutFlags & OVERFLOW_VERTICAL_SCROLL) * scrollbarThickness;
+
         int numChildrenAffectingWidth = 0;
         NodeP* child = node->firstChild;
         while(child != NULL) {
@@ -782,7 +781,7 @@ static void NU_PositionChildrenHorizontally(NodeP* node, bool includeNodeScrollb
     }
 }
 
-static void NU_PositionChildrenVertically(NodeP* node, bool includeNodeScrollbarThickness)
+static void NU_PositionChildrenVertically(NodeP* node, float scrollbarThickness)
 {
     float y_scroll_offset = 0.0f;
     if (node->layoutFlags & OVERFLOW_VERTICAL_SCROLL && 
@@ -840,7 +839,7 @@ static void NU_PositionChildrenVertically(NodeP* node, bool includeNodeScrollbar
     {
         // calculate remaining height (optimise this by caching this value inside node's content height variable)
         float remainingHeight = (node->node.height - node->node.padTop - node->node.padBottom - node->node.borderTop - node->node.borderBottom);
-        remainingHeight -= ((node->layoutFlags & OVERFLOW_HORIZONTAL_SCROLL) && includeNodeScrollbarThickness) * 8.0f;
+        remainingHeight -= !!(node->layoutFlags & OVERFLOW_HORIZONTAL_SCROLL) * scrollbarThickness;
         int numChildrenAffectingHeight = 0;
         NodeP* child = node->firstChild;
         while(child != NULL) {
@@ -883,7 +882,7 @@ static void NU_PositionChildrenVertically(NodeP* node, bool includeNodeScrollbar
     }
 }
 
-static void NU_CalculatePositions(BreadthFirstSearch* bfs, bool includeNodeScrollbarThickness)
+static void NU_CalculatePositions(BreadthFirstSearch* bfs, float scrollbarThickness)
 {
     NodeP* node;
     while (BreadthFirstSearch_Next(bfs, &node)) {
@@ -892,8 +891,8 @@ static void NU_CalculatePositions(BreadthFirstSearch* bfs, bool includeNodeScrol
             node->node.x = 0;
             node->node.y = 0;
         }
-        NU_PositionChildrenHorizontally(node, includeNodeScrollbarThickness);
-        NU_PositionChildrenVertically(node, includeNodeScrollbarThickness);
+        NU_PositionChildrenHorizontally(node, scrollbarThickness);
+        NU_PositionChildrenVertically(node, scrollbarThickness);
     }
 }
 
@@ -948,12 +947,26 @@ void NU_Layout()
     NU_Prepass(bfs, &GUI.layoutScrollAutoNodes);
     NU_CalculateTextFitWidths(bfs);
     NU_CalculateFitSizeWidths(rbfs);  
-    NU_GrowShrinkWidths(bfs, false);
-    NU_CalculateTableColumnWidths(bfs, false);
+    NU_GrowShrinkWidths(bfs, 0.0f);
+    NU_CalculateTableColumnWidths(bfs, 0.0f);
     NU_CalculateTextHeights(bfs);
     NU_CalculateFitSizeHeights(rbfs);
-    NU_GrowShrinkHeights(bfs, false);
-    NU_CalculatePositions(bfs, false);
+    NU_GrowShrinkHeights(bfs, 0.0f);
+    NU_CalculatePositions(bfs, 0.0f);
+
+    // Compute scrollbar thickness
+    float thumbWidth = (float)GUI.stylesheet.scrollbarStyle.width - (float)GUI.stylesheet.scrollbarStyle.trackPadLeft - (float)GUI.stylesheet.scrollbarStyle.trackPadRight;
+
+    // Constrain thumb width by thumb border
+    if (thumbWidth < GUI.stylesheet.scrollbarStyle.thumbBorderLeft + GUI.stylesheet.scrollbarStyle.thumbBorderRight) {
+        thumbWidth = GUI.stylesheet.scrollbarStyle.thumbBorderLeft + GUI.stylesheet.scrollbarStyle.thumbBorderRight;
+    }
+
+    // Ensure absolute minimum thumb width of 2px
+    if (thumbWidth < 2) thumbWidth = 2;
+
+    // Compute thumb-constrained track width
+    float trackWidth = thumbWidth + (float)GUI.stylesheet.scrollbarStyle.trackPadLeft + (float)GUI.stylesheet.scrollbarStyle.trackPadRight;
 
     // SECOND PASS -> RECOMPUTE OVERFLOWED SCROLL BRANCHES
     for (u32 i=0; i<GUI.layoutScrollAutoNodes.size; i++)
@@ -968,11 +981,11 @@ void NU_Layout()
         NU_Repass(bfs);
         NU_CalculateTextFitWidths(bfs);
         NU_CalculateFitSizeWidths(rbfs);  
-        NU_GrowShrinkWidths(bfs, true);
-        NU_CalculateTableColumnWidths(bfs, true);
+        NU_GrowShrinkWidths(bfs, trackWidth);
+        NU_CalculateTableColumnWidths(bfs, trackWidth);
         NU_CalculateTextHeights(bfs);
         NU_CalculateFitSizeHeights(rbfs);
-        NU_GrowShrinkHeights(bfs, true);
-        NU_CalculatePositions(bfs, true);
+        NU_GrowShrinkHeights(bfs, trackWidth);
+        NU_CalculatePositions(bfs, trackWidth);
     }
 }

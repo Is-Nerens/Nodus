@@ -189,7 +189,7 @@ int CornerPoints(float r)
     return pts;
 }
 
-void Construct_Border_Rect(
+void Construct_NodeBorderRect(
     NodeP* node, float z,
     Vertex_RGB_List* vertices, Index_List* indices
 )
@@ -234,9 +234,9 @@ void Construct_Border_Rect(
     vec2 br_a              = { (float)(int)(n->x + n->width - borderRadiusBr), (float)(int)(n->y + n->height - borderRadiusBr) };
 
     // --- Allocate extra space in vertex and index lists ---
-    u32 additional_vertices = (node->layoutFlags & HIDE_BACKGROUND) ? total_pts * 2 + 4 : total_pts * 3 + 4;    // each corner contributes 3*cp + 1 verts
-    u32 additional_indices = (total_pts - 4) * 6                                                // curved edges
-                                  + 24                                                               // straight sides
+    u32 additional_vertices = (node->layoutFlags & HIDE_BACKGROUND) ? total_pts * 2 + 4 : total_pts * 3 + 4;         // each corner contributes 3*cp + 1 verts
+    u32 additional_indices = (total_pts - 4) * 6                                                                     // curved edges
+                                  + 24                                                                               // straight sides
                                   + ((node->layoutFlags & HIDE_BACKGROUND) ? 0 : (total_pts - 4) * 3 + 30);          // background tris
     if (vertices->size + additional_vertices > vertices->capacity) Vertex_RGB_List_Grow(vertices, additional_vertices);
     if (indices->size + additional_indices > indices->capacity) Index_List_Grow(indices, additional_indices);
@@ -321,6 +321,145 @@ void Construct_Border_Rect(
     indices->size = (int)(indices_write - indices->array);
 }
 
+void Construct_BorderRect(
+    float x, float y, float z,
+    float width, float height,
+    float borderTop, float borderBottom, float borderLeft, float borderRight,
+    float radiusTl, float radiusTr, float radiusBl, float radiusBr, 
+    float bgR, float bgG, float bgB, 
+    float bR, float bG, float bB,
+    Vertex_RGB_List* vertices, Index_List* indices
+)
+{
+    const float PI = 3.14159265f;
+
+    // Constrain radii
+    float leftRadiiSum   = radiusTl + radiusBl;
+    float rightRadiiSum  = radiusTr + radiusBr;
+    float topRadiiSum    = radiusTl + radiusTr;
+    float bottomRadiiSum = radiusBl + radiusBr; 
+    if (leftRadiiSum   > height) { float scale = height / leftRadiiSum;   radiusTl *= scale; radiusBl *= scale; }
+    if (rightRadiiSum  > height) { float scale = height / rightRadiiSum;  radiusTr *= scale; radiusBr *= scale; }
+    if (topRadiiSum    > width ) { float scale = width  / topRadiiSum;    radiusTl *= scale; radiusTr *= scale; } 
+    if (bottomRadiiSum > width ) { float scale = width  / bottomRadiiSum; radiusBl *= scale; radiusBr *= scale; } 
+
+    // Determine corner points
+    int max_pts  = 32;
+    int tl_pts             = radiusTl < 1.0f ? 1 : min((int)radiusTl + 5, max_pts);
+    int tr_pts             = radiusTr < 1.0f ? 1 : min((int)radiusTr + 5, max_pts);
+    int br_pts             = radiusBr < 1.0f ? 1 : min((int)radiusBr + 5, max_pts);
+    int bl_pts             = radiusBl < 1.0f ? 1 : min((int)radiusBl + 5, max_pts);
+    int total_pts          = tl_pts + tr_pts + br_pts + bl_pts;
+
+    // Corner anchors
+    vec2 tl_a              = { (float)(int)(x + radiusTl),         (float)(int)(y + radiusTl) };
+    vec2 tr_a              = { (float)(int)(x + width - radiusTr), (float)(int)(y + radiusTr) };
+    vec2 bl_a              = { (float)(int)(x + radiusBl),         (float)(int)(y + height - radiusBl) };
+    vec2 br_a              = { (float)(int)(x + width - radiusBr), (float)(int)(y + height - radiusBr) };
+
+    // Allocate extra space in vertex and index lists
+    u32 additional_vertices = total_pts * 3 + 4;              // each corner contributes 3*cp + 1 verts
+    u32 additional_indices = (total_pts - 4) * 6              // curved edges
+                                  + 24                        // straight sides
+                                  + (total_pts - 4) * 3 + 30; // background tris
+    if (vertices->size + additional_vertices > vertices->capacity) Vertex_RGB_List_Grow(vertices, additional_vertices);
+    if (indices->size + additional_indices > indices->capacity) Index_List_Grow(indices, additional_indices);
+
+    // Generate corner vertices and indices 
+    int TL = vertices->size;
+    Generate_Corner_Segment(vertices, indices, tl_a, PI, 1.5f * PI, radiusTl, borderLeft, borderTop, width, height, z, bR, bG, bB, bgR, bgG, bgB, tl_pts, 0, false);
+    int TR = vertices->size;
+    Generate_Corner_Segment(vertices, indices, tr_a, 1.5f * PI, 2.0f * PI, radiusTr, borderTop, borderRight, width, height, z, bR, bG, bB, bgR, bgG, bgB, tr_pts, 1, false);
+    int BR = vertices->size;
+    Generate_Corner_Segment(vertices, indices, br_a, 0.0f, 0.5f * PI, radiusBr, borderRight, borderBottom, width, height, z, bR, bG, bB, bgR, bgG, bgB, br_pts, 2, false);
+    int BL = vertices->size;
+    Generate_Corner_Segment(vertices, indices, bl_a, 0.5f * PI, PI, radiusBl, borderBottom, borderLeft, width, height, z, bR, bG, bB, bgR, bgG, bgB, bl_pts, 3, false);
+
+    // Fill in side indices
+    u32* indices_write = indices->array + indices->size;
+
+    // Top side quad
+    *indices_write++ = TL + tl_pts - 1;
+    *indices_write++ = TL + 2 * tl_pts - 1;
+    *indices_write++ = TR;
+    *indices_write++ = TL + 2 * tl_pts - 1;
+    *indices_write++ = TR + tr_pts;
+    *indices_write++ = TR;
+
+    // Right side quad
+    *indices_write++ = TR + tr_pts - 1;
+    *indices_write++ = TR + 2 * tr_pts - 1;
+    *indices_write++ = BR;
+    *indices_write++ = TR + 2 * tr_pts - 1;
+    *indices_write++ = BR + br_pts;
+    *indices_write++ = BR;
+
+    // Bottom side quad
+    *indices_write++ = BR + br_pts - 1;
+    *indices_write++ = BR + 2 * br_pts - 1;
+    *indices_write++ = BL;
+    *indices_write++ = BR + 2 * br_pts - 1;
+    *indices_write++ = BL + bl_pts;
+    *indices_write++ = BL;
+
+    // Left side quad
+    *indices_write++ = BL + bl_pts - 1;
+    *indices_write++ = BL + 2 * bl_pts - 1;
+    *indices_write++ = TL;
+    *indices_write++ = BL + 2 * bl_pts - 1;
+    *indices_write++ = TL + tl_pts;
+    *indices_write++ = TL;
+
+    // Fill in background indices
+    int TL_bg_connector = TL + 3 * tl_pts; 
+    int TR_bg_connector = TR + 3 * tr_pts;
+    int BR_bg_connector = BR + 3 * br_pts;
+    int BL_bg_connector = BL + 3 * bl_pts;
+
+    // Central quad
+    *indices_write++ = TL_bg_connector; 
+    *indices_write++ = TR_bg_connector; 
+    *indices_write++ = BR_bg_connector;
+    *indices_write++ = TL_bg_connector; 
+    *indices_write++ = BR_bg_connector; 
+    *indices_write++ = BL_bg_connector;
+
+    // Top inner quad
+    *indices_write++ = TL_bg_connector; 
+    *indices_write++ = TL_bg_connector - 1; 
+    *indices_write++ = TR + tr_pts * 2;
+    *indices_write++ = TL_bg_connector; 
+    *indices_write++ = TR + tr_pts * 2;     
+    *indices_write++ = TR_bg_connector;
+
+    // Right inner quad
+    *indices_write++ = TR_bg_connector; 
+    *indices_write++ = TR_bg_connector - 1; 
+    *indices_write++ = BR + br_pts * 2;
+    *indices_write++ = TR_bg_connector; 
+    *indices_write++ = BR + br_pts * 2;     
+    *indices_write++ = BR_bg_connector;
+
+    // Bottom inner quad
+    *indices_write++ = BR_bg_connector; 
+    *indices_write++ = BR_bg_connector - 1; 
+    *indices_write++ = BL + bl_pts * 2;
+    *indices_write++ = BR_bg_connector; 
+    *indices_write++ = BL + bl_pts * 2;     
+    *indices_write++ = BL_bg_connector;
+
+    // Left inner quad
+    *indices_write++ = BL_bg_connector; 
+    *indices_write++ = BL_bg_connector - 1; 
+    *indices_write++ = TL + tl_pts * 2;
+    *indices_write++ = BL_bg_connector; 
+    *indices_write++ = TL + tl_pts * 2;     
+    *indices_write++ = TL_bg_connector;
+
+    // Update indices size
+    indices->size = (int)(indices_write - indices->array);
+}
+
 void Construct_Scrollbar(
     NodeP* node, float z,
     NU_Stylesheet_Scrollbar_Style* scrollbarStyle,
@@ -329,58 +468,115 @@ void Construct_Scrollbar(
 {
     Node* n = &node->node;
     
-    // --- Allocate extra space in vertex and index lists ---
-    u32 additional_vertices = 8;    
-    u32 additional_indices = 12;          
-    if (vertices->size + additional_vertices > vertices->capacity) Vertex_RGB_List_Grow(vertices, additional_vertices);
-    if (indices->size + additional_indices > indices->capacity) Index_List_Grow(indices, additional_indices);
+    // Compute RGB colours
+    float trackR_bg = scrollbarStyle->trackBackgroundR / 255.0f;
+    float trackG_bg = scrollbarStyle->trackBackgroundG / 255.0f;
+    float trackB_bg = scrollbarStyle->trackBackgroundB / 255.0f;
+    float trackR_b = scrollbarStyle->trackBorderR / 255.0f;
+    float trackG_b = scrollbarStyle->trackBorderG / 255.0f;
+    float trackB_b = scrollbarStyle->trackBorderB / 255.0f;
+    float thumbR_bg = scrollbarStyle->thumbBackgroundR / 255.0f;
+    float thumbG_bg = scrollbarStyle->thumbBackgroundG / 255.0f;
+    float thumbB_bg = scrollbarStyle->thumbBackgroundB / 255.0f;
+    float thumbR_b = scrollbarStyle->thumbBorderR / 255.0f;
+    float thumbG_b = scrollbarStyle->thumbBorderG / 255.0f;
+    float thumbB_b = scrollbarStyle->thumbBorderB / 255.0f;
 
-    NodeP* first_child = node->firstChild;
-    float scroll_view_height = n->contentHeight;
-    float track_height = n->height - n->borderTop - n->borderBottom;
-    float inner_height_w_pad = track_height - n->padTop - n->padBottom;
-    float inner_proportion_of_content_height = inner_height_w_pad / scroll_view_height;
-    float thumb_height = inner_proportion_of_content_height * track_height;
-    float x = n->x + n->width - n->borderRight - 8.0f;
-    float y = n->y + n->borderTop;
-    float thumb_y = n->y + n->borderTop + (node->scrollV * (track_height - thumb_height));
-    float w = scrollbarStyle->width;
+    // --------------------------------------
+    // --- Compute constrained dimensions ---
+    // --------------------------------------
+    float thumbWidth = (float)scrollbarStyle->width - (float)scrollbarStyle->trackPadLeft - (float)scrollbarStyle->trackPadRight;
 
-    float trackR = scrollbarStyle->trackBackgroundR / 255.0f;
-    float trackG = scrollbarStyle->trackBackgroundG / 255.0f;
-    float trackB = scrollbarStyle->trackBackgroundB / 255.0f;
+    // Constrain thumb width by thumb border
+    if (thumbWidth < scrollbarStyle->thumbBorderLeft + scrollbarStyle->thumbBorderRight) {
+        thumbWidth = scrollbarStyle->thumbBorderLeft + scrollbarStyle->thumbBorderRight;
+    }
 
-    float thumbR = scrollbarStyle->thumbBackgroundR / 255.0f;
-    float thumbG = scrollbarStyle->thumbBackgroundG / 255.0f;
-    float thumbB = scrollbarStyle->thumbBackgroundB / 255.0f;
+    // Ensure absolute minimum thumb width of 2px
+    if (thumbWidth < 2) thumbWidth = 2;
 
-    u32 vertOffset = vertices->size;
-    vertices->array[vertOffset + 0] = (vertex_rgb){ x, y, z, trackR, trackG, trackB }; // Background Rect TL
-    vertices->array[vertOffset + 1] = (vertex_rgb){ x + w, y, z, trackR, trackG, trackB }; // Background Rect TR
-    vertices->array[vertOffset + 2] = (vertex_rgb){ x, y + track_height, z, trackR, trackG, trackB }; // Background Rect BL
-    vertices->array[vertOffset + 3] = (vertex_rgb){ x + w, y + track_height, z, trackR, trackG, trackB }; // Background Rect BR
-    vertices->array[vertOffset + 4] = (vertex_rgb){ x, thumb_y, z, thumbR, thumbG, thumbB }; // Background Thumb TL
-    vertices->array[vertOffset + 5] = (vertex_rgb){ x + w, thumb_y, z, thumbR, thumbG, thumbB }; // Background Thumb TR
-    vertices->array[vertOffset + 6] = (vertex_rgb){ x, thumb_y + thumb_height, z, thumbR, thumbG, thumbB }; // Background Thumb BL
-    vertices->array[vertOffset + 7] = (vertex_rgb){ x + w, thumb_y + thumb_height, z, thumbR, thumbG, thumbB }; // Background Thumb BR
+    // Compute thumb-constrained track width
+    float trackWidth = thumbWidth + (float)scrollbarStyle->trackPadLeft + (float)scrollbarStyle->trackPadRight;
 
-    // Indices
-    u32* indices_write = indices->array + indices->size;
-    *indices_write++ = vertOffset + 0;
-    *indices_write++ = vertOffset + 1;
-    *indices_write++ = vertOffset + 2;
-    *indices_write++ = vertOffset + 1;
-    *indices_write++ = vertOffset + 2;
-    *indices_write++ = vertOffset + 3;
-    *indices_write++ = vertOffset + 4;
-    *indices_write++ = vertOffset + 5;
-    *indices_write++ = vertOffset + 6;
-    *indices_write++ = vertOffset + 5;
-    *indices_write++ = vertOffset + 6;
-    *indices_write++ = vertOffset + 7;
+    // Compute track height
+    float trackHeight = n->height - n->borderTop - n->borderBottom;
+    float usableTrackHeight = trackHeight - scrollbarStyle->trackPadTop - scrollbarStyle->trackPadBottom;
 
-    vertices->size += additional_vertices;
-    indices->size += additional_indices;
+    // Compute track pos
+    float trackX = n->x + n->width - n->borderRight - trackWidth;
+    float trackY = n->y + n->borderTop;
+
+    // Compute scroll transform values
+    float scrollContentHeight = n->contentHeight;
+    float scrollViewHeight = usableTrackHeight - n->padTop - n->padBottom; 
+    float scrollScaleFactor = scrollViewHeight / scrollContentHeight;
+
+    // Compute thumb pos and constrained height
+    float thumbHeight = fmaxf(scrollViewHeight / n->contentHeight * usableTrackHeight, scrollbarStyle->thumbMinSize);
+    float scrollTravel = usableTrackHeight - thumbHeight;
+    float thumbY = trackY + scrollbarStyle->trackPadTop + node->scrollV * scrollTravel;
+    float thumbX = trackX + scrollbarStyle->trackPadLeft;
+    
+    // Constrain thumb border radii based on thumb width and height
+    float thumbBorderTop = scrollbarStyle->thumbBorderTop;
+    float thumbBorderBottom = scrollbarStyle->thumbBorderBottom;
+    float thumbBorderLeft = scrollbarStyle->thumbBorderLeft;
+    float thumbBorderRight = scrollbarStyle->thumbBorderRight;
+    float thumbRadiusTl = scrollbarStyle->thumbBorderRadiusTl;
+    float thumbRadiusTr = scrollbarStyle->thumbBorderRadiusTr;
+    float thumbRadiusBl = scrollbarStyle->thumbBorderRadiusBl;
+    float thumbRadiusBr = scrollbarStyle->thumbBorderRadiusBr;
+    float thumbLeftRadiiSum   = thumbRadiusTl + thumbRadiusBl;
+    float thumbRightRadiiSum  = thumbRadiusTr + thumbRadiusBr;
+    float thumbTopRadiiSum    = thumbRadiusTl + thumbRadiusTr;
+    float thumbBottomRadiiSum = thumbRadiusBl + thumbRadiusBr; 
+    if (thumbLeftRadiiSum   > thumbHeight) { float scale = thumbHeight / thumbLeftRadiiSum;   thumbRadiusTl *= scale; thumbRadiusBl *= scale; }
+    if (thumbRightRadiiSum  > thumbHeight) { float scale = thumbHeight / thumbRightRadiiSum;  thumbRadiusTr *= scale; thumbRadiusBr *= scale; }
+    if (thumbTopRadiiSum    > thumbWidth ) { float scale = thumbWidth  / thumbTopRadiiSum;    thumbRadiusTl *= scale; thumbRadiusTr *= scale; } 
+    if (thumbBottomRadiiSum > thumbWidth ) { float scale = thumbWidth  / thumbBottomRadiiSum; thumbRadiusBl *= scale; thumbRadiusBr *= scale; } 
+
+    // Constrain track border radii based on track width and height
+    float trackBorderTop    = scrollbarStyle->trackBorderTop;
+    float trackBorderBottom = scrollbarStyle->trackBorderBottom;
+    float trackBorderLeft   = scrollbarStyle->trackBorderLeft;
+    float trackBorderRight  = scrollbarStyle->trackBorderRight;
+    float trackRadiusTl = scrollbarStyle->trackBorderRadiusTl;
+    float trackRadiusTr = scrollbarStyle->trackBorderRadiusTr;
+    float trackRadiusBl = scrollbarStyle->trackBorderRadiusBl;
+    float trackRadiusBr = scrollbarStyle->trackBorderRadiusBr;
+    float trackLeftRadiiSum   = trackRadiusTl + trackRadiusBl;
+    float trackRightRadiiSum  = trackRadiusTr + trackRadiusBr;
+    float trackTopRadiiSum    = trackRadiusTl + trackRadiusTr;
+    float trackBottomRadiiSum = trackRadiusBl + trackRadiusBr; 
+    if (trackLeftRadiiSum   > trackHeight) { float scale = trackHeight / trackLeftRadiiSum;   trackRadiusTl *= scale; trackRadiusBl *= scale; }
+    if (trackRightRadiiSum  > trackHeight) { float scale = trackHeight / trackRightRadiiSum;  trackRadiusTr *= scale; trackRadiusBr *= scale; }
+    if (trackTopRadiiSum    > trackWidth ) { float scale = trackWidth  / trackTopRadiiSum;    trackRadiusTl *= scale; trackRadiusTr *= scale; } 
+    if (trackBottomRadiiSum > trackWidth ) { float scale = trackWidth  / trackBottomRadiiSum; trackRadiusBl *= scale; trackRadiusBr *= scale; } 
+
+
+    // --------------------------
+    // --- Construct geometry ---
+    // --------------------------
+
+    // Track geometry
+    Construct_BorderRect(
+        trackX, trackY, z, trackWidth, trackHeight,
+        trackBorderTop, trackBorderBottom, trackBorderLeft, trackBorderRight,
+        trackRadiusTl, trackRadiusTr, trackRadiusBl, trackRadiusBr, 
+        trackR_bg, trackG_bg, trackB_bg,
+        trackR_b, trackG_b, trackB_b,
+        vertices, indices
+    );
+
+    // Thumb geometry
+    Construct_BorderRect(
+        thumbX, thumbY, z, thumbWidth, thumbHeight,
+        thumbBorderTop, thumbBorderBottom, thumbBorderLeft, thumbBorderRight,
+        thumbRadiusTl, thumbRadiusTr, thumbRadiusBl, thumbRadiusBr, 
+        thumbR_bg, thumbG_bg, thumbB_bg,
+        thumbR_b, thumbG_b, thumbB_b,
+        vertices, indices
+    );
 }
 
 void NU_ConstructInputCursorMesh(

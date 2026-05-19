@@ -67,14 +67,55 @@ static bool NU_MouseIsOverNode(NodeP* node, float mouseX, float mouseY)
     return true;
 }
 
-static bool NU_Mouse_Over_Node_V_Scrollbar(NodeP* node, float mouse_x, float mouse_y) {
-    float track_height = node->node.height - node->node.borderTop - node->node.borderBottom;
-    float thumb_height = (track_height / node->node.contentHeight) * track_height;
-    float scroll_thumb_left_wall = node->node.x + node->node.width - node->node.borderRight - 8.0f;
-    float scroll_thumb_top_wall = node->node.y + node->node.borderTop + (node->scrollV * (track_height - thumb_height));
-    bool within_x_bound = mouse_x >= scroll_thumb_left_wall && mouse_x <= scroll_thumb_left_wall + 8.0f;
-    bool within_y_bound = mouse_y >= scroll_thumb_top_wall && mouse_y <= scroll_thumb_top_wall + thumb_height;
-    return within_x_bound && within_y_bound;
+static bool NU_Mouse_Over_Node_V_Scrollbar(
+    NodeP* node, NU_Stylesheet_Scrollbar_Style* scrollbarStyle, 
+    float mouseX, float mouseY, float* grabOffsetOut
+) 
+{
+    Node* n = &node->node;
+
+    // --------------------------------------
+    // --- Compute constrained dimensions ---
+    // --------------------------------------
+    float thumbWidth = (float)scrollbarStyle->width - (float)scrollbarStyle->trackPadLeft - (float)scrollbarStyle->trackPadRight;
+
+    // Constrain thumb width by thumb border
+    if (thumbWidth < scrollbarStyle->thumbBorderLeft + scrollbarStyle->thumbBorderRight) {
+        thumbWidth = scrollbarStyle->thumbBorderLeft + scrollbarStyle->thumbBorderRight;
+    }
+
+    // Ensure absolute minimum thumb width of 2px
+    if (thumbWidth < 2) thumbWidth = 2;
+
+    // Compute thumb-constrained track width
+    float trackWidth = thumbWidth + (float)scrollbarStyle->trackPadLeft + (float)scrollbarStyle->trackPadRight;
+
+    // Compute track height
+    float trackHeight = n->height - n->borderTop - n->borderBottom;
+    float usableTrackHeight = trackHeight - scrollbarStyle->trackPadTop - scrollbarStyle->trackPadBottom;
+
+    // Compute track pos
+    float trackX = n->x + n->width - n->borderRight - trackWidth;
+    float trackY = n->y + n->borderTop;
+
+    // Compute scroll transform values
+    float scrollContentHeight = n->contentHeight;
+    float scrollViewHeight = usableTrackHeight - n->padTop - n->padBottom; 
+    float scrollScaleFactor = scrollViewHeight / scrollContentHeight;
+
+    // Compute thumb pos and constrained height
+    float thumbHeight = fmaxf(scrollViewHeight / n->contentHeight * usableTrackHeight, scrollbarStyle->thumbMinSize);
+    float scrollTravel = usableTrackHeight - thumbHeight;
+    float thumbY = trackY + scrollbarStyle->trackPadTop + node->scrollV * scrollTravel;
+    float thumbX = trackX + scrollbarStyle->trackPadLeft;
+
+    // Output grab offset
+    *grabOffsetOut = mouseY - thumbY;
+
+    // Determine result
+    bool withinX = mouseX >= thumbX && mouseX <= thumbX + thumbWidth;
+    bool withinY = mouseY >= thumbY && mouseY <= thumbY + thumbHeight;
+    return withinX && withinY;
 }
 
 void NU_Mouse_Hover()

@@ -51,6 +51,17 @@ typedef struct {
     u32 capacity;
 } Vertex_RGB_UV_List;
 
+typedef struct BorderRectRenderData {
+    // Vertex attributes
+    float x, y, z;
+    float w, h;
+    u32 backgroundRGBA;
+    u32 borderRGBA;
+    float radiusTl, radiusTr, radiusBl, radiusBr;
+    float borderTop, borderBottom, borderLeft, borderRight;
+    float scissorX, scissorY, scissorW, scissorH;
+} BorderRectRenderData;
+
 typedef struct {
     Vertex_RGB_List vertices;
     Index_List indices;

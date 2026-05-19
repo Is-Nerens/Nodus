@@ -149,18 +149,22 @@ bool EventWatcher(void* data, SDL_Event* event)
         // if dragging scrollbar -> update node->node.scrollV 
         if (GUI.scroll_mouse_down_node != NULL) 
         {
+            // Compute scrollV
             NodeP* node = GUI.scroll_mouse_down_node;
-
-            // calculate drag_dist track_height thumb_height
-            float track_height = node->node.height - node->node.borderTop - node->node.borderBottom;
-            float inner_height_w_pad = track_height - node->node.padTop - node->node.padBottom;
-            float inner_proportion_of_content_height = inner_height_w_pad / node->node.contentHeight;
-            float thumb_height = inner_proportion_of_content_height * track_height;
-            float track_top_y = node->node.y + node->node.borderTop;
-            float drag_dist = (mouseY - GUI.v_scroll_thumb_grab_offset) - track_top_y;
-
-            // apply scroll and clamp
-            node->scrollV = drag_dist / (track_height - thumb_height);
+            NU_Stylesheet_Scrollbar_Style* scrollbarStyle = &GUI.stylesheet.scrollbarStyle;
+            Node* n = &node->node;
+            float trackHeight = n->height - n->borderTop - n->borderBottom;
+            float usableTrackHeight = trackHeight - scrollbarStyle->trackPadTop - scrollbarStyle->trackPadBottom;
+            float scrollContentHeight = n->contentHeight;
+            float scrollViewHeight = usableTrackHeight - n->padTop - n->padBottom; 
+            float scrollScaleFactor = scrollViewHeight / scrollContentHeight;
+            float thumbHeight = fmaxf(scrollViewHeight / n->contentHeight * usableTrackHeight, scrollbarStyle->thumbMinSize);
+            float scrollTravel = usableTrackHeight - thumbHeight;
+            float trackY = n->y + n->borderTop;
+            float thumbY = trackY + scrollbarStyle->trackPadTop + node->scrollV * scrollTravel;
+            float trackTop = trackY + scrollbarStyle->trackPadTop;
+            float dragDist = (mouseY - GUI.v_scroll_thumb_grab_offset) - trackTop;
+            node->scrollV = dragDist / (usableTrackHeight - thumbHeight);
             node->scrollV = min(max(node->scrollV, 0.0f), 1.0f); // Clamp to range [0,1]
 
             // must redraw later
@@ -212,18 +216,11 @@ bool EventWatcher(void* data, SDL_Event* event)
         // If mouse is hovered over scroll thumb -> set scroll mouse down node
         if (GUI.scroll_hovered_node != NULL) 
         {    
-            if (NU_Mouse_Over_Node_V_Scrollbar(GUI.scroll_hovered_node, mouseX, mouseY)) 
+            float grabOffset;
+            if (NU_Mouse_Over_Node_V_Scrollbar(GUI.scroll_hovered_node, &GUI.stylesheet.scrollbarStyle, mouseX, mouseY, &grabOffset)) 
             {
                 GUI.scroll_mouse_down_node = GUI.scroll_hovered_node;
-
-                // Record scroll thumb grab offset
-                NodeP* node = GUI.scroll_mouse_down_node;
-                float track_height = node->node.height - node->node.borderTop - node->node.borderBottom;
-                float inner_height_w_pad = track_height - node->node.padTop - node->node.padBottom;
-                float inner_proportion_of_content_height = inner_height_w_pad / node->node.contentHeight;
-                float thumb_height = inner_proportion_of_content_height * track_height;
-                float thumb_top_y = node->node.y + node->node.borderTop + (node->scrollV * (track_height - thumb_height));
-                GUI.v_scroll_thumb_grab_offset = mouseY - thumb_top_y;
+                GUI.v_scroll_thumb_grab_offset = grabOffset;
             }
         }
 
@@ -365,11 +362,12 @@ bool EventWatcher(void* data, SDL_Event* event)
         {
             NU_Mouse_Hover();
 
-            float track_height = node->node.height - node->node.borderTop - node->node.borderBottom;
-            float inner_height_w_pad = track_height - node->node.padTop - node->node.padBottom;
-            float inner_proportion_of_content_height = inner_height_w_pad / node->node.contentHeight;
-            float thumb_height = inner_proportion_of_content_height * track_height;
-            node->scrollV -= event->wheel.y * (track_height / node->node.contentHeight) * 0.2f;
+            // Update scrollV
+            NU_Stylesheet_Scrollbar_Style* scrollbarStyle = &GUI.stylesheet.scrollbarStyle;
+            Node* n = &node->node;
+            float trackHeight = n->height - n->borderTop - n->borderBottom;
+            float usableTrackHeight = trackHeight - scrollbarStyle->trackPadTop - scrollbarStyle->trackPadBottom;
+            node->scrollV -= event->wheel.y * (usableTrackHeight / node->node.contentHeight) * 0.2f;
             node->scrollV = min(max(node->scrollV, 0.0f), 1.0f); // Clamp to range [0,1]
             GUI.awaiting_redraw = true;
         }

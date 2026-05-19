@@ -45,6 +45,32 @@ int NU_Draw_Init()
     // ---------------
     // --- gui shaders
     // ---------------
+    const char* rectSDF_VertSrc = 
+    "#version 330 core\n"
+    "layout(location = 0) in vec3 aPos;\n"
+    "layout(location = 1) in vec3 aColor;\n"
+    "out vec2 vScreenPos;\n"
+    "out vec3 vColor;\n"
+    "uniform float uScreenWidth;\n"
+    "uniform float uScreenHeight;\n"
+    "void main() {\n"
+    "    // Convert screen position (pixels) to NDC for gl_Position\n"
+    "    float ndc_x = (aPos.x / uScreenWidth) * 2.0 - 1.0;\n"
+    "    float ndc_y = 1.0 - aPos.y / uScreenHeight) * 2.0;\n"
+    "    gl_Position = vec4(ndc_x, ndc_y, aPos.z * 0.003f, 1.0);\n"
+    "    vColor = aColor;\n"
+    "    vScreenPos = vec2(aPos.x, aPos.y);\n"
+    "}\n";
+
+    const char* rectSDF_FragSrc =
+    "#version 330 core\n"
+    "in vec3 vColor;\n"
+    "out vec4 FragColor;\n"
+    "void main() {\n"
+    "    FragColor = vec4(vColor, 1.0);\n"
+    "}\n";
+
+
     const char* borderRectVertSrc =
     "#version 330 core\n"
     "layout(location = 0) in vec3 aPos;\n"

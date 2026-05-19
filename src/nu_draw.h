@@ -176,7 +176,7 @@ void NU_DrawClippedNodeBorderRect(NodeP* node, float z, float winWidth, float wi
     Index_List indices;
     Vertex_RGB_List_Init(&vertices, 100);
     Index_List_Init(&indices, 100);
-    Construct_Border_Rect(node, z, &vertices, &indices);
+    Construct_NodeBorderRect(node, z, &vertices, &indices);
     Draw_Clipped_Vertex_RGB_List(&vertices, &indices, winWidth, winHeight, 0.0f, 0.0f, clip->clip_top, clip->clip_bottom, clip->clip_left, clip->clip_right);
     Vertex_RGB_List_Free(&vertices);
     Index_List_Free(&indices);
@@ -253,12 +253,8 @@ void NU_GenerateDrawlists()
         NodeP* child = node->firstChild;
         while(child != NULL) 
         {
-            if (NodeStateHidden(child)) {
-                child = child->nextSibling; continue;
-            }
-
-            // if child not visible in window bounds -> mark as hidden
-            if (NodeNotVisibleInWindow(child, winW, winH)) {
+            // if child is not visible (or not visible in window -> mark as hidded) -> skip
+            if (NodeStateHidden(child) | NodeNotVisibleInWindow(child, winW, winH)) {
                 child->stateFlags |= STATE_FLAG_HIDDEN; 
                 child = child->nextSibling; continue;
             }
@@ -400,7 +396,7 @@ void NU_Draw()
         for (u32 n=0; n<drawList->relativeNodes.size; n++) {
             NodeP* node = *(NodeP**)ArrayGet(&drawList->relativeNodes, n);
             float z = (float)(node->layer);
-            Construct_Border_Rect(node, z, &GUI.borderRectVertices, &GUI.borderRectIndices);
+            Construct_NodeBorderRect(node, z, &GUI.borderRectVertices, &GUI.borderRectIndices);
             if (node->layoutFlags & OVERFLOW_VERTICAL_SCROLL 
                 && node->node.contentHeight > (node->node.height - node->node.padTop - node->node.padBottom - node->node.borderTop - node->node.borderBottom)) {
                 Construct_Scrollbar(node, z + 0.5f, &GUI.stylesheet.scrollbarStyle, &GUI.borderRectVertices, &GUI.borderRectIndices);
@@ -496,7 +492,7 @@ void NU_Draw()
         for (u32 n=0; n<drawList->absoluteNodes.size; n++) { // construct border rect vertices and indices for each node
             NodeP* node = *(NodeP**)ArrayGet(&drawList->absoluteNodes, n);
             float z = (float)(node->layer) + 128.0f;
-            Construct_Border_Rect(node, z, &GUI.borderRectVertices, &GUI.borderRectIndices);
+            Construct_NodeBorderRect(node, z, &GUI.borderRectVertices, &GUI.borderRectIndices);
             if (node->layoutFlags & OVERFLOW_VERTICAL_SCROLL 
                 && node->node.contentHeight > (node->node.height - node->node.padTop - node->node.padBottom - node->node.borderTop - node->node.borderBottom)) {
                 Construct_Scrollbar(node, z + 0.5f, &GUI.stylesheet.scrollbarStyle, &GUI.borderRectVertices, &GUI.borderRectIndices);

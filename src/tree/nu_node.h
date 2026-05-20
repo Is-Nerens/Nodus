@@ -146,14 +146,10 @@ typedef struct NU_NodeDimensions
 
 typedef struct NU_ClipBounds 
 {
-    float clip_top;
-    float clip_bottom;
-    float clip_left;
-    float clip_right;
-    float tl_radius_x, tl_radius_y;
-    float tr_radius_x, tr_radius_y;
-    float bl_radius_x, bl_radius_y;
-    float br_radius_x, br_radius_y;
+    float top;
+    float bottom;
+    float left;
+    float right;
 } NU_ClipBounds;
 
 void NU_ApplyNodeDefaults(NodeP* node)

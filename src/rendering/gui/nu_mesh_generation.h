@@ -202,14 +202,14 @@ void Construct_NodeBorderRect(
     float borderRadiusBr = n->borderRadiusBr;
     float borderRadiusTl = n->borderRadiusTl;
     float borderRadiusTr = n->borderRadiusTr;
-    float left_radii_sum   = borderRadiusTl + borderRadiusBl;
-    float right_radii_sum  = borderRadiusTr + borderRadiusBr;
-    float top_radii_sum    = borderRadiusTl + borderRadiusTr;
-    float bottom_radii_sum = borderRadiusBl + borderRadiusBr;
-    if (left_radii_sum   > n->height)  { float scale = n->height / left_radii_sum;   borderRadiusTl *= scale; borderRadiusBl *= scale; }
-    if (right_radii_sum  > n->height)  { float scale = n->height / right_radii_sum;  borderRadiusTr *= scale; borderRadiusBr *= scale; }
-    if (top_radii_sum    > n->width )  { float scale = n->width  / top_radii_sum;    borderRadiusTl *= scale; borderRadiusTr *= scale; }
-    if (bottom_radii_sum > n->width )  { float scale = n->width  / bottom_radii_sum; borderRadiusBl *= scale; borderRadiusBr *= scale; }
+    float leftRadiiSum   = borderRadiusTl + borderRadiusBl;
+    float rightRadiiSum  = borderRadiusTr + borderRadiusBr;
+    float topRadiiSum    = borderRadiusTl + borderRadiusTr;
+    float bottomRadiiSum = borderRadiusBl + borderRadiusBr;
+    if (leftRadiiSum   > n->height)  { float scale = n->height / leftRadiiSum;   borderRadiusTl *= scale; borderRadiusBl *= scale; }
+    if (rightRadiiSum  > n->height)  { float scale = n->height / rightRadiiSum;  borderRadiusTr *= scale; borderRadiusBr *= scale; }
+    if (topRadiiSum    > n->width )  { float scale = n->width  / topRadiiSum;    borderRadiusTl *= scale; borderRadiusTr *= scale; }
+    if (bottomRadiiSum > n->width )  { float scale = n->width  / bottomRadiiSum; borderRadiusBl *= scale; borderRadiusBr *= scale; }
 
     // --- Convert colors ---
     float border_r_fl      = (float)n->borderR / 255.0f;
@@ -321,146 +321,6 @@ void Construct_NodeBorderRect(
     indices->size = (int)(indices_write - indices->array);
 }
 
-void Construct_BorderRect(
-    float x, float y, float z,
-    float width, float height,
-    float borderTop, float borderBottom, float borderLeft, float borderRight,
-    float radiusTl, float radiusTr, float radiusBl, float radiusBr, 
-    float bgR, float bgG, float bgB, 
-    float bR, float bG, float bB,
-    Vertex_RGB_List* vertices, Index_List* indices
-)
-{
-    const float PI = 3.14159265f;
-
-    // Constrain radii
-    float leftRadiiSum   = radiusTl + radiusBl;
-    float rightRadiiSum  = radiusTr + radiusBr;
-    float topRadiiSum    = radiusTl + radiusTr;
-    float bottomRadiiSum = radiusBl + radiusBr; 
-    if (leftRadiiSum   > height) { float scale = height / leftRadiiSum;   radiusTl *= scale; radiusBl *= scale; }
-    if (rightRadiiSum  > height) { float scale = height / rightRadiiSum;  radiusTr *= scale; radiusBr *= scale; }
-    if (topRadiiSum    > width ) { float scale = width  / topRadiiSum;    radiusTl *= scale; radiusTr *= scale; } 
-    if (bottomRadiiSum > width ) { float scale = width  / bottomRadiiSum; radiusBl *= scale; radiusBr *= scale; } 
-
-    // Determine corner points
-    int max_pts  = 32;
-    int tl_pts             = radiusTl < 1.0f ? 1 : min((int)radiusTl + 5, max_pts);
-    int tr_pts             = radiusTr < 1.0f ? 1 : min((int)radiusTr + 5, max_pts);
-    int br_pts             = radiusBr < 1.0f ? 1 : min((int)radiusBr + 5, max_pts);
-    int bl_pts             = radiusBl < 1.0f ? 1 : min((int)radiusBl + 5, max_pts);
-    int total_pts          = tl_pts + tr_pts + br_pts + bl_pts;
-
-    // Corner anchors
-    vec2 tl_a              = { (float)(int)(x + radiusTl),         (float)(int)(y + radiusTl) };
-    vec2 tr_a              = { (float)(int)(x + width - radiusTr), (float)(int)(y + radiusTr) };
-    vec2 bl_a              = { (float)(int)(x + radiusBl),         (float)(int)(y + height - radiusBl) };
-    vec2 br_a              = { (float)(int)(x + width - radiusBr), (float)(int)(y + height - radiusBr) };
-
-    // Allocate extra space in vertex and index lists
-    u32 additional_vertices = total_pts * 3 + 4;              // each corner contributes 3*cp + 1 verts
-    u32 additional_indices = (total_pts - 4) * 6              // curved edges
-                                  + 24                        // straight sides
-                                  + (total_pts - 4) * 3 + 30; // background tris
-    if (vertices->size + additional_vertices > vertices->capacity) Vertex_RGB_List_Grow(vertices, additional_vertices);
-    if (indices->size + additional_indices > indices->capacity) Index_List_Grow(indices, additional_indices);
-
-    // Generate corner vertices and indices 
-    int TL = vertices->size;
-    Generate_Corner_Segment(vertices, indices, tl_a, PI, 1.5f * PI, radiusTl, borderLeft, borderTop, width, height, z, bR, bG, bB, bgR, bgG, bgB, tl_pts, 0, false);
-    int TR = vertices->size;
-    Generate_Corner_Segment(vertices, indices, tr_a, 1.5f * PI, 2.0f * PI, radiusTr, borderTop, borderRight, width, height, z, bR, bG, bB, bgR, bgG, bgB, tr_pts, 1, false);
-    int BR = vertices->size;
-    Generate_Corner_Segment(vertices, indices, br_a, 0.0f, 0.5f * PI, radiusBr, borderRight, borderBottom, width, height, z, bR, bG, bB, bgR, bgG, bgB, br_pts, 2, false);
-    int BL = vertices->size;
-    Generate_Corner_Segment(vertices, indices, bl_a, 0.5f * PI, PI, radiusBl, borderBottom, borderLeft, width, height, z, bR, bG, bB, bgR, bgG, bgB, bl_pts, 3, false);
-
-    // Fill in side indices
-    u32* indices_write = indices->array + indices->size;
-
-    // Top side quad
-    *indices_write++ = TL + tl_pts - 1;
-    *indices_write++ = TL + 2 * tl_pts - 1;
-    *indices_write++ = TR;
-    *indices_write++ = TL + 2 * tl_pts - 1;
-    *indices_write++ = TR + tr_pts;
-    *indices_write++ = TR;
-
-    // Right side quad
-    *indices_write++ = TR + tr_pts - 1;
-    *indices_write++ = TR + 2 * tr_pts - 1;
-    *indices_write++ = BR;
-    *indices_write++ = TR + 2 * tr_pts - 1;
-    *indices_write++ = BR + br_pts;
-    *indices_write++ = BR;
-
-    // Bottom side quad
-    *indices_write++ = BR + br_pts - 1;
-    *indices_write++ = BR + 2 * br_pts - 1;
-    *indices_write++ = BL;
-    *indices_write++ = BR + 2 * br_pts - 1;
-    *indices_write++ = BL + bl_pts;
-    *indices_write++ = BL;
-
-    // Left side quad
-    *indices_write++ = BL + bl_pts - 1;
-    *indices_write++ = BL + 2 * bl_pts - 1;
-    *indices_write++ = TL;
-    *indices_write++ = BL + 2 * bl_pts - 1;
-    *indices_write++ = TL + tl_pts;
-    *indices_write++ = TL;
-
-    // Fill in background indices
-    int TL_bg_connector = TL + 3 * tl_pts; 
-    int TR_bg_connector = TR + 3 * tr_pts;
-    int BR_bg_connector = BR + 3 * br_pts;
-    int BL_bg_connector = BL + 3 * bl_pts;
-
-    // Central quad
-    *indices_write++ = TL_bg_connector; 
-    *indices_write++ = TR_bg_connector; 
-    *indices_write++ = BR_bg_connector;
-    *indices_write++ = TL_bg_connector; 
-    *indices_write++ = BR_bg_connector; 
-    *indices_write++ = BL_bg_connector;
-
-    // Top inner quad
-    *indices_write++ = TL_bg_connector; 
-    *indices_write++ = TL_bg_connector - 1; 
-    *indices_write++ = TR + tr_pts * 2;
-    *indices_write++ = TL_bg_connector; 
-    *indices_write++ = TR + tr_pts * 2;     
-    *indices_write++ = TR_bg_connector;
-
-    // Right inner quad
-    *indices_write++ = TR_bg_connector; 
-    *indices_write++ = TR_bg_connector - 1; 
-    *indices_write++ = BR + br_pts * 2;
-    *indices_write++ = TR_bg_connector; 
-    *indices_write++ = BR + br_pts * 2;     
-    *indices_write++ = BR_bg_connector;
-
-    // Bottom inner quad
-    *indices_write++ = BR_bg_connector; 
-    *indices_write++ = BR_bg_connector - 1; 
-    *indices_write++ = BL + bl_pts * 2;
-    *indices_write++ = BR_bg_connector; 
-    *indices_write++ = BL + bl_pts * 2;     
-    *indices_write++ = BL_bg_connector;
-
-    // Left inner quad
-    *indices_write++ = BL_bg_connector; 
-    *indices_write++ = BL_bg_connector - 1; 
-    *indices_write++ = TL + tl_pts * 2;
-    *indices_write++ = BL_bg_connector; 
-    *indices_write++ = TL + tl_pts * 2;     
-    *indices_write++ = TL_bg_connector;
-
-    // Update indices size
-    indices->size = (int)(indices_write - indices->array);
-}
-
-
 static inline u32 PackRGBA(u8 r, u8 g, u8 b, u8 a)
 {
     return ((u32)r << 0) |
@@ -471,7 +331,7 @@ static inline u32 PackRGBA(u8 r, u8 g, u8 b, u8 a)
 
 void Add_NodeRectRenderData(
     NodeP* node, float z, 
-    float scissorX, float scissorY, float scissorW, float scissorH,
+    float scissorTop, float scissorBottom, float scissorLeft, float scissorRight,
     Array* borderRects
 )
 {
@@ -492,14 +352,14 @@ void Add_NodeRectRenderData(
     float borderRadiusTr = n->borderRadiusTr;
     float borderRadiusBl = n->borderRadiusBl;
     float borderRadiusBr = n->borderRadiusBr;
-    float top_radii_sum    = borderRadiusTl + borderRadiusTr;
-    float bottom_radii_sum = borderRadiusBl + borderRadiusBr;
-    float left_radii_sum   = borderRadiusTl + borderRadiusBl;
-    float right_radii_sum  = borderRadiusTr + borderRadiusBr;
-    if (top_radii_sum    > renderData->w) { float scale = renderData->w / top_radii_sum;    borderRadiusTl *= scale; borderRadiusTr *= scale; }
-    if (bottom_radii_sum > renderData->w) { float scale = renderData->w / bottom_radii_sum; borderRadiusBl *= scale; borderRadiusBr *= scale; }
-    if (left_radii_sum   > renderData->h) { float scale = renderData->h / left_radii_sum;   borderRadiusTl *= scale; borderRadiusBl *= scale; }
-    if (right_radii_sum  > renderData->h) { float scale = renderData->h / right_radii_sum;  borderRadiusTr *= scale; borderRadiusBr *= scale; }
+    float topRadiiSum    = borderRadiusTl + borderRadiusTr;
+    float bottomRadiiSum = borderRadiusBl + borderRadiusBr;
+    float leftRadiiSum   = borderRadiusTl + borderRadiusBl;
+    float rightRadiiSum  = borderRadiusTr + borderRadiusBr;
+    if (topRadiiSum    > renderData->w) { float scale = renderData->w / topRadiiSum;    borderRadiusTl *= scale; borderRadiusTr *= scale; }
+    if (bottomRadiiSum > renderData->w) { float scale = renderData->w / bottomRadiiSum; borderRadiusBl *= scale; borderRadiusBr *= scale; }
+    if (leftRadiiSum   > renderData->h) { float scale = renderData->h / leftRadiiSum;   borderRadiusTl *= scale; borderRadiusBl *= scale; }
+    if (rightRadiiSum  > renderData->h) { float scale = renderData->h / rightRadiiSum;  borderRadiusTr *= scale; borderRadiusBr *= scale; }
 
     renderData->backgroundRGBA = PackRGBA(
         n->backgroundR,
@@ -521,33 +381,19 @@ void Add_NodeRectRenderData(
     renderData->borderBottom = n->borderBottom;
     renderData->borderLeft = n->borderLeft;
     renderData->borderRight = n->borderRight;
-    renderData->scissorX = scissorX;
-    renderData->scissorY = scissorY;
-    renderData->scissorW = scissorW;
-    renderData->scissorH = scissorH;
+    renderData->scissorTop = scissorTop;
+    renderData->scissorBottom = scissorBottom;
+    renderData->scissorLeft = scissorLeft;
+    renderData->scissorRight = scissorRight;
 }
 
-void Construct_Scrollbar(
+void Add_ScrollbarRenderData(
     NodeP* node, float z,
     NU_Stylesheet_Scrollbar_Style* scrollbarStyle,
-    Vertex_RGB_List* vertices, Index_List* indices
+    Array* borderRects
 )
 {
     Node* n = &node->node;
-    
-    // Compute RGB colours
-    float trackR_bg = scrollbarStyle->trackBackgroundR / 255.0f;
-    float trackG_bg = scrollbarStyle->trackBackgroundG / 255.0f;
-    float trackB_bg = scrollbarStyle->trackBackgroundB / 255.0f;
-    float trackR_b = scrollbarStyle->trackBorderR / 255.0f;
-    float trackG_b = scrollbarStyle->trackBorderG / 255.0f;
-    float trackB_b = scrollbarStyle->trackBorderB / 255.0f;
-    float thumbR_bg = scrollbarStyle->thumbBackgroundR / 255.0f;
-    float thumbG_bg = scrollbarStyle->thumbBackgroundG / 255.0f;
-    float thumbB_bg = scrollbarStyle->thumbBackgroundB / 255.0f;
-    float thumbR_b = scrollbarStyle->thumbBorderR / 255.0f;
-    float thumbG_b = scrollbarStyle->thumbBorderG / 255.0f;
-    float thumbB_b = scrollbarStyle->thumbBorderB / 255.0f;
 
     // --------------------------------------
     // --- Compute constrained dimensions ---
@@ -624,26 +470,70 @@ void Construct_Scrollbar(
     // --------------------------
     // --- Construct geometry ---
     // --------------------------
-
-    // Track geometry
-    Construct_BorderRect(
-        trackX, trackY, z, trackWidth, trackHeight,
-        trackBorderTop, trackBorderBottom, trackBorderLeft, trackBorderRight,
-        trackRadiusTl, trackRadiusTr, trackRadiusBl, trackRadiusBr, 
-        trackR_bg, trackG_bg, trackB_bg,
-        trackR_b, trackG_b, trackB_b,
-        vertices, indices
+    
+    // Track
+    BorderRectRenderData* trackRData = ArrayPushEmpty(borderRects);
+    trackRData->x = floorf(trackX);
+    trackRData->y = floorf(trackY);
+    trackRData->z = z;
+    trackRData->w = floorf(trackX + trackWidth) - trackRData->x;
+    trackRData->h = floorf(trackY + trackHeight) - trackRData->y;
+    trackRData->radiusTl = trackRadiusTl;
+    trackRData->radiusTr = trackRadiusTr;
+    trackRData->radiusBl = trackRadiusBl;
+    trackRData->radiusBr = trackRadiusBr;
+    trackRData->backgroundRGBA = PackRGBA(
+        scrollbarStyle->trackBackgroundR,
+        scrollbarStyle->trackBackgroundG,
+        scrollbarStyle->trackBackgroundB,
+        255
     );
-
-    // Thumb geometry
-    Construct_BorderRect(
-        thumbX, thumbY, z, thumbWidth, thumbHeight,
-        thumbBorderTop, thumbBorderBottom, thumbBorderLeft, thumbBorderRight,
-        thumbRadiusTl, thumbRadiusTr, thumbRadiusBl, thumbRadiusBr, 
-        thumbR_bg, thumbG_bg, thumbB_bg,
-        thumbR_b, thumbG_b, thumbB_b,
-        vertices, indices
+    trackRData->borderRGBA = PackRGBA(
+        scrollbarStyle->trackBorderR,
+        scrollbarStyle->trackBorderG,
+        scrollbarStyle->trackBorderB,
+        255
     );
+    trackRData->borderTop = scrollbarStyle->trackBorderTop;
+    trackRData->borderBottom = scrollbarStyle->trackBorderBottom;
+    trackRData->borderLeft = scrollbarStyle->trackBorderLeft;
+    trackRData->borderRight = scrollbarStyle->trackBorderRight;
+    trackRData->scissorTop = 0.0f;
+    trackRData->scissorBottom = 10000000.0f;
+    trackRData->scissorLeft = 0.0f;
+    trackRData->scissorRight = 10000000.0f;
+
+    // Thumb
+    BorderRectRenderData* thumbRData = ArrayPushEmpty(borderRects);
+    thumbRData->x = floorf(thumbX);
+    thumbRData->y = floorf(thumbY);
+    thumbRData->z = z;
+    thumbRData->w = floorf(thumbX + thumbWidth) - thumbRData->x;
+    thumbRData->h = floorf(thumbY + thumbHeight) - thumbRData->y;
+    thumbRData->radiusTl = thumbRadiusTl;
+    thumbRData->radiusTr = thumbRadiusTr;
+    thumbRData->radiusBl = thumbRadiusBl;
+    thumbRData->radiusBr = thumbRadiusBr;
+    thumbRData->backgroundRGBA = PackRGBA(
+        scrollbarStyle->thumbBackgroundR,
+        scrollbarStyle->thumbBackgroundG,
+        scrollbarStyle->thumbBackgroundB,
+        255
+    );
+    thumbRData->borderRGBA = PackRGBA(
+        scrollbarStyle->thumbBorderR,
+        scrollbarStyle->thumbBorderG,
+        scrollbarStyle->thumbBorderB,
+        255
+    );
+    thumbRData->borderTop = scrollbarStyle->thumbBorderTop;
+    thumbRData->borderBottom = scrollbarStyle->thumbBorderBottom;
+    thumbRData->borderLeft = scrollbarStyle->thumbBorderLeft;
+    thumbRData->borderRight = scrollbarStyle->thumbBorderRight;
+    thumbRData->scissorTop = 0.0f;
+    thumbRData->scissorBottom = 10000000.0f;
+    thumbRData->scissorLeft = 0.0f;
+    thumbRData->scissorRight = 10000000.0f;
 }
 
 void NU_ConstructInputCursorMesh(

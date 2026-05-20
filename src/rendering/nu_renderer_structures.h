@@ -58,7 +58,7 @@ typedef struct BorderRectRenderData {
     u32 borderRGBA;
     float radiusTl, radiusTr, radiusBl, radiusBr;
     float borderTop, borderBottom, borderLeft, borderRight;
-    float scissorX, scissorY, scissorW, scissorH;
+    float scissorTop, scissorBottom, scissorLeft, scissorRight;
 } BorderRectRenderData;
 
 typedef struct {

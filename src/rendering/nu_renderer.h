@@ -78,7 +78,7 @@ void NU_Init_SDF_Border_Rect_Shader()
     "    vec2 worldPos = iPos.xy + aQuad * iSize;\n"
     "    float ndc_x = (worldPos.x / uScreenWidth) * 2.0 - 1.0;\n"
     "    float ndc_y = 1.0 - (worldPos.y / uScreenHeight) * 2.0;\n"
-    "    gl_Position = vec4(ndc_x, ndc_y, iPos.z * 0.003f, 1.0);\n"
+    "    gl_Position = vec4(ndc_x, ndc_y, iPos.z * 0.015625f, 1.0);\n"
     "    vLocalPos = aQuad * iSize;\n"
     "    vWorldPos = worldPos;\n"
     "    vSize = iSize;\n"
@@ -110,10 +110,10 @@ void NU_Init_SDF_Border_Rect_Shader()
     "void main()\n"
     "{\n"
     "    // ---- SCISSOR (world/screen space) ----\n"
-    "    if (vWorldPos.x < vScissor.x ||\n"
-    "        vWorldPos.y < vScissor.y ||\n"
-    "        vWorldPos.x > vScissor.x + vScissor.z ||\n"
-    "        vWorldPos.y > vScissor.y + vScissor.w)\n"
+    "    if (vWorldPos.x < vScissor.z ||\n"
+    "        vWorldPos.y < vScissor.x ||\n"
+    "        vWorldPos.x > vScissor.w ||\n"
+    "        vWorldPos.y > vScissor.y)\n"
     "    {\n"
     "        discard;\n"
     "    }\n"
@@ -143,6 +143,7 @@ void NU_Init_SDF_Border_Rect_Shader()
     "    // ---- COLOR ----\n"
     "    vec3 color = (borderMask > fillMask) ? vBorderColor.rgb : vBgColor.rgb;\n"
     "    float alpha = clamp(fillMask + borderMask, 0.0, 1.0);\n"
+    "    if (alpha <= 0.0) discard;\n"
     "    FragColor = vec4(color, alpha);\n"
     "}\n";
 
@@ -213,7 +214,7 @@ void NU_Init_SDF_Border_Rect_Shader()
 
     // Scissor
     glEnableVertexAttribArray(7);
-    glVertexAttribPointer(7, 4, GL_FLOAT, GL_FALSE, sizeof(BorderRectRenderData), (void*)offsetof(BorderRectRenderData, scissorX));
+    glVertexAttribPointer(7, 4, GL_FLOAT, GL_FALSE, sizeof(BorderRectRenderData), (void*)offsetof(BorderRectRenderData, scissorTop));
     glVertexAttribDivisor(7, 1);
 
     glBindVertexArray(0);
@@ -235,7 +236,7 @@ void NU_Init_Mesh_Border_Rect_Shader()
     "    // Convert screen position (pixels) to NDC for gl_Position\n"
     "    float ndc_x = ((aPos.x + uOffsetX) / uScreenWidth) * 2.0 - 1.0;\n"
     "    float ndc_y = 1.0 - ((aPos.y + uOffsetY) / uScreenHeight) * 2.0;\n"
-    "    gl_Position = vec4(ndc_x, ndc_y, aPos.z * 0.003f, 1.0);\n"
+    "    gl_Position = vec4(ndc_x, ndc_y, aPos.z * 0.015625f, 1.0);\n"
     "    vColor = aColor;\n"
     "    vScreenPos = vec2(aPos.x + uOffsetX, aPos.y + uOffsetY);\n"
     "}\n";
@@ -310,7 +311,7 @@ void NU_Init_Image_Shader()
     "    // Convert screen position (pixels) to NDC for gl_Position\n"
     "    float ndc_x = (aPos.x / uScreenWidth) * 2.0 - 1.0;\n"
     "    float ndc_y = 1.0 - (aPos.y / uScreenHeight) * 2.0;\n"
-    "    gl_Position = vec4(ndc_x, ndc_y, aPos.z * 0.003f, 1.0);\n"
+    "    gl_Position = vec4(ndc_x, ndc_y, aPos.z * 0.015625f, 1.0);\n"
     "    vUV = aUV;\n"
     "    vScreenPos = vec2(aPos.x, aPos.y);\n"
     "}\n";
@@ -330,6 +331,7 @@ void NU_Init_Image_Shader()
     "        vScreenPos.y < uClipTop  || vScreenPos.y > uClipBottom) {\n"
     "        discard;\n"
     "    } else {\n"
+    "        vec4 tex = texture(uTexture, vUV);\n"
     "        FragColor = texture(uTexture, vUV);\n"
     "    }\n"
     "}\n";
@@ -374,7 +376,7 @@ void NU_Init_Text_Shader()
     "void main() {\n"
     "    float ndc_x = ((aPos.x + uOffsetX) / uScreenWidth) * 2.0 - 1.0;\n"
     "    float ndc_y = 1.0 - ((aPos.y + uOffsetY) / uScreenHeight) * 2.0;\n"
-    "    gl_Position = vec4(ndc_x, ndc_y, aPos.z * 0.003f, 1.0);\n"
+    "    gl_Position = vec4(ndc_x, ndc_y, aPos.z * 0.015625f, 1.0);\n"
     "    vColor = aColor;\n"
     "    vUV = aUV;\n"
     "    vScreenPos = vec2(aPos.x + uOffsetX, aPos.y + uOffsetY);\n"

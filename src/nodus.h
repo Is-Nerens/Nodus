@@ -91,8 +91,6 @@ struct NU_GUI
     BreadthFirstSearch bfs;
     ReverseBreadthFirstSearch rbfs;
     Array layoutScrollAutoNodes;
-    Vertex_RGB_List borderRectVertices;
-    Index_List borderRectIndices;
     Array borderRects;
 };
 
@@ -127,8 +125,6 @@ void NU_Internal_Quit()
     NU_Stylesheet_Free(&GUI.stylesheet);
     Container_Free(&GUI.canvasContexts);
     Container_Free(&GUI.textInputs);
-    Vertex_RGB_List_Free(&GUI.borderRectVertices);
-    Index_List_Free(&GUI.borderRectIndices);
     ArrayFree(&GUI.borderRects);
     BreadthFirstSearch_Free(&GUI.bfs);
     ReverseBreadthFirstSearch_Free(&GUI.rbfs);
@@ -166,8 +162,6 @@ int NU_Internal_Create_Gui(const char* xml_filepath, const char* css_filepath)
 
     // Init layout and draw datastructures
     ArrayInit(&GUI.layoutScrollAutoNodes, sizeof(NodeP*), 20);
-    Vertex_RGB_List_Init(&GUI.borderRectVertices, 128); 
-    Index_List_Init(&GUI.borderRectIndices, 256);
     ArrayInit(&GUI.borderRects, sizeof(BorderRectRenderData), 2000);
 
     // Cursors

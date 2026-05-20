@@ -9,10 +9,10 @@ static bool NU_MouseIsOverNode(NodeP* node, float mouseX, float mouseY)
     float bottom_wall = node->node.y + node->node.height; 
     if (node->clippedAncestor != NULL) {
         NU_ClipBounds* clip = HashmapGet(&GUI.winManager.clipMap, &node->clippedAncestor);
-        left_wall = max(clip->clip_left, node->node.x);
-        right_wall = min(clip->clip_right, node->node.x + node->node.width);
-        top_wall = max(clip->clip_top, node->node.y);
-        bottom_wall = min(clip->clip_bottom, node->node.y + node->node.height);
+        left_wall = max(clip->left, node->node.x);
+        right_wall = min(clip->right, node->node.x + node->node.width);
+        top_wall = max(clip->top, node->node.y);
+        bottom_wall = min(clip->bottom, node->node.y + node->node.height);
     }
 
     // check if mouse is within clipped bounding box
@@ -42,26 +42,34 @@ static bool NU_MouseIsOverNode(NodeP* node, float mouseX, float mouseY)
 
     // ensure mouse is not in top left rounded deadzone
     if (mouseX < tl_a.x && mouseY < tl_a.y) {
-        float dist = sqrtf((mouseX - tl_a.x) * (mouseX - tl_a.x) + (mouseY - tl_a.y) * (mouseY - tl_a.y)); 
-        if (dist > borderRadiusTl) return false;
+        float dx = mouseX - tl_a.x;
+        float dy = mouseY - tl_a.y;
+        float dist2 = dx * dx + dy * dy;
+        if (dist2 > borderRadiusTl * borderRadiusTl) return false;
     }
 
     // ensure mouse is not in top right rounded deadzone
     if (mouseX > tr_a.x && mouseY < tr_a.y) {
-        float dist = sqrtf((mouseX - tr_a.x) * (mouseX - tr_a.x) + (mouseY - tr_a.y) * (mouseY - tr_a.y)); 
-        if (dist > borderRadiusTr) return false;
+        float dx = mouseX - tr_a.x;
+        float dy = mouseY - tr_a.y;
+        float dist2 = dx * dx + dy * dy;
+        if (dist2 > borderRadiusTr * borderRadiusTr) return false;
     }
 
     // ensure mouse is not in bottom left rounded deadzone
     if (mouseX < bl_a.x && mouseY > bl_a.y) {
-        float dist = sqrtf((mouseX - bl_a.x) * (mouseX - bl_a.x) + (mouseY - bl_a.y) * (mouseY - bl_a.y)); 
-        if (dist > borderRadiusBl) return false;
+        float dx = mouseX - bl_a.x;
+        float dy = mouseY - bl_a.y;
+        float dist2 = dx * dx + dy * dy;
+        if (dist2 > borderRadiusBl * borderRadiusBl) return false;
     }
 
     // ensure mouse is not in bottom right rounded deadzone
     if (mouseX > br_a.x && mouseY > br_a.y) {
-        float dist = sqrtf((mouseX - br_a.x) * (mouseX - br_a.x) + (mouseY - br_a.y) * (mouseY - br_a.y)); 
-        if (dist > borderRadiusBr) return false;
+        float dx = mouseX - br_a.x;
+        float dy = mouseY - br_a.y;
+        float dist2 = dx * dx + dy * dy;
+        if (dist2 > borderRadiusBr * borderRadiusBr) return false;
     }
 
     return true;

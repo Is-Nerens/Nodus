@@ -117,7 +117,7 @@ void NU_Internal_Border_Rect(
 
     u32 vertex_offset = vertices->size;
 
-    float z = (float)(ctx->node->layer) + ctx->z * 0.05f;
+    float z = (float)(ctx->node->layer) + ctx->z * 0.005f;
 
     // Outer TL
     vertices->array[vertex_offset] = (vertex_rgb){ x, y, z, border_col.r, border_col.g, border_col.b };
@@ -231,7 +231,7 @@ void NU_Internal_Triangle(
     Vertex_RGB_List* vertices = &ctx->shapeLayer.vertices;
     Index_List* indices = &ctx->shapeLayer.indices;
 
-    float z = (float)(ctx->node->layer) + ctx->z * 0.05f;
+    float z = (float)(ctx->node->layer) + ctx->z * 0.005f;
 
     // --- Allocate extra space in vertex and index lists ---
     u32 additional_vertices = 6;    
@@ -330,7 +330,7 @@ void NU_Internal_Vline(int contextID, float x, float y, float height, float thic
     Vertex_RGB_List* vertices = &ctx->shapeLayer.vertices;
     Index_List* indices = &ctx->shapeLayer.indices;
 
-    float z = (float)(ctx->node->layer) + ctx->z * 0.05f;
+    float z = (float)(ctx->node->layer) + ctx->z * 0.005f;
 
     // --- Allocate extra space in vertex and index lists ---
     u32 additional_vertices = 4;    
@@ -387,7 +387,7 @@ void NU_Internal_Hline(int contextID, float x, float y, float width, float thick
     Vertex_RGB_List* vertices = &ctx->shapeLayer.vertices;
     Index_List* indices = &ctx->shapeLayer.indices;
 
-    float z = (float)(ctx->node->layer) + ctx->z * 0.05f;
+    float z = (float)(ctx->node->layer) + ctx->z * 0.005f;
 
     // --- Allocate extra space in vertex and index lists ---
     u32 additional_vertices = 4;    
@@ -538,7 +538,7 @@ void NU_Internal_Line(
     Vertex_RGB_List* vertices = &ctx->shapeLayer.vertices;
     Index_List* indices = &ctx->shapeLayer.indices;
 
-    float z = (float)(ctx->node->layer) + ctx->z * 0.05f;
+    float z = (float)(ctx->node->layer) + ctx->z * 0.005f;
 
     // --- Allocate extra space in vertex and index lists ---
     u32 additional_vertices = 4;    
@@ -776,7 +776,7 @@ void NU_Internal_Dashed_Line(
     Vertex_RGB_List* vertices = &ctx->shapeLayer.vertices;
     Index_List* indices = &ctx->shapeLayer.indices;
 
-    float z = (float)(ctx->node->layer) + ctx->z * 0.05f;
+    float z = (float)(ctx->node->layer) + ctx->z * 0.005f;
 
     // Calculate number of vertices and indices are needed
     float pattern_len = 0.0f;
@@ -908,7 +908,7 @@ void NU_Internal_Text(
     Vertex_RGB_UV_List* vertices = &textLayer->vertices;
     Index_List* indices = &textLayer->indices;
 
-    float z = (float)(ctx->node->layer) + ctx->z * 0.05f;
+    float z = (float)(ctx->node->layer) + ctx->z * 0.005f;
 
     // Generate text mesh
     NU_Generate_Text_Mesh(vertices, indices, font, string, x, y, z, col.r, col.g, col.b, wrapWidth);

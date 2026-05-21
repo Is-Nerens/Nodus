@@ -5,10 +5,8 @@
 
 typedef struct NU_WindowDrawlist
 {
-    Array relativeNodes;
-    Array absoluteNodes;
-    Array clippedRelativeNodes;
-    Array clippedAbsoluteNodes;
+    Array drawNodes;
+    Array clippedDrawNodes;
 } NU_WindowDrawlist;
 
 typedef struct NU_Window

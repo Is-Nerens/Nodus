@@ -163,10 +163,8 @@ void NU_GenerateDrawlists()
     for (int i=0; i<GUI.winManager.windows.size; i++) 
     {
         NU_Window* win = Container_GetAt(&GUI.winManager.windows, i);
-        ArrayClear(&win->drawlist.relativeNodes);
-        ArrayClear(&win->drawlist.absoluteNodes);
-        ArrayClear(&win->drawlist.clippedRelativeNodes);
-        ArrayClear(&win->drawlist.clippedAbsoluteNodes);
+        ArrayClear(&win->drawlist.drawNodes);
+        ArrayClear(&win->drawlist.clippedDrawNodes);
     }
 
     // Clear hashmaps
@@ -175,7 +173,7 @@ void NU_GenerateDrawlists()
 
     // Add root to drawlist 
     NodeP* root = GUI.tree.root;
-    SetNodeDrawlist_Relative(&GUI.winManager, root);
+    SetNodeDrawlist_Draw(&GUI.winManager, root);
 
     // Traverse the tree
     BreadthFirstSearch* bfs = &GUI.bfs;
@@ -252,66 +250,32 @@ void NU_GenerateDrawlists()
                     clip.left = -1.0f;
                     clip.right = 1000000.0f;
 
-                    // position absolute -> secondary drawing list
-                    if (NodeStatePosAbsolute(child)) {
-                        
-                        // if node is also clipped -> merge clips (stack clipping behaviour)
-                        if (node->clippedAncestor != NULL) {
-                            NU_ClipBounds* node_clip = HashmapGet(&GUI.winManager.clipMap, &node->clippedAncestor);
-                            clip.top = fmaxf(clip.top, node_clip->top);
-                            clip.bottom = fminf(clip.bottom, node_clip->bottom);
-                        }
-
-                        // add clipping to hashmap
-                        HashmapSet(&GUI.winManager.clipMap, &child, &clip);
-                        child->clippedAncestor = child; // Set clip root to self
-
-                        // append node to correct window clipped node list
-                        SetNodeDrawlist_ClippedAbsolute(&GUI.winManager, child);
-                        child = child->nextSibling; continue;
+                    // if parent is also clipped -> merge clips (stack clipping behaviour)
+                    if (node->clippedAncestor != NULL) {
+                        NU_ClipBounds* parent_clip = HashmapGet(&GUI.winManager.clipMap, &node->clippedAncestor);
+                        clip.top = fmaxf(clip.top, parent_clip->top);
+                        clip.bottom = fminf(clip.bottom, parent_clip->bottom);
                     }
-                    // position relative -> main drawing list
-                    else {
-                        // if parent is also clipped -> merge clips (stack clipping behaviour)
-                        if (node->clippedAncestor != NULL) {
-                            NU_ClipBounds* parent_clip = HashmapGet(&GUI.winManager.clipMap, &node->clippedAncestor);
-                            clip.top = fmaxf(clip.top, parent_clip->top);
-                            clip.bottom = fminf(clip.bottom, parent_clip->bottom);
-                        }
-                        
-                        // add clipping to hashmap
-                        HashmapSet(&GUI.winManager.clipMap, &child, &clip);
-                        child->clippedAncestor = child; // Set clip root to self
+                    
+                    // add clipping to hashmap
+                    HashmapSet(&GUI.winManager.clipMap, &child, &clip);
+                    child->clippedAncestor = child; // Set clip root to self
 
-                        // append node to correct window clipped node list
-                        SetNodeDrawlist_ClippedRelative(&GUI.winManager, child);
-                        child = child->nextSibling; continue;
-                    }
+                    // append node to correct window clipped node list
+                    SetNodeDrawlist_Clipped(&GUI.winManager, child);
+                    child = child->nextSibling; continue;
                 }
             }
 
             // if parent is clipped -> child inherits clip from parent
             if (node->clippedAncestor != NULL) {
                 child->clippedAncestor = node->clippedAncestor;
-
-                // position absolute -> secondary drawing list
-                if (NodeStatePosAbsolute(child)) {
-                    SetNodeDrawlist_ClippedAbsolute(&GUI.winManager, child);
-                }
-                // position relative -> main drawing list
-                else {
-                    SetNodeDrawlist_ClippedRelative(&GUI.winManager, child);
-                }
+                SetNodeDrawlist_Clipped(&GUI.winManager, child);
                 child = child->nextSibling; continue;
             }
 
             // neither child nor parent is clipped -> append node to correct window node list
-            if (NodeStatePosAbsolute(child)) { // Position Absolute -> secondary drawing list
-                SetNodeDrawlist_Absolute(&GUI.winManager, child);
-            }
-            else { // position Relative -> main drawing list
-                SetNodeDrawlist_Relative(&GUI.winManager, child);
-            }
+            SetNodeDrawlist_Draw(&GUI.winManager, child);
 
             // move to the next child
             child = child->nextSibling;
@@ -322,8 +286,6 @@ void NU_GenerateDrawlists()
 void NU_Draw()
 {
     NU_GenerateDrawlists();
-    
-    timer_start();
 
     // Initialise text vertex and index buffers (per font)
     Vertex_RGB_UV_List text_vertex_buffers[GUI.stylesheet.fonts.size];
@@ -353,11 +315,11 @@ void NU_Draw()
         float winW = (float)winW_int;
         float winH = (float)winH_int;
         
-        // 1. Generate border rect data for relative nodes
-        for (u32 n=0; n<drawList->relativeNodes.size; n++) 
+        // 1. Generate border rect data for unclipped nodes
+        for (u32 n=0; n<drawList->drawNodes.size; n++) 
         {
-            NodeP* node = *(NodeP**)ArrayGet(&drawList->relativeNodes, n);
-            float z = (float)(node->layer);
+            NodeP* node = *(NodeP**)ArrayGet(&drawList->drawNodes, n);
+            float z = (float)(node->layer) + 32.0f * NodeStatePosAbsolute(node);
 
             // Construct border rect data
             Add_NodeRectRenderData(node, z, 0.0f, winH, 0.0f, winW, &GUI.borderRects);
@@ -403,60 +365,10 @@ void NU_Draw()
             if (node->type == NU_CANVAS) NU_DrawCanvasContent(node, winW, winH);
         }
 
-        // 2. Generate border rect data for absolute nodes
-        for (u32 n=0; n<drawList->absoluteNodes.size; n++) 
-        {
-            NodeP* node = *(NodeP**)ArrayGet(&drawList->absoluteNodes, n);
-            float z = (float)(node->layer) + 32.0f;
-
-            // Construct border rect data
-            Add_NodeRectRenderData(node, z, 0.0f, winH, 0.0f, winW, &GUI.borderRects);
-            if (node->layoutFlags & OVERFLOW_VERTICAL_SCROLL 
-                && node->node.contentHeight > (node->node.height - node->node.padTop - node->node.padBottom - node->node.borderTop - node->node.borderBottom)) {
-                Add_ScrollbarRenderData(node, z + 0.5f, &GUI.stylesheet.scrollbarStyle, &GUI.borderRects);
-            }
-            // Construct text mesh for node's textContent
-            if (node->node.textContent != NULL) {
-                Vertex_RGB_UV_List* text_vertices = &text_vertex_buffers[node->fontId];
-                Index_List* text_indices = &text_index_buffers[node->fontId];
-                NU_AddTextMesh(node, z, node->node.textContent, text_vertices, text_indices);
-            }
-            // Draw text input content (1 draw call)
-            else if (node->type == NU_INPUT) {
-                NU_ClipBounds clip = {0};
-                clip.top = node->node.y;
-                clip.left = node->node.x + node->node.borderLeft + node->node.padLeft;
-                clip.right = node->node.x + node->node.width - node->node.borderRight - node->node.padRight;
-                clip.bottom = node->node.y + node->node.height + 1000;
-                NU_DrawInputNodeContent(node, z, winW, winH, &clip);
-            }  
-            // Construct image render data
-            if (node->typeData.image.imageHandle != 0 && node->type != NU_CANVAS && node->type != NU_INPUT) {
-                ImageRenderData renderData;
-                renderData.x = node->node.x + node->node.borderLeft + node->node.padLeft; 
-                renderData.y = node->node.y + node->node.borderTop + node->node.padTop; 
-                renderData.z = z + 0.75f;
-                renderData.w = node->node.width - node->node.borderLeft - node->node.borderRight - node->node.padLeft - node->node.padRight; 
-                renderData.h = node->node.height - node->node.borderTop - node->node.borderBottom - node->node.padTop - node->node.padBottom;
-                renderData.scissorTop = 0.0f;
-                renderData.scissorBottom = 1000000.0f;
-                renderData.scissorLeft = 0.0f;
-                renderData.scissorRight = 1000000.0f;
-                ImageResourceManager_AddImageRenderData(
-                    &GUI.imageResourceManager, 
-                    node->typeData.image.imageHandle, 
-                    &renderData
-                );
-            }
-
-            // Draw canvas content
-            if (node->type == NU_CANVAS) NU_DrawCanvasContent(node, winW, winH);
-        }
-
-        // 3. Draw all unclipped border rects (1 draw call)
+        // 2. Draw all unclipped border rects (1 draw call)
         Draw_SDF_Border_Rects(GUI.borderRects, winW, winH); ArrayClear(&GUI.borderRects);
 
-        // 4. Draw all unclipped text (1 draw call per font)
+        // 3. Draw all unclipped text (1 draw call per font)
         for (u32 t=0; t<GUI.stylesheet.fonts.size; t++) {
             Vertex_RGB_UV_List* text_vertices = &text_vertex_buffers[t];
             Index_List* text_indices = &text_index_buffers[t];
@@ -466,10 +378,10 @@ void NU_Draw()
             text_indices->size = 0;
         }
 
-        // 5. Draw clipped relative node border rects + images + text + text input
-        for (u32 n=0; n<drawList->clippedRelativeNodes.size; n++) {
-            NodeP* node = *(NodeP**)ArrayGet(&drawList->clippedRelativeNodes, n);
-            float z = (float)(node->layer);
+        // 4. Draw clipped node border rects + images + text + text input
+        for (u32 n=0; n<drawList->clippedDrawNodes.size; n++) {
+            NodeP* node = *(NodeP**)ArrayGet(&drawList->clippedDrawNodes, n);
+            float z = (float)(node->layer) + 32.0f * NodeStatePosAbsolute(node);
 
             // Draw border rect (1 draw call)
             NU_ClipBounds* clip = (NU_ClipBounds*)HashmapGet(&GUI.winManager.clipMap, &node->clippedAncestor);
@@ -510,51 +422,7 @@ void NU_Draw()
             }
         }
 
-        // 6. Draw clipped absolute node border rects + images + text + text input
-        for (u32 n=0; n<drawList->clippedAbsoluteNodes.size; n++) {
-            NodeP* node = *(NodeP**) ArrayGet(&drawList->clippedAbsoluteNodes, n);
-            float z = (float)(node->layer) + 32.0f;
-
-            // Draw border rect (1 draw call)
-            NU_ClipBounds* clip = (NU_ClipBounds*)HashmapGet(&GUI.winManager.clipMap, &node->clippedAncestor);
-            Add_NodeRectRenderData(node, z, clip->top, clip->bottom, clip->left, clip->right, &GUI.borderRects);
-            Draw_SDF_Border_Rects(GUI.borderRects, winW, winH); ArrayClear(&GUI.borderRects);
-
-            // Draw text content (1 draw call)
-            if (node->node.textContent != NULL) {
-                NU_DrawClippedNodeTextContent(node, z + 0.5f, winW, winH, clip);
-            }
-            // Draw text input (1 draw call)
-            else if (node->type == NU_INPUT) {
-                InputText* inputText = Container_Get(&GUI.textInputs, node->typeData.input.textInputHandle);
-                if (inputText->numBytes > 0) {
-                    NU_ClipBounds innerClip = *clip;
-                    innerClip.left += node->node.borderLeft + node->node.padLeft;
-                    innerClip.right -= node->node.borderRight + node->node.padRight; 
-                    NU_DrawInputNodeContent(node, z, winW, winH, &innerClip);
-                }
-            }
-            // Construct image render data
-            if (node->typeData.image.imageHandle != 0 && node->type != NU_CANVAS && node->type != NU_INPUT) {
-                ImageRenderData renderData;
-                renderData.x = node->node.x + node->node.borderLeft + node->node.padLeft; 
-                renderData.y = node->node.y + node->node.borderTop + node->node.padTop; 
-                renderData.z = z + 0.75f;
-                renderData.w = node->node.width - node->node.borderLeft - node->node.borderRight - node->node.padLeft - node->node.padRight; 
-                renderData.h = node->node.height - node->node.borderTop - node->node.borderBottom - node->node.padTop - node->node.padBottom;
-                renderData.scissorTop = clip->top;
-                renderData.scissorBottom = clip->bottom;
-                renderData.scissorLeft = clip->left;
-                renderData.scissorRight = clip->right;
-                ImageResourceManager_AddImageRenderData(
-                    &GUI.imageResourceManager, 
-                    node->typeData.image.imageHandle, 
-                    &renderData
-                );
-            }
-        }
-
-        // 7. Draw all images (1 draw call per atlas / standalone image)
+        // 5. Draw all images (1 draw call per atlas / standalone image)
         for (int i=0; i<GUI.imageResourceManager.atlases.size; i++) {
             Atlas* atlas = ArrayGet(&GUI.imageResourceManager.atlases, i);
             NU_Draw_Images(atlas->renderDataArray, winW, winH, atlas->glImageHandle);
@@ -575,6 +443,4 @@ void NU_Draw()
         Index_List_Free(&text_index_buffers[i]);
     }
     GUI.awaiting_redraw = false;
-
-    timer_stop();
 }

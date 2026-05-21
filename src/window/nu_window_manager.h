@@ -33,10 +33,8 @@ void CreateSubwindow(NU_WindowManager* winManager, NodeP* node)
 
     // Init drawlist
     NU_WindowDrawlist* list = &win.drawlist;
-    ArrayInit(&list->relativeNodes, sizeof(NodeP*), 512);
-    ArrayInit(&list->absoluteNodes, sizeof(NodeP*), 64);
-    ArrayInit(&list->clippedRelativeNodes, sizeof(NodeP*), 64);
-    ArrayInit(&list->clippedAbsoluteNodes, sizeof(NodeP*), 16);
+    ArrayInit(&list->drawNodes, sizeof(NodeP*), 512);
+    ArrayInit(&list->clippedDrawNodes, sizeof(NodeP*), 64);
 
     // Add NU_Window to Window Manager
     node->windowID = Container_Add(&winManager->windows, &win);
@@ -57,10 +55,8 @@ void NU_WindowManagerFree(NU_WindowManager* winManager)
 {
     for (uint32_t i=0; i<winManager->windows.size; i++) {
         NU_Window* win = Container_GetAt(&winManager->windows, i);
-        ArrayFree(&win->drawlist.relativeNodes);
-        ArrayFree(&win->drawlist.absoluteNodes);
-        ArrayFree(&win->drawlist.clippedRelativeNodes);
-        ArrayFree(&win->drawlist.clippedAbsoluteNodes);
+        ArrayFree(&win->drawlist.drawNodes);
+        ArrayFree(&win->drawlist.clippedDrawNodes);
     }
     Container_Free(&winManager->windows);
     ArrayFree(&winManager->windowNodes);
@@ -110,10 +106,8 @@ void AssignRootWindow(NU_WindowManager* winManager, NodeP* rootNode)
 
     // Initialise drawlist
     NU_WindowDrawlist* list = GetDrawlist(winManager, winManager->rootWindowID);
-    ArrayInit(&list->relativeNodes, sizeof(NodeP*), 512);
-    ArrayInit(&list->absoluteNodes, sizeof(NodeP*), 64);
-    ArrayInit(&list->clippedRelativeNodes, sizeof(NodeP*), 64);
-    ArrayInit(&list->clippedAbsoluteNodes, sizeof(NodeP*), 16);
+    ArrayInit(&list->drawNodes, sizeof(NodeP*), 512);
+    ArrayInit(&list->clippedDrawNodes, sizeof(NodeP*), 64);
 
     NU_Draw_Init();
 }
@@ -153,26 +147,14 @@ inline void WindowBeginFrame(SDL_Window* window)
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT | GL_STENCIL_BUFFER_BIT);
 }
 
-inline void SetNodeDrawlist_Relative(NU_WindowManager* winManager, NodeP* node)
+inline void SetNodeDrawlist_Draw(NU_WindowManager* winManager, NodeP* node)
 {
     NU_WindowDrawlist* list = GetDrawlist(winManager, node->windowID);
-    ArrayPush(&list->relativeNodes, &node);
+    ArrayPush(&list->drawNodes, &node);
 }
 
-inline void SetNodeDrawlist_Absolute(NU_WindowManager* winManager, NodeP* node)
+inline void SetNodeDrawlist_Clipped(NU_WindowManager* winManager, NodeP* node)
 {
     NU_WindowDrawlist* list = GetDrawlist(winManager, node->windowID);
-    ArrayPush(&list->absoluteNodes, &node);
-}
-
-inline void SetNodeDrawlist_ClippedRelative(NU_WindowManager* winManager, NodeP* node)
-{
-    NU_WindowDrawlist* list = GetDrawlist(winManager, node->windowID);
-    ArrayPush(&list->clippedRelativeNodes, &node);
+    ArrayPush(&list->clippedDrawNodes, &node);
 }   
-
-inline void SetNodeDrawlist_ClippedAbsolute(NU_WindowManager* winManager, NodeP* node)
-{
-    NU_WindowDrawlist* list = GetDrawlist(winManager, node->windowID);
-    ArrayPush(&list->clippedAbsoluteNodes, &node);
-}

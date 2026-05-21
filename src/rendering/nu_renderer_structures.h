@@ -61,6 +61,14 @@ typedef struct BorderRectRenderData {
     float scissorTop, scissorBottom, scissorLeft, scissorRight;
 } BorderRectRenderData;
 
+typedef struct ImageRenderData {
+    float x, y, z;
+    float w, h;
+    float u0, v0;
+    float u1, v1;
+    float scissorTop, scissorBottom, scissorLeft, scissorRight;
+} ImageRenderData;
+
 typedef struct {
     Vertex_RGB_List vertices;
     Index_List indices;

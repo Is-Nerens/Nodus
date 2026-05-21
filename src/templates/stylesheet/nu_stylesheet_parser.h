@@ -68,14 +68,14 @@ void NU_Stylesheet_Overwrite_Style_Item(NU_Stylesheet_Item* item, NU_Stylesheet_
     item->padRight = item->padRight   * !(overwriter->propertyFlags & PROPERTY_FLAG_PAD_RIGHT)  + overwriter->padRight  * !!(overwriter->propertyFlags & PROPERTY_FLAG_PAD_RIGHT);
 
     // Overwrite image and input type (branchless)
-    item->glImageHandle = item->glImageHandle * !(overwriter->propertyFlags & PROPERTY_FLAG_IMAGE)      + overwriter->glImageHandle * !!(overwriter->propertyFlags & PROPERTY_FLAG_IMAGE);
-    item->inputType     = item->inputType     * !(overwriter->propertyFlags & PROPERTY_FLAG_INPUT_TYPE) + overwriter->inputType     * !!(overwriter->propertyFlags & PROPERTY_FLAG_INPUT_TYPE);
+    item->imageHandle = item->imageHandle * !(overwriter->propertyFlags & PROPERTY_FLAG_IMAGE)      + overwriter->imageHandle * !!(overwriter->propertyFlags & PROPERTY_FLAG_IMAGE);
+    item->inputType     = item->inputType * !(overwriter->propertyFlags & PROPERTY_FLAG_INPUT_TYPE) + overwriter->inputType   * !!(overwriter->propertyFlags & PROPERTY_FLAG_INPUT_TYPE);
     
     // Overwrite font Id
     item->fontId = overwriter->fontId;
 }
 
-static void NU_Stylesheet_Parse_Property(NU_Stylesheet* ss, const enum NU_Style_Token token, NU_Stylesheet_Item* item, const char* text, int textLen, LinearStringmap* imageFilepathToHandleMap)
+static void NU_Stylesheet_Parse_Property(NU_Stylesheet* ss, const enum NU_Style_Token token, NU_Stylesheet_Item* item, const char* text, int textLen, ImageResourceLoader* imageResourceLoader)
 {
     char c = text[0];
 
@@ -433,18 +433,17 @@ static void NU_Stylesheet_Parse_Property(NU_Stylesheet* ss, const enum NU_Style_
             break;
         
         case STYLE_IMAGE_SOURCE_PROPERTY:
-            void* found = LinearStringmapGet(imageFilepathToHandleMap, text);
-            if (found == NULL) {
-                GLuint image_handle = Image_Load(text);
-                if (image_handle) {
-                    item->glImageHandle = image_handle;
-                    LinearStringmapSet(imageFilepathToHandleMap, text, &image_handle);
-                    item->propertyFlags |= PROPERTY_FLAG_IMAGE;
-                }
-            } 
-            else {
+            int imageHandle = ImageResourceLoader_GetLoadedImageHandle(imageResourceLoader, text);
+
+            // Image not loaded yet
+            if (imageHandle == 0) {
+                imageHandle = ImageResourceLoader_LoadImage(imageResourceLoader, text);
+                item->imageHandle = imageHandle;
                 item->propertyFlags |= PROPERTY_FLAG_IMAGE;
-                item->glImageHandle = *(GLuint*)found;
+            }
+            else {
+                item->imageHandle = imageHandle;
+                item->propertyFlags |= PROPERTY_FLAG_IMAGE;
             }
             break;
 
@@ -584,7 +583,7 @@ static int NU_Stylesheet_Parse_Fonts(NU_Stylesheet* ss, char* src, TokenArray* t
     return 1;
 }
 
-static int NU_Stylesheet_Parse_Default(char* src, TokenArray* tokens, NU_Stylesheet* ss, struct Array* textRefs, LinearStringmap* imageFilepathToHandleMap)
+static int NU_Stylesheet_Parse_Default(char* src, TokenArray* tokens, NU_Stylesheet* ss, struct Array* textRefs, ImageResourceLoader* imageResourceLoader)
 {
     int inDefaultSelector = 0;
 
@@ -609,7 +608,7 @@ static int NU_Stylesheet_Parse_Default(char* src, TokenArray* tokens, NU_Stylesh
                     // Get null terminated property text
                     char* text = &src[textRef->src_index]; src[textRef->src_index + textRef->char_count] = '\0';
 
-                    NU_Stylesheet_Parse_Property(ss, token, &ss->defaultStyleItem, text, textRef->char_count, imageFilepathToHandleMap);
+                    NU_Stylesheet_Parse_Property(ss, token, &ss->defaultStyleItem, text, textRef->char_count, imageResourceLoader);
                 }   
             }
             i += 3; continue;
@@ -806,31 +805,21 @@ void NU_Stylesheet_Parse_Scroll_Track_Property(NU_Stylesheet* ss, const enum NU_
     }
 }
 
-static int NU_Stylesheet_Parse(char* src, TokenArray* tokens, NU_Stylesheet* ss, struct Array* textRefs)
+static int NU_Stylesheet_Parse(char* src, TokenArray* tokens, struct Array* textRefs, NU_Stylesheet* ss, ImageResourceLoader* imageResourceLoader)
 {
-    // -----------------------
-    
-    // -----------------------
-    // --- (string -> int) ---
-    // -----------------------
-    LinearStringmap imageFilepathToHandleMap;
-    LinearStringmapInit(&imageFilepathToHandleMap, sizeof(GLuint), 20, 512);
-
     // -------------------
     // --- Parse Fonts ---
     // -------------------
     int succeeded = NU_Stylesheet_Parse_Fonts(ss, src, tokens, textRefs);
     if (!succeeded) {
-        LinearStringmapFree(&imageFilepathToHandleMap);
         return 0;
     }
 
     // -------------------------------
     // --- Parse Special Selectors ---
     // -------------------------------
-    succeeded = NU_Stylesheet_Parse_Default(src, tokens, ss, textRefs, &imageFilepathToHandleMap);
+    succeeded = NU_Stylesheet_Parse_Default(src, tokens, ss, textRefs, imageResourceLoader);
     if (!succeeded) {
-        LinearStringmapFree(&imageFilepathToHandleMap);
         return 0;
     }
 
@@ -1236,7 +1225,7 @@ static int NU_Stylesheet_Parse(char* src, TokenArray* tokens, NU_Stylesheet* ss,
 
             switch (ctx) {
                 case 0:
-                    NU_Stylesheet_Parse_Property(ss, token, &item, text, textRef->char_count, &imageFilepathToHandleMap);
+                    NU_Stylesheet_Parse_Property(ss, token, &item, text, textRef->char_count, imageResourceLoader);
                     break;
                 case 3:
                     NU_Stylesheet_Parse_Scrollbar_Property(ss, token, text, textRef->char_count);
@@ -1267,6 +1256,5 @@ static int NU_Stylesheet_Parse(char* src, TokenArray* tokens, NU_Stylesheet* ss,
         else succeeded = 0;
     }
 
-    LinearStringmapFree(&imageFilepathToHandleMap);
     return succeeded;
 }

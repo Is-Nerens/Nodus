@@ -43,36 +43,6 @@ static NodeOverlap NodeVerticalOverlapState(NodeP* node, float y, float h)
     return (NodeOverlap)(overlap + inside);
 }
 
-void NU_DrawNodeImage(NodeP* node, float z, float winWidth, float winHeight)
-{
-    float inner_width  = node->node.width - node->node.borderLeft - node->node.borderRight - node->node.padLeft - node->node.padRight;
-    float inner_height = node->node.height - node->node.borderTop - node->node.borderBottom - node->node.padTop - node->node.padBottom;
-    float x = node->node.x + node->node.borderLeft + (float)node->node.padLeft;
-    float y = node->node.y + node->node.borderTop + (float)node->node.padTop;
-    NU_Draw_Image(
-        x, y, 
-        inner_width, inner_height, z,
-        winWidth, winHeight, 
-        -1.0f, 100000.0f, -1.0f, 100000.0f,
-        node->typeData.image.glImageHandle
-    );
-}
-
-void NU_DrawClippedNodeImage(NodeP* node, float z, float winWidth, float winHeight, NU_ClipBounds* clip)
-{
-    float inner_width  = node->node.width - node->node.borderLeft - node->node.borderRight - node->node.padLeft - node->node.padRight;
-    float inner_height = node->node.height - node->node.borderTop - node->node.borderBottom - node->node.padTop - node->node.padBottom;
-    float x = node->node.x + node->node.borderLeft + (float)node->node.padLeft;
-    float y = node->node.y + node->node.borderTop + (float)node->node.padTop;
-    NU_Draw_Image(
-        x, y, 
-        inner_width, inner_height, z,
-        winWidth, winHeight, 
-        clip->top, clip->bottom, clip->left, clip->right,
-        node->typeData.image.glImageHandle
-    );
-}
-
 void NU_DrawClippedNodeTextContent(NodeP* node, float z, float winWidth, float winHeight, NU_ClipBounds* clip)
 {
     Vertex_RGB_UV_List clipped_text_vertices;
@@ -353,6 +323,8 @@ void NU_Draw()
 {
     NU_GenerateDrawlists();
     
+    timer_start();
+
     // Initialise text vertex and index buffers (per font)
     Vertex_RGB_UV_List text_vertex_buffers[GUI.stylesheet.fonts.size];
     Index_List text_index_buffers[GUI.stylesheet.fonts.size];
@@ -361,6 +333,7 @@ void NU_Draw()
         Index_List_Init(&text_index_buffers[i], 512);
     }
 
+    ImageResourceManager_ClearAllImageRenderData(&GUI.imageResourceManager);
     ArrayClear(&GUI.borderRects);
 
     NodeP* focusedInputNode = NULL;
@@ -407,6 +380,24 @@ void NU_Draw()
                 clip.bottom = node->node.y + node->node.height + 1000;
                 NU_DrawInputNodeContent(node, z, winW, winH, &clip);
             }   
+            // Construct image render data
+            if (node->typeData.image.imageHandle != 0 && node->type != NU_CANVAS && node->type != NU_INPUT) {
+                ImageRenderData renderData;
+                renderData.x = node->node.x + node->node.borderLeft + node->node.padLeft; 
+                renderData.y = node->node.y + node->node.borderTop + node->node.padTop; 
+                renderData.z = z + 0.75f;
+                renderData.w = node->node.width - node->node.borderLeft - node->node.borderRight - node->node.padLeft - node->node.padRight; 
+                renderData.h = node->node.height - node->node.borderTop - node->node.borderBottom - node->node.padTop - node->node.padBottom;
+                renderData.scissorTop = 0.0f;
+                renderData.scissorBottom = 1000000.0f;
+                renderData.scissorLeft = 0.0f;
+                renderData.scissorRight = 1000000.0f;
+                ImageResourceManager_AddImageRenderData(
+                    &GUI.imageResourceManager, 
+                    node->typeData.image.imageHandle, 
+                    &renderData
+                );
+            }
 
             // Draw canvas content
             if (node->type == NU_CANVAS) NU_DrawCanvasContent(node, winW, winH);
@@ -439,6 +430,24 @@ void NU_Draw()
                 clip.bottom = node->node.y + node->node.height + 1000;
                 NU_DrawInputNodeContent(node, z, winW, winH, &clip);
             }  
+            // Construct image render data
+            if (node->typeData.image.imageHandle != 0 && node->type != NU_CANVAS && node->type != NU_INPUT) {
+                ImageRenderData renderData;
+                renderData.x = node->node.x + node->node.borderLeft + node->node.padLeft; 
+                renderData.y = node->node.y + node->node.borderTop + node->node.padTop; 
+                renderData.z = z + 0.75f;
+                renderData.w = node->node.width - node->node.borderLeft - node->node.borderRight - node->node.padLeft - node->node.padRight; 
+                renderData.h = node->node.height - node->node.borderTop - node->node.borderBottom - node->node.padTop - node->node.padBottom;
+                renderData.scissorTop = 0.0f;
+                renderData.scissorBottom = 1000000.0f;
+                renderData.scissorLeft = 0.0f;
+                renderData.scissorRight = 1000000.0f;
+                ImageResourceManager_AddImageRenderData(
+                    &GUI.imageResourceManager, 
+                    node->typeData.image.imageHandle, 
+                    &renderData
+                );
+            }
 
             // Draw canvas content
             if (node->type == NU_CANVAS) NU_DrawCanvasContent(node, winW, winH);
@@ -457,27 +466,7 @@ void NU_Draw()
             text_indices->size = 0;
         }
 
-        // 5. Draw unclipped relative node images
-        for (u32 n=0; n<drawList->relativeNodes.size; n++) 
-        {
-            NodeP* node = *(NodeP**)ArrayGet(&drawList->relativeNodes, n);
-            float z = (float)(node->layer);
-            if (node->typeData.image.glImageHandle && node->type != NU_CANVAS && node->type != NU_INPUT) {
-                NU_DrawNodeImage(node, z + 0.75f, winW, winH);
-            }
-        }
-
-        // 6. Draw unclipped absolute node images
-        for (u32 n=0; n<drawList->absoluteNodes.size; n++) 
-        {
-            NodeP* node = *(NodeP**)ArrayGet(&drawList->absoluteNodes, n);
-            float z = (float)(node->layer);
-            if (node->typeData.image.glImageHandle && node->type != NU_CANVAS && node->type != NU_INPUT) {
-                NU_DrawNodeImage(node, z + 0.75f, winW, winH);
-            }
-        }
-
-        // 7. Draw clipped relative node border rects + images + text + text input
+        // 5. Draw clipped relative node border rects + images + text + text input
         for (u32 n=0; n<drawList->clippedRelativeNodes.size; n++) {
             NodeP* node = *(NodeP**)ArrayGet(&drawList->clippedRelativeNodes, n);
             float z = (float)(node->layer);
@@ -501,13 +490,27 @@ void NU_Draw()
                     NU_DrawInputNodeContent(node, z, winW, winH, &innerClip);
                 }
             }
-            // Draw image (1 draw call)
-            if (node->typeData.image.glImageHandle && node->type != NU_CANVAS && node->type != NU_INPUT) {
-                NU_DrawClippedNodeImage(node, z + 0.75f, winW, winH, clip);
+            // Construct image render data
+            if (node->typeData.image.imageHandle != 0 && node->type != NU_CANVAS && node->type != NU_INPUT) {
+                ImageRenderData renderData;
+                renderData.x = node->node.x + node->node.borderLeft + node->node.padLeft; 
+                renderData.y = node->node.y + node->node.borderTop + node->node.padTop; 
+                renderData.z = z + 0.75f;
+                renderData.w = node->node.width - node->node.borderLeft - node->node.borderRight - node->node.padLeft - node->node.padRight; 
+                renderData.h = node->node.height - node->node.borderTop - node->node.borderBottom - node->node.padTop - node->node.padBottom;
+                renderData.scissorTop = clip->top;
+                renderData.scissorBottom = clip->bottom;
+                renderData.scissorLeft = clip->left;
+                renderData.scissorRight = clip->right;
+                ImageResourceManager_AddImageRenderData(
+                    &GUI.imageResourceManager, 
+                    node->typeData.image.imageHandle, 
+                    &renderData
+                );
             }
         }
 
-        // 8. Draw clipped absolute node border rects + images + text + text input
+        // 6. Draw clipped absolute node border rects + images + text + text input
         for (u32 n=0; n<drawList->clippedAbsoluteNodes.size; n++) {
             NodeP* node = *(NodeP**) ArrayGet(&drawList->clippedAbsoluteNodes, n);
             float z = (float)(node->layer) + 32.0f;
@@ -531,10 +534,34 @@ void NU_Draw()
                     NU_DrawInputNodeContent(node, z, winW, winH, &innerClip);
                 }
             }
-            // Draw image (1 draw call)
-            if (node->typeData.image.glImageHandle && node->type != NU_CANVAS && node->type != NU_INPUT) {
-                NU_DrawClippedNodeImage(node, z + 0.75f, winW, winH, clip);
+            // Construct image render data
+            if (node->typeData.image.imageHandle != 0 && node->type != NU_CANVAS && node->type != NU_INPUT) {
+                ImageRenderData renderData;
+                renderData.x = node->node.x + node->node.borderLeft + node->node.padLeft; 
+                renderData.y = node->node.y + node->node.borderTop + node->node.padTop; 
+                renderData.z = z + 0.75f;
+                renderData.w = node->node.width - node->node.borderLeft - node->node.borderRight - node->node.padLeft - node->node.padRight; 
+                renderData.h = node->node.height - node->node.borderTop - node->node.borderBottom - node->node.padTop - node->node.padBottom;
+                renderData.scissorTop = clip->top;
+                renderData.scissorBottom = clip->bottom;
+                renderData.scissorLeft = clip->left;
+                renderData.scissorRight = clip->right;
+                ImageResourceManager_AddImageRenderData(
+                    &GUI.imageResourceManager, 
+                    node->typeData.image.imageHandle, 
+                    &renderData
+                );
             }
+        }
+
+        // 7. Draw all images (1 draw call per atlas / standalone image)
+        for (int i=0; i<GUI.imageResourceManager.atlases.size; i++) {
+            Atlas* atlas = ArrayGet(&GUI.imageResourceManager.atlases, i);
+            NU_Draw_Images(atlas->renderDataArray, winW, winH, atlas->glImageHandle);
+        }
+        for (int i=0; i<GUI.imageResourceManager.standaloneImageRenderDatas.size; i++) {
+            StandaloneImageRenderData* sRenderData = ArrayGet(&GUI.imageResourceManager.standaloneImageRenderDatas, i);
+            NU_Draw_Image(&sRenderData->renderData, winW, winH, sRenderData->glImageHandle);
         }
 
         SDL_GL_SwapWindow(window); 
@@ -548,4 +575,6 @@ void NU_Draw()
         Index_List_Free(&text_index_buffers[i]);
     }
     GUI.awaiting_redraw = false;
+
+    timer_stop();
 }

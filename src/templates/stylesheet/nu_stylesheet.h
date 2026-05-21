@@ -84,7 +84,7 @@ void NU_Stylesheet_Free(NU_Stylesheet* ss)
     Container_Free(&ss->fonts);
 }
 
-int NU_Stylesheet_Create(NU_Stylesheet* stylesheet, const char* filepath)
+int NU_Stylesheet_Create(NU_Stylesheet* stylesheet, const char* filepath, ImageResourceLoader* imageResourceLoader)
 {
     NU_Stylesheet_Init(stylesheet);
 
@@ -98,7 +98,7 @@ int NU_Stylesheet_Create(NU_Stylesheet* stylesheet, const char* filepath)
 
     // Tokenise and generate stylesheet
     NU_Style_Tokenise(src, &tokens, &textRefs);
-    if (!NU_Stylesheet_Parse(StringCstr(src), &tokens, stylesheet, &textRefs)) {
+    if (!NU_Stylesheet_Parse(StringCstr(src), &tokens, &textRefs, stylesheet, imageResourceLoader)) {
         TokenArray_Free(&tokens);
         ArrayFree(&textRefs);
         StringFree(src);

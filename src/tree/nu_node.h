@@ -75,7 +75,7 @@ typedef struct InputTypeData {
 } InputTypeData;
 
 typedef struct ImageTypeData {
-    GLuint glImageHandle;
+    int imageHandle;
 } ImageTypeData;
 
 typedef struct CanvasTypeData {

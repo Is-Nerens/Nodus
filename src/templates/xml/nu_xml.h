@@ -27,7 +27,7 @@ typedef struct
     Array textRefs;
 } TokenTextRefsPair;
 
-void NU_Parse_Property(const enum NU_XML_TOKEN token, NodeP* currentNode, char* ptext, struct Text_Ref* current_text_ref, LinearStringmap* imageFilepathToHandleMap)
+void NU_Parse_Property(const enum NU_XML_TOKEN token, NodeP* currentNode, char* ptext, struct Text_Ref* current_text_ref, ImageResourceLoader* imageResourceLoader)
 {
     char c = ptext[0];
 
@@ -405,18 +405,18 @@ void NU_Parse_Property(const enum NU_XML_TOKEN token, NodeP* currentNode, char* 
         // Image source
         case IMAGE_SOURCE_PROPERTY:
             if (currentNode->type == NU_CANVAS && currentNode->type == NU_INPUT) break;
-            void* found = LinearStringmapGet(imageFilepathToHandleMap, ptext);
-            if (!found) {
-                GLuint image_handle = Image_Load(ptext);
-                if (image_handle) {
-                    currentNode->typeData.image.glImageHandle = image_handle;
-                    LinearStringmapSet(imageFilepathToHandleMap, ptext, &image_handle);
-                    currentNode->overrideStyleFlags |= PROPERTY_FLAG_IMAGE;
-                }
-            } 
-            else { 
+
+            int imageHandle = ImageResourceLoader_GetLoadedImageHandle(imageResourceLoader, ptext);
+
+            // Image not loaded yet
+            if (imageHandle == 0) {
+                imageHandle = ImageResourceLoader_LoadImage(imageResourceLoader, ptext);
+                currentNode->typeData.image.imageHandle = imageHandle;
                 currentNode->overrideStyleFlags |= PROPERTY_FLAG_IMAGE;
-                currentNode->typeData.image.glImageHandle = *(GLuint*)found; 
+            }
+            else { 
+                currentNode->typeData.image.imageHandle = imageHandle;
+                currentNode->overrideStyleFlags |= PROPERTY_FLAG_IMAGE;
             }
             break;
 
@@ -437,7 +437,7 @@ void NU_Parse_Property(const enum NU_XML_TOKEN token, NodeP* currentNode, char* 
     }
 }
 
-int NU_Parse_Component(NodeP* currentNode, char* src, TokenArray* tokens, struct Array* textRefs, LinearStringmap* imageFilepathToHandleMap)
+int NU_Parse_Component(NodeP* currentNode, char* src, TokenArray* tokens, struct Array* textRefs, ImageResourceLoader* ImageResourceLoader)
 {
     enum XMLGenCtx ctx = GENCTX_GLOBAL; 
     struct Text_Ref* current_text_ref;
@@ -605,7 +605,7 @@ int NU_Parse_Component(NodeP* currentNode, char* src, TokenArray* tokens, struct
                 src[current_text_ref->src_index + current_text_ref->char_count] = '\0';
 
                 // Parse property
-                NU_Parse_Property(token, currentNode, ptext, current_text_ref, imageFilepathToHandleMap);
+                NU_Parse_Property(token, currentNode, ptext, current_text_ref, ImageResourceLoader);
 
                 // Continue ^
                 i+=3; continue;
@@ -620,7 +620,7 @@ int NU_Parse_Component(NodeP* currentNode, char* src, TokenArray* tokens, struct
     return 1;
 }
 
-int NU_Generate_Tree(char* src, TokenArray* tokens, struct Array* textRefs)
+int NU_Generate_Tree(char* src, TokenArray* tokens, struct Array* textRefs, ImageResourceLoader* imageResourceLoader)
 {
     // --------------------
     // Enforce root grammar
@@ -644,12 +644,12 @@ int NU_Generate_Tree(char* src, TokenArray* tokens, struct Array* textRefs)
     uint32_t text_ref_index = 0;
 
 
+
+
+
     // ---------------
     // (string -> int)
     // ---------------
-    LinearStringmap imageFilepathToHandleMap;
-    LinearStringmapInit(&imageFilepathToHandleMap, sizeof(GLuint), 20, 512);
-
     LinearStringmap componentFilepathToTokensMap;
     LinearStringmapInit(&componentFilepathToTokensMap, sizeof(TokenTextRefsPair), 16, 512);
 
@@ -773,7 +773,7 @@ int NU_Generate_Tree(char* src, TokenArray* tokens, struct Array* textRefs)
                 if (ctx == GENCTX_IN_CONTENT_OF_ROW_IN_TABLE_WITH_THEAD) ctx = GENCTX_IN_CONTENT_OF_TABLE_WITH_THEAD;
                 else ctx = GENCTX_IN_CONTENT_OF_TABLE_WITHOUT_THEAD;
             } 
-
+            
             currentNode = currentNode->parent;
             i+=3;            // Increment token index
             continue;
@@ -847,7 +847,7 @@ int NU_Generate_Tree(char* src, TokenArray* tokens, struct Array* textRefs)
                 if (ctx != GENCTX_IN_TAG_OF_IMPORT) 
                 {
                     // Parse property
-                    NU_Parse_Property(token, currentNode, ptext, current_text_ref, &imageFilepathToHandleMap);
+                    NU_Parse_Property(token, currentNode, ptext, current_text_ref, imageResourceLoader);
                 }
                 else
                 {
@@ -874,7 +874,7 @@ int NU_Generate_Tree(char* src, TokenArray* tokens, struct Array* textRefs)
                                 LinearStringmapSet(&componentFilepathToTokensMap, filepath, &tokenTextRefs);
 
                                 // Parse and build component
-                                if (!NU_Parse_Component(currentNode, StringCstr(componentSrc), &tokenTextRefs.tokens, &tokenTextRefs.textRefs, &imageFilepathToHandleMap)) {
+                                if (!NU_Parse_Component(currentNode, StringCstr(componentSrc), &tokenTextRefs.tokens, &tokenTextRefs.textRefs, imageResourceLoader)) {
                                     StringFree(componentSrc);
                                     goto error;
                                 }
@@ -883,7 +883,7 @@ int NU_Generate_Tree(char* src, TokenArray* tokens, struct Array* textRefs)
                                 TokenTextRefsPair* tokenTextRefs = (TokenTextRefsPair*)found;
 
                                 // Parse and build component
-                                if (!NU_Parse_Component(currentNode, StringCstr(componentSrc), &tokenTextRefs->tokens, &tokenTextRefs->textRefs, &imageFilepathToHandleMap)) {
+                                if (!NU_Parse_Component(currentNode, StringCstr(componentSrc), &tokenTextRefs->tokens, &tokenTextRefs->textRefs, imageResourceLoader)) {
                                     StringFree(componentSrc);
                                     goto error;
                                 }
@@ -908,19 +908,18 @@ int NU_Generate_Tree(char* src, TokenArray* tokens, struct Array* textRefs)
         // Continue ^
         i+=1;
     }
-    LinearStringmapFree(&imageFilepathToHandleMap);
+
     LinearStringmapFree(&componentFilepathToTokensMap);
     return 1;
 
 
 error:
     // Failure 
-    LinearStringmapFree(&imageFilepathToHandleMap);
     LinearStringmapFree(&componentFilepathToTokensMap);
     return 0;
 }
 
-int NU_Internal_Load_XML(const char* filepath)
+int NU_Internal_Load_XML(const char* filepath, ImageResourceLoader* imageResourceLoader)
 {
     // Open XML source file and load into buffer
     String src = FileReadUTF8(filepath);
@@ -932,7 +931,7 @@ int NU_Internal_Load_XML(const char* filepath)
 
     // Tokenise and generate
     NU_Tokenise(src, &tokens, &textRefs); 
-    if (!NU_Generate_Tree(StringCstr(src), &tokens, &textRefs)) {
+    if (!NU_Generate_Tree(StringCstr(src), &tokens, &textRefs, imageResourceLoader)) {
         TokenArray_Free(&tokens);
         ArrayFree(&textRefs);
         StringFree(src);

@@ -12,6 +12,12 @@ GLuint sdfRectShader;
 GLuint sdfRectVao, sdfRectVbo;
 GLint uSdfRectScreenWidthLoc, uSdfRectScreenHeightLoc;
 
+// Image
+GLuint imageShader;
+GLuint imageVao, imageVbo;
+GLint uImageScreenWidthLoc, uImageScreenHeightLoc;
+GLint uImageTextureLoc;
+
 // gui 
 GLuint BorderRectShader;
 GLuint ClippedBorderRectShader;
@@ -20,10 +26,7 @@ GLuint borderVao, borderVbo, borderEbo;
 GLuint imageVao, imageVbo, imageEbo;
 GLint uBorderScreenWidthLoc, uBorderScreenHeightLoc, uBorderOffsetXLoc, uBorderOffsetYLoc;
 GLint uClippedScreenWidthLoc, uClippedScreenHeightLoc, uClippedOffsetXLoc, uClippedOffsetYLoc;
-GLint uImageScreenWidthLoc, uImageScreenHeightLoc;
 GLint uBorderClipTopLoc, uBorderClipBottomLoc, uBorderClipLeftLoc, uBorderClipRightLoc;
-GLint uImageClipTopLoc, uImageClipBottomLoc, uImageClipLeftLoc, uImageClipRightLoc;
-GLint uImageTextureLoc;
 
 // text
 GLuint Text_Mono_Shader_Program;
@@ -161,11 +164,11 @@ void NU_Init_SDF_Border_Rect_Shader()
         0.0f, 1.0f
     };
 
-    // SDF Rect Vao
+    // SDF ect Vao
     glGenVertexArrays(1, &sdfRectVao);
     glBindVertexArray(sdfRectVao);
 
-    // Static Quad Vbo
+    // Static quad Vbo
     GLuint quadVbo;
     glGenBuffers(1, &quadVbo);
     glBindBuffer(GL_ARRAY_BUFFER, quadVbo);
@@ -176,11 +179,7 @@ void NU_Init_SDF_Border_Rect_Shader()
     // SDF Rect instance data
     glGenBuffers(1, &sdfRectVbo);
     glBindBuffer(GL_ARRAY_BUFFER, sdfRectVbo);
-
     glBufferData(GL_ARRAY_BUFFER, sizeof(BorderRectRenderData) * 2000, NULL, GL_STREAM_DRAW);
-
-    // IMPORTANT: keep instance buffer bound for attribute setup
-    glBindBuffer(GL_ARRAY_BUFFER, sdfRectVbo);
 
     // Position (x, y, z)
     glEnableVertexAttribArray(1);
@@ -301,62 +300,109 @@ void NU_Init_Image_Shader()
 {
     const char* imageVertSrc =
     "#version 330 core\n"
-    "layout(location = 0) in vec3 aPos;\n"
-    "layout(location = 1) in vec2 aUV;\n"
+    "layout(location = 0) in vec2 aQuad;\n"
+    "layout(location = 1) in vec3 iPos;\n"
+    "layout(location = 2) in vec2 iSize;\n"
+    "layout(location = 3) in vec4 iUV;\n"
+    "layout(location = 4) in vec4 iScissor;\n"
+    "\n"
     "out vec2 vUV;\n"
     "out vec2 vScreenPos;\n"
+    "out vec4 vScissor;\n"
+    "\n"
     "uniform float uScreenWidth;\n"
     "uniform float uScreenHeight;\n"
-    "void main() {\n"
-    "    // Convert screen position (pixels) to NDC for gl_Position\n"
-    "    float ndc_x = (aPos.x / uScreenWidth) * 2.0 - 1.0;\n"
-    "    float ndc_y = 1.0 - (aPos.y / uScreenHeight) * 2.0;\n"
-    "    gl_Position = vec4(ndc_x, ndc_y, aPos.z * 0.015625f, 1.0);\n"
-    "    vUV = aUV;\n"
-    "    vScreenPos = vec2(aPos.x, aPos.y);\n"
+    "\n"
+    "void main()\n"
+    "{\n"
+    "    vec2 worldPos = iPos.xy + aQuad * iSize;\n"
+    "    float ndc_x = (worldPos.x / uScreenWidth) * 2.0 - 1.0;\n"
+    "    float ndc_y = 1.0 - (worldPos.y / uScreenHeight) * 2.0;\n"
+    "    gl_Position = vec4(ndc_x, ndc_y, iPos.z * 0.015625f, 1.0);\n"
+    "\n"
+    "    vScreenPos = worldPos;\n"
+    "    vScissor = iScissor;\n"
+    "\n"
+    "    vUV = vec2(\n"
+    "        mix(iUV.x, iUV.z, aQuad.x),\n"
+    "        mix(iUV.y, iUV.w, aQuad.y)\n"
+    "    );\n"
     "}\n";
+
     const char* imageFragSrc =
     "#version 330 core\n"
     "in vec2 vUV;\n"
     "in vec2 vScreenPos;\n"
-    "uniform float uClipTop;\n"
-    "uniform float uClipBottom;\n"
-    "uniform float uClipLeft;\n"
-    "uniform float uClipRight;\n"
+    "in vec4 vScissor;\n"
     "out vec4 FragColor;\n"
+    "\n"
     "uniform sampler2D uTexture;\n"
-    "void main() {\n"
-    "    // Discard fragments outside the clip rectangle (in pixel space)\n"
-    "    if (vScreenPos.x < uClipLeft || vScreenPos.x > uClipRight ||\n"
-    "        vScreenPos.y < uClipTop  || vScreenPos.y > uClipBottom) {\n"
+    "\n"
+    "void main()\n"
+    "{\n"
+    "    if (vScreenPos.x < vScissor.z ||\n"
+    "        vScreenPos.y < vScissor.x ||\n"
+    "        vScreenPos.x > vScissor.w ||\n"
+    "        vScreenPos.y > vScissor.y)\n"
+    "    {\n"
     "        discard;\n"
-    "    } else {\n"
-    "        vec4 tex = texture(uTexture, vUV);\n"
-    "        FragColor = texture(uTexture, vUV);\n"
     "    }\n"
+    "    FragColor = texture(uTexture, vUV);\n"
     "}\n";
 
     ImageShader = Create_Shader_Program(imageVertSrc, imageFragSrc);
-
     uImageScreenWidthLoc  = glGetUniformLocation(ImageShader, "uScreenWidth");
     uImageScreenHeightLoc = glGetUniformLocation(ImageShader, "uScreenHeight");
-    uImageClipTopLoc      = glGetUniformLocation(ImageShader, "uClipTop");
-    uImageClipBottomLoc   = glGetUniformLocation(ImageShader, "uClipBottom");
-    uImageClipLeftLoc     = glGetUniformLocation(ImageShader, "uClipLeft");
-    uImageClipRightLoc    = glGetUniformLocation(ImageShader, "uClipRight");
-    uImageTextureLoc      = glGetUniformLocation(ImageShader, "uTexture");
+    uImageTextureLoc = glGetUniformLocation(ImageShader, "uTexture");
 
+    float imageQuad[] = {
+        0.0f, 0.0f,
+        1.0f, 0.0f,
+        1.0f, 1.0f,
+        0.0f, 0.0f,
+        1.0f, 1.0f,
+        0.0f, 1.0f
+    };
+
+    // Image rect Vao
     glGenVertexArrays(1, &imageVao);
     glBindVertexArray(imageVao);
+
+    // Static quad Vbo
+    GLuint quadVbo;
+    glGenBuffers(1, &quadVbo);
+    glBindBuffer(GL_ARRAY_BUFFER, quadVbo);
+    glBufferData(GL_ARRAY_BUFFER, sizeof(imageQuad), imageQuad, GL_STATIC_DRAW);
+
+    glEnableVertexAttribArray(0);
+    glVertexAttribPointer(0, 2, GL_FLOAT, GL_FALSE, 2 * sizeof(float), (void*)0);
+
+    // Image instance data
     glGenBuffers(1, &imageVbo);
     glBindBuffer(GL_ARRAY_BUFFER, imageVbo);
-    glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, sizeof(vertex_uv), (void*)0); // x,y,z
-    glEnableVertexAttribArray(0);
-    glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, sizeof(vertex_uv), (void*)(3 * sizeof(float))); // u,v
+    glBufferData(GL_ARRAY_BUFFER, sizeof(ImageRenderData) * 512, NULL, GL_STREAM_DRAW);
+
+    // Position (x, y, z)
     glEnableVertexAttribArray(1);
-    glGenBuffers(1, &imageEbo);
-    glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, imageEbo);
-    glBindVertexArray(0); 
+    glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, sizeof(ImageRenderData), (void*)offsetof(ImageRenderData, x));
+    glVertexAttribDivisor(1, 1);
+
+    // Size (w, h)
+    glEnableVertexAttribArray(2);
+    glVertexAttribPointer(2, 2, GL_FLOAT, GL_FALSE, sizeof(ImageRenderData), (void*)offsetof(ImageRenderData, w));
+    glVertexAttribDivisor(2, 1);
+
+    // UVs
+    glEnableVertexAttribArray(3);
+    glVertexAttribPointer(3, 4, GL_FLOAT, GL_FALSE, sizeof(ImageRenderData), (void*)offsetof(ImageRenderData, u0));
+    glVertexAttribDivisor(3, 1);
+
+    // Scissor
+    glEnableVertexAttribArray(4);
+    glVertexAttribPointer(4, 4, GL_FLOAT, GL_FALSE, sizeof(ImageRenderData), (void*)offsetof(ImageRenderData, scissorTop));
+    glVertexAttribDivisor(4, 1);
+
+    glBindVertexArray(0);
 }
 
 void NU_Init_Text_Shader()
@@ -503,7 +549,7 @@ void Draw_SDF_Border_Rects(
     glBindBuffer(GL_ARRAY_BUFFER, sdfRectVbo);
     glBufferSubData(
         GL_ARRAY_BUFFER,0,
-        borderRects.size * sizeof(BorderRectRenderData),
+        borderRects.size * borderRects.elementSize,
         borderRects.data
     );
     glDrawArraysInstanced(GL_TRIANGLES, 0, 6, borderRects.size);
@@ -567,42 +613,56 @@ void Draw_Clipped_Vertex_RGB_List
     glBindVertexArray(0);
 }
 
-void NU_Draw_Image(
-    float x, float y, 
-    float w, float h, float z,
-    float screen_width, float screen_height,
-    float clip_top, float clip_bottom, float clip_left, float clip_right, 
-    GLuint image_handle
+void NU_Draw_Images(
+    Array imageRenderDatas,
+    float screenW, 
+    float screenH,
+    GLuint imageHandle
 )
 {
-    // Mesh 
-    vertex_uv vertices[4] = {
-        { x,     y,   z, 0.0f, 0.0f }, // top-left
-        { x+w,   y,   z, 1.0f, 0.0f }, // top-right
-        { x,     y+h, z, 0.0f, 1.0f }, // bottom-left
-        { x+w,   y+h, z, 1.0f, 1.0f }, // bottom-right
-    };
-    GLuint indices[6] = { 0, 1, 2, 1, 2, 3 };
-
     glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
     glUseProgram(ImageShader);
-    glUniform1f(uImageScreenWidthLoc, screen_width);
-    glUniform1f(uImageScreenHeightLoc, screen_height);
-    glUniform1f(uImageClipTopLoc, clip_top);
-    glUniform1f(uImageClipBottomLoc, clip_bottom);
-    glUniform1f(uImageClipLeftLoc, clip_left);
-    glUniform1f(uImageClipRightLoc, clip_right);
+    glUniform1f(uImageScreenWidthLoc, screenW);
+    glUniform1f(uImageScreenHeightLoc, screenH);
     glBindVertexArray(imageVao);
     glBindBuffer(GL_ARRAY_BUFFER, imageVbo);
-    glBufferData(GL_ARRAY_BUFFER, sizeof(vertices), vertices, GL_DYNAMIC_DRAW);
-    glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, imageEbo);
-    glBufferData(GL_ELEMENT_ARRAY_BUFFER, sizeof(indices), indices, GL_DYNAMIC_DRAW);
     glActiveTexture(GL_TEXTURE0);
-    glBindTexture(GL_TEXTURE_2D, image_handle);
+    glBindTexture(GL_TEXTURE_2D, imageHandle);
     glUniform1i(uImageTextureLoc, 0);
-    glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_INT, 0);
+    glBufferSubData(
+        GL_ARRAY_BUFFER, 0,
+        (GLsizeiptr)(imageRenderDatas.size * imageRenderDatas.elementSize),
+        imageRenderDatas.data
+    );
+    glDrawArraysInstanced(GL_TRIANGLES, 0, 6, imageRenderDatas.size);
     glBindVertexArray(0);
 }
+
+void NU_Draw_Image(
+    ImageRenderData* renderData,
+    float screenW, 
+    float screenH,
+    GLuint imageHandle
+)
+{
+    glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+    glUseProgram(ImageShader);
+    glUniform1f(uImageScreenWidthLoc, screenW);
+    glUniform1f(uImageScreenHeightLoc, screenH);
+    glBindVertexArray(imageVao);
+    glBindBuffer(GL_ARRAY_BUFFER, imageVbo);
+    glActiveTexture(GL_TEXTURE0);
+    glBindTexture(GL_TEXTURE_2D, imageHandle);
+    glUniform1i(uImageTextureLoc, 0);
+    glBufferSubData(
+        GL_ARRAY_BUFFER, 0,
+        (GLsizeiptr)(sizeof(ImageRenderData)),
+        renderData
+    );
+    glDrawArraysInstanced(GL_TRIANGLES, 0, 6, 1);
+    glBindVertexArray(0);
+}
+
 
 void NU_Render_Text
 (

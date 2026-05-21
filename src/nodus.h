@@ -30,12 +30,14 @@
 #include <window/nu_window_manager_structs.h>
 #include <templates/stylesheet/nu_stylesheet_structs.h>
 #include <rendering/nu_renderer.h>
+#include <rendering/image/nu_image.h>
 #include <events/nu_event_defs.h>
 
 struct NU_GUI
 {
     Tree tree;
     NU_WindowManager winManager;
+    ImageResourceManager imageResourceManager;
     StringArena nodeTextArena;
     Stringset class_string_set;
     Stringset id_string_set;
@@ -103,7 +105,6 @@ struct NU_GUI GUI;
 // --- Includes That Require Access To Global GUI ---
 // --------------------------------------------------
 #include <window/nu_window_manager.h>
-#include <rendering/image/nu_image.h>
 #include <templates/stylesheet/nu_stylesheet.h>
 #include <rendering/canvas/nu_canvas_api.h>
 #include <templates/xml/nu_xml.h>
@@ -118,6 +119,7 @@ void NU_Internal_Quit()
 {
     TreeFree(&GUI.tree);
     NU_WindowManagerFree(&GUI.winManager);
+    ImageResourceManager_Free(&GUI.imageResourceManager);
     StringmapFree(&GUI.id_node_map);
     StringsetFree(&GUI.class_string_set);
     StringsetFree(&GUI.id_string_set);
@@ -146,6 +148,9 @@ int NU_Internal_Create_Gui(const char* xml_filepath, const char* css_filepath)
 
     // Init Window Manager -> create the main window (hidden)
     NU_WindowManagerInit(&GUI.winManager);
+
+    // Init image resource manager
+    ImageResourceManager_Init(&GUI.imageResourceManager);
 
     // Init string data structures
     StringArena_Init(&GUI.nodeTextArena, 1024);
@@ -204,17 +209,24 @@ int NU_Internal_Create_Gui(const char* xml_filepath, const char* css_filepath)
         return 0;
     }
 
+    // Create an image resource loader
+    ImageResourceLoader imageResourceLoader;
+    ImageResourceLoader_Init(&imageResourceLoader, &GUI.imageResourceManager);
+
     // Load xml
-    if (!NU_Internal_Load_XML(xml_filepath)) {
+    if (!NU_Internal_Load_XML(xml_filepath, &imageResourceLoader)) {
         NU_Internal_Quit();
         return 0;
     }
 
     // Load css
-    if (!NU_Stylesheet_Create(&GUI.stylesheet, css_filepath)) {
+    if (!NU_Stylesheet_Create(&GUI.stylesheet, css_filepath, &imageResourceLoader)) {
         NU_Internal_Quit();
         return 0;
     }
+
+    // Upload image to the GPU and free loader memory
+    ImageResourceLoader_UploadImagesAndFree(&imageResourceLoader);
 
     // Apply css
     if (!NU_Internal_Apply_Stylesheet(&GUI.stylesheet)) {

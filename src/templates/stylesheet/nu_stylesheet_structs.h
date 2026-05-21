@@ -19,7 +19,7 @@ typedef struct NU_Stylesheet_Item
     char* id;
     int tag;
     int item_index;
-    GLuint glImageHandle;
+    int imageHandle;
     u16 prefWidth, prefHeight;
     u16 minWidth, maxWidth, minHeight, maxHeight;
     i16 left, right, top, bottom;

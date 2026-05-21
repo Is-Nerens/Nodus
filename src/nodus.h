@@ -11,6 +11,7 @@
 // --- Nodus Includes ---
 // ----------------------
 #include <utils/nu_int.h>
+#include <utils/performance.h>
 #include <datastructures/Array.h>
 #include <datastructures/String.h>
 #include <datastructures/Container.h>

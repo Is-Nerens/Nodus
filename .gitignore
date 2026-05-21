@@ -5,6 +5,8 @@
 *.ttf
 *.png
 *.zip
+*.dll
+*.lib
 releases
 build
 documentation

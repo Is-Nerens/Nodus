@@ -467,15 +467,15 @@ int NU_Parse_Component(NodeP* currentNode, char* src, TokenArray* tokens, struct
                     type != NU_ROW && 
                     type != NU_THEAD) 
                 {
-                    printf("%s\n", "[Generate_Tree] Error! children of <table> must be <row> or <thead>.");
+                    NU_ErrorSystem_AddError(&GUI.errorSystem, "<XML Error> children of <table> must be <row> or <thead>");
                     return 0;
                 }
                 else if (ctx == GENCTX_IN_CONTENT_OF_TABLE_WITH_THEAD && type == NU_THEAD) {
-                    printf("%s\n", "[Generate_Tree] Error! <table> cannot have multiple <thead>.");
+                    NU_ErrorSystem_AddError(&GUI.errorSystem, "<XML Error> <table> cannot have multiple <thead>");
                     return 0;
                 }
                 else if (ctx != GENCTX_IN_CONTENT_OF_TABLE_WITHOUT_CHILDREN && type == NU_THEAD) {
-                    printf("%s\n", "[Generate_Tree] Error! <thead> must have parent of type <table> and can only be the first child.");
+                    NU_ErrorSystem_AddError(&GUI.errorSystem, "<XML Error> <thead> must have parent of type <table> and can only be the first child");
                     return 0;
                 }
                 else if (!(ctx == GENCTX_IN_CONTENT_OF_TABLE_WITHOUT_CHILDREN ||
@@ -483,7 +483,7 @@ int NU_Parse_Component(NodeP* currentNode, char* src, TokenArray* tokens, struct
                     ctx == GENCTX_IN_CONTENT_OF_TABLE_WITHOUT_THEAD) && 
                     type == NU_ROW) 
                 {
-                    printf("%s\n", "[Generate_Tree] Error! <row> must have parent of type <table>."); 
+                    NU_ErrorSystem_AddError(&GUI.errorSystem, "<XML Error> <row> must have parent of type <table>");
                     return 0;
                 }
 
@@ -681,15 +681,15 @@ int NU_Generate_Tree(char* src, TokenArray* tokens, struct Array* textRefs, Imag
                     type != NU_ROW && 
                     type != NU_THEAD) 
                 {
-                    printf("%s\n", "[Generate_Tree] Error! children of <table> must be <row> or <thead>.");
+                    NU_ErrorSystem_AddError(&GUI.errorSystem, "<XML Error> children of <table> must be <row> or <thead>");
                     goto error;
                 }
                 else if (ctx == GENCTX_IN_CONTENT_OF_TABLE_WITH_THEAD && type == NU_THEAD) {
-                    printf("%s\n", "[Generate_Tree] Error! <table> cannot have multiple <thead>.");
+                    NU_ErrorSystem_AddError(&GUI.errorSystem, "<XML Error> <table> cannot have multiple <thead>");
                     goto error;
                 }
                 else if (ctx != GENCTX_IN_CONTENT_OF_TABLE_WITHOUT_CHILDREN && type == NU_THEAD) {
-                    printf("%s\n", "[Generate_Tree] Error! <thead> must have parent of type <table> and can only be the first child.");
+                    NU_ErrorSystem_AddError(&GUI.errorSystem, "<XML Error> <thead> must have parent of type <table> and can only be the first child");
                     goto error;
                 }
                 else if (!(ctx == GENCTX_IN_CONTENT_OF_TABLE_WITHOUT_CHILDREN ||
@@ -697,7 +697,7 @@ int NU_Generate_Tree(char* src, TokenArray* tokens, struct Array* textRefs, Imag
                     ctx == GENCTX_IN_CONTENT_OF_TABLE_WITHOUT_THEAD) && 
                     type == NU_ROW) 
                 {
-                    printf("%s\n", "[Generate_Tree] Error! <row> must have parent of type <table>."); 
+                    NU_ErrorSystem_AddError(&GUI.errorSystem, "<XML Error><row> must have parent of type <table>");
                     goto error;
                 }
 
@@ -892,7 +892,7 @@ int NU_Generate_Tree(char* src, TokenArray* tokens, struct Array* textRefs, Imag
                             StringFree(componentSrc);
                         }    
                         else {
-                            printf("component file not found\n");
+                            NU_ErrorSystem_AddError(&GUI.errorSystem, "<XML Error><row> XML component file not found");
                         }
                     }
                 }

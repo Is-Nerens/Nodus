@@ -7,6 +7,14 @@
 #include <utils/performance.h>
 #include <text/nu_text_layout.h>
 
+static inline float fmax_fast(float a, float b) {
+    return a * (a > b) + b * (1 - (a > b));
+}
+
+static inline float fmin_fast(float a, float b) {
+    return a * (a < b) + b * (1 - (a < b));
+}
+
 static void NU_ApplyMinMaxWidthConstraint(NodeP* node)
 {
     node->node.width = min(max(node->node.width, node->node.minWidth), node->node.maxWidth);
@@ -62,16 +70,12 @@ static void NU_Prepass(BreadthFirstSearch* bfs, Array* scrollAutoNodes)
             node->node.maxHeight = max(node->node.maxHeight, node->node.minHeight);
 
             // Enforce constraints -> pref >= min
-            if (node->node.prefWidth < node->node.minWidth) node->node.prefWidth = node->node.minWidth;
-            if (node->node.prefHeight < node->node.minHeight) node->node.prefHeight = node->node.minHeight;
-            
-            // Enforce constraint -> pref <= max
-            if (node->node.prefWidth > node->node.maxWidth) node->node.prefWidth = node->node.maxWidth;
-            if (node->node.prefHeight > node->node.maxHeight) node->node.prefHeight = node->node.maxHeight;
+            float clampedPrefWidth  = min(max(node->node.prefWidth,  node->node.minWidth),  node->node.maxWidth);
+            float clampedPrefHeight = min(max(node->node.prefHeight, node->node.minHeight), node->node.maxHeight);
 
             // Set base, enforce constraint -> base >= natural
-            node->node.width = max(node->node.prefWidth, natural_width);
-            node->node.height = max(node->node.prefHeight, natural_height);
+            node->node.width = max(clampedPrefWidth, natural_width);
+            node->node.height = max(clampedPrefHeight, natural_height);
 
             // Reset
             node->node.contentWidth = 0.0f;

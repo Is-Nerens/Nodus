@@ -31,12 +31,16 @@ void NU_Stylesheet_Init(NU_Stylesheet* ss)
     item->propertyFlags = ~(uint64_t)0; // apply all properties
     item->propertyFlags &= ~PROPERTY_FLAG_IMAGE; // do not apply certain properties
     item->propertyFlags &= ~PROPERTY_FLAG_HIDDEN;
-    item->maxWidth  = UINT16_MAX; // sizing
-    item->maxHeight = UINT16_MAX;
-    item->left = INT16_MIN; // positioning
-    item->right = INT16_MIN;
-    item->top = INT16_MIN;
-    item->bottom = INT16_MIN;
+    item->propertyFlags &= ~PROPERTY_FLAG_TOP;
+    item->propertyFlags &= ~PROPERTY_FLAG_BOTTOM;
+    item->propertyFlags &= ~PROPERTY_FLAG_LEFT;
+    item->propertyFlags &= ~PROPERTY_FLAG_RIGHT;
+    item->propertyFlags &= ~PROPERTY_FLAG_MIN_WIDTH;
+    item->propertyFlags &= ~PROPERTY_FLAG_MIN_HEIGHT;
+    item->propertyFlags &= ~PROPERTY_FLAG_MAX_WIDTH;
+    item->propertyFlags &= ~PROPERTY_FLAG_MAX_HEIGHT;
+    item->propertyFlags &= ~PROPERTY_FLAG_PREFERRED_WIDTH;
+    item->propertyFlags &= ~PROPERTY_FLAG_PREFERRED_HEIGHT;
     item->backgroundR = 50; // colors
     item->backgroundG = 50;
     item->backgroundB = 50;
@@ -102,7 +106,7 @@ int NU_Stylesheet_Create(NU_Stylesheet* stylesheet, const char* filepath, ImageR
         TokenArray_Free(&tokens);
         ArrayFree(&textRefs);
         StringFree(src);
-        printf(" CSS parsing failed!"); return 0;
+        printf("CSS parsing failed!"); return 0;
     }
 
     // Free memory

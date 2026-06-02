@@ -23,6 +23,8 @@
 #include <datastructures/Linear_Stringset.h>
 #include <datastructures/String_Arena.h>
 #include <datastructures/Hashmap.h>
+#include <datastructures/Linalloc.h>
+#include <errors/nu_error.h>
 #include <text/nu_font.h>
 #include <tree/nu_node.h>
 #include <tree/nu_tree.h>
@@ -36,6 +38,7 @@
 
 struct NU_GUI
 {
+    NU_ErrorSystem errorSystem;
     Tree tree;
     NU_WindowManager winManager;
     ImageResourceManager imageResourceManager;
@@ -121,6 +124,7 @@ void NU_Internal_Quit()
     TreeFree(&GUI.tree);
     NU_WindowManagerFree(&GUI.winManager);
     ImageResourceManager_Free(&GUI.imageResourceManager);
+    NU_ErrorSystem_Free(&GUI.errorSystem);
     StringmapFree(&GUI.id_node_map);
     StringsetFree(&GUI.class_string_set);
     StringsetFree(&GUI.id_string_set);
@@ -150,15 +154,16 @@ int NU_Internal_Create_Gui(const char* xml_filepath, const char* css_filepath)
     // Init Window Manager -> create the main window (hidden)
     NU_WindowManagerInit(&GUI.winManager);
 
-    // Init image resource manager
+    // Init other systems
     ImageResourceManager_Init(&GUI.imageResourceManager);
+    NU_ErrorSystem_Init(&GUI.errorSystem);
 
     // Init string data structures
     StringArena_Init(&GUI.nodeTextArena, 1024);
     StringsetInit(&GUI.class_string_set, 1024, 100);
     StringsetInit(&GUI.id_string_set, 1024, 100);
     StringmapInit(&GUI.id_node_map, sizeof(NodeP*), 100, 1024);
-
+    
     // Init canvas context and text input containers
     GUI.canvasContexts = Container_Create(sizeof(NU_Canvas_Context));
     GUI.textInputs = Container_Create(sizeof(InputText));

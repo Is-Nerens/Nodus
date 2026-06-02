@@ -83,50 +83,48 @@ static void NU_Stylesheet_Parse_Property(NU_Stylesheet* ss, const enum NU_Style_
     {
         // Set layout direction
         case STYLE_LAYOUT_DIRECTION_PROPERTY:
-            if (c == 'v') {
-                item->layoutFlags |= LAYOUT_VERTICAL;
-                item->propertyFlags |= PROPERTY_FLAG_LAYOUT_VERTICAL;
-            }
-            else if (c == 'h') { 
-                item->propertyFlags |= PROPERTY_FLAG_LAYOUT_VERTICAL;
+            switch(text[0])
+            {
+                case 'v':
+                    item->layoutFlags |= LAYOUT_VERTICAL;
+                    item->propertyFlags |= PROPERTY_FLAG_LAYOUT_VERTICAL; break;
+                    break;
+                case 'h':
+                    item->propertyFlags |= PROPERTY_FLAG_LAYOUT_VERTICAL; break;
             }
             break;
 
         // Set growth 
         case STYLE_GROW_PROPERTY:
-            switch(c)
+            switch(text[0])
             {
-                case 'v':
-                    item->layoutFlags |= GROW_VERTICAL;
-                    break;
-                case 'h':
-                    item->layoutFlags |= GROW_HORIZONTAL;
-                    break;
-                case 'b':
-                    item->layoutFlags |= (GROW_HORIZONTAL | GROW_VERTICAL);
-                    break;
+                case 'v': item->layoutFlags |= GROW_VERTICAL; break;
+                case 'h': item->layoutFlags |= GROW_HORIZONTAL; break;
+                case 'b': item->layoutFlags |= (GROW_HORIZONTAL | GROW_VERTICAL); break;
             }
             item->propertyFlags |= PROPERTY_FLAG_GROW;
             break;
         
         // Set overflow behaviour
         case STYLE_OVERFLOW_V_PROPERTY:
-            if (c == 's') {
-                item->layoutFlags |= OVERFLOW_VERTICAL_SCROLL;
-                item->propertyFlags |= PROPERTY_FLAG_VERTICAL_SCROLL;
-            }
-            else if (c == 'h') {
-                item->propertyFlags |= PROPERTY_FLAG_VERTICAL_SCROLL;
+            switch(text[0])
+            {
+                case 's':
+                    item->layoutFlags |= OVERFLOW_VERTICAL_SCROLL;
+                    item->propertyFlags |= PROPERTY_FLAG_VERTICAL_SCROLL; break;
+                case 'h':
+                    item->propertyFlags |= PROPERTY_FLAG_VERTICAL_SCROLL; break;
             }
             break;
         
         case STYLE_OVERFLOW_H_PROPERTY:
-            if (c == 's') {
-                item->layoutFlags |= OVERFLOW_HORIZONTAL_SCROLL;
-                item->propertyFlags |= PROPERTY_FLAG_HORIZONTAL_SCROLL;
-            } 
-            else if (c == 'h') {
-                item->propertyFlags |= PROPERTY_FLAG_HORIZONTAL_SCROLL;
+            switch(text[0])
+            {
+                case 's':
+                    item->layoutFlags |= OVERFLOW_HORIZONTAL_SCROLL;
+                    item->propertyFlags |= PROPERTY_FLAG_HORIZONTAL_SCROLL; break;
+                case 'h':
+                    item->propertyFlags |= PROPERTY_FLAG_HORIZONTAL_SCROLL; break;
             }
             break;
 
@@ -164,44 +162,37 @@ static void NU_Stylesheet_Parse_Property(NU_Stylesheet* ss, const enum NU_Style_
         
         // Set gap
         case STYLE_GAP_PROPERTY:
-            if (String_To_u8(&item->gap, text)) 
-                item->propertyFlags |= PROPERTY_FLAG_GAP;
+            item->propertyFlags |= (PROPERTY_FLAG_GAP * String_To_u8(&item->gap, text));
             break;
 
         // Set preferred width
         case STYLE_WIDTH_PROPERTY:
-            if (String_To_Uint16(&item->prefWidth, text))
-                item->propertyFlags |= PROPERTY_FLAG_PREFERRED_WIDTH;
+            item->propertyFlags |= (PROPERTY_FLAG_PREFERRED_WIDTH * String_To_Uint16(&item->prefWidth, text));
             break;
 
         // Set min width
         case STYLE_MIN_WIDTH_PROPERTY:
-            if (String_To_Uint16(&item->minWidth, text))
-                item->propertyFlags |= PROPERTY_FLAG_MIN_WIDTH;
+            item->propertyFlags |= (PROPERTY_FLAG_MIN_WIDTH * String_To_Uint16(&item->minWidth, text));
             break;
         
         // Set max width
         case STYLE_MAX_WIDTH_PROPERTY:
-            if (String_To_Uint16(&item->maxWidth, text))
-                item->propertyFlags |= PROPERTY_FLAG_MAX_WIDTH;
+            item->propertyFlags |= (PROPERTY_FLAG_MAX_WIDTH * String_To_Uint16(&item->maxWidth, text));
             break;
 
         // Set preferred height
         case STYLE_HEIGHT_PROPERTY:
-            if (String_To_Uint16(&item->prefHeight, text)) 
-                item->propertyFlags |= PROPERTY_FLAG_PREFERRED_HEIGHT;
+            item->propertyFlags |= (PROPERTY_FLAG_PREFERRED_HEIGHT * String_To_Uint16(&item->prefHeight, text));
             break;
 
         // Set min height
         case STYLE_MIN_HEIGHT_PROPERTY:
-            if (String_To_Uint16(&item->minHeight, text)) 
-                item->propertyFlags |= PROPERTY_FLAG_MIN_HEIGHT;
+            item->propertyFlags |= (PROPERTY_FLAG_MIN_HEIGHT * String_To_Uint16(&item->minHeight, text));
             break;
 
         // Set max height
         case STYLE_MAX_HEIGHT_PROPERTY:
-            if (String_To_Uint16(&item->maxHeight, text)) 
-                item->propertyFlags |= PROPERTY_FLAG_MAX_HEIGHT;
+            item->propertyFlags |= (PROPERTY_FLAG_MAX_HEIGHT * String_To_Uint16(&item->maxHeight, text));
             break;
 
         // Set horizontal alignment
@@ -210,11 +201,11 @@ static void NU_Stylesheet_Parse_Property(NU_Stylesheet* ss, const enum NU_Style_
                 item->horizontalAlignment = 0;
                 item->propertyFlags |= PROPERTY_FLAG_ALIGN_H;
             }
-            if (strcmp(text, "center") == 0) {
+            else if (strcmp(text, "center") == 0) {
                 item->horizontalAlignment = 1;
                 item->propertyFlags |= PROPERTY_FLAG_ALIGN_H;
             }
-            if (strcmp(text, "right") == 0) {
+            else if (strcmp(text, "right") == 0) {
                 item->horizontalAlignment = 2;
                 item->propertyFlags |= PROPERTY_FLAG_ALIGN_H;
             }
@@ -226,11 +217,11 @@ static void NU_Stylesheet_Parse_Property(NU_Stylesheet* ss, const enum NU_Style_
                 item->verticalAlignment = 0;
                 item->propertyFlags |= PROPERTY_FLAG_ALIGN_V;
             }
-            if (strcmp(text, "center") == 0) {
+            else if (strcmp(text, "center") == 0) {
                 item->verticalAlignment = 1;
                 item->propertyFlags |= PROPERTY_FLAG_ALIGN_V;
             }
-            if (strcmp(text, "bottom") == 0) {
+            else if (strcmp(text, "bottom") == 0) {
                 item->verticalAlignment = 2;
                 item->propertyFlags |= PROPERTY_FLAG_ALIGN_V;
             }
@@ -242,11 +233,11 @@ static void NU_Stylesheet_Parse_Property(NU_Stylesheet* ss, const enum NU_Style_
                 item->horizontalTextAlignment = 0;
                 item->propertyFlags |= PROPERTY_FLAG_TEXT_ALIGN_H;
             }
-            if (strcmp(text, "center") == 0) {
+            else if (strcmp(text, "center") == 0) {
                 item->horizontalTextAlignment = 1;
                 item->propertyFlags |= PROPERTY_FLAG_TEXT_ALIGN_H;
             }
-            if (strcmp(text, "right") == 0) {
+            else if (strcmp(text, "right") == 0) {
                 item->horizontalTextAlignment = 2;
                 item->propertyFlags |= PROPERTY_FLAG_TEXT_ALIGN_H;
             }
@@ -258,11 +249,11 @@ static void NU_Stylesheet_Parse_Property(NU_Stylesheet* ss, const enum NU_Style_
                 item->verticalTextAlignment = 0;
                 item->propertyFlags |= PROPERTY_FLAG_TEXT_ALIGN_V;
             }
-            if (strcmp(text, "center") == 0) {
+            else if (strcmp(text, "center") == 0) {
                 item->verticalTextAlignment = 1;
                 item->propertyFlags |= PROPERTY_FLAG_TEXT_ALIGN_V;
             }
-            if (strcmp(text, "bottom") == 0) {
+            else if (strcmp(text, "bottom") == 0) {
                 item->verticalTextAlignment = 2;
                 item->propertyFlags |= PROPERTY_FLAG_TEXT_ALIGN_V;
             }
@@ -270,27 +261,19 @@ static void NU_Stylesheet_Parse_Property(NU_Stylesheet* ss, const enum NU_Style_
 
         // Set absolute position properties
         case STYLE_LEFT_PROPERTY:
-            if (String_To_Int16(&item->left, text)) {
-                item->propertyFlags |= PROPERTY_FLAG_LEFT;
-            }
+            item->propertyFlags |= PROPERTY_FLAG_LEFT * String_To_Int16(&item->left, text);
             break;
 
         case STYLE_RIGHT_PROPERTY:
-            if (String_To_Int16(&item->right, text)) {
-                item->propertyFlags |= PROPERTY_FLAG_RIGHT;
-            }
+            item->propertyFlags |= PROPERTY_FLAG_RIGHT * String_To_Int16(&item->right, text);
             break;
 
         case STYLE_TOP_PROPERTY:
-            if (String_To_Int16(&item->top, text)) {
-                item->propertyFlags |= PROPERTY_FLAG_TOP;
-            }
+            item->propertyFlags |= PROPERTY_FLAG_TOP * String_To_Int16(&item->top, text);
             break;
 
         case STYLE_BOTTOM_PROPERTY:
-            if (String_To_Int16(&item->bottom, text)) {
-                item->propertyFlags |= PROPERTY_FLAG_BOTTOM;
-            }
+            item->propertyFlags |= PROPERTY_FLAG_BOTTOM * String_To_Int16(&item->bottom, text);
             break;
 
         // Set background colour
@@ -341,25 +324,21 @@ static void NU_Stylesheet_Parse_Property(NU_Stylesheet* ss, const enum NU_Style_
                 item->propertyFlags |= PROPERTY_FLAG_BORDER_RIGHT;
             }
             break;
+
         case STYLE_BORDER_TOP_WIDTH_PROPERTY:
-            if (String_To_u8(&item->borderTop, text)) {
-                item->propertyFlags |= PROPERTY_FLAG_BORDER_TOP;
-            }
+            item->propertyFlags |= PROPERTY_FLAG_BORDER_TOP * String_To_u8(&item->borderTop, text);
             break;
+
         case STYLE_BORDER_BOTTOM_WIDTH_PROPERTY:
-            if (String_To_u8(&item->borderBottom, text)) {
-                item->propertyFlags |= PROPERTY_FLAG_BORDER_BOTTOM;
-            }
+            item->propertyFlags |= PROPERTY_FLAG_BORDER_BOTTOM * String_To_u8(&item->borderBottom, text);
             break;
+
         case STYLE_BORDER_LEFT_WIDTH_PROPERTY:
-            if (String_To_u8(&item->borderLeft, text)) {
-                item->propertyFlags |= PROPERTY_FLAG_BORDER_LEFT;
-            }
+            item->propertyFlags |= PROPERTY_FLAG_BORDER_LEFT * String_To_u8(&item->borderLeft, text);
             break;
+
         case STYLE_BORDER_RIGHT_WIDTH_PROPERTY:
-            if (String_To_u8(&item->borderRight, text)) {
-                item->propertyFlags |= PROPERTY_FLAG_BORDER_RIGHT;
-            }
+            item->propertyFlags |= PROPERTY_FLAG_BORDER_RIGHT * String_To_u8(&item->borderRight, text);
             break;
 
         // Set border radii
@@ -376,25 +355,25 @@ static void NU_Stylesheet_Parse_Property(NU_Stylesheet* ss, const enum NU_Style_
                 item->propertyFlags |= PROPERTY_FLAG_BORDER_RADIUS_BR;
             }
             break;
+
         case STYLE_BORDER_TOP_LEFT_RADIUS_PROPERTY:
-            if (String_To_u8(&item->borderRadiusTl, text)) {
-                item->propertyFlags |= PROPERTY_FLAG_BORDER_RADIUS_TL;
-            }
+            item->propertyFlags |= PROPERTY_FLAG_BORDER_RADIUS_TL *
+                String_To_u8(&item->borderRadiusTl, text);
             break;
+
         case STYLE_BORDER_TOP_RIGHT_RADIUS_PROPERTY:
-            if (String_To_u8(&item->borderRadiusTr, text)) {
-                item->propertyFlags |= PROPERTY_FLAG_BORDER_RADIUS_TR;
-            }
+            item->propertyFlags |= PROPERTY_FLAG_BORDER_RADIUS_TR *
+                String_To_u8(&item->borderRadiusTr, text);
             break;
+
         case STYLE_BORDER_BOTTOM_LEFT_RADIUS_PROPERTY:
-            if (String_To_u8(&item->borderRadiusBl, text)) {
-                item->propertyFlags |= PROPERTY_FLAG_BORDER_RADIUS_BL;
-            }
+            item->propertyFlags |= PROPERTY_FLAG_BORDER_RADIUS_BL *
+                String_To_u8(&item->borderRadiusBl, text);
             break;
+
         case STYLE_BORDER_BOTTOM_RIGHT_RADIUS_PROPERTY:
-            if (String_To_u8(&item->borderRadiusBr, text)) {
-                item->propertyFlags |= PROPERTY_FLAG_BORDER_RADIUS_BR;
-            }
+            item->propertyFlags |= PROPERTY_FLAG_BORDER_RADIUS_BR *
+                String_To_u8(&item->borderRadiusBr, text);
             break;
 
         // Set padding
@@ -411,25 +390,25 @@ static void NU_Stylesheet_Parse_Property(NU_Stylesheet* ss, const enum NU_Style_
                 item->propertyFlags |= PROPERTY_FLAG_PAD_RIGHT;
             }
             break;
+
         case STYLE_PADDING_TOP_PROPERTY:
-            if (String_To_u8(&item->padTop, text)) {
-                item->propertyFlags |= PROPERTY_FLAG_PAD_TOP;
-            }
+            item->propertyFlags |= PROPERTY_FLAG_PAD_TOP *
+                String_To_u8(&item->padTop, text);
             break;
+
         case STYLE_PADDING_BOTTOM_PROPERTY:
-            if (String_To_u8(&item->padBottom, text)) {
-                item->propertyFlags |= PROPERTY_FLAG_PAD_BOTTOM;
-            }
+            item->propertyFlags |= PROPERTY_FLAG_PAD_BOTTOM *
+                String_To_u8(&item->padBottom, text);
             break;
+
         case STYLE_PADDING_LEFT_PROPERTY:
-            if (String_To_u8(&item->padLeft, text)) {
-                item->propertyFlags |= PROPERTY_FLAG_PAD_LEFT;
-            }
+            item->propertyFlags |= PROPERTY_FLAG_PAD_LEFT *
+                String_To_u8(&item->padLeft, text);
             break;
+
         case STYLE_PADDING_RIGHT_PROPERTY:
-            if (String_To_u8(&item->padRight, text)) {
-                item->propertyFlags |= PROPERTY_FLAG_PAD_RIGHT;
-            }
+            item->propertyFlags |= PROPERTY_FLAG_PAD_RIGHT *
+                String_To_u8(&item->padRight, text);
             break;
         
         case STYLE_IMAGE_SOURCE_PROPERTY:

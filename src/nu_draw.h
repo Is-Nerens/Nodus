@@ -25,9 +25,9 @@ void NU_AddTextMesh(NodeP* node, float z, char* textBuffer, Vertex_RGB_UV_List* 
     float textPosY = node->node.y + node->node.borderTop  + node->node.padTop + y_align_offset;
 
     // Draw wrapped text inside inner_width
-    float r = (float)node->node.textR / 255.0f;
-    float g = (float)node->node.textG / 255.0f;
-    float b = (float)node->node.textB / 255.0f;
+    float r = (float)node->node.textR * 0.003921568627451f;
+    float g = (float)node->node.textG * 0.003921568627451f;
+    float b = (float)node->node.textB * 0.003921568627451f;
     NU_Font* node_font = Stylesheet_Get_Font(&GUI.stylesheet, node->fontId);
     NU_Generate_Text_Mesh(vertices, indices, node_font, textBuffer, floorf(textPosX), floorf(textPosY), z, r, g, b, inner_width);
 }
@@ -88,9 +88,9 @@ void NU_DrawInputNodeContent(NodeP* node, float z, float winWidth, float winHeig
     Index_List clipped_text_indices; Index_List_Init(&clipped_text_indices, 600);
     float textPosX = node->node.x + node->node.borderLeft + node->node.padLeft + inputText->textOffset;
     float textPosY = node->node.y + node->node.borderTop  + node->node.padTop;
-    float r = (float)node->node.textR / 255.0f;
-    float g = (float)node->node.textG / 255.0f;
-    float b = (float)node->node.textB / 255.0f;
+    float r = (float)node->node.textR * 0.003921568627451f;
+    float g = (float)node->node.textG * 0.003921568627451f;
+    float b = (float)node->node.textB * 0.003921568627451f;
     NU_Generate_Text_Mesh(&clipped_text_vertices, &clipped_text_indices, node_font, inputText->buffer, floorf(textPosX), floorf(textPosY), z + 0.5f, r, g, b, 10000000.0f);
     NU_Render_Text(&clipped_text_vertices, &clipped_text_indices, node_font, winWidth, winHeight, 0, 0, clip->top, clip->bottom, clip->left, clip->right);
     Vertex_RGB_UV_List_Free(&clipped_text_vertices);
@@ -118,13 +118,15 @@ void NU_DrawInputNodeContent(NodeP* node, float z, float winWidth, float winHeig
 
 void NU_DrawCanvasContent(NodeP* canvas_node, float winW, float winH)
 {
+    NU_Canvas_Context* ctx = Container_Get(&GUI.canvasContexts, canvas_node->typeData.canvas.ctxHandle);  
+    if (ctx == NULL) return;
+    
     float offsetX = canvas_node->node.x + canvas_node->node.borderLeft + canvas_node->node.padLeft;
     float offsetY = canvas_node->node.y + canvas_node->node.borderTop + canvas_node->node.padTop;
     float top    = canvas_node->node.y + canvas_node->node.borderTop + canvas_node->node.padTop;
     float bottom = canvas_node->node.y + canvas_node->node.height - canvas_node->node.borderBottom - canvas_node->node.padBottom;
     float left   = canvas_node->node.x + canvas_node->node.borderLeft + canvas_node->node.padLeft;
     float right  = canvas_node->node.x + canvas_node->node.width - canvas_node->node.borderRight - canvas_node->node.padRight;
-    NU_Canvas_Context* ctx = Container_Get(&GUI.canvasContexts, canvas_node->typeData.canvas.ctxHandle); 
     ctx->canvasWidth = canvas_node->node.width;
     ctx->canvasHeight = canvas_node->node.height;
 
@@ -298,6 +300,12 @@ void NU_Draw()
     ImageResourceManager_ClearAllImageRenderData(&GUI.imageResourceManager);
     ArrayClear(&GUI.borderRects);
 
+    // Upload / reupload font atlases as needed
+    for (u32 t=0; t<GUI.stylesheet.fonts.size; t++) {
+        NU_Font* font = Stylesheet_Get_Font(&GUI.stylesheet, t);
+        NU_Font_Atlas_Upload_Or_Modify_GPU(&font->atlas);
+    }
+
     NodeP* focusedInputNode = NULL;
 
     // For each window
@@ -372,8 +380,8 @@ void NU_Draw()
         for (u32 t=0; t<GUI.stylesheet.fonts.size; t++) {
             Vertex_RGB_UV_List* text_vertices = &text_vertex_buffers[t];
             Index_List* text_indices = &text_index_buffers[t];
-            NU_Font* node_font = Stylesheet_Get_Font(&GUI.stylesheet, t);
-            NU_Render_Text(text_vertices, text_indices, node_font, winW, winH, 0, 0, -1.0f, 100000.0f, -1.0f, 100000.0f);
+            NU_Font* font = Stylesheet_Get_Font(&GUI.stylesheet, t);
+            NU_Render_Text(text_vertices, text_indices, font, winW, winH, 0, 0, -1.0f, 100000.0f, -1.0f, 100000.0f);
             text_vertices->size = 0;
             text_indices->size = 0;
         }

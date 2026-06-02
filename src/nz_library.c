@@ -46,6 +46,17 @@ __declspec(dllexport) void NU_Render()
     SDL_PushEvent(&e);   
 }
 
+// -----------------------
+// --- Error functions ---
+// -----------------------
+__declspec(dllexport) inline void NU_ClearErrors() {
+    NU_ErrorSystem_Clear(&GUI.errorSystem);
+}
+
+__declspec(dllexport) const char* NU_GetNextError() {
+    return NU_ErrorSystem_GetNextError(&GUI.errorSystem);
+}
+
 // ------------------------
 // --- Window fucntions ---
 // ------------------------

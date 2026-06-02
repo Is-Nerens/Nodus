@@ -15,7 +15,7 @@ int NU_Internal_Get_Canvas_Context(Node* node)
     NU_Canvas_Context ctx;
     ctx.isShapeLayer = true; 
     ctx.fontID = 0;
-    ctx.z = 0;
+    ctx.z = 1;
     ctx.textLayerIndex = 0;
     ctx.node = nodeP;
     ArrayInit(&ctx.textLayers, sizeof(CanvasTextLayer), 4);
@@ -77,7 +77,7 @@ void NU_Internal_Clear_Canvas(int contextID)
 
     // Reset state
     ctx->fontID = 0;
-    ctx->z = 0;
+    ctx->z = 1;
     ctx->textLayerIndex = 0;
     ctx->isShapeLayer = true;
 }

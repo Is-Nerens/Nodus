@@ -22,13 +22,13 @@ static int AssertRootGrammar(TokenArray* tokens)
         }
         else // Closing type is not window
         {
-            printf("%s\n", "[Generate_Tree] Error! XML tree root not closed.");
+            NU_ErrorSystem_AddError(&GUI.errorSystem, "<XML Error> XML documents must end with a </window> tag");
             return 0;
         }
     }
     else // Root is not a window type
     {
-        printf("%s\n", "[Generate_Tree] Error! XML tree has no root. XML documents must begin with a <window> tag.");
+        NU_ErrorSystem_AddError(&GUI.errorSystem, "<XML Error> XML documents must begin with a <window> tag");
         return 0;
     }
 }
@@ -52,10 +52,10 @@ static int AssertPropertyGrammar(struct TokenArray* tokens, int i)
     if (i < tokens->size - 2 && TokenArray_Get(tokens, i+1) == PROPERTY_ASSIGNMENT)
     {
         if (TokenArray_Get(tokens, i+2) == PROPERTY_VALUE) return 1; // Success
-        printf("%s\n", "[Generate_Tree] Error! Expected property value after assignment.");
+        NU_ErrorSystem_AddError(&GUI.errorSystem, "<XML Error> Expected property value (\"example-value\") after assignment '='");
         return 0; // Failure
     }
-    printf("%s\n", "[Generate_Tree] Error! Expected '=' after property.");
+    NU_ErrorSystem_AddError(&GUI.errorSystem, "<XML Error> Expected property value (\"example-value\") after assignment '='");
     return 0; // Failure
 }
 
@@ -67,8 +67,7 @@ static int AssertTagCloseStartGrammar(struct TokenArray* tokens, int i, NodeType
         NU_TokenToNodeType(TokenArray_Get(tokens, i+1)) == openType && 
         TokenArray_Get(tokens, i+2) == CLOSE_TAG) return 1; // Success
     else {
-        printf("%s", "[Generate Tree] Error! close tag does not match opening tag. ");
-        printf("%s %d %s %d", "close tag:", NU_TokenToNodeType(TokenArray_Get(tokens, i+1)), "open tag:", openType);
+        NU_ErrorSystem_AddError(&GUI.errorSystem, "<XML Error> Open and close tags do not match");
     }
     return 0; // Failure
 }

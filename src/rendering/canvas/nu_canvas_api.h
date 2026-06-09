@@ -18,14 +18,14 @@ int NU_Internal_Get_Canvas_Context(Node* node)
     ctx.z = 1;
     ctx.textLayerIndex = 0;
     ctx.node = nodeP;
-    ArrayInit(&ctx.textLayers, sizeof(CanvasTextLayer), 4);
+    Array_Init(&ctx.textLayers, sizeof(CanvasTextLayer), 4);
 
     // Create default text layer
     CanvasTextLayer textLayer;
     textLayer.fontID = 0;
     Vertex_RGB_UV_List_Init(&textLayer.vertices, 256);
     Index_List_Init(&textLayer.indices, 512);
-    ArrayPush(&ctx.textLayers, &textLayer);
+    Array_Push(&ctx.textLayers, &textLayer);
 
     // Create shape layer
     Vertex_RGB_List_Init(&ctx.shapeLayer.vertices, 1024);
@@ -44,11 +44,11 @@ void NU_DeleteCanvasContext(int contextID)
 
     // Free vertices and indices of each layer
     for (u32 i=0; i<ctx->textLayers.size; i++) {
-        CanvasTextLayer* layer = ArrayGet(&ctx->textLayers, i);
+        CanvasTextLayer* layer = Array_Get(&ctx->textLayers, i);
         Vertex_RGB_UV_List_Free(&layer->vertices);
         Index_List_Free(&layer->indices);
     }
-    ArrayFree(&ctx->textLayers);
+    Array_Free(&ctx->textLayers);
 
     // Free vertices and indices of shape layer
     Vertex_RGB_List_Free(&ctx->shapeLayer.vertices);
@@ -65,7 +65,7 @@ void NU_Internal_Clear_Canvas(int contextID)
 
     // Clear vertices and indices of each text layer (except layer 0)
     for (u32 i=0; i<ctx->textLayers.size; i++) {
-        CanvasTextLayer* layer = ArrayGet(&ctx->textLayers, i);
+        CanvasTextLayer* layer = Array_Get(&ctx->textLayers, i);
         Vertex_RGB_UV_List_Clear(&layer->vertices);
         Index_List_Clear(&layer->indices);
         layer->fontID = 0;
@@ -853,7 +853,7 @@ void NU_Internal_Set_Canvas_Font(int contextID, const char* fontName)
     if (ctx == NULL) return;
 
     // Get fontID
-    void* found = LinearStringmapGet(&GUI.stylesheet.fontNameIndexMap, fontName);
+    void* found = LinearStringmap_Get(&GUI.stylesheet.fontNameIndexMap, fontName);
     int fontID = *(int*)found;
 
     // If already using that font -> return early
@@ -869,11 +869,11 @@ void NU_Internal_Set_Canvas_Font(int contextID, const char* fontName)
         textLayer.fontID = fontID;
         Vertex_RGB_UV_List_Init(&textLayer.vertices, 512);
         Index_List_Init(&textLayer.indices, 1024);
-        ArrayPush(&ctx->textLayers, &textLayer);
+        Array_Push(&ctx->textLayers, &textLayer);
     }
     // Reuse exising layer
     else {
-        CanvasTextLayer* existingLayer = ArrayGet(&ctx->textLayers, ctx->textLayerIndex);
+        CanvasTextLayer* existingLayer = Array_Get(&ctx->textLayers, ctx->textLayerIndex);
         existingLayer->fontID = fontID;
     }
 }
@@ -902,7 +902,7 @@ void NU_Internal_Text(
     }
 
     // Get text layer
-    CanvasTextLayer* textLayer = ArrayGet(&ctx->textLayers, ctx->textLayerIndex);
+    CanvasTextLayer* textLayer = Array_Get(&ctx->textLayers, ctx->textLayerIndex);
 
     // Get vertex and index lists
     Vertex_RGB_UV_List* vertices = &textLayer->vertices;
@@ -930,6 +930,16 @@ float NU_Internal_Text_Width(int contextID, const char* string)
 
     NU_Font* font = Stylesheet_Get_Font(&GUI.stylesheet, ctx->fontID);
     return NU_Calculate_Text_Unwrapped_Width(font, string);
+}
+
+float NU_Internal_Codepoint_Width(int contextID, u32 codepoint)
+{
+    NU_Canvas_Context* ctx = Container_Get(&GUI.canvasContexts, contextID); 
+    if (ctx == NULL) return 0.0f; // node type is not valid therefore there is no context
+
+    NU_Font* font = Stylesheet_Get_Font(&GUI.stylesheet, ctx->fontID);
+    NU_Glyph* glyph = NU_Get_Glyph(font, codepoint);
+    return glyph->advance;
 }
 
 float NU_Internal_Text_Line_Height(int contextID)

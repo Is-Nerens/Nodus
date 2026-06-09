@@ -8,7 +8,7 @@ static int AssertSelectionOpeningBraceGrammar(TokenArray* tokens, int i)
         enum NU_Style_Token next_token = TokenArray_Get(tokens, i+1);
         if (NU_Is_Property_Identifier_Token(next_token) || next_token == STYLE_SELECTOR_CLOSE_BRACE) return 1;
     }
-    NU_ErrorSystem_AddError(&GUI.errorSystem, "<CSS Error> Expected property identifier");
+    ErrorSystem_AddError(&GUI.errorSystem, "<CSS Error> Expected property identifier");
     return 0;
 }
 
@@ -22,7 +22,7 @@ static int AssertFontCreationSelectorGrammar(TokenArray* tokens, int i)
         enum NU_Style_Token following_token = TokenArray_Get(tokens, i+2);
         if (next_token == STYLE_FONT_NAME && following_token == STYLE_SELECTOR_OPEN_BRACE) return 1;
     }
-    NU_ErrorSystem_AddError(&GUI.errorSystem, "<CSS Error> @font selector must be followed by a name and scope '{'");
+    ErrorSystem_AddError(&GUI.errorSystem, "<CSS Error> @font selector must be followed by a name and scope '{'");
     return 0;
 }
 
@@ -30,7 +30,7 @@ static int AssertDefaultSelectionGrammar(TokenArray* tokens, int i)
 {
     // ENFORCE RULE: NEXT TOKEN MUST BE AN OPEN BRACE
     if (i < tokens->size - 1 && TokenArray_Get(tokens, i+1) == STYLE_SELECTOR_OPEN_BRACE) return 1;
-    NU_ErrorSystem_AddError(&GUI.errorSystem, "<CSS Error> Expected scope ','");
+    ErrorSystem_AddError(&GUI.errorSystem, "<CSS Error> Expected scope ','");
     return 0;
 }
 
@@ -50,7 +50,7 @@ static int AssertSelectionClosingBraceGrammar(TokenArray* tokens, int i)
     {
         return 1;
     } 
-    NU_ErrorSystem_AddError(&GUI.errorSystem, "<CSS Error> Expected a selector or end of file");
+    ErrorSystem_AddError(&GUI.errorSystem, "<CSS Error> Expected a selector or end of file");
     return 0;
 }
 
@@ -62,7 +62,7 @@ static int AssertSelectorGrammar(TokenArray* tokens, int i)
         enum NU_Style_Token next_token = TokenArray_Get(tokens, i+1);
         return next_token == STYLE_SELECTOR_COMMA || next_token == STYLE_SELECTOR_OPEN_BRACE;
     }
-    NU_ErrorSystem_AddError(&GUI.errorSystem, "<CSS Error> Expected comma ',' or scope '{'");
+    ErrorSystem_AddError(&GUI.errorSystem, "<CSS Error> Expected comma ',' or scope '{'");
     return 0;
 }
 
@@ -74,7 +74,7 @@ static int AssertSelectorCommaGrammar(TokenArray* tokens, int i)
         enum NU_Style_Token next_token = TokenArray_Get(tokens, i+1);
         if (next_token == STYLE_CLASS_SELECTOR || next_token == STYLE_ID_SELECTOR || NU_Is_Tag_Selector_Token(next_token)) return 1;
     }
-    NU_ErrorSystem_AddError(&GUI.errorSystem, "<CSS Error> Expected selector after comma ','");
+    ErrorSystem_AddError(&GUI.errorSystem, "<CSS Error> Expected selector after comma ','");
     return 0;
 }
 
@@ -89,6 +89,6 @@ static int AssertPropertyIdentifierGrammar(TokenArray* tokens, int i)
         enum NU_Style_Token third_token = TokenArray_Get(tokens, i+3);
         return next_token == STYLE_PROPERTY_ASSIGNMENT && following_token == STYLE_PROPERTY_VALUE && (third_token == STYLE_SELECTOR_CLOSE_BRACE || NU_Is_Property_Identifier_Token(third_token));
     }
-    NU_ErrorSystem_AddError(&GUI.errorSystem, "<CSS Error> Expected property assignment");
+    ErrorSystem_AddError(&GUI.errorSystem, "<CSS Error> Expected property assignment");
     return 0;
 }

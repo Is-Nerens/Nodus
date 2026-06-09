@@ -1,6 +1,4 @@
 #pragma once
-#include <string.h>
-#include "nodus.h"
 
 void NU_DissociateNode(NodeP* node)
 {
@@ -22,7 +20,7 @@ void NU_DissociateNode(NodeP* node)
             break;
     }
     if (node->id != NULL) {
-        StringmapDelete(&GUI.id_node_map, node->id);
+        Stringmap_Delete(&GUI.id_node_map, node->id);
     }
     if (node == GUI.hovered_node) {
         GUI.hovered_node = NULL;

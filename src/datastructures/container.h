@@ -1,5 +1,25 @@
-#pragma once
+// MIT License
+// Copyright (c) 2026 Arran Stevens
 
+// Permission is hereby granted, free of charge, to any person obtaining a copy
+// of this software and associated documentation files (the "Software"), to deal
+// in the Software without restriction, including without limitation the rights
+// to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+// copies of the Software, and to permit persons to whom the Software is
+// furnished to do so, subject to the following conditions:
+
+// The above copyright notice and this permission notice shall be included in all
+// copies or substantial portions of the Software.
+
+// THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+// IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+// FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+// AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+// LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+// OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+// SOFTWARE.
+
+#pragma once
 #include <stdlib.h>
 
 typedef struct Container {
@@ -80,12 +100,10 @@ static inline int Container_Add(Container* container, void* item)
 
     int index = container->size;
 
-    // Copy element directly into data array
     memcpy((char*)container->data + index * container->elementSize, item, container->elementSize);
 
     container->indices[slot] = index;
     container->slots[index] = slot;
-
     container->size++;
 
     int id = (container->ids[slot] << 16) | slot;
@@ -141,7 +159,6 @@ static inline int Container_IdAt(Container* container, int i)
 {
     if (!container) return -1;
     if (i < 0 || i >= container->size) return -1;
-
     int slot = container->slots[i];       // get the slot for this index
     int gen  = container->ids[slot];      // get the current generation
     int id   = (gen << 16) | slot;        // reconstruct full ID

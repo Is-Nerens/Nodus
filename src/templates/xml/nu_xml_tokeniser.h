@@ -7,7 +7,7 @@
 void NU_Tokenise(String src, TokenArray* tokenVectorOut, Array* textRefsOut)
 {
     ParserWord word;
-    ParserWordInit(&word);
+    ParserWord_Init(&word);
     u32 textLen     = 0;
     u32 trailingWS  = 0;
     u8  ctx         = 0; // 0: globalspace, 1: commentspace, 2: tagspace, 3: property valuespace
@@ -55,12 +55,12 @@ void NU_Tokenise(String src, TokenArray* tokenVectorOut, Array* textRefsOut)
                 if (textLen > 0) {
                     TokenArray_Add(tokenVectorOut, TEXT_CONTENT);
                     Text_Ref ref = { tokenVectorOut->size, i - textLen - 1, textLen };
-                    ArrayPush(textRefsOut, &ref);
+                    Array_Push(textRefsOut, &ref);
                     textLen=0;
                 }
 
                 TokenArray_Add(tokenVectorOut, OPEN_END_TAG);
-                ParserWordClear(&word); i=peekI; ctx=2; seenTagName=0; continue; // ^
+                ParserWord_Clear(&word); i=peekI; ctx=2; seenTagName=0; continue; // ^
             }
 
             // tag opens
@@ -69,12 +69,12 @@ void NU_Tokenise(String src, TokenArray* tokenVectorOut, Array* textRefsOut)
                 if (textLen > 0) {
                     TokenArray_Add(tokenVectorOut, TEXT_CONTENT);
                     Text_Ref ref = { tokenVectorOut->size, i - textLen - 1, textLen };
-                    ArrayPush(textRefsOut, &ref);
+                    Array_Push(textRefsOut, &ref);
                     textLen=0;
                 }
 
                 TokenArray_Add(tokenVectorOut, OPEN_TAG);
-                ParserWordClear(&word); ctx=2; seenTagName=0; continue; // ^
+                ParserWord_Clear(&word); ctx=2; seenTagName=0; continue; // ^
             }
 
             // text starts
@@ -107,7 +107,7 @@ void NU_Tokenise(String src, TokenArray* tokenVectorOut, Array* textRefsOut)
                 // word ends -> convert to token
                 if (word.length > 0) {
                     TokenArray_Add(tokenVectorOut, NU_Word_To_Token(word.buffer, word.length));
-                    ParserWordClear(&word);
+                    ParserWord_Clear(&word);
                 }
 
                 TokenArray_Add(tokenVectorOut, CLOSE_END_TAG);
@@ -120,7 +120,7 @@ void NU_Tokenise(String src, TokenArray* tokenVectorOut, Array* textRefsOut)
                 // word ends -> convert to token
                 if (word.length > 0) {
                     TokenArray_Add(tokenVectorOut, NU_Word_To_Token(word.buffer, word.length));
-                    ParserWordClear(&word);
+                    ParserWord_Clear(&word);
                 }
 
                 TokenArray_Add(tokenVectorOut, CLOSE_TAG);
@@ -132,7 +132,7 @@ void NU_Tokenise(String src, TokenArray* tokenVectorOut, Array* textRefsOut)
                 // word ends -> convert to token
                 if (word.length > 0) {
                     TokenArray_Add(tokenVectorOut, NU_Word_To_Property_Token(word.buffer, word.length));
-                    ParserWordClear(&word);
+                    ParserWord_Clear(&word);
                 }
 
                 TokenArray_Add(tokenVectorOut, PROPERTY_ASSIGNMENT);
@@ -143,7 +143,7 @@ void NU_Tokenise(String src, TokenArray* tokenVectorOut, Array* textRefsOut)
             if (c == '"') {
                 if (word.length > 0) { // word ends (there shouldn't be a word here, so this will trigger an error in the parser)
                     TokenArray_Add(tokenVectorOut, NU_Word_To_Token(word.buffer, word.length));
-                    ParserWordClear(&word);
+                    ParserWord_Clear(&word);
                 }
                 ctx=3; continue; // ^
             }
@@ -160,12 +160,12 @@ void NU_Tokenise(String src, TokenArray* tokenVectorOut, Array* textRefsOut)
                         t = NU_Word_To_Property_Token(word.buffer, word.length);
                     }
                     TokenArray_Add(tokenVectorOut, t);
-                    ParserWordClear(&word);
+                    ParserWord_Clear(&word);
                 }
             }
             else {
                 // word accumulates
-                ParserWordAppend(&word, c);
+                ParserWord_Append(&word, c);
             }
             continue; // ^
         }
@@ -177,13 +177,13 @@ void NU_Tokenise(String src, TokenArray* tokenVectorOut, Array* textRefsOut)
             if (c == '"') {
                 if (word.length > 0) {
                     struct Text_Ref ref = { tokenVectorOut->size, i - word.length - 1, word.length };
-                    ArrayPush(textRefsOut, &ref);
-                    ParserWordClear(&word);
+                    Array_Push(textRefsOut, &ref);
+                    ParserWord_Clear(&word);
                 }
                 TokenArray_Add(tokenVectorOut, PROPERTY_VALUE);
                 ctx=2; continue; // ^
             }
-            ParserWordAppend(&word, c); continue; // ^
+            ParserWord_Append(&word, c); continue; // ^
         }
     }
 }

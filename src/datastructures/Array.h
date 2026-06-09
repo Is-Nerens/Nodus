@@ -33,7 +33,7 @@ typedef struct Array
     size_t capacity; 
 } Array; 
 
-void ArrayInit(Array* array, size_t elementSize, size_t initialCapacity) 
+void Array_Init(Array* array, size_t elementSize, size_t initialCapacity) 
 {
     array->data = malloc(initialCapacity * elementSize);
     array->elementSize = elementSize;
@@ -41,7 +41,7 @@ void ArrayInit(Array* array, size_t elementSize, size_t initialCapacity)
     array->capacity = initialCapacity;
 }
 
-void ArrayPush(Array* array, void* value) 
+void Array_Push(Array* array, void* value) 
 {
     if (array->size >= array->capacity) {
         array->capacity *= 2;
@@ -54,7 +54,7 @@ void ArrayPush(Array* array, void* value)
     array->size++;
 }
 
-void* ArrayPushEmpty(Array* array)
+void* Array_PushEmpty(Array* array)
 {
     if (array->size >= array->capacity) {
         array->capacity *= 2;
@@ -68,7 +68,7 @@ void* ArrayPushEmpty(Array* array)
     return dst;
 }
 
-void ArrayDeleteBackfill(Array* array, size_t index)
+void Array_DeleteBackfill(Array* array, size_t index)
 {
     if (index == array->size - 1) {
         array->size--;
@@ -80,7 +80,7 @@ void ArrayDeleteBackfill(Array* array, size_t index)
     array->size--;
 }
 
-void ArrayDeleteBackshift(Array* array, size_t index)
+void Array_DeleteBackshift(Array* array, size_t index)
 {
     if (index < array->size-1)
     {
@@ -92,7 +92,7 @@ void ArrayDeleteBackshift(Array* array, size_t index)
     array->size--;
 }
 
-void ArrayDeleteBatchBackshift(Array* array, size_t index, size_t count)
+void Array_DeleteBatchBackshift(Array* array, size_t index, size_t count)
 {
     if (count == 0 || index >= array->size) return;
     if (index + count > array->size) count = array->size - index;
@@ -106,57 +106,17 @@ void ArrayDeleteBatchBackshift(Array* array, size_t index, size_t count)
     array->size -= count;
 }
 
-
-void ArrayDeleteBackfillSafe(Array* array, size_t index)
-{
-    if (index >= array->size) {
-        return;
-    }
-    if (index == array->size - 1) {
-        array->size--;
-        return;
-    }
-    void* target = (char*)array->data + (index * array->elementSize);
-    void* last = (char*)array->data + ((array->size - 1) * array->elementSize);
-    memcpy(target, last, array->elementSize);
-    array->size--;
-}
-
-void ArrayDeleteBackshiftSafe(Array* array, size_t index)
-{
-    if (index >= array->size) {
-        return;
-    }
-    if (index < array->size-1)
-    {
-        void* dest = (char*)array->data + (index * array->elementSize);
-        void* src = (char*)array->data + ((index + 1) * array->elementSize);
-        size_t bytesToMove = (array->size - index - 1) * array->elementSize;
-        memmove(dest, src, bytesToMove);
-    }
-    array->size--;
-}
-
-inline void* ArrayGet(Array* array, size_t index) 
+inline void* Array_Get(Array* array, size_t index) 
 {
     return (char*)array->data + (index * array->elementSize);
 }
 
-inline void* ArrayGetSafe(Array* array, size_t index) 
-{
-    if (index >= array->size) {
-        return NULL;
-    }
-    return (char*)array->data + (index * array->elementSize);
-}
-
-
-inline void ArrayClear(Array* array)
+inline void Array_Clear(Array* array)
 {
     array->size = 0;
 }
 
-inline void ArrayFree(Array* array) 
+inline void Array_Free(Array* array) 
 {
     free(array->data);
     array->size = array->capacity = 0;

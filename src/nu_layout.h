@@ -7,14 +7,6 @@
 #include <utils/performance.h>
 #include <text/nu_text_layout.h>
 
-static inline float fmax_fast(float a, float b) {
-    return a * (a > b) + b * (1 - (a > b));
-}
-
-static inline float fmin_fast(float a, float b) {
-    return a * (a < b) + b * (1 - (a < b));
-}
-
 static void NU_ApplyMinMaxWidthConstraint(NodeP* node)
 {
     node->node.width = min(max(node->node.width, node->node.minWidth), node->node.maxWidth);
@@ -54,7 +46,7 @@ static void NU_Prepass(BreadthFirstSearch* bfs, Array* scrollAutoNodes)
 
             // Add node to list of scroll auto nodes
             if (node->layoutFlags & OVERFLOW_VERTICAL_SCROLL) {
-                ArrayPush(scrollAutoNodes, &node);
+                Array_Push(scrollAutoNodes, &node);
             }
 
             // Reset position
@@ -557,11 +549,11 @@ static void NU_CalculateTableColumnWidths(BreadthFirstSearch* bfs, float scrollb
     DepthFirstSearch flexWidthDFS = DepthFirstSearch_Reserve();
 
     NodeP* node;
-    while(BreadthFirstSearch_Next(bfs, &node)) {
+    while(BreadthFirstSearch_Next(bfs, &node)) 
+    {
         if (NodeStateHidden(node) || node->type != NU_TABLE || node->childCount == 0) continue;
 
-        struct Array widest_cell_in_each_column;
-        ArrayInit(&widest_cell_in_each_column, sizeof(float), 25);
+        float columnWidths[4096]; int columnWidthsCount = 0;
 
         // ------------------------------------------------------------
         // --- Calculate the widest cell width in each table column ---
@@ -569,9 +561,9 @@ static void NU_CalculateTableColumnWidths(BreadthFirstSearch* bfs, float scrollb
         NodeP* row = node->firstChild;
         while(row != NULL) {
 
-            if (NodeStateHidden(row)) {
-                row = row->nextSibling; continue;
-            }
+            // Ignore hidden rows
+            if (NodeStateHidden(row)) { row = row->nextSibling; continue; }
+            
             int cellIndex = 0;
             NodeP* cell = row->firstChild;
             while(cell != NULL) {
@@ -580,17 +572,15 @@ static void NU_CalculateTableColumnWidths(BreadthFirstSearch* bfs, float scrollb
                     cell = cell->nextSibling; continue;
                 }
 
-                // Expand the vector if there are more columns that the vector has capacity for
-                if (cellIndex == widest_cell_in_each_column.size) {
-                    float val = 0;
-                    ArrayPush(&widest_cell_in_each_column, &val);
+                // Initialise widest cell width to 0 (in array)
+                if (cellIndex == columnWidthsCount) {
+                    columnWidths[cellIndex] = 0;
+                    columnWidthsCount++;
                 }
 
                 // Get current column width and update if cell is wider
-                float* val = ArrayGet(&widest_cell_in_each_column, cellIndex);
-                if (cell->node.width > *val) {
-                    *val = cell->node.width;
-                }
+                if (cell->node.width > columnWidths[cellIndex]) columnWidths[cellIndex] = cell->node.width;
+        
                 cellIndex++;
                 cell = cell->nextSibling;
             }
@@ -601,36 +591,33 @@ static void NU_CalculateTableColumnWidths(BreadthFirstSearch* bfs, float scrollb
         // -----------------------------------------------
         // --- Apply widest column widths to all cells ---
         // -----------------------------------------------
-        float table_inner_width = node->node.width - node->node.borderLeft - node->node.borderRight - node->node.padLeft - node->node.padRight;
-        table_inner_width -= !!(node->layoutFlags & OVERFLOW_VERTICAL_SCROLL) * scrollbarThickness;
-        float remaining_table_inner_width = table_inner_width;
-        for (int k=0; k<widest_cell_in_each_column.size; k++) {
-            remaining_table_inner_width -= *(float*)ArrayGet(&widest_cell_in_each_column, k);
-        }
-        float used_table_width = table_inner_width - remaining_table_inner_width;
+        float tableInnerWidth = node->node.width - node->node.borderLeft - node->node.borderRight - node->node.padLeft - node->node.padRight;
+        tableInnerWidth -= !!(node->layoutFlags & OVERFLOW_VERTICAL_SCROLL) * scrollbarThickness;
+        float remainingTableInnerWidth = tableInnerWidth;
+        for (int k=0; k<columnWidthsCount; k++) { remainingTableInnerWidth -= columnWidths[k]; }
+        float used_table_width = tableInnerWidth - remainingTableInnerWidth;
 
         // Interate over all the rows in the table
         row = node->firstChild;
         while(row != NULL) {
 
-            if (NodeStateHidden(row)) {
-                row = row->nextSibling; continue;
-            }
+            // Ignore hidden rows
+            if (NodeStateHidden(row)) { row = row->nextSibling; continue; }
 
-            row->node.width = table_inner_width;
+            row->node.width = tableInnerWidth;
 
             // Reduce available growth space by acounting for row pad, border and child gaps
             float row_border_pad_gap = row->node.borderLeft + row->node.borderRight + row->node.padLeft + row->node.padRight;
             if (row->node.gap != 0.0f) {
-                int visible_cells = 0;
+                int visibleCells = 0;
 
                 // iterate over cells in row
                 NodeP* cell = row->firstChild;
                 while(cell != NULL) {
-                    if (NodeStateHidden(cell)) visible_cells++;
+                    if (NodeStateHidden(cell)) visibleCells++;
                     cell = cell->nextSibling;
                 }
-                row_border_pad_gap += row->node.gap * (visible_cells - 1);
+                row_border_pad_gap += row->node.gap * (visibleCells - 1);
             }
 
             // Grow the width of all cells 
@@ -642,9 +629,8 @@ static void NU_CalculateTableColumnWidths(BreadthFirstSearch* bfs, float scrollb
                 if (NodeStateHidden(cell)) { cell = cell->nextSibling; continue; }
 
                 // Compute and set cell width
-                float column_width = *(float*)ArrayGet(&widest_cell_in_each_column, cellIndex);
-                float proportion = column_width / (used_table_width);
-                cell->node.width = column_width + (remaining_table_inner_width - row_border_pad_gap) * proportion;
+                float proportion = columnWidths[cellIndex] / (used_table_width);
+                cell->node.width = columnWidths[cellIndex] + (remainingTableInnerWidth - row_border_pad_gap) * proportion;
                 
                 // Grow subtree in cell
                 NodeP* dfsNode;
@@ -661,7 +647,6 @@ static void NU_CalculateTableColumnWidths(BreadthFirstSearch* bfs, float scrollb
             // Move to the next row
             row = row->nextSibling;
         }
-        ArrayFree(&widest_cell_in_each_column);
     }
 
     DepthFirstSearch_Free(&flexWidthDFS);
@@ -945,7 +930,7 @@ void NU_Layout()
     ReverseBreadthFirstSearch_Reset(rbfs, GUI.tree.root);
 
     // RESERVE LIST OF AUTO SCROLL NODES
-    ArrayClear(&GUI.layoutScrollAutoNodes);
+    Array_Clear(&GUI.layoutScrollAutoNodes);
 
     // FIRST PASS -> ASSUME SCROLLBARS TAKE UP NO SPACE
     NU_Prepass(bfs, &GUI.layoutScrollAutoNodes);
@@ -975,7 +960,7 @@ void NU_Layout()
     // SECOND PASS -> RECOMPUTE OVERFLOWED SCROLL BRANCHES
     for (u32 i=0; i<GUI.layoutScrollAutoNodes.size; i++)
     {
-        NodeP* node = *(NodeP**)ArrayGet(&GUI.layoutScrollAutoNodes, i);
+        NodeP* node = *(NodeP**)Array_Get(&GUI.layoutScrollAutoNodes, i);
         bool overflowed = node->node.contentHeight > (node->node.height - node->node.padTop - node->node.padBottom - node->node.borderTop - node->node.borderBottom);
         if (!overflowed) continue;
 

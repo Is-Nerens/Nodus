@@ -8,7 +8,7 @@ static bool NU_MouseIsOverNode(NodeP* node, float mouseX, float mouseY)
     float top_wall = node->node.y;
     float bottom_wall = node->node.y + node->node.height; 
     if (node->clippedAncestor != NULL) {
-        NU_ClipBounds* clip = HashmapGet(&GUI.winManager.clipMap, &node->clippedAncestor);
+        NU_ClipBounds* clip = Hashmap_Get(&GUI.winManager.clipMap, &node->clippedAncestor);
         left_wall = max(clip->left, node->node.x);
         right_wall = min(clip->right, node->node.x + node->node.width);
         top_wall = max(clip->top, node->node.y);
@@ -76,7 +76,7 @@ static bool NU_MouseIsOverNode(NodeP* node, float mouseX, float mouseY)
 }
 
 static bool NU_Mouse_Over_Node_V_Scrollbar(
-    NodeP* node, NU_Stylesheet_Scrollbar_Style* scrollbarStyle, 
+    NodeP* node, Stylesheet_Scrollbar_Style* scrollbarStyle, 
     float mouseX, float mouseY, float* grabOffsetOut
 ) 
 {
@@ -138,21 +138,21 @@ void NU_Mouse_Hover()
 
     // Create a traversal stack
     struct Array stack;
-    ArrayInit(&stack, sizeof(NodeP*), 32);
+    Array_Init(&stack, sizeof(NodeP*), 32);
 
     // Add absolute root nodes to stack
     for (u32 i=0; i<GUI.winManager.absoluteRootNodes.size; i++) {
-        NodeP* absolute_node = *(NodeP**)ArrayGet(&GUI.winManager.absoluteRootNodes, i);
+        NodeP* absolute_node = *(NodeP**)Array_Get(&GUI.winManager.absoluteRootNodes, i);
         if (absolute_node->windowID == GUI.winManager.hoveredWindowID && NU_MouseIsOverNode(absolute_node, mouseX, mouseY)) {
-            ArrayPush(&stack, &absolute_node);
+            Array_Push(&stack, &absolute_node);
         }
     }
 
     // Add window root nodes to stack
     for (u32 i=0; i<GUI.winManager.windowNodes.size; i++) {
-        NodeP* node = *(NodeP**)ArrayGet(&GUI.winManager.windowNodes, i);
+        NodeP* node = *(NodeP**)Array_Get(&GUI.winManager.windowNodes, i);
         if (node->windowID == GUI.winManager.hoveredWindowID){
-            ArrayPush(&stack, &node);
+            Array_Push(&stack, &node);
             break;
         }
     }
@@ -162,7 +162,7 @@ void NU_Mouse_Hover()
     while (stack.size > 0 && !break_loop) 
     {
         // Pop the stack
-        NodeP* current_node = *(NodeP**)ArrayGet(&stack, stack.size - 1);
+        NodeP* current_node = *(NodeP**)Array_Get(&stack, stack.size - 1);
         if (!(current_node->layoutFlags & IGNORE_MOUSE)) {
             GUI.hovered_node = current_node;
         }
@@ -188,13 +188,13 @@ void NU_Mouse_Hover()
                 bool overflow_v = child->node.contentHeight > child->node.height - child->node.borderTop - child->node.borderBottom;
                 if (overflow_v) GUI.scroll_hovered_node = child;
             }
-            ArrayPush(&stack, &child);
+            Array_Push(&stack, &child);
 
             // Move to the next child
             child = child->nextSibling;
         }
     }
-    ArrayFree(&stack);
+    Array_Free(&stack);
 
     // On mouse in event triggered
     if (GUI.hovered_node != NULL &&

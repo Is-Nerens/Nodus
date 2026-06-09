@@ -35,16 +35,16 @@ void NU_Parse_Property(const enum NU_XML_TOKEN token, NodeP* currentNode, char* 
     {
         // Set id
         case ID_PROPERTY:
-            char* id_get = StringsetGet(&GUI.id_string_set, ptext);
+            char* id_get = Stringset_Get(&GUI.id_string_set, ptext);
             if (id_get == NULL) {
-                currentNode->id = StringsetAdd(&GUI.id_string_set, ptext);
-                StringmapSet(&GUI.id_node_map, ptext, &currentNode);
+                currentNode->id = Stringset_Add(&GUI.id_string_set, ptext);
+                Stringmap_Set(&GUI.id_node_map, ptext, &currentNode);
             }
             break;
 
         // Set class
         case CLASS_PROPERTY:
-            currentNode->class = StringsetAdd(&GUI.class_string_set, ptext);
+            currentNode->class = Stringset_Add(&GUI.class_string_set, ptext);
             break;
 
         // Set layout direction
@@ -441,7 +441,7 @@ int NU_Parse_Component(NodeP* currentNode, char* src, TokenArray* tokens, struct
 {
     enum XMLGenCtx ctx = GENCTX_GLOBAL; 
     struct Text_Ref* current_text_ref;
-    if (textRefs->size > 0) current_text_ref = ArrayGet(textRefs, 0);
+    if (textRefs->size > 0) current_text_ref = Array_Get(textRefs, 0);
     uint32_t text_content_ref_index = 0;
     uint32_t text_ref_index = 0;
 
@@ -467,15 +467,15 @@ int NU_Parse_Component(NodeP* currentNode, char* src, TokenArray* tokens, struct
                     type != NU_ROW && 
                     type != NU_THEAD) 
                 {
-                    NU_ErrorSystem_AddError(&GUI.errorSystem, "<XML Error> children of <table> must be <row> or <thead>");
+                    ErrorSystem_AddError(&GUI.errorSystem, "<XML Error> children of <table> must be <row> or <thead>");
                     return 0;
                 }
                 else if (ctx == GENCTX_IN_CONTENT_OF_TABLE_WITH_THEAD && type == NU_THEAD) {
-                    NU_ErrorSystem_AddError(&GUI.errorSystem, "<XML Error> <table> cannot have multiple <thead>");
+                    ErrorSystem_AddError(&GUI.errorSystem, "<XML Error> <table> cannot have multiple <thead>");
                     return 0;
                 }
                 else if (ctx != GENCTX_IN_CONTENT_OF_TABLE_WITHOUT_CHILDREN && type == NU_THEAD) {
-                    NU_ErrorSystem_AddError(&GUI.errorSystem, "<XML Error> <thead> must have parent of type <table> and can only be the first child");
+                    ErrorSystem_AddError(&GUI.errorSystem, "<XML Error> <thead> must have parent of type <table> and can only be the first child");
                     return 0;
                 }
                 else if (!(ctx == GENCTX_IN_CONTENT_OF_TABLE_WITHOUT_CHILDREN ||
@@ -483,7 +483,7 @@ int NU_Parse_Component(NodeP* currentNode, char* src, TokenArray* tokens, struct
                     ctx == GENCTX_IN_CONTENT_OF_TABLE_WITHOUT_THEAD) && 
                     type == NU_ROW) 
                 {
-                    NU_ErrorSystem_AddError(&GUI.errorSystem, "<XML Error> <row> must have parent of type <table>");
+                    ErrorSystem_AddError(&GUI.errorSystem, "<XML Error> <row> must have parent of type <table>");
                     return 0;
                 }
 
@@ -576,7 +576,7 @@ int NU_Parse_Component(NodeP* currentNode, char* src, TokenArray* tokens, struct
                 currentNode->type == NU_BUTTON ||
                 currentNode->type == NU_IMAGE) 
             {
-                current_text_ref = ArrayGet(textRefs, text_ref_index);
+                current_text_ref = Array_Get(textRefs, text_ref_index);
                 char c = src[current_text_ref->src_index];
                 char* text = &src[current_text_ref->src_index];
                 src[current_text_ref->src_index + current_text_ref->char_count] = '\0';
@@ -600,7 +600,7 @@ int NU_Parse_Component(NodeP* currentNode, char* src, TokenArray* tokens, struct
                 // -----------------------
                 // Get property value text
                 // -----------------------
-                current_text_ref = ArrayGet(textRefs, text_ref_index++);
+                current_text_ref = Array_Get(textRefs, text_ref_index++);
                 char* ptext = &src[current_text_ref->src_index];
                 src[current_text_ref->src_index + current_text_ref->char_count] = '\0';
 
@@ -639,7 +639,7 @@ int NU_Generate_Tree(char* src, TokenArray* tokens, struct Array* textRefs, Imag
     // Get first property text reference
     // ---------------------------------
     struct Text_Ref* current_text_ref;
-    if (textRefs->size > 0) current_text_ref = ArrayGet(textRefs, 0);
+    if (textRefs->size > 0) current_text_ref = Array_Get(textRefs, 0);
     uint32_t text_content_ref_index = 0;
     uint32_t text_ref_index = 0;
 
@@ -651,7 +651,7 @@ int NU_Generate_Tree(char* src, TokenArray* tokens, struct Array* textRefs, Imag
     // (string -> int)
     // ---------------
     LinearStringmap componentFilepathToTokensMap;
-    LinearStringmapInit(&componentFilepathToTokensMap, sizeof(TokenTextRefsPair), 16, 512);
+    LinearStringmap_Init(&componentFilepathToTokensMap, sizeof(TokenTextRefsPair), 16, 512);
 
     // -----------------------
     // Iterate over all tokens
@@ -681,15 +681,15 @@ int NU_Generate_Tree(char* src, TokenArray* tokens, struct Array* textRefs, Imag
                     type != NU_ROW && 
                     type != NU_THEAD) 
                 {
-                    NU_ErrorSystem_AddError(&GUI.errorSystem, "<XML Error> children of <table> must be <row> or <thead>");
+                    ErrorSystem_AddError(&GUI.errorSystem, "<XML Error> children of <table> must be <row> or <thead>");
                     goto error;
                 }
                 else if (ctx == GENCTX_IN_CONTENT_OF_TABLE_WITH_THEAD && type == NU_THEAD) {
-                    NU_ErrorSystem_AddError(&GUI.errorSystem, "<XML Error> <table> cannot have multiple <thead>");
+                    ErrorSystem_AddError(&GUI.errorSystem, "<XML Error> <table> cannot have multiple <thead>");
                     goto error;
                 }
                 else if (ctx != GENCTX_IN_CONTENT_OF_TABLE_WITHOUT_CHILDREN && type == NU_THEAD) {
-                    NU_ErrorSystem_AddError(&GUI.errorSystem, "<XML Error> <thead> must have parent of type <table> and can only be the first child");
+                    ErrorSystem_AddError(&GUI.errorSystem, "<XML Error> <thead> must have parent of type <table> and can only be the first child");
                     goto error;
                 }
                 else if (!(ctx == GENCTX_IN_CONTENT_OF_TABLE_WITHOUT_CHILDREN ||
@@ -697,7 +697,7 @@ int NU_Generate_Tree(char* src, TokenArray* tokens, struct Array* textRefs, Imag
                     ctx == GENCTX_IN_CONTENT_OF_TABLE_WITHOUT_THEAD) && 
                     type == NU_ROW) 
                 {
-                    NU_ErrorSystem_AddError(&GUI.errorSystem, "<XML Error><row> must have parent of type <table>");
+                    ErrorSystem_AddError(&GUI.errorSystem, "<XML Error><row> must have parent of type <table>");
                     goto error;
                 }
 
@@ -815,7 +815,7 @@ int NU_Generate_Tree(char* src, TokenArray* tokens, struct Array* textRefs, Imag
                 currentNode->type == NU_BUTTON ||
                 currentNode->type == NU_IMAGE) 
             {
-                current_text_ref = ArrayGet(textRefs, text_ref_index);
+                current_text_ref = Array_Get(textRefs, text_ref_index);
                 char c = src[current_text_ref->src_index];
                 char* text = &src[current_text_ref->src_index];
                 src[current_text_ref->src_index + current_text_ref->char_count] = '\0';
@@ -839,7 +839,7 @@ int NU_Generate_Tree(char* src, TokenArray* tokens, struct Array* textRefs, Imag
                 // -----------------------
                 // Get property value text
                 // -----------------------
-                current_text_ref = ArrayGet(textRefs, text_ref_index++);
+                current_text_ref = Array_Get(textRefs, text_ref_index++);
                 char* ptext = &src[current_text_ref->src_index];
                 src[current_text_ref->src_index + current_text_ref->char_count] = '\0';
 
@@ -857,7 +857,7 @@ int NU_Generate_Tree(char* src, TokenArray* tokens, struct Array* textRefs, Imag
                         String componentSrc = FileReadUTF8(filepath);
                         if (componentSrc) {
 
-                            void* found = LinearStringmapGet(&componentFilepathToTokensMap, filepath);
+                            void* found = LinearStringmap_Get(&componentFilepathToTokensMap, filepath);
                         
                             if (!found) {
                                 if (!componentSrc) break;
@@ -865,13 +865,13 @@ int NU_Generate_Tree(char* src, TokenArray* tokens, struct Array* textRefs, Imag
                                 // Build (tokens, text refs) pair
                                 TokenTextRefsPair tokenTextRefs;
                                 tokenTextRefs.tokens = TokenArray_Create(512);
-                                ArrayInit(&tokenTextRefs.textRefs, sizeof(struct Text_Ref), 128);
+                                Array_Init(&tokenTextRefs.textRefs, sizeof(struct Text_Ref), 128);
 
                                 // Tokenise component
                                 NU_Tokenise(componentSrc, &tokenTextRefs.tokens, &tokenTextRefs.textRefs);
 
                                 // Add tokens to <component filepath, token array> map
-                                LinearStringmapSet(&componentFilepathToTokensMap, filepath, &tokenTextRefs);
+                                LinearStringmap_Set(&componentFilepathToTokensMap, filepath, &tokenTextRefs);
 
                                 // Parse and build component
                                 if (!NU_Parse_Component(currentNode, StringCstr(componentSrc), &tokenTextRefs.tokens, &tokenTextRefs.textRefs, imageResourceLoader)) {
@@ -892,7 +892,7 @@ int NU_Generate_Tree(char* src, TokenArray* tokens, struct Array* textRefs, Imag
                             StringFree(componentSrc);
                         }    
                         else {
-                            NU_ErrorSystem_AddError(&GUI.errorSystem, "<XML Error><row> XML component file not found");
+                            ErrorSystem_AddError(&GUI.errorSystem, "<XML Error><row> XML component file not found");
                         }
                     }
                 }
@@ -909,13 +909,13 @@ int NU_Generate_Tree(char* src, TokenArray* tokens, struct Array* textRefs, Imag
         i+=1;
     }
 
-    LinearStringmapFree(&componentFilepathToTokensMap);
+    LinearStringmap_Free(&componentFilepathToTokensMap);
     return 1;
 
 
 error:
     // Failure 
-    LinearStringmapFree(&componentFilepathToTokensMap);
+    LinearStringmap_Free(&componentFilepathToTokensMap);
     return 0;
 }
 
@@ -927,20 +927,20 @@ int NU_Internal_Load_XML(const char* filepath, ImageResourceLoader* imageResourc
     
     // Init token and text ref vectors
     TokenArray tokens = TokenArray_Create(8000);
-    struct Array textRefs; ArrayInit(&textRefs, sizeof(struct Text_Ref), 2000);
+    struct Array textRefs; Array_Init(&textRefs, sizeof(struct Text_Ref), 2000);
 
     // Tokenise and generate
     NU_Tokenise(src, &tokens, &textRefs); 
     if (!NU_Generate_Tree(StringCstr(src), &tokens, &textRefs, imageResourceLoader)) {
         TokenArray_Free(&tokens);
-        ArrayFree(&textRefs);
+        Array_Free(&textRefs);
         StringFree(src);
         return 0;
     }
 
     // Free memory
     TokenArray_Free(&tokens);
-    ArrayFree(&textRefs);
+    Array_Free(&textRefs);
     StringFree(src);
     return 1;
 }

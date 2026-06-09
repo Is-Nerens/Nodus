@@ -6,7 +6,7 @@
 static void NU_Style_Tokenise(String src, TokenArray* tokens, struct Array* textRefs)
 {
     ParserWord word;
-    ParserWordInit(&word);
+    ParserWord_Init(&word);
 
     // Context
     u8 ctx = 0; 
@@ -54,12 +54,12 @@ static void NU_Style_Tokenise(String src, TokenArray* tokens, struct Array* text
 
         // Enter class selector name space
         if (ctx == 0 && c == '.') {
-            ParserWordClear(&word); ctx=4; continue; // ^
+            ParserWord_Clear(&word); ctx=4; continue; // ^
         }
 
         // Enter id selector name space
         if (ctx == 0 && c == '#') {
-            ParserWordClear(&word); ctx=5; continue; // ^
+            ParserWord_Clear(&word); ctx=5; continue; // ^
         }
 
         // Property value word completed
@@ -68,16 +68,16 @@ static void NU_Style_Tokenise(String src, TokenArray* tokens, struct Array* text
             // Add property text reference
             if (word.length > 0) {
                 struct Style_Text_Ref ref = { tokens->size, i - word.length - 1, word.length };
-                ArrayPush(textRefs, &ref);
+                Array_Push(textRefs, &ref);
                 TokenArray_Add(tokens, STYLE_PROPERTY_VALUE);
-                ParserWordClear(&word);
+                ParserWord_Clear(&word);
             }
             ctx=2; continue; // ^
         }
 
         // Property value quotes string started
         if (ctx == 3 && c == '"') {
-            ParserWordClear(&word); ctx=8; continue; // ^
+            ParserWord_Clear(&word); ctx=8; continue; // ^
         }
         if (ctx == 8 && c =='\\') {
             ctx=9; continue; // ^
@@ -90,9 +90,9 @@ static void NU_Style_Tokenise(String src, TokenArray* tokens, struct Array* text
             // Add property text reference
             if (word.length > 0) {
                 struct Style_Text_Ref ref = { tokens->size, i - word.length - 1, word.length };
-                ArrayPush(textRefs, &ref);
+                Array_Push(textRefs, &ref);
                 TokenArray_Add(tokens, STYLE_PROPERTY_VALUE);
-                ParserWordClear(&word);
+                ParserWord_Clear(&word);
             }
             ctx=3; continue; // ^
         }
@@ -103,39 +103,39 @@ static void NU_Style_Tokenise(String src, TokenArray* tokens, struct Array* text
             // Tag selector word completed
             if (ctx == 0 && word.length > 0) {
                 TokenArray_Add(tokens, NU_Word_To_Tag_Selector_Token(word.buffer, word.length));
-                ParserWordClear(&word);
+                ParserWord_Clear(&word);
             }
 
             // Class selector word completed
             else if (ctx == 4 && word.length > 0) {
                 // Add text reference
                 struct Style_Text_Ref ref = { tokens->size, i - word.length - 1, word.length };
-                ArrayPush(textRefs, &ref);
+                Array_Push(textRefs, &ref);
                 TokenArray_Add(tokens, STYLE_CLASS_SELECTOR);
-                ParserWordClear(&word);
+                ParserWord_Clear(&word);
             }
 
             // Id selector word completed
             else if (ctx == 5 && word.length > 0) {
                 // Add text reference
                 struct Style_Text_Ref ref = { tokens->size, i - word.length - 1, word.length };
-                ArrayPush(textRefs, &ref);
+                Array_Push(textRefs, &ref);
                 TokenArray_Add(tokens, STYLE_ID_SELECTOR);
-                ParserWordClear(&word);
+                ParserWord_Clear(&word);
             }
 
             // Font name word completed
             else if (ctx == 7 && word.length > 0) {
                 // Add text reference
                 struct Style_Text_Ref ref = { tokens->size, i - word.length - 1, word.length };
-                ArrayPush(textRefs, &ref);
+                Array_Push(textRefs, &ref);
                 TokenArray_Add(tokens, STYLE_FONT_NAME);
-                ParserWordClear(&word);
+                ParserWord_Clear(&word);
             }
 
             // Add open brace token
             TokenArray_Add(tokens, STYLE_SELECTOR_OPEN_BRACE);
-            ParserWordClear(&word); ctx=2; continue; // ^
+            ParserWord_Clear(&word); ctx=2; continue; // ^
         }
 
         // Exiting selectorspace
@@ -144,7 +144,7 @@ static void NU_Style_Tokenise(String src, TokenArray* tokens, struct Array* text
             // If word is present -> word completed (also an error)
             if (word.length > 0) {
                 TokenArray_Add(tokens, NU_Word_To_Style_Token(word.buffer, word.length));
-                ParserWordClear(&word);
+                ParserWord_Clear(&word);
             }
 
             TokenArray_Add(tokens, STYLE_SELECTOR_CLOSE_BRACE);
@@ -158,7 +158,7 @@ static void NU_Style_Tokenise(String src, TokenArray* tokens, struct Array* text
             if (ctx == 0 && word.length > 0) {
                 enum NU_Style_Token token = NU_Word_To_Any_Selector_Token(word.buffer, word.length);
                 TokenArray_Add(tokens, token);
-                ParserWordClear(&word);
+                ParserWord_Clear(&word);
 
                 if (token == STYLE_FONT_CREATION_SELECTOR) { // Special selector context
                     ctx = 7;
@@ -169,7 +169,7 @@ static void NU_Style_Tokenise(String src, TokenArray* tokens, struct Array* text
             else if (ctx == 4 && word.length > 0) {
                 // Add text reference
                 struct Style_Text_Ref ref = { tokens->size, i - word.length - 1, word.length };
-                ArrayPush(textRefs, &ref);
+                Array_Push(textRefs, &ref);
                 TokenArray_Add(tokens, STYLE_CLASS_SELECTOR);
                 ctx=0;
             }
@@ -178,7 +178,7 @@ static void NU_Style_Tokenise(String src, TokenArray* tokens, struct Array* text
             else if (ctx == 5 && word.length > 0) {
                 // Add text reference
                 struct Style_Text_Ref ref = { tokens->size, i - word.length - 1, word.length };
-                ArrayPush(textRefs, &ref);
+                Array_Push(textRefs, &ref);
                 TokenArray_Add(tokens, STYLE_ID_SELECTOR);
                 ctx=0;
             }
@@ -192,7 +192,7 @@ static void NU_Style_Tokenise(String src, TokenArray* tokens, struct Array* text
             else if (ctx == 3 && word.length > 0) {
                 // Add text reference
                 struct Style_Text_Ref ref = { tokens->size, i - word.length - 1, word.length };
-                ArrayPush(textRefs, &ref);
+                Array_Push(textRefs, &ref);
                 TokenArray_Add(tokens, STYLE_PROPERTY_VALUE);
                 ctx=2;
             }
@@ -208,7 +208,7 @@ static void NU_Style_Tokenise(String src, TokenArray* tokens, struct Array* text
 
                 // Add text reference
                 struct Style_Text_Ref ref = { tokens->size, i - word.length - 1, word.length };
-                ArrayPush(textRefs, &ref);
+                Array_Push(textRefs, &ref);
                 TokenArray_Add(tokens, STYLE_FONT_NAME);
             }
 
@@ -229,11 +229,11 @@ static void NU_Style_Tokenise(String src, TokenArray* tokens, struct Array* text
                 }
             }
 
-            ParserWordClear(&word);
+            ParserWord_Clear(&word);
             continue; // ^
         }
 
         // Add char to word
-        ParserWordAppend(&word, c);
+        ParserWord_Append(&word, c);
     }
 }

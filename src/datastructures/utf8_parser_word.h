@@ -8,13 +8,13 @@ typedef struct ParserWord
     char buffer[256];
 } ParserWord;
 
-void ParserWordInit(ParserWord *word)
+void ParserWord_Init(ParserWord *word)
 {
     word->length = 0;
     word->buffer[0] = '\0';
 }
 
-inline void ParserWordAppend(ParserWord* word, uint32_t codepoint)
+inline void ParserWord_Append(ParserWord* word, uint32_t codepoint)
 {
     if (codepoint <= 0x7F) {
         word->buffer[word->length++] = (char)codepoint;
@@ -40,7 +40,7 @@ inline void ParserWordAppend(ParserWord* word, uint32_t codepoint)
     word->buffer[word->length] = '\0';
 }
 
-inline void ParserWordClear(ParserWord* word)
+inline void ParserWord_Clear(ParserWord* word)
 {
     word->length = 0;
 }

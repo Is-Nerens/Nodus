@@ -35,6 +35,7 @@ typedef struct NU_Font
     Array Ascii_Glyphs;
     Hashmap UTF8_Glyphs;
     int height_pixels;
+    int fontWeight;
     float y_max;
     float y_min;
     float ascent;
@@ -167,8 +168,8 @@ int NU_Create_Font_From_Face(NU_Font* font, FT_Face face, int height_pixels, boo
     font->line_height   = (float)(face->size->metrics.height >> 6);
 
     // Init font storage
-    ArrayInit(&font->Ascii_Glyphs, sizeof(NU_Glyph), 128);
-    HashmapInit(&font->UTF8_Glyphs, sizeof(u32), sizeof(NU_Glyph), 256);
+    Array_Init(&font->Ascii_Glyphs, sizeof(NU_Glyph), 128);
+    Hashmap_Init(&font->UTF8_Glyphs, sizeof(u32), sizeof(NU_Glyph), 256);
     NU_Font_Atlas_Create(&font->atlas, 512, 512, channels);
 
     // Render and save each ASCII glyph 32..126
@@ -188,8 +189,8 @@ int NU_Create_Font_From_Face(NU_Font* font, FT_Face face, int height_pixels, boo
         glyph.bearingX = face->glyph->bitmap_left;
         glyph.bearingY = face->glyph->bitmap_top;
         glyph.advance  = (float)(face->glyph->advance.x >> 6);
-        ArrayPush(&font->Ascii_Glyphs, &glyph);
-        NU_Glyph* stored_glyph = ArrayGet(&font->Ascii_Glyphs, glyph_char - 32);
+        Array_Push(&font->Ascii_Glyphs, &glyph);
+        NU_Glyph* stored_glyph = Array_Get(&font->Ascii_Glyphs, glyph_char - 32);
 
         // Store bitmap in font atlas
         NU_Font_Atlas_Add_Glyph(&font->atlas, stored_glyph, bmp);
@@ -205,8 +206,8 @@ NU_Glyph* NU_Add_Uncached_Glyph(NU_Font* font, u32 codepoint)
 {
     // Render glyph
     FT_UInt glyph_index = FT_Get_Char_Index(font->face, codepoint);
-    if (FT_Load_Glyph(font->face, glyph_index, font->loadFlags)) return ArrayGet(&font->Ascii_Glyphs, 63);
-    if (FT_Render_Glyph(font->face->glyph, font->renderFlags)) return ArrayGet(&font->Ascii_Glyphs, 63);
+    if (FT_Load_Glyph(font->face, glyph_index, font->loadFlags)) return Array_Get(&font->Ascii_Glyphs, 63);
+    if (FT_Render_Glyph(font->face->glyph, font->renderFlags)) return Array_Get(&font->Ascii_Glyphs, 63);
     FT_Bitmap* bmp = &font->face->glyph->bitmap;
 
     int channels = 1;
@@ -220,8 +221,8 @@ NU_Glyph* NU_Add_Uncached_Glyph(NU_Font* font, u32 codepoint)
     glyph.bearingX = font->face->glyph->bitmap_left;
     glyph.bearingY = font->face->glyph->bitmap_top;
     glyph.advance  = (float)(font->face->glyph->advance.x >> 6);
-    HashmapSet(&font->UTF8_Glyphs, &codepoint, &glyph);
-    NU_Glyph* stored_glyph = HashmapGet(&font->UTF8_Glyphs, &codepoint);
+    Hashmap_Set(&font->UTF8_Glyphs, &codepoint, &glyph);
+    NU_Glyph* stored_glyph = Hashmap_Get(&font->UTF8_Glyphs, &codepoint);
 
     // Store bitmap in font atlas
     NU_Font_Atlas_Add_Glyph(&font->atlas, stored_glyph, bmp);
@@ -253,8 +254,8 @@ int NU_Font_Create_Default(NU_Font* font, int height_pixels, bool subpixel_rende
 void NU_Font_Free(NU_Font* font)
 {
     FT_Done_Face(font->face);
-    ArrayFree(&font->Ascii_Glyphs);
-    HashmapFree(&font->UTF8_Glyphs);
+    Array_Free(&font->Ascii_Glyphs);
+    Hashmap_Free(&font->UTF8_Glyphs);
     free(font->atlas.buffer);
 }
 
@@ -264,13 +265,13 @@ NU_Glyph* NU_Get_Glyph(NU_Font* font, u32 codepoint)
     if (codepoint < 128) {
         // Fallback to '?' for ascii control characters
         if ((unsigned)(codepoint - 32) < 95) {
-            return ArrayGet(&font->Ascii_Glyphs, codepoint - 32);
+            return Array_Get(&font->Ascii_Glyphs, codepoint - 32);
         }
-        return ArrayGet(&font->Ascii_Glyphs, '?' - 32);
+        return Array_Get(&font->Ascii_Glyphs, '?' - 32);
     }
 
     // Slower non-ascii lookup
-    NU_Glyph* glyph = (NU_Glyph*)HashmapGet(&font->UTF8_Glyphs, &codepoint);
+    NU_Glyph* glyph = (NU_Glyph*)Hashmap_Get(&font->UTF8_Glyphs, &codepoint);
     if (glyph) return glyph;
 
     // Really slow non-ascii non-cached glyph

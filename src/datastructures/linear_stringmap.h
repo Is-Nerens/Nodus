@@ -1,3 +1,24 @@
+// MIT License
+// Copyright (c) 2026 Arran Stevens
+
+// Permission is hereby granted, free of charge, to any person obtaining a copy
+// of this software and associated documentation files (the "Software"), to deal
+// in the Software without restriction, including without limitation the rights
+// to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+// copies of the Software, and to permit persons to whom the Software is
+// furnished to do so, subject to the following conditions:
+
+// The above copyright notice and this permission notice shall be included in all
+// copies or substantial portions of the Software.
+
+// THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+// IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+// FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+// AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+// LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+// OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+// SOFTWARE.
+
 #pragma once
 #include <stdint.h>
 #include <stdlib.h>
@@ -28,7 +49,7 @@ typedef struct LinearStringmap
     uint32_t maxProbes;
 } LinearStringmap;
 
-void LinearStringmapFree(LinearStringmap* map)
+void LinearStringmap_Free(LinearStringmap* map)
 {
     if (!map) return;
     if (map->chunkArray) free(map->chunkArray);
@@ -47,7 +68,7 @@ void LinearStringmapFree(LinearStringmap* map)
     map->maxProbes = 0;
 }
 
-int LinearStringmapInit(LinearStringmap* map, uint32_t itemSize, uint32_t mapCapacity, uint32_t chunkCapacity)
+int LinearStringmap_Init(LinearStringmap* map, uint32_t itemSize, uint32_t mapCapacity, uint32_t chunkCapacity)
 {
     // create chunk buffer array
     if (chunkCapacity < 512) chunkCapacity = 512;
@@ -61,7 +82,7 @@ int LinearStringmapInit(LinearStringmap* map, uint32_t itemSize, uint32_t mapCap
     // create first chunk
     map->chunkArray[0].buffer = (char*)malloc(chunkCapacity);
     if (map->chunkArray[0].buffer == NULL) {
-        LinearStringmapFree(map); return 0;
+        LinearStringmap_Free(map); return 0;
     }
     map->chunkArray[0].capacity = chunkCapacity;
     map->chunkArray[0].used = 0;
@@ -73,7 +94,7 @@ int LinearStringmapInit(LinearStringmap* map, uint32_t itemSize, uint32_t mapCap
     occupancyBytes += 1 * (occupancyRemainder != 0);
     map->occupancy = (uint8_t*)calloc(occupancyBytes, 1); 
     if (map->occupancy == NULL) {
-        LinearStringmapFree(map); return 0;
+        LinearStringmap_Free(map); return 0;
     }
     map->map = malloc((sizeof(char*) + itemSize) * mapCapacity);
     map->itemSize = itemSize;
@@ -84,7 +105,7 @@ int LinearStringmapInit(LinearStringmap* map, uint32_t itemSize, uint32_t mapCap
     return 1;
 }
 
-uint32_t LinearStringmapHash(const char* string) {
+uint32_t LinearStringmap_Hash(const char* string) {
     uint32_t hash = 2166136261u;
     for (uint8_t* p = (uint8_t*)string; *p; p++) {
         hash ^= *p;
@@ -93,22 +114,22 @@ uint32_t LinearStringmapHash(const char* string) {
     return hash;
 }
 
-static inline uint8_t LinearStringmapSlotPresent(LinearStringmap* map, uint32_t i)
+static inline uint8_t LinearStringmap_IsOccupied(LinearStringmap* map, uint32_t i)
 {
     return map->occupancy[i >> 3] & (1u << (i & 7));
 }
 
-static inline void LinearStringmapMarkSlot(LinearStringmap* map, uint32_t i)
+static inline void LinearStringmap_SetOccupied(LinearStringmap* map, uint32_t i)
 {
     map->occupancy[i >> 3] |= (uint8_t)(1 << (i & 7));
 }
 
-static inline void LinearStringmapClearSlot(LinearStringmap* map, uint32_t i)
+static inline void LinearStringmap_ClearOccupied(LinearStringmap* map, uint32_t i)
 {
     map->occupancy[i >> 3] &= ~(1u << (i & 7));
 }
 
-int LinearStringmapGrowRehash(LinearStringmap* map)
+int LinearStringmap_Resize(LinearStringmap* map)
 {
     uint32_t oldMapCapacity = map->mapCapacity;
     uint8_t* oldOccupancy = map->occupancy;
@@ -145,14 +166,14 @@ int LinearStringmapGrowRehash(LinearStringmap* map)
 
             // add item
             uint32_t probes = 0;
-            uint32_t hash = LinearStringmapHash(key);
+            uint32_t hash = LinearStringmap_Hash(key);
             while(probes < map->mapCapacity) {
                 uint32_t i = (hash + probes) % map->mapCapacity;
-                if (!LinearStringmapSlotPresent(map, i)) {
+                if (!LinearStringmap_IsOccupied(map, i)) {
                     char* base = (char*)map->map + i * (sizeof(char*) + map->itemSize);
                     memcpy(base, &key, sizeof(char*));
                     memcpy(base + sizeof(char*), value, map->itemSize);
-                    LinearStringmapMarkSlot(map, i);
+                    LinearStringmap_SetOccupied(map, i);
                     break;
                 }
                 probes++;
@@ -163,7 +184,7 @@ int LinearStringmapGrowRehash(LinearStringmap* map)
     return 1;
 }
 
-char* LinearStringmapAddKey(LinearStringmap* map, const char* key)
+char* LinearStringmap_AddKey(LinearStringmap* map, const char* key)
 {
     char* storedKey;
     uint32_t keyLen = strlen(key);
@@ -207,22 +228,22 @@ char* LinearStringmapAddKey(LinearStringmap* map, const char* key)
     return storedKey;
 }
 
-int LinearStringmapSet(LinearStringmap* map, const char* key, void* value)
+int LinearStringmap_Set(LinearStringmap* map, const char* key, void* value)
 {
     // resize if surpassed max load factor
     if (map->itemCount * 10 > map->mapCapacity * 7) {
-        if (!LinearStringmapGrowRehash(map)) {
+        if (!LinearStringmap_Resize(map)) {
             return 0;
         }
     }
 
     uint32_t probes = 0;
-    uint32_t hash = LinearStringmapHash(key);
+    uint32_t hash = LinearStringmap_Hash(key);
     while(probes < map->mapCapacity) {
         uint32_t i = (hash + probes) % map->mapCapacity;
 
         // if key exists -> update value
-        if (LinearStringmapSlotPresent(map, i)) {
+        if (LinearStringmap_IsOccupied(map, i)) {
             char* base = (char*)map->map + i * (sizeof(char*) + map->itemSize);
             char* storedKey = *(char**)base;
             if (strcmp(key, storedKey) == 0) {
@@ -232,8 +253,8 @@ int LinearStringmapSet(LinearStringmap* map, const char* key, void* value)
         }
         else
         {
-            LinearStringmapMarkSlot(map, i);
-            char* storedKey = LinearStringmapAddKey(map, key);
+            LinearStringmap_SetOccupied(map, i);
+            char* storedKey = LinearStringmap_AddKey(map, key);
             if (storedKey == NULL) return 0;
 
             char* base = (char*)map->map + i * (sizeof(char*) + map->itemSize);
@@ -248,13 +269,13 @@ int LinearStringmapSet(LinearStringmap* map, const char* key, void* value)
     return 1;
 }
 
-void* LinearStringmapGet(LinearStringmap* map, const char* key)
+void* LinearStringmap_Get(LinearStringmap* map, const char* key)
 {
     uint32_t probes = 0;
-    uint32_t hash = LinearStringmapHash(key);
+    uint32_t hash = LinearStringmap_Hash(key);
     while(probes < map->mapCapacity) {
         uint32_t i = (hash + probes) % map->mapCapacity;
-        if (LinearStringmapSlotPresent(map, i)) {
+        if (LinearStringmap_IsOccupied(map, i)) {
             char* base = (char*)map->map + i * (sizeof(char*) + map->itemSize);
             char* storedKey = *(char**)base;
             if (strcmp(key, storedKey) == 0) {
@@ -266,13 +287,13 @@ void* LinearStringmapGet(LinearStringmap* map, const char* key)
     return NULL;
 }
 
-int LinearStringmapContains(LinearStringmap* map, const char* key)
+int LinearStringmap_Contains(LinearStringmap* map, const char* key)
 {
     uint32_t probes = 0;
-    uint32_t hash = LinearStringmapHash(key);
+    uint32_t hash = LinearStringmap_Hash(key);
     while(probes < map->maxProbes) {
         uint32_t i = (hash + probes) % map->mapCapacity;
-        if (LinearStringmapSlotPresent(map, i)) {
+        if (LinearStringmap_IsOccupied(map, i)) {
             char* base = (char*)map->map + i * (sizeof(char*) + map->itemSize);
             char* storedKey = *(char**)base;
             if (strcmp(key, storedKey) == 0) {

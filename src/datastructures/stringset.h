@@ -12,7 +12,7 @@ typedef struct Stringset
     uint32_t maxProbes;
 } Stringset;
 
-void StringsetFree(Stringset* set)
+void Stringset_Free(Stringset* set)
 {
     if (!set) return;
     if (set->occupancy) free(set->occupancy);
@@ -24,7 +24,7 @@ void StringsetFree(Stringset* set)
     set->maxProbes = 0;
 }
 
-int StringsetInit(Stringset* set, uint32_t capacity, uint32_t chunkCapacity)
+int Stringset_Init(Stringset* set, uint32_t capacity, uint32_t chunkCapacity)
 {
     // create hashmap
     set->capacity = capacity;
@@ -33,7 +33,7 @@ int StringsetInit(Stringset* set, uint32_t capacity, uint32_t chunkCapacity)
     occupancyBytes += 1 * (occupancyRemainder != 0);
     set->occupancy = (uint8_t*)calloc(occupancyBytes, 1); 
     if (set->occupancy == NULL) {
-        StringsetFree(set); return 0;
+        Stringset_Free(set); return 0;
     }
     set->set = malloc(sizeof(char*) * capacity);
     set->itemCount = 0;
@@ -43,7 +43,7 @@ int StringsetInit(Stringset* set, uint32_t capacity, uint32_t chunkCapacity)
     return 1;
 }
 
-uint32_t StringsetHash(const char* string) {
+uint32_t Stringset_Hash(const char* string) {
     uint32_t hash = 2166136261u;
     for (uint8_t* p = (uint8_t*)string; *p; p++) {
         hash ^= *p;
@@ -52,22 +52,22 @@ uint32_t StringsetHash(const char* string) {
     return hash;
 }
 
-static inline uint8_t StringsetSlotPresent(Stringset* set, uint32_t i)
+static inline uint8_t Stringset_IsOccupied(Stringset* set, uint32_t i)
 {
     return set->occupancy[i >> 3] & (1u << (i & 7));
 }
 
-static inline void StringsetMarkSlot(Stringset* set, uint32_t i)
+static inline void Stringset_SetOccupied(Stringset* set, uint32_t i)
 {
     set->occupancy[i >> 3] |= (uint8_t)(1 << (i & 7));
 }
 
-static inline void StringsetClearSlot(Stringset* set, uint32_t i)
+static inline void Stringset_SetVacant(Stringset* set, uint32_t i)
 {
     set->occupancy[i >> 3] &= ~(1u << (i & 7));
 }
 
-int StringsetRehash(Stringset* set)
+int Stringset_Resize(Stringset* set)
 {
     uint32_t oldMapCapacity = set->capacity;
     uint8_t* oldOccupancy = set->occupancy;
@@ -103,13 +103,13 @@ int StringsetRehash(Stringset* set)
 
             // add item
             uint32_t probes = 0;
-            uint32_t hash = StringsetHash(string);
+            uint32_t hash = Stringset_Hash(string);
             while(probes < set->capacity) {
                 uint32_t i = (hash + probes) % set->capacity;
-                if (!StringsetSlotPresent(set, i)) {
+                if (!Stringset_IsOccupied(set, i)) {
                     char* base = (char*)set->set + i * sizeof(char*);
                     memcpy(base, &string, sizeof(char*));
-                    StringsetMarkSlot(set, i);
+                    Stringset_SetOccupied(set, i);
                     break;
                 }
                 probes++;
@@ -120,21 +120,21 @@ int StringsetRehash(Stringset* set)
     return 1;
 }
 
-char* StringsetAdd(Stringset* set, const char* string)
+char* Stringset_Add(Stringset* set, const char* string)
 {
     // resize if surpassed max load factor
     if (set->itemCount * 10 > set->capacity * 7) {
-        if (!StringsetRehash(set)) {
+        if (!Stringset_Resize(set)) {
             return 0;
         }
     }
 
     uint32_t probes = 0;
-    uint32_t hash = StringsetHash(string);
+    uint32_t hash = Stringset_Hash(string);
     while(probes < set->capacity) {
         uint32_t i = (hash + probes) % set->capacity;
-        if (!StringsetSlotPresent(set, i)) {
-            StringsetMarkSlot(set, i);
+        if (!Stringset_IsOccupied(set, i)) {
+            Stringset_SetOccupied(set, i);
             uint32_t len = strlen(string);
             char* storedKey = (char*)malloc(len + 1);
             memcpy(storedKey, string, len); storedKey[len] = '\0';
@@ -150,13 +150,13 @@ char* StringsetAdd(Stringset* set, const char* string)
     return NULL;
 }
 
-char* StringsetGet(Stringset* set, const char* string)
+char* Stringset_Get(Stringset* set, const char* string)
 {
     uint32_t probes = 0;
-    uint32_t hash = StringsetHash(string);
+    uint32_t hash = Stringset_Hash(string);
     while(probes < set->capacity) {
         uint32_t i = (hash + probes) % set->capacity;
-        if (StringsetSlotPresent(set, i)) {
+        if (Stringset_IsOccupied(set, i)) {
             char* base = (char*)set->set + i * sizeof(char*);
             char* storedKey = *(char**)base;
             if (strcmp(string, storedKey) == 0) {
@@ -168,13 +168,13 @@ char* StringsetGet(Stringset* set, const char* string)
     return NULL;
 }
 
-int StringsetContains(Stringset* set, const char* string)
+int Stringset_Contains(Stringset* set, const char* string)
 {
     uint32_t probes = 0;
-    uint32_t hash = StringsetHash(string);
+    uint32_t hash = Stringset_Hash(string);
     while(probes < set->maxProbes) {
         uint32_t i = (hash + probes) % set->capacity;
-        if (StringsetSlotPresent(set, i)) {
+        if (Stringset_IsOccupied(set, i)) {
             char* base = (char*)set->set + i * sizeof(char*);
             char* storedKey = *(char**)base;
             if (strcmp(string, storedKey) == 0) {
@@ -186,20 +186,20 @@ int StringsetContains(Stringset* set, const char* string)
     return 0;
 }
 
-void StringsetDelete(Stringset* set, const char* string)
+void Stringset_Delete(Stringset* set, const char* string)
 {
     uint32_t probes = 0;
-    uint32_t hash = StringsetHash(string);
+    uint32_t hash = Stringset_Hash(string);
 
     int holeIndex = -1;
     while(probes < set->capacity) {
         uint32_t i = (hash + probes) % set->capacity;
-        if (StringsetSlotPresent(set, i)) {
+        if (Stringset_IsOccupied(set, i)) {
             char* base = (char*)set->set + i * sizeof(char*);
             char* storedKey = *(char**)base;
             if (strcmp(string, storedKey) == 0) {
                 holeIndex = (int)i;
-                StringsetClearSlot(set, i);
+                Stringset_SetVacant(set, i);
                 free(storedKey);
                 break;
             }
@@ -211,11 +211,11 @@ void StringsetDelete(Stringset* set, const char* string)
     if (holeIndex == -1) return; // string not found
 
     uint32_t i = (holeIndex + 1) % set->capacity;
-    while (StringsetSlotPresent(set, i))
+    while (Stringset_IsOccupied(set, i))
     {
         char* base = (char*)set->set + i * sizeof(char*);
         char* candidateKey = *(char**)base;
-        uint32_t candidateHash = StringsetHash(candidateKey);
+        uint32_t candidateHash = Stringset_Hash(candidateKey);
         uint32_t candidateHome = candidateHash % set->capacity;
 
         // can the candidate move into the hole?
@@ -237,8 +237,8 @@ void StringsetDelete(Stringset* set, const char* string)
             sizeof(char*)
         );
 
-        StringsetClearSlot(set, i);
-        StringsetMarkSlot(set, holeIndex);
+        Stringset_SetVacant(set, i);
+        Stringset_SetOccupied(set, holeIndex);
 
         holeIndex = i;
         i = (i + 1) % set->capacity;

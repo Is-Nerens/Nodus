@@ -340,7 +340,7 @@ void Add_NodeRectRenderData(
     u8 alpha = 255;
     if (node->layoutFlags & HIDE_BACKGROUND) alpha = 0;
 
-    BorderRectRenderData* renderData = ArrayPushEmpty(borderRects);
+    BorderRectRenderData* renderData = Array_PushEmpty(borderRects);
     renderData->x = floorf(n->x);
     renderData->y = floorf(n->y);
     renderData->z = z;
@@ -389,7 +389,7 @@ void Add_NodeRectRenderData(
 
 void Add_ScrollbarRenderData(
     NodeP* node, float z,
-    NU_Stylesheet_Scrollbar_Style* scrollbarStyle,
+    Stylesheet_Scrollbar_Style* scrollbarStyle,
     Array* borderRects
 )
 {
@@ -472,7 +472,7 @@ void Add_ScrollbarRenderData(
     // --------------------------
     
     // Track
-    BorderRectRenderData* trackRData = ArrayPushEmpty(borderRects);
+    BorderRectRenderData* trackRData = Array_PushEmpty(borderRects);
     trackRData->x = floorf(trackX);
     trackRData->y = floorf(trackY);
     trackRData->z = z;
@@ -504,7 +504,7 @@ void Add_ScrollbarRenderData(
     trackRData->scissorRight = 10000000.0f;
 
     // Thumb
-    BorderRectRenderData* thumbRData = ArrayPushEmpty(borderRects);
+    BorderRectRenderData* thumbRData = Array_PushEmpty(borderRects);
     thumbRData->x = floorf(thumbX);
     thumbRData->y = floorf(thumbY);
     thumbRData->z = z;

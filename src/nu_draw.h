@@ -116,17 +116,23 @@ void NU_DrawInputNodeContent(NodeP* node, float z, float winWidth, float winHeig
     }
 }
 
-void NU_DrawCanvasContent(NodeP* canvas_node, float winW, float winH)
+void NU_DrawCanvasContent(NodeP* canvas_node, float winW, float winH, NU_ClipBounds* clip)
 {
     NU_Canvas_Context* ctx = Container_Get(&GUI.canvasContexts, canvas_node->typeData.canvas.ctxHandle);  
     if (ctx == NULL) return;
     
-    float offsetX = canvas_node->node.x + canvas_node->node.borderLeft + canvas_node->node.padLeft;
-    float offsetY = canvas_node->node.y + canvas_node->node.borderTop + canvas_node->node.padTop;
+    float offsetX = roundf(canvas_node->node.x + canvas_node->node.borderLeft + canvas_node->node.padLeft);
+    float offsetY = roundf(canvas_node->node.y + canvas_node->node.borderTop + canvas_node->node.padTop);
     float top    = canvas_node->node.y + canvas_node->node.borderTop + canvas_node->node.padTop;
     float bottom = canvas_node->node.y + canvas_node->node.height - canvas_node->node.borderBottom - canvas_node->node.padBottom;
     float left   = canvas_node->node.x + canvas_node->node.borderLeft + canvas_node->node.padLeft;
     float right  = canvas_node->node.x + canvas_node->node.width - canvas_node->node.borderRight - canvas_node->node.padRight;
+    if (clip) {
+        top    = fmax_fast(top, clip->top);
+        bottom = fmax_fast(bottom, clip->bottom);
+        left   = fmax_fast(left, clip->left);
+        right  = fmax_fast(right, clip->right);
+    }
     ctx->canvasWidth = canvas_node->node.width;
     ctx->canvasHeight = canvas_node->node.height;
 
@@ -140,7 +146,7 @@ void NU_DrawCanvasContent(NodeP* canvas_node, float winW, float winH)
 
     // Draw each canvas text layer
     for (int l=0; l<ctx->textLayerIndex+1; l++) {
-        CanvasTextLayer* layer = ArrayGet(&ctx->textLayers, l);
+        CanvasTextLayer* layer = Array_Get(&ctx->textLayers, l);
         NU_Font* font = Stylesheet_Get_Font(&GUI.stylesheet, layer->fontID);
         NU_Render_Text(
             &layer->vertices, &layer->indices, 
@@ -165,13 +171,13 @@ void NU_GenerateDrawlists()
     for (int i=0; i<GUI.winManager.windows.size; i++) 
     {
         NU_Window* win = Container_GetAt(&GUI.winManager.windows, i);
-        ArrayClear(&win->drawlist.drawNodes);
-        ArrayClear(&win->drawlist.clippedDrawNodes);
+        Array_Clear(&win->drawlist.drawNodes);
+        Array_Clear(&win->drawlist.clippedDrawNodes);
     }
 
     // Clear hashmaps
-    HashmapClear(&GUI.winManager.clipMap);
-    ArrayClear(&GUI.winManager.absoluteRootNodes);
+    Hashmap_Clear(&GUI.winManager.clipMap);
+    Array_Clear(&GUI.winManager.absoluteRootNodes);
 
     // Add root to drawlist 
     NodeP* root = GUI.tree.root;
@@ -229,7 +235,7 @@ void NU_GenerateDrawlists()
 
             // add child to list of root absolute nodes
             if (child->layoutFlags & POSITION_ABSOLUTE) {
-                ArrayPush(&GUI.winManager.absoluteRootNodes, &child);
+                Array_Push(&GUI.winManager.absoluteRootNodes, &child);
             }
 
             // skip child if overflowed parent's bounds
@@ -254,13 +260,13 @@ void NU_GenerateDrawlists()
 
                     // if parent is also clipped -> merge clips (stack clipping behaviour)
                     if (node->clippedAncestor != NULL) {
-                        NU_ClipBounds* parent_clip = HashmapGet(&GUI.winManager.clipMap, &node->clippedAncestor);
+                        NU_ClipBounds* parent_clip = Hashmap_Get(&GUI.winManager.clipMap, &node->clippedAncestor);
                         clip.top = fmaxf(clip.top, parent_clip->top);
                         clip.bottom = fminf(clip.bottom, parent_clip->bottom);
                     }
                     
                     // add clipping to hashmap
-                    HashmapSet(&GUI.winManager.clipMap, &child, &clip);
+                    Hashmap_Set(&GUI.winManager.clipMap, &child, &clip);
                     child->clippedAncestor = child; // Set clip root to self
 
                     // append node to correct window clipped node list
@@ -298,7 +304,7 @@ void NU_Draw()
     }
 
     ImageResourceManager_ClearAllImageRenderData(&GUI.imageResourceManager);
-    ArrayClear(&GUI.borderRects);
+    Array_Clear(&GUI.borderRects);
 
     // Upload / reupload font atlases as needed
     for (u32 t=0; t<GUI.stylesheet.fonts.size; t++) {
@@ -326,7 +332,7 @@ void NU_Draw()
         // 1. Generate border rect data for unclipped nodes
         for (u32 n=0; n<drawList->drawNodes.size; n++) 
         {
-            NodeP* node = *(NodeP**)ArrayGet(&drawList->drawNodes, n);
+            NodeP* node = *(NodeP**)Array_Get(&drawList->drawNodes, n);
             float z = (float)(node->layer) + 32.0f * NodeStatePosAbsolute(node);
 
             // Construct border rect data
@@ -370,11 +376,11 @@ void NU_Draw()
             }
 
             // Draw canvas content
-            if (node->type == NU_CANVAS) NU_DrawCanvasContent(node, winW, winH);
+            if (node->type == NU_CANVAS) NU_DrawCanvasContent(node, winW, winH, NULL);
         }
 
         // 2. Draw all unclipped border rects (1 draw call)
-        Draw_SDF_Border_Rects(GUI.borderRects, winW, winH); ArrayClear(&GUI.borderRects);
+        Draw_SDF_Border_Rects(GUI.borderRects, winW, winH); Array_Clear(&GUI.borderRects);
 
         // 3. Draw all unclipped text (1 draw call per font)
         for (u32 t=0; t<GUI.stylesheet.fonts.size; t++) {
@@ -388,13 +394,13 @@ void NU_Draw()
 
         // 4. Draw clipped node border rects + images + text + text input
         for (u32 n=0; n<drawList->clippedDrawNodes.size; n++) {
-            NodeP* node = *(NodeP**)ArrayGet(&drawList->clippedDrawNodes, n);
+            NodeP* node = *(NodeP**)Array_Get(&drawList->clippedDrawNodes, n);
             float z = (float)(node->layer) + 32.0f * NodeStatePosAbsolute(node);
 
             // Draw border rect (1 draw call)
-            NU_ClipBounds* clip = (NU_ClipBounds*)HashmapGet(&GUI.winManager.clipMap, &node->clippedAncestor);
+            NU_ClipBounds* clip = (NU_ClipBounds*)Hashmap_Get(&GUI.winManager.clipMap, &node->clippedAncestor);
             Add_NodeRectRenderData(node, z, clip->top, clip->bottom, clip->left, clip->right, &GUI.borderRects);
-            Draw_SDF_Border_Rects(GUI.borderRects, winW, winH); ArrayClear(&GUI.borderRects);
+            Draw_SDF_Border_Rects(GUI.borderRects, winW, winH); Array_Clear(&GUI.borderRects);
 
             // Draw text content (1 draw call)
             if (node->node.textContent != NULL) {
@@ -428,15 +434,18 @@ void NU_Draw()
                     &renderData
                 );
             }
+
+            // Draw canvas content
+            if (node->type == NU_CANVAS) NU_DrawCanvasContent(node, winW, winH, clip);
         }
 
         // 5. Draw all images (1 draw call per atlas / standalone image)
         for (int i=0; i<GUI.imageResourceManager.atlases.size; i++) {
-            Atlas* atlas = ArrayGet(&GUI.imageResourceManager.atlases, i);
+            Atlas* atlas = Array_Get(&GUI.imageResourceManager.atlases, i);
             NU_Draw_Images(atlas->renderDataArray, winW, winH, atlas->glImageHandle);
         }
         for (int i=0; i<GUI.imageResourceManager.standaloneImageRenderDatas.size; i++) {
-            StandaloneImageRenderData* sRenderData = ArrayGet(&GUI.imageResourceManager.standaloneImageRenderDatas, i);
+            StandaloneImageRenderData* sRenderData = Array_Get(&GUI.imageResourceManager.standaloneImageRenderDatas, i);
             NU_Draw_Image(&sRenderData->renderData, winW, winH, sRenderData->glImageHandle);
         }
 

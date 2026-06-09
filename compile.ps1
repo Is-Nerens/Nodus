@@ -5,7 +5,7 @@ $glewInclude = "src\libraries\glew\include"
 $glewLib = "src\libraries\glew\lib"
 $freetypeInclude = "src\libraries\freetype\include"
 $freetypeLib = "src\libraries\freetype\lib"
-clang -std=c99 -O3 -fopenmp "src\nz_library.c" `
+clang -std=c99 -O3 -fopenmp "src\z_nodus.c" `
 -I"$srcInclude" `
 -I"$glewInclude" `
 -I"$sdlInclude" `
@@ -18,17 +18,3 @@ clang -std=c99 -O3 -fopenmp "src\nz_library.c" `
 -shared `
 -o "nodus\lib\nodus.dll" -Wno-deprecated-declarations
 Remove-Item nodus\lib\nodus.exp -Force
-
-
-# Replace old nodus.dll with updated one
-$sourceDll = "nodus\lib\nodus.dll"
-$destDll = "app-test\build\nodus.dll"
-if (Test-Path $sourceDll) {
-    if (Test-Path $destDll) {
-        Remove-Item $destDll -Force
-    }
-    Copy-Item $sourceDll $destDll -Force
-    Write-Host "✅ Updated nodus.dll in build folder."
-} else {
-    Write-Host "❌ nodus.dll not found in $sourceDll"
-}

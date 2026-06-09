@@ -1,7 +1,9 @@
 #pragma once
+#include "nu_keycode_enums.h"
+
 #define NU_EVENT_FLAG_ON_CLICK              0x01     // 0b0000000000000001
 #define NU_EVENT_FLAG_ON_INPUT_CHANGED      0x02     // 0b0000000000000010
-#define NU_EVENT_FLAG_ON_DRAG               0x04     // 0b0000000000000100
+#define NU_EVENT_FLAG_ON_SCROLL             0x04     // 0b0000000000000100
 #define NU_EVENT_FLAG_ON_RELEASED           0x08     // 0b0000000000001000
 #define NU_EVENT_FLAG_ON_RESIZE             0x10     // 0b0000000000010000
 #define NU_EVENT_FLAG_ON_MOUSE_DOWN         0x20     // 0b0000000000100000
@@ -13,12 +15,13 @@
 #define NU_EVENT_FLAG_ON_MOUSE_WHEEL        0x800    // 0b0000100000000000
 #define NU_EVENT_FLAG_ON_INPUT_FOCUS        0x1000   // 0b0001000000000000
 #define NU_EVENT_FLAG_ON_INPUT_DEFOCUS      0x2000   // 0b0010000000000000
+#define NU_EVENT_FLAG_ON_KEY_DOWN           0x4000   // 0b0100000000000000
+#define NU_EVENT_FLAG_ON_KEY_UP             0x8000   // 0b1000000000000000
  
 enum NU_Event_Type
 {
     NU_EVENT_ON_CLICK,
     NU_EVENT_ON_INPUT_CHANGED,
-    NU_EVENT_ON_DRAG,
     NU_EVENT_ON_RELEASED,
     NU_EVENT_ON_RESIZE,
     NU_EVENT_ON_MOUSE_DOWN,
@@ -29,7 +32,10 @@ enum NU_Event_Type
     NU_EVENT_ON_MOUSE_OUT,
     NU_EVENT_ON_MOUSE_WHEEL,
     NU_EVENT_ON_INPUT_FOCUS,
-    NU_EVENT_ON_INPUT_DEFOCUS
+    NU_EVENT_ON_INPUT_DEFOCUS,
+    NU_EVENT_ON_SCROLL,
+    NU_EVENT_ON_KEY_DOWN,
+    NU_EVENT_ON_KEY_UP
 };
 
 typedef struct NU_Event_Info_Mouse
@@ -45,11 +51,19 @@ typedef struct NU_Event_Info_Input
     char text[5];
 } NU_Event_Info_Input;
 
+typedef struct NU_Event_Info_Keypress
+{
+    enum NU_Keycode keycode;
+    int repeat;
+} NU_Event_Info_Keypress;
+
+
 typedef struct NU_Event
 {
     Node* node;
     NU_Event_Info_Mouse mouse;
     NU_Event_Info_Input input;
+    NU_Event_Info_Keypress keypress;
 } NU_Event;
 
 typedef void (*NU_Callback)(NU_Event event, void* args);
@@ -61,10 +75,10 @@ struct NU_Callback_Info
     NU_Callback callback;
 };
 
-typedef struct NU_EventSystem {
+typedef struct EventSystem {
     Hashmap on_click_events;
     Hashmap on_input_changed_events;
-    Hashmap on_drag_events;
+    Hashmap on_scroll_events;
     Hashmap on_released_events;
     Hashmap on_resize_events;
     Hashmap node_resize_tracking; 
@@ -77,7 +91,9 @@ typedef struct NU_EventSystem {
     Hashmap on_mouse_wheel_events;
     Hashmap on_input_focus_events;
     Hashmap on_input_defocus_events;
-} NU_EventSystem;
+    Hashmap on_key_down_events;
+    Hashmap on_key_up_events;
+} EventSystem;
 
 // ----------------------------
 // --- Function Definitions ---
@@ -104,6 +120,8 @@ void TriggerOnMouseDownEvent(NodeP* nodeP, float mouseX, float mouseY, int mouse
 
 void TriggerOnClickEvent(NodeP* nodeP, float mouseX, float mouseY, int mouseBtn);
 
+void TriggerOnScrollEvent(NodeP* nodeP);
+
 void TriggerOnInputFocusEvent(NodeP* nodeP);
 
 void TriggerOnInputDefocusEvent(NodeP* nodeP);
@@ -119,3 +137,7 @@ void TriggerAllMouseMoveEvents(float mouseX, float mouseY, float mouseDeltaX, fl
 void TriggerAllMouseWheelEvents(float wheelDelta);
 
 void TriggerAllMouseDownOutsideEvents(float mouseX, float mouseY, int mouseBtn);
+
+void TriggerAllOnKeyDownEvents(SDL_Keycode keycode, bool repeat);
+
+void TriggerAllOnKeyUpEvents(SDL_Keycode keycode, bool repeat);

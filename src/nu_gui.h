@@ -7,6 +7,14 @@
 #include <SDL3/SDL.h>
 #include <GL/glew.h>
 
+static inline float fmax_fast(float a, float b) {
+    return a * (a > b) + b * (1 - (a > b));
+}
+
+static inline float fmin_fast(float a, float b) {
+    return a * (a < b) + b * (1 - (a < b));
+}
+
 // ----------------------
 // --- Nodus Includes ---
 // ----------------------
@@ -38,9 +46,9 @@
 
 struct NU_GUI
 {
-    NU_ErrorSystem errorSystem;
+    ErrorSystem errorSystem;
     Tree tree;
-    NU_WindowManager winManager;
+    WindowManager winManager;
     ImageResourceManager imageResourceManager;
     StringArena nodeTextArena;
     Stringset class_string_set;
@@ -72,11 +80,11 @@ struct NU_GUI
     bool recalculate_mouse_hover;
 
     // styles
-    NU_Stylesheet stylesheet;
+    Stylesheet stylesheet;
     SDL_GLContext gl_ctx;
 
     // Events
-    NU_EventSystem eventSystem;
+    EventSystem eventSystem;
 
     Set deletedNodesWithRegisteredEvents;
     Uint32 SDL_CUSTOM_RENDER_EVENT;
@@ -122,17 +130,17 @@ struct NU_GUI GUI;
 void NU_Internal_Quit()
 {
     TreeFree(&GUI.tree);
-    NU_WindowManagerFree(&GUI.winManager);
+    WindowManager_Free(&GUI.winManager);
     ImageResourceManager_Free(&GUI.imageResourceManager);
-    NU_ErrorSystem_Free(&GUI.errorSystem);
-    StringmapFree(&GUI.id_node_map);
-    StringsetFree(&GUI.class_string_set);
-    StringsetFree(&GUI.id_string_set);
+    ErrorSystem_Free(&GUI.errorSystem);
+    Stringmap_Free(&GUI.id_node_map);
+    Stringset_Free(&GUI.class_string_set);
+    Stringset_Free(&GUI.id_string_set);
     StringArena_Free(&GUI.nodeTextArena);
-    NU_Stylesheet_Free(&GUI.stylesheet);
+    Stylesheet_Free(&GUI.stylesheet);
     Container_Free(&GUI.canvasContexts);
     Container_Free(&GUI.textInputs);
-    ArrayFree(&GUI.borderRects);
+    Array_Free(&GUI.borderRects);
     BreadthFirstSearch_Free(&GUI.bfs);
     ReverseBreadthFirstSearch_Free(&GUI.rbfs);
     EventSystem_Free();
@@ -152,17 +160,17 @@ int NU_Internal_Create_Gui(const char* xml_filepath, const char* css_filepath)
     SDL_SetHint("SDL_MOUSE_FOCUS_CLICKTHROUGH", "1");
 
     // Init Window Manager -> create the main window (hidden)
-    NU_WindowManagerInit(&GUI.winManager);
+    WindowManager_Init(&GUI.winManager);
 
     // Init other systems
     ImageResourceManager_Init(&GUI.imageResourceManager);
-    NU_ErrorSystem_Init(&GUI.errorSystem);
+    ErrorSystem_Init(&GUI.errorSystem);
 
     // Init string data structures
     StringArena_Init(&GUI.nodeTextArena, 1024);
-    StringsetInit(&GUI.class_string_set, 1024, 100);
-    StringsetInit(&GUI.id_string_set, 1024, 100);
-    StringmapInit(&GUI.id_node_map, sizeof(NodeP*), 100, 1024);
+    Stringset_Init(&GUI.class_string_set, 1024, 100);
+    Stringset_Init(&GUI.id_string_set, 1024, 100);
+    Stringmap_Init(&GUI.id_node_map, sizeof(NodeP*), 100, 1024);
     
     // Init canvas context and text input containers
     GUI.canvasContexts = Container_Create(sizeof(NU_Canvas_Context));
@@ -172,8 +180,8 @@ int NU_Internal_Create_Gui(const char* xml_filepath, const char* css_filepath)
     EventSystem_Init();
 
     // Init layout and draw datastructures
-    ArrayInit(&GUI.layoutScrollAutoNodes, sizeof(NodeP*), 20);
-    ArrayInit(&GUI.borderRects, sizeof(BorderRectRenderData), 2000);
+    Array_Init(&GUI.layoutScrollAutoNodes, sizeof(NodeP*), 20);
+    Array_Init(&GUI.borderRects, sizeof(BorderRectRenderData), 2000);
 
     // Cursors
     GUI.cursorDefault    = SDL_CreateSystemCursor(SDL_SYSTEM_CURSOR_DEFAULT);
@@ -226,7 +234,7 @@ int NU_Internal_Create_Gui(const char* xml_filepath, const char* css_filepath)
     }
 
     // Load css
-    if (!NU_Stylesheet_Create(&GUI.stylesheet, css_filepath, &imageResourceLoader)) {
+    if (!Stylesheet_Create(&GUI.stylesheet, css_filepath, &imageResourceLoader)) {
         NU_Internal_Quit();
         return 0;
     }

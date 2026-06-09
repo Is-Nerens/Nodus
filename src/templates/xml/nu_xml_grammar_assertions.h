@@ -22,13 +22,13 @@ static int AssertRootGrammar(TokenArray* tokens)
         }
         else // Closing type is not window
         {
-            NU_ErrorSystem_AddError(&GUI.errorSystem, "<XML Error> XML documents must end with a </window> tag");
+            ErrorSystem_AddError(&GUI.errorSystem, "<XML Error> XML documents must end with a </window> tag");
             return 0;
         }
     }
     else // Root is not a window type
     {
-        NU_ErrorSystem_AddError(&GUI.errorSystem, "<XML Error> XML documents must begin with a <window> tag");
+        ErrorSystem_AddError(&GUI.errorSystem, "<XML Error> XML documents must begin with a <window> tag");
         return 0;
     }
 }
@@ -52,10 +52,10 @@ static int AssertPropertyGrammar(struct TokenArray* tokens, int i)
     if (i < tokens->size - 2 && TokenArray_Get(tokens, i+1) == PROPERTY_ASSIGNMENT)
     {
         if (TokenArray_Get(tokens, i+2) == PROPERTY_VALUE) return 1; // Success
-        NU_ErrorSystem_AddError(&GUI.errorSystem, "<XML Error> Expected property value (\"example-value\") after assignment '='");
+        ErrorSystem_AddError(&GUI.errorSystem, "<XML Error> Expected property value (\"example-value\") after assignment '='");
         return 0; // Failure
     }
-    NU_ErrorSystem_AddError(&GUI.errorSystem, "<XML Error> Expected property value (\"example-value\") after assignment '='");
+    ErrorSystem_AddError(&GUI.errorSystem, "<XML Error> Expected property value (\"example-value\") after assignment '='");
     return 0; // Failure
 }
 
@@ -67,7 +67,7 @@ static int AssertTagCloseStartGrammar(struct TokenArray* tokens, int i, NodeType
         NU_TokenToNodeType(TokenArray_Get(tokens, i+1)) == openType && 
         TokenArray_Get(tokens, i+2) == CLOSE_TAG) return 1; // Success
     else {
-        NU_ErrorSystem_AddError(&GUI.errorSystem, "<XML Error> Open and close tags do not match");
+        ErrorSystem_AddError(&GUI.errorSystem, "<XML Error> Open and close tags do not match");
     }
     return 0; // Failure
 }

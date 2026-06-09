@@ -1,16 +1,16 @@
 #include <datastructures/Linalloc.h>
 #include <datastructures/Array.h>
 
-typedef struct NU_ErrorSystem {
+typedef struct ErrorSystem {
     char* buffer;
     size_t bufferSize;
     size_t readHead;
     size_t writeHead;
     u32 errorMessageCount;
     u32 droppedMessageCount; // Messages that didn't fit in the buffer
-} NU_ErrorSystem;
+} ErrorSystem;
 
-void NU_ErrorSystem_Init(NU_ErrorSystem* errorSys)
+void ErrorSystem_Init(ErrorSystem* errorSys)
 {
     errorSys->buffer = malloc(512);
     errorSys->errorMessageCount = 0;
@@ -18,12 +18,12 @@ void NU_ErrorSystem_Init(NU_ErrorSystem* errorSys)
     errorSys->writeHead = 0;
 }
 
-void NU_ErrorSystem_Free(NU_ErrorSystem* errorSys)
+void ErrorSystem_Free(ErrorSystem* errorSys)
 {
     free(errorSys->buffer);
 }
 
-void NU_ErrorSystem_AddError(NU_ErrorSystem* errorSys, const char* err)
+void ErrorSystem_AddError(ErrorSystem* errorSys, const char* err)
 {
     size_t errLen = stringLen(err);
     u16 advance = (u16)(sizeof(u16) + errLen + 1);
@@ -41,14 +41,14 @@ void NU_ErrorSystem_AddError(NU_ErrorSystem* errorSys, const char* err)
     errorSys->errorMessageCount++;
 }
 
-void NU_ErrorSystem_Clear(NU_ErrorSystem* errorSys)
+void ErrorSystem_Clear(ErrorSystem* errorSys)
 {   
     errorSys->errorMessageCount = 0;
     errorSys->readHead = 0;
     errorSys->writeHead = 0;
 }
 
-const char* NU_ErrorSystem_GetNextError(NU_ErrorSystem* errorSys)
+const char* ErrorSystem_GetNextError(ErrorSystem* errorSys)
 {
     static char nMoreBuf[32];
 

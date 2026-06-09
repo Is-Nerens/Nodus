@@ -16,7 +16,7 @@ typedef struct NU_Window
 } NU_Window;
 
 // Responsible for all window related functionality
-typedef struct NU_WindowManager
+typedef struct WindowManager
 {   
     Container windows;
     Array windowNodes;
@@ -24,4 +24,4 @@ typedef struct NU_WindowManager
     Hashmap clipMap;
     int hoveredWindowID;
     int rootWindowID;
-} NU_WindowManager;
+} WindowManager;

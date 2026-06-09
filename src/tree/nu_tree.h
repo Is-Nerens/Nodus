@@ -31,8 +31,8 @@ NodeP* TreeCreate(Tree* tree, NodeType rootType)
         else Nalloc_Init(&tree->layerAllocs[i], 100);
     }
 
-    ArrayInit(&tree->deletedButNotFreedNodes, sizeof(NodeP*), 25);
-    ArrayInit(&tree->deleteStack, sizeof(NodeP*), 100);
+    Array_Init(&tree->deletedButNotFreedNodes, sizeof(NodeP*), 25);
+    Array_Init(&tree->deleteStack, sizeof(NodeP*), 100);
 
     // member variables
     tree->depth = 1;
@@ -246,7 +246,7 @@ void TreeDeleteLeaf(Tree* tree, NodeP* leaf, TreeDeleteCallback deleteCB)
     if (deleteCB != NULL) deleteCB(leaf);
 
     // Add to list of deleted but not freed nodes
-    ArrayPush(&tree->deletedButNotFreedNodes, &leaf); 
+    Array_Push(&tree->deletedButNotFreedNodes, &leaf); 
     leaf->stateFlags |= STATE_FLAG_DELETED;
 }
 
@@ -260,7 +260,7 @@ void TreeDeleteNode(Tree* tree, NodeP* node, TreeDeleteCallback deleteCB)
     // push children only (NOT node itself)
     NodeP* sib = node->firstChild;
     while (sib != NULL) {
-        ArrayPush(&tree->deleteStack, &sib);
+        Array_Push(&tree->deleteStack, &sib);
         sib = sib->nextSibling;
     }
 
@@ -271,20 +271,20 @@ void TreeDeleteNode(Tree* tree, NodeP* node, TreeDeleteCallback deleteCB)
 
     while (tree->deleteStack.size > 0) {
 
-        NodeP* cur = *(NodeP**)ArrayGet(&tree->deleteStack, tree->deleteStack.size-1);
+        NodeP* cur = *(NodeP**)Array_Get(&tree->deleteStack, tree->deleteStack.size-1);
         tree->deleteStack.size--;
 
         // push children
         NodeP* c = cur->firstChild;
         while (c != NULL) {
-            ArrayPush(&tree->deleteStack, &c);
+            Array_Push(&tree->deleteStack, &c);
             c = c->nextSibling;
         }
 
         if (deleteCB != NULL) deleteCB(cur);
 
         // Add to list of deleted but not freed nodes
-        ArrayPush(&tree->deletedButNotFreedNodes, &cur); cur->stateFlags |= STATE_FLAG_DELETED;
+        Array_Push(&tree->deletedButNotFreedNodes, &cur); cur->stateFlags |= STATE_FLAG_DELETED;
         tree->nodeCount--;
     }
 
@@ -295,9 +295,9 @@ void TreeDeleteNode(Tree* tree, NodeP* node, TreeDeleteCallback deleteCB)
 void TreeFreeDeleted(Tree* tree)
 {
     for (int i=0; i<tree->deletedButNotFreedNodes.size; i++) {
-        NodeP* deletedNode = *(NodeP**)ArrayGet(&tree->deletedButNotFreedNodes, i);
+        NodeP* deletedNode = *(NodeP**)Array_Get(&tree->deletedButNotFreedNodes, i);
         Nalloc* nalloc = &tree->layerAllocs[deletedNode->layer];
         Nalloc_Free(nalloc, deletedNode);
     }
-    ArrayClear(&tree->deletedButNotFreedNodes);
+    Array_Clear(&tree->deletedButNotFreedNodes);
 }

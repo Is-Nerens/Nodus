@@ -7,7 +7,7 @@
 #define STYLE_SHOULD_APPLY_TO_NODE(mask) (item->propertyFlags & mask) && !(node->overrideStyleFlags & mask)
 
 // This should be optimised (branchless)
-static void NU_Apply_Style_Item_To_Node(NodeP* node, NU_Stylesheet_Item* item)
+static void NU_Apply_Style_Item_To_Node(NodeP* node, Stylesheet_Item* item)
 {
     STYLE_APPLY_LAYOUT_FLAG(PROPERTY_FLAG_LAYOUT_VERTICAL, LAYOUT_VERTICAL); 
     STYLE_APPLY_LAYOUT_FLAG(PROPERTY_FLAG_GROW, GROW_HORIZONTAL);
@@ -70,25 +70,25 @@ static void NU_Apply_Style_Item_To_Node(NodeP* node, NU_Stylesheet_Item* item)
     node->fontId = item->fontId; // set font 
 }
 
-void NU_Apply_Stylesheet_To_Node(NodeP* node, NU_Stylesheet* ss)
+void NU_Apply_Stylesheet_To_Node(NodeP* node, Stylesheet* ss)
 {   
     // 1. Apply default style
     NU_Apply_Style_Item_To_Node(node, &ss->defaultStyleItem);
 
     // 2. Apply tag match
-    void* tag_found = HashmapGet(&ss->tag_item_hashmap, &node->type); 
+    void* tag_found = Hashmap_Get(&ss->tag_item_hashmap, &node->type); 
     if (tag_found != NULL) { 
-        NU_Stylesheet_Item* item = (NU_Stylesheet_Item*)ArrayGet(&ss->items, *(u32*)tag_found);
+        Stylesheet_Item* item = (Stylesheet_Item*)Array_Get(&ss->items, *(u32*)tag_found);
         NU_Apply_Style_Item_To_Node(node, item);
     }
 
     // 3. Apply class match
     if (node->class != NULL) { 
-        char* stored_class = LinearStringsetGet(&ss->class_string_set, node->class);
+        char* stored_class = LinearStringset_Get(&ss->class_string_set, node->class);
         if (stored_class != NULL) {
-            void* class_found = HashmapGet(&ss->class_item_hashmap, &stored_class);
+            void* class_found = Hashmap_Get(&ss->class_item_hashmap, &stored_class);
             if (class_found != NULL) {
-                NU_Stylesheet_Item* item = (NU_Stylesheet_Item*)ArrayGet(&ss->items, *(u32*)class_found);
+                Stylesheet_Item* item = (Stylesheet_Item*)Array_Get(&ss->items, *(u32*)class_found);
                 NU_Apply_Style_Item_To_Node(node, item);
             }
         }
@@ -96,26 +96,26 @@ void NU_Apply_Stylesheet_To_Node(NodeP* node, NU_Stylesheet* ss)
 
     // 4. Apply ID match
     if (node->id != NULL) { 
-        char* stored_id = LinearStringsetGet(&ss->id_string_set, node->id);
+        char* stored_id = LinearStringset_Get(&ss->id_string_set, node->id);
         if (stored_id != NULL) {
-            void* id_found = HashmapGet(&ss->id_item_hashmap, &stored_id);
+            void* id_found = Hashmap_Get(&ss->id_item_hashmap, &stored_id);
             if (id_found != NULL) {
-                NU_Stylesheet_Item* item = (NU_Stylesheet_Item*)ArrayGet(&ss->items, *(u32*)id_found);
+                Stylesheet_Item* item = (Stylesheet_Item*)Array_Get(&ss->items, *(u32*)id_found);
                 NU_Apply_Style_Item_To_Node(node, item);
             }
         }
     }
 }
 
-void NU_Apply_Pseudo_Style_To_Node(NodeP* node, NU_Stylesheet* ss, enum NU_Pseudo_Class pseudo)
+void NU_Apply_Pseudo_Style_To_Node(NodeP* node, Stylesheet* ss, enum NU_Pseudo_Class pseudo)
 {   
     if (node == NULL) return;
 
     bool appliedBase = false;
 
     // Tag pseudo style match and apply
-    NU_Stylesheet_Tag_Pseudo_Pair key = { node->type, pseudo };
-    void* tag_pseudo_found = HashmapGet(&ss->tag_pseudo_item_hashmap, &key);
+    Stylesheet_Tag_Pseudo_Pair key = { node->type, pseudo };
+    void* tag_pseudo_found = Hashmap_Get(&ss->tag_pseudo_item_hashmap, &key);
     if (tag_pseudo_found != NULL) {
 
         // Apply base style
@@ -123,16 +123,16 @@ void NU_Apply_Pseudo_Style_To_Node(NodeP* node, NU_Stylesheet* ss, enum NU_Pseud
 
         // Apply tag pseudo style
         u32 index = *(u32*)tag_pseudo_found;
-        NU_Stylesheet_Item* item = (NU_Stylesheet_Item*)ArrayGet(&ss->items, index);
+        Stylesheet_Item* item = (Stylesheet_Item*)Array_Get(&ss->items, index);
         NU_Apply_Style_Item_To_Node(node, item);
     }
 
     // Class pseudo style match and apply
     if (node->class != NULL) {
-        char* stored_class = LinearStringsetGet(&ss->class_string_set, node->class);
+        char* stored_class = LinearStringset_Get(&ss->class_string_set, node->class);
         if (stored_class != NULL) {
-            NU_Stylesheet_String_Pseudo_Pair key = { stored_class, pseudo };
-            void* class_pseudo_found = HashmapGet(&ss->class_pseudo_item_hashmap, &key);
+            Stylesheet_String_Pseudo_Pair key = { stored_class, pseudo };
+            void* class_pseudo_found = Hashmap_Get(&ss->class_pseudo_item_hashmap, &key);
             if (class_pseudo_found != NULL) {
 
                 // Apply base style
@@ -142,7 +142,7 @@ void NU_Apply_Pseudo_Style_To_Node(NodeP* node, NU_Stylesheet* ss, enum NU_Pseud
 
                 // Apply class pseudo style
                 u32 index = *(u32*)class_pseudo_found;
-                NU_Stylesheet_Item* item = (NU_Stylesheet_Item*)ArrayGet(&ss->items, index);
+                Stylesheet_Item* item = (Stylesheet_Item*)Array_Get(&ss->items, index);
                 NU_Apply_Style_Item_To_Node(node, item);
             }
         }
@@ -150,10 +150,10 @@ void NU_Apply_Pseudo_Style_To_Node(NodeP* node, NU_Stylesheet* ss, enum NU_Pseud
 
     // Id pseudo style match and apply
     if (node->id != NULL) {
-        char* stored_id = LinearStringsetGet(&ss->id_string_set, node->id);
+        char* stored_id = LinearStringset_Get(&ss->id_string_set, node->id);
         if (stored_id != NULL) {
-            NU_Stylesheet_String_Pseudo_Pair key = { stored_id, pseudo };
-            void* id_pseudo_found = HashmapGet(&ss->id_pseudo_item_hashmap, &key);
+            Stylesheet_String_Pseudo_Pair key = { stored_id, pseudo };
+            void* id_pseudo_found = Hashmap_Get(&ss->id_pseudo_item_hashmap, &key);
             if (id_pseudo_found != NULL) {
 
                 // Apply base style
@@ -163,7 +163,7 @@ void NU_Apply_Pseudo_Style_To_Node(NodeP* node, NU_Stylesheet* ss, enum NU_Pseud
 
                 // Apply id pseudo style
                 u32 index = *(u32*)id_pseudo_found;
-                NU_Stylesheet_Item* item = (NU_Stylesheet_Item*)ArrayGet(&ss->items, index);
+                Stylesheet_Item* item = (Stylesheet_Item*)Array_Get(&ss->items, index);
                 NU_Apply_Style_Item_To_Node(node, item);
             }
         }

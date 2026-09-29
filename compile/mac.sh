@@ -16,10 +16,32 @@ clang -std=c99 -O3 \
     -I"$glewInclude" \
     -I"$sdlInclude" \
     -I"$freetypeInclude" \
-    -L"$glewLib" \
-    -L"$sdlLib" \
-    -L"$freetypeLib" \
-    -lGLEW -lSDL3 -framework OpenGL -framework Cocoa -lfreetype \
+    "$glewLib/libGLEW.a" \
+    "$freetypeLib/libfreetype.a" \
+    "$sdlLib/libSDL3.a" \
+    -lbz2 \
+    -lz \
+    -framework AVFoundation \
+    -framework AudioToolbox \
+    -framework CoreAudio \
+    -framework CoreFoundation \
+    -framework CoreGraphics \
+    -framework CoreHaptics \
+    -framework CoreMedia \
+    -framework CoreVideo \
+    -framework GameController \
+    -framework IOKit \
+    -framework Metal \
+    -framework QuartzCore \
+    -framework Security \
+    -framework UniformTypeIdentifiers \
+    -framework UserNotifications \
+    -framework Foundation \
+    -framework AppKit \
+    -framework OpenGL \
+    -framework Cocoa \
+    -framework ForceFeedback \
+    -framework Carbon \
     -shared \
     -o "nodus/mac/libnodus.dylib" \
     -Wno-deprecated-declarations

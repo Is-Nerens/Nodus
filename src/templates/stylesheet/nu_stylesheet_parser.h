@@ -8,15 +8,15 @@ void Stylesheet_OverwriteStyleItem(StyleItem* item, StyleItem* overwriter)
 {
     item->propertyFlags |= overwriter->propertyFlags;
 
-    // Branchless layoutFlags update
-    item->layoutFlags = (item->layoutFlags & ~LAYOUT_VERTICAL)                 | ((overwriter->layoutFlags & LAYOUT_VERTICAL)                 * !!(overwriter->propertyFlags & PROPERTY_FLAG_LAYOUT_DIR));
-    item->layoutFlags = (item->layoutFlags & ~(GROW_HORIZONTAL|GROW_VERTICAL)) | ((overwriter->layoutFlags & (GROW_HORIZONTAL|GROW_VERTICAL)) * !!(overwriter->propertyFlags & PROPERTY_FLAG_GROW));
-    item->layoutFlags = (item->layoutFlags & ~OVERFLOW_VERTICAL_SCROLL)        | ((overwriter->layoutFlags & OVERFLOW_VERTICAL_SCROLL)        * !!(overwriter->propertyFlags & PROPERTY_FLAG_VERTICAL_SCROLL));
-    item->layoutFlags = (item->layoutFlags & ~OVERFLOW_HORIZONTAL_SCROLL)      | ((overwriter->layoutFlags & OVERFLOW_HORIZONTAL_SCROLL)      * !!(overwriter->propertyFlags & PROPERTY_FLAG_HORIZONTAL_SCROLL));
-    item->layoutFlags = (item->layoutFlags & ~POSITION_ABSOLUTE)               | ((overwriter->layoutFlags & POSITION_ABSOLUTE)               * !!(overwriter->propertyFlags & PROPERTY_FLAG_POSITION_ABSOLUTE));
-    item->layoutFlags = (item->layoutFlags & ~HIDDEN)                          | ((overwriter->layoutFlags & HIDDEN)                          * !!(overwriter->propertyFlags & PROPERTY_FLAG_HIDDEN));
-    item->layoutFlags = (item->layoutFlags & ~IGNORE_MOUSE)                    | ((overwriter->layoutFlags & IGNORE_MOUSE)                    * !!(overwriter->propertyFlags & PROPERTY_FLAG_IGNORE_MOUSE));
-    item->layoutFlags = (item->layoutFlags & ~HIDE_BACKGROUND)                 | ((overwriter->layoutFlags & HIDE_BACKGROUND)                 * !!(overwriter->propertyFlags & PROPERTY_FLAG_HIDE_BACKGROUND));
+    // Overwrite layout flags
+    if (overwriter->propertyFlags & PROPERTY_FLAG_LAYOUT_DIR)        item->layoutFlags = (item->layoutFlags & ~LAYOUT_VERTICAL)                 | (overwriter->layoutFlags & LAYOUT_VERTICAL);
+    if (overwriter->propertyFlags & PROPERTY_FLAG_GROW)              item->layoutFlags = (item->layoutFlags & ~(GROW_HORIZONTAL|GROW_VERTICAL)) | (overwriter->layoutFlags & (GROW_HORIZONTAL|GROW_VERTICAL));
+    if (overwriter->propertyFlags & PROPERTY_FLAG_VERTICAL_SCROLL)   item->layoutFlags = (item->layoutFlags & ~OVERFLOW_VERTICAL_SCROLL)        | (overwriter->layoutFlags & OVERFLOW_VERTICAL_SCROLL);
+    if (overwriter->propertyFlags & PROPERTY_FLAG_HORIZONTAL_SCROLL) item->layoutFlags = (item->layoutFlags & ~OVERFLOW_HORIZONTAL_SCROLL)      | (overwriter->layoutFlags & OVERFLOW_HORIZONTAL_SCROLL);
+    if (overwriter->propertyFlags & PROPERTY_FLAG_POSITION_ABSOLUTE) item->layoutFlags = (item->layoutFlags & ~POSITION_ABSOLUTE)               | (overwriter->layoutFlags & POSITION_ABSOLUTE);
+    if (overwriter->propertyFlags & PROPERTY_FLAG_HIDDEN)            item->layoutFlags = (item->layoutFlags & ~HIDDEN)                          | (overwriter->layoutFlags & HIDDEN);
+    if (overwriter->propertyFlags & PROPERTY_FLAG_IGNORE_MOUSE)      item->layoutFlags = (item->layoutFlags & ~IGNORE_MOUSE)                    | (overwriter->layoutFlags & IGNORE_MOUSE);
+    if (overwriter->propertyFlags & PROPERTY_FLAG_HIDE_BACKGROUND)   item->layoutFlags = (item->layoutFlags & ~HIDE_BACKGROUND)                 | (overwriter->layoutFlags & HIDE_BACKGROUND);
 
     // Overwrite gap and size fields (branchless)
     item->gap        = item->gap        * !(overwriter->propertyFlags & PROPERTY_FLAG_GAP)              + overwriter->gap        * !!(overwriter->propertyFlags & PROPERTY_FLAG_GAP);
@@ -102,6 +102,10 @@ u64 Stylesheet_Parse_Property(Stylesheet* ss, const enum NU_Style_Token token, S
                 case 'v': item->layoutFlags |= GROW_VERTICAL; break;
                 case 'h': item->layoutFlags |= GROW_HORIZONTAL; break;
                 case 'b': item->layoutFlags |= (GROW_HORIZONTAL | GROW_VERTICAL); break;
+                default: {
+                    if (stringEquals(text, "none")) item->layoutFlags &= ~(GROW_HORIZONTAL | GROW_VERTICAL);
+                    break;
+                }
             }
             propertyFlagsSet |= PROPERTY_FLAG_GROW;
             break;
@@ -285,6 +289,8 @@ u64 Stylesheet_Parse_Property(Stylesheet* ss, const enum NU_Style_Token token, S
                 item->backgroundG = rgb.g;
                 item->backgroundB = rgb.b;
                 propertyFlagsSet |= PROPERTY_FLAG_BACKGROUND;
+                propertyFlagsSet &= ~PROPERTY_FLAG_HIDE_BACKGROUND;
+                item->layoutFlags &= ~HIDE_BACKGROUND;
             } else if (strcmp(text, "none") == 0) {
                 propertyFlagsSet |= PROPERTY_FLAG_HIDE_BACKGROUND;
                 item->layoutFlags |= HIDE_BACKGROUND;
@@ -488,6 +494,7 @@ void Stylesheet_Parse_Variable_Property(Stylesheet* ss, const enum NU_Style_Toke
                 case STYLESHEET_VARIABLE_DTYPE_VERTICAL: item->layoutFlags |= GROW_VERTICAL; break;
                 case STYLESHEET_VARIABLE_DTYPE_HORIZONTAL: item->layoutFlags |= GROW_HORIZONTAL; break;
                 case STYLESHEET_VARIABLE_DTYPE_BOTH: item->layoutFlags |= (GROW_HORIZONTAL | GROW_VERTICAL); break;
+                case STYLESHEET_VARIABLE_DTYPE_NONE: item->layoutFlags &= ~(GROW_HORIZONTAL | GROW_VERTICAL); break;
                 default: break;
             }
             item->propertyFlags |= PROPERTY_FLAG_GROW;
@@ -725,6 +732,8 @@ void Stylesheet_Parse_Variable_Property(Stylesheet* ss, const enum NU_Style_Toke
                 item->backgroundG = rgb.g;
                 item->backgroundB = rgb.b;
                 item->propertyFlags |= PROPERTY_FLAG_BACKGROUND;
+                item->propertyFlags &= ~PROPERTY_FLAG_HIDE_BACKGROUND;
+                item->layoutFlags &= ~HIDE_BACKGROUND;
             }
             else if (variable.type == STYLESHEET_VARIABLE_DTYPE_NONE) {
                 item->propertyFlags |= PROPERTY_FLAG_HIDE_BACKGROUND;
@@ -1569,15 +1578,12 @@ static int Stylesheet_Parse(char* src, TokenArray* tokens, Array* textRefs, Line
 {
     // Parse Fonts
     if (!Stylesheet_Parse_Fonts(ss, src, tokens, textRefs)) return 0;
-    printf("parsed @font\n");
 
     // Parse Variables
     if (!Stylesheet_Parse_Variables(src, tokens, ss, textRefs, variableMap)) return 0;
-    printf("parsed @var\n");
 
     // Parse Screen Queries
     if (!Stylesheet_Parse_Screen_Queries(src, tokens, ss, textRefs, variableMap)) return 0;
-    printf("parsed @screen\n");
 
     // ----------------------
     // --- Parser Context ---

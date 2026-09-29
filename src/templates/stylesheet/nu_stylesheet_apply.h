@@ -19,6 +19,7 @@ static void Stylesheet_ApplyStyleItemToNode(StyleItem* item, NodeP* node)
     STYLE_APPLY_LAYOUT_FLAG(PROPERTY_FLAG_POSITION_ABSOLUTE, POSITION_ABSOLUTE);          // Absolute positioning (or not)
     STYLE_APPLY_LAYOUT_FLAG(PROPERTY_FLAG_HIDDEN, HIDDEN);                                // Hidden or not
     STYLE_APPLY_LAYOUT_FLAG(PROPERTY_FLAG_IGNORE_MOUSE, IGNORE_MOUSE);                    // Ignore mouse or not
+    STYLE_APPLY_LAYOUT_FLAG(PROPERTY_FLAG_HIDE_BACKGROUND, HIDE_BACKGROUND);              // Hide background (or not)
     if (STYLE_SHOULD_APPLY_TO_NODE(PROPERTY_FLAG_GAP)) node->node.gap = item->gap;
     if (STYLE_SHOULD_APPLY_TO_NODE(PROPERTY_FLAG_PREFERRED_WIDTH)) node->node.prefWidth = item->prefWidth;
     if (STYLE_SHOULD_APPLY_TO_NODE(PROPERTY_FLAG_MIN_WIDTH)) node->node.minWidth = item->minWidth;
@@ -38,8 +39,8 @@ static void Stylesheet_ApplyStyleItemToNode(StyleItem* item, NodeP* node)
         node->node.backgroundR = item->backgroundR;
         node->node.backgroundG = item->backgroundG;
         node->node.backgroundB = item->backgroundB;
+        node->layoutFlags &= ~(HIDE_BACKGROUND * (!(node->overrideStyleFlags & PROPERTY_FLAG_HIDE_BACKGROUND) && !(item->propertyFlags & PROPERTY_FLAG_HIDE_BACKGROUND)));
     }
-    STYLE_APPLY_LAYOUT_FLAG(PROPERTY_FLAG_HIDE_BACKGROUND, HIDE_BACKGROUND); // Hide background (or not)
     if (STYLE_SHOULD_APPLY_TO_NODE(PROPERTY_FLAG_BORDER_COLOUR)) {
         node->node.borderR = item->borderR;
         node->node.borderG = item->borderG;

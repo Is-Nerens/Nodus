@@ -17,7 +17,7 @@
 #define NU_EVENT_FLAG_ON_KEY_DOWN           0x2000   // 0b0010000000000000
 #define NU_EVENT_FLAG_ON_KEY_UP             0x4000   // 0b0100000000000000
 #define NU_EVENT_FLAG_ON_TYPE               0x8000   // 0b1000000000000000
- 
+
 enum NU_Event_Type
 {
     NU_EVENT_ON_CLICK,
@@ -71,13 +71,13 @@ typedef struct NU_Event
     NU_Event_Info_Type type;
 } NU_Event;
 
-typedef void (*NU_Callback)(NU_Event event, void* args);
+typedef void (*NU_EventCallback)(NU_Event event, void* args);
 
-struct NU_Callback_Info
+struct NU_EventCallbackInfo
 {
     NU_Event event;
     void* args;
-    NU_Callback callback;
+    NU_EventCallback callback;
 };
 
 typedef struct EventSystem {
@@ -86,7 +86,7 @@ typedef struct EventSystem {
     Hashmap on_scroll_events;
     Hashmap on_released_events;
     Hashmap on_resize_events;
-    Hashmap node_resize_tracking; 
+    Hashmap node_resize_tracking;
     Hashmap on_mouse_down_events;
     Hashmap on_mouse_up_events;
     Hashmap on_mouse_down_outside_events;
@@ -109,10 +109,10 @@ void EventSystem_Init();
 void EventSystem_Free();
 
 void NU_Internal_Register_Event(
-    Node* node, 
-    void* args, 
-    NU_Callback callback, 
-    enum NU_Event_Type 
+    Node* node,
+    void* args,
+    NU_EventCallback callback,
+    enum NU_Event_Type
     event_type
 );
 

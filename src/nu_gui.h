@@ -33,6 +33,8 @@ static inline float fmin_fast(float a, float b) {
     return a * (a < b) + b * (1 - (a < b));
 }
 
+typedef void (*NU_Callback)(void* args);
+
 // ----------------------
 // --- Nodus Includes ---
 // ----------------------
@@ -61,6 +63,7 @@ static inline float fmin_fast(float a, float b) {
 #include <rendering/nu_renderer.h>
 #include <rendering/image/nu_image.h>
 #include <events/nu_event_defs.h>
+#include <nu_timer.h>
 
 struct NU_GUI
 {
@@ -74,6 +77,7 @@ struct NU_GUI
     Stringmap id_node_map;
     Container canvasContexts;
     Container textInputs;
+    Container timers;
 
     // Pseudo nodes
     NodeP* hovered_node;
@@ -153,6 +157,7 @@ void NU_Internal_Quit()
     Stylesheet_Free(&GUI.stylesheet);
     Container_Free(&GUI.canvasContexts);
     Container_Free(&GUI.textInputs);
+    Container_Free(&GUI.timers);
     Array_Free(&GUI.borderRectRenderDataArray);
     BreadthFirstSearch_Free(&GUI.bfs);
     ReverseBreadthFirstSearch_Free(&GUI.rbfs);
@@ -171,6 +176,7 @@ int NU_Internal_Create_Gui(const char* xml_filepath, const char* css_filepath)
     SDL_GL_SetAttribute(SDL_GL_MULTISAMPLESAMPLES, 4);
     SDL_GL_SetAttribute(SDL_GL_DEPTH_SIZE, 24);
     SDL_SetHint("SDL_MOUSE_FOCUS_CLICKTHROUGH", "1");
+    SDL_SetHint(SDL_HINT_MAC_SCROLL_MOMENTUM, "1");
 
     // Init Systems
     WindowManager_Init(&GUI.winManager);
@@ -186,6 +192,7 @@ int NU_Internal_Create_Gui(const char* xml_filepath, const char* css_filepath)
     // Init canvas context and text input containers
     GUI.canvasContexts = Container_Create(sizeof(NU_Canvas_Context));
     GUI.textInputs = Container_Create(sizeof(InputText));
+    GUI.timers = Container_Create(sizeof(NU_Timer));
 
     // Init Event System (allocates memory)
     EventSystem_Init();
@@ -265,7 +272,6 @@ int NU_Internal_Create_Gui(const char* xml_filepath, const char* css_filepath)
     printf("calculating layout\n");
     timer_start();
     NU_Layout(); // Initial layout calculation
-    GUI.running = true;
     timer_stop();
 
     // Event watcher

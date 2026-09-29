@@ -305,8 +305,6 @@ int InputText_MoveCursorLeft(InputText* text, NodeP* node, NU_Font* font)
     // update book-keeping and return
     InputText_UpdateCusorTextOffsets(text, node, font, -1);
     text->highlightBytes = text->cursorBytes;
-
-    printf("focus %f\n", text->textOffset);
     return 1;
 }
 
@@ -479,13 +477,19 @@ void InputText_CopyToClipboard(InputText* text)
 
 void InputText_SetText(InputText* text, NodeP* node, NU_Font* font, const char* str)
 {
-    if (!str || str[0] == '\0') return;  // nothing to paste
+    if (!str) return;  // nothing to paste
 
     text->cursorBytes = 0;
     text->decimalByteIndex = -1;
     text->highlightBytes = 0;
     text->numBytes = 0;
     text->buffer[text->numBytes] = '\0';
+
+    // If setting to an empty string -> done
+    if (str[0] == '\0') {
+        text->updateOffsetsPostLayout = true;
+        return;
+    }
 
     // Compute length of valid characters
     int validBytes = 0;

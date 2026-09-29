@@ -1,3 +1,11 @@
+
+#include <SDL3/SDL.h>
+#include <GL/glew.h>
+#include <ft2build.h>
+#include FT_FREETYPE_H
+#include FT_MULTIPLE_MASTERS_H
+
+#include "datastructures/container.h"
 #define NODUS_BUILD_DLL
 #include "nu_gui.h"
 #include <stdio.h>
@@ -24,32 +32,55 @@ _EXPORT void NU_Quit(void) {
     NU_Internal_Quit();
 }
 
-_EXPORT int NU_Running(void) {
-    if (!GUI.running) return 0;
+_EXPORT void NU_Run(void) {
+    if (GUI.running) return;
+    GUI.running = true;
 
-    SDL_Event event;
-    while (SDL_PollEvent(&event)) {}
+    while(GUI.running) {
 
-    if (GUI.awaiting_redraw)
-    {
-        NU_Layout();
-        NU_Mouse_Hover();
-        NU_Draw();
-        CheckForResizeEvents();
+        // Handle events
+        SDL_Event event;
+        while (SDL_PollEvent(&event)) {}
+
+        // Trigger timer callbacks
+        u64 currentTimeMs = SDL_GetTicks();
+        for (int i=0; i<GUI.timers.size; i++) {
+            NU_Timer* timer = Container_GetAt(&GUI.timers, i);
+            if (!timer->willBeRemoved) {
+                u64 timeSinceLastFired = currentTimeMs - timer->lastFiredTime;
+                if (timeSinceLastFired >= timer->intervalMs) {
+                    timer->lastFiredTime = currentTimeMs;
+                    timer->callback(timer->args);
+                }
+            }
+        }
+
+        // Safely delete removed timers
+        for (int i=GUI.timers.size-1; i>=0; i--) {
+            NU_Timer* timer = Container_GetAt(&GUI.timers, i);
+            int id = Container_IdAt(&GUI.timers, i);
+            if (timer->willBeRemoved) Container_Remove(&GUI.timers, id);
+        }
+
+        // Safely unregister deleted nodes from iterated hashmaps and free node memory
+        for (int i=0; i<GUI.tree.deletedButNotFreedNodes.size; i++) {
+            NodeP* node = *(NodeP**)Array_Get(&GUI.tree.deletedButNotFreedNodes, i);
+            NU_Unregister_All_Iterated_Events(node);
+        }
+        TreeFreeDeleted(&GUI.tree);
+
+        // Re-render UI if necessary
+        if (GUI.awaiting_redraw)
+        {
+            NU_Layout();
+            NU_Mouse_Hover();
+            NU_Draw();
+            CheckForResizeEvents();
+        }
+
+        // Wait for next event, with timeout to save CPU
+        SDL_WaitEventTimeout(&event, 4);
     }
-
-    // Safely unregister deleted nodes from iterated hashmaps
-    // and free node memory
-    for (int i=0; i<GUI.tree.deletedButNotFreedNodes.size; i++) {
-        NodeP* node = *(NodeP**)Array_Get(&GUI.tree.deletedButNotFreedNodes, i);
-        NU_Unregister_All_Iterated_Events(node);
-    }
-    TreeFreeDeleted(&GUI.tree);
-
-    // Wait for next event, with timeout to save CPU
-    SDL_WaitEventTimeout(&event, GetFrametime());
-
-    return 1;
 }
 
 _EXPORT void NU_Render()
@@ -58,6 +89,25 @@ _EXPORT void NU_Render()
     SDL_zero(e);
     e.type = GUI.SDL_CUSTOM_RENDER_EVENT;
     SDL_PushEvent(&e);
+}
+
+_EXPORT int NU_AddTimer(u32 intervalMs, NU_Callback callback, void* args)
+{
+    NU_Timer timer;
+    timer.intervalMs = intervalMs;
+    timer.lastFiredTime = 0;
+    timer.callback = callback;
+    timer.args = args;
+    timer.willBeRemoved = false;
+    return Container_Add(&GUI.timers, &timer);
+}
+
+_EXPORT void NU_RemoveTimer(int timer)
+{
+    NU_Timer* _timer = Container_Get(&GUI.timers, timer);
+    if (_timer) {
+        _timer->willBeRemoved = true;
+    }
 }
 
 // -----------------------
@@ -109,6 +159,18 @@ _EXPORT void NU_Set_Window_Windowed(Node* node) {
     GUI.awaiting_redraw = true;
     NU_Render();
 }
+
+// ------------------------------
+// --- Screen Query Functions ---
+// ------------------------------
+_EXPORT void NU_Get_Screen_Dimensions(Node* node, int* screenWidthOut, int* screenHeightOut)
+{
+    NodeP* nodeP = NODEP_OF(node);
+    NU_Window* win = GetNodeWindow(&GUI.winManager, nodeP);
+    *screenWidthOut = win->screenWidth;
+    *screenHeightOut = win->screenHeight;
+}
+
 
 // ------------------------
 // --- Cursor functions ---
@@ -188,6 +250,18 @@ _EXPORT Node* NU_CHILD(Node* node, u32 childIndex) {
 _EXPORT int NU_CHILD_COUNT(Node* node) {
     NodeP* nodeP = NODEP_OF(node);
     return (int)nodeP->childCount;
+}
+
+_EXPORT Node* NU_NEXT_SIBLING(Node* node)
+{
+    NodeP* nodeP = NODEP_OF(node);
+    return &nodeP->nextSibling->node;
+}
+
+_EXPORT Node* NU_PREVIOUS_SIBLING(Node* node)
+{
+    NodeP* nodeP = NODEP_OF(node);
+    return &nodeP->prevSibling->node;
 }
 
 _EXPORT Node* NU_CREATE_NODE(Node* parent, NodeType type) {
@@ -309,6 +383,58 @@ _EXPORT void NU_SHOW(Node* node) {
 _EXPORT int NU_IS_SHOWN(Node* node) {
     NodeP* nodeP = NODEP_OF(node);
     return !(nodeP->layoutFlags & HIDDEN);
+}
+
+_EXPORT void NU_GROW_VERTICAL(Node* node) {
+    NodeP* nodeP = NODEP_OF(node);
+    nodeP->layoutFlags |= GROW_VERTICAL;
+}
+
+_EXPORT void NU_GROW_HORIZONTAL(Node* node) {
+    NodeP* nodeP = NODEP_OF(node);
+    nodeP->layoutFlags |= GROW_HORIZONTAL;
+}
+
+_EXPORT void NU_GROW_BOTH(Node* node) {
+    NodeP* nodeP = NODEP_OF(node);
+    nodeP->layoutFlags |= GROW_VERTICAL;
+    nodeP->layoutFlags |= GROW_HORIZONTAL;
+}
+
+_EXPORT void NU_GROW_NONE(Node* node) {
+    NodeP* nodeP = NODEP_OF(node);
+    nodeP->layoutFlags &= ~GROW_VERTICAL;
+    nodeP->layoutFlags &= ~GROW_HORIZONTAL;
+}
+
+_EXPORT void NU_GROW_IGNORE_STYLESHEET(Node* node) {
+    NodeP* nodeP = NODEP_OF(node);
+    nodeP->overrideStyleFlags |= PROPERTY_FLAG_GROW;
+}
+
+_EXPORT void NU_GROW_ENABLE_STYLESHEET(Node* node) {
+    NodeP* nodeP = NODEP_OF(node);
+    nodeP->overrideStyleFlags &= ~PROPERTY_FLAG_GROW;
+}
+
+_EXPORT void NU_BACKGROUND_VISIBILITY_SHOWN(Node* node) {
+    NodeP* nodeP = NODEP_OF(node);
+    nodeP->layoutFlags &= ~HIDE_BACKGROUND;
+}
+
+_EXPORT void NU_BACKGROUND_VISIBILITY_HIDDEN(Node* node) {
+    NodeP* nodeP = NODEP_OF(node);
+    nodeP->layoutFlags |= HIDE_BACKGROUND;
+}
+
+_EXPORT void NU_BACKGROUND_VISIBILITY_IGNORE_STYLESHEET(Node* node) {
+    NodeP* nodeP = NODEP_OF(node);
+    nodeP->overrideStyleFlags |= PROPERTY_FLAG_HIDE_BACKGROUND;
+}
+
+_EXPORT void NU_BACKGROUND_VISIBILITY_ENABLE_STYLESHEET(Node* node) {
+    NodeP* nodeP = NODEP_OF(node);
+    nodeP->overrideStyleFlags &= ~PROPERTY_FLAG_HIDE_BACKGROUND;
 }
 
 _EXPORT void NU_SET_WINDOW_TITLE(Node* windowNode, const char* title) {
@@ -438,11 +564,25 @@ _EXPORT void NU_Set_Class(Node* node, const char* class) {
     Stylesheet_ApplyStyleToNode(&GUI.stylesheet, nodeP);
     if (nodeP == GUI.scroll_mouse_down_node) {
         Stylesheet_ApplyPseudoStyleToNode(&GUI.stylesheet, nodeP, PSEUDO_PRESS);
-
     } else if (nodeP == GUI.hovered_node) {
         Stylesheet_ApplyPseudoStyleToNode(&GUI.stylesheet, nodeP, PSEUDO_HOVER);
     }
+    GUI.awaiting_redraw = true;
+}
 
+_EXPORT void NU_Remove_Class(Node* node)
+{
+    NodeP* nodeP = NODEP_OF(node);
+    if (nodeP->class == NULL) return;
+    nodeP->class = NULL;
+
+    // Update styling
+    Stylesheet_ApplyStyleToNode(&GUI.stylesheet, nodeP);
+    if (nodeP == GUI.scroll_mouse_down_node) {
+        Stylesheet_ApplyPseudoStyleToNode(&GUI.stylesheet, nodeP, PSEUDO_PRESS);
+    } else if (nodeP == GUI.hovered_node) {
+        Stylesheet_ApplyPseudoStyleToNode(&GUI.stylesheet, nodeP, PSEUDO_HOVER);
+    }
     GUI.awaiting_redraw = true;
 }
 
@@ -452,7 +592,7 @@ _EXPORT void NU_Set_Class(Node* node, const char* class) {
 _EXPORT void NU_Register_Event(
   Node* node,
   void* args,
-  NU_Callback callback,
+  NU_EventCallback callback,
   enum NU_Event_Type event_type)
 {
     NU_Internal_Register_Event(node, args, callback, event_type);

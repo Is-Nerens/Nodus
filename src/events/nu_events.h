@@ -4,23 +4,23 @@
 
 void EventSystem_Init()
 {
-    Hashmap_Init(&GUI.eventSystem.on_click_events,              sizeof(Node*), sizeof(struct NU_Callback_Info), 128);
-    Hashmap_Init(&GUI.eventSystem.on_input_changed_events,      sizeof(Node*), sizeof(struct NU_Callback_Info), 10);
-    Hashmap_Init(&GUI.eventSystem.on_scroll_events,             sizeof(Node*), sizeof(struct NU_Callback_Info), 10);
-    Hashmap_Init(&GUI.eventSystem.on_resize_events,             sizeof(Node*), sizeof(struct NU_Callback_Info), 10);
+    Hashmap_Init(&GUI.eventSystem.on_click_events,              sizeof(Node*), sizeof(struct NU_EventCallbackInfo), 128);
+    Hashmap_Init(&GUI.eventSystem.on_input_changed_events,      sizeof(Node*), sizeof(struct NU_EventCallbackInfo), 10);
+    Hashmap_Init(&GUI.eventSystem.on_scroll_events,             sizeof(Node*), sizeof(struct NU_EventCallbackInfo), 10);
+    Hashmap_Init(&GUI.eventSystem.on_resize_events,             sizeof(Node*), sizeof(struct NU_EventCallbackInfo), 10);
     Hashmap_Init(&GUI.eventSystem.node_resize_tracking,         sizeof(Node*), sizeof(NU_NodeDimensions)      , 10);
-    Hashmap_Init(&GUI.eventSystem.on_mouse_down_events,         sizeof(Node*), sizeof(struct NU_Callback_Info), 10);
-    Hashmap_Init(&GUI.eventSystem.on_mouse_up_events,           sizeof(Node*), sizeof(struct NU_Callback_Info), 10);
-    Hashmap_Init(&GUI.eventSystem.on_mouse_down_outside_events, sizeof(Node*), sizeof(struct NU_Callback_Info), 10);
-    Hashmap_Init(&GUI.eventSystem.on_mouse_move_events,         sizeof(Node*), sizeof(struct NU_Callback_Info), 10);
-    Hashmap_Init(&GUI.eventSystem.on_mouse_in_events,           sizeof(Node*), sizeof(struct NU_Callback_Info), 10);
-    Hashmap_Init(&GUI.eventSystem.on_mouse_out_events,          sizeof(Node*), sizeof(struct NU_Callback_Info), 10);
-    Hashmap_Init(&GUI.eventSystem.on_mouse_wheel_events,        sizeof(Node*), sizeof(struct NU_Callback_Info), 10);
-    Hashmap_Init(&GUI.eventSystem.on_input_focus_events,        sizeof(Node*), sizeof(struct NU_Callback_Info), 10);
-    Hashmap_Init(&GUI.eventSystem.on_input_defocus_events,      sizeof(Node*), sizeof(struct NU_Callback_Info), 10);
-    Hashmap_Init(&GUI.eventSystem.on_key_down_events,           sizeof(Node*), sizeof(struct NU_Callback_Info), 10);
-    Hashmap_Init(&GUI.eventSystem.on_key_up_events,             sizeof(Node*), sizeof(struct NU_Callback_Info), 10);
-    Hashmap_Init(&GUI.eventSystem.on_type_events,               sizeof(Node*), sizeof(struct NU_Callback_Info), 10);
+    Hashmap_Init(&GUI.eventSystem.on_mouse_down_events,         sizeof(Node*), sizeof(struct NU_EventCallbackInfo), 10);
+    Hashmap_Init(&GUI.eventSystem.on_mouse_up_events,           sizeof(Node*), sizeof(struct NU_EventCallbackInfo), 10);
+    Hashmap_Init(&GUI.eventSystem.on_mouse_down_outside_events, sizeof(Node*), sizeof(struct NU_EventCallbackInfo), 10);
+    Hashmap_Init(&GUI.eventSystem.on_mouse_move_events,         sizeof(Node*), sizeof(struct NU_EventCallbackInfo), 10);
+    Hashmap_Init(&GUI.eventSystem.on_mouse_in_events,           sizeof(Node*), sizeof(struct NU_EventCallbackInfo), 10);
+    Hashmap_Init(&GUI.eventSystem.on_mouse_out_events,          sizeof(Node*), sizeof(struct NU_EventCallbackInfo), 10);
+    Hashmap_Init(&GUI.eventSystem.on_mouse_wheel_events,        sizeof(Node*), sizeof(struct NU_EventCallbackInfo), 10);
+    Hashmap_Init(&GUI.eventSystem.on_input_focus_events,        sizeof(Node*), sizeof(struct NU_EventCallbackInfo), 10);
+    Hashmap_Init(&GUI.eventSystem.on_input_defocus_events,      sizeof(Node*), sizeof(struct NU_EventCallbackInfo), 10);
+    Hashmap_Init(&GUI.eventSystem.on_key_down_events,           sizeof(Node*), sizeof(struct NU_EventCallbackInfo), 10);
+    Hashmap_Init(&GUI.eventSystem.on_key_up_events,             sizeof(Node*), sizeof(struct NU_EventCallbackInfo), 10);
+    Hashmap_Init(&GUI.eventSystem.on_type_events,               sizeof(Node*), sizeof(struct NU_EventCallbackInfo), 10);
 }
 
 void EventSystem_Free()
@@ -46,13 +46,13 @@ void EventSystem_Free()
 
 
 
-void NU_Internal_Register_Event(Node* node, void* args, NU_Callback callback, enum NU_Event_Type event_type)
+void NU_Internal_Register_Event(Node* node, void* args, NU_EventCallback callback, enum NU_Event_Type event_type)
 {
     struct NU_Event event = {0}; event.node = node;
-    struct NU_Callback_Info cb_info = { event, args, callback };
+    struct NU_EventCallbackInfo cb_info = { event, args, callback };
 
     NodeP* nodeP = NODEP_OF(node);
-    
+
     switch (event_type) {
         case NU_EVENT_ON_CLICK:
             nodeP->eventFlags |= NU_EVENT_FLAG_ON_CLICK;
@@ -161,7 +161,7 @@ void NU_Unregister_All_Iterated_Events(NodeP* node)
 {
     if (node->eventFlags & NU_EVENT_FLAG_ON_RESIZE) {
         Hashmap_Delete(&GUI.eventSystem.on_resize_events, &node->node);
-        Hashmap_Delete(&GUI.eventSystem.node_resize_tracking, &node->node); 
+        Hashmap_Delete(&GUI.eventSystem.node_resize_tracking, &node->node);
     }
     if (node->eventFlags & NU_EVENT_FLAG_ON_MOUSE_UP) {
         Hashmap_Delete(&GUI.eventSystem.on_mouse_up_events, &node->node);
@@ -189,7 +189,7 @@ void TriggerOnMouseOutEvent(NodeP* nodeP, float mouseX, float mouseY)
         Node* node = &nodeP->node;
         void* found_cb = Hashmap_Get(&GUI.eventSystem.on_mouse_out_events, &node);
         if (found_cb != NULL) {
-            struct NU_Callback_Info* cb_info = (struct NU_Callback_Info*)found_cb;
+            struct NU_EventCallbackInfo* cb_info = (struct NU_EventCallbackInfo*)found_cb;
             cb_info->event.mouse.mouseBtn = -1;
             cb_info->event.mouse.mouseX = mouseX;
             cb_info->event.mouse.mouseY = mouseY;
@@ -207,7 +207,7 @@ void TriggerOnMouseInEvent(NodeP* nodeP, float mouseX, float mouseY)
         Node* node = &nodeP->node;
         void* found_cb = Hashmap_Get(&GUI.eventSystem.on_mouse_in_events, &node);
         if (found_cb != NULL) {
-            struct NU_Callback_Info* cb_info = (struct NU_Callback_Info*)found_cb;
+            struct NU_EventCallbackInfo* cb_info = (struct NU_EventCallbackInfo*)found_cb;
             cb_info->event.mouse.mouseBtn = -1;
             cb_info->event.mouse.mouseX = mouseX;
             cb_info->event.mouse.mouseY = mouseY;
@@ -225,9 +225,9 @@ void TriggerOnMouseDownEvent(NodeP* nodeP, float mouseX, float mouseY, int mouse
     {
         Node* node = &nodeP->node;
         void* found_cb = Hashmap_Get(&GUI.eventSystem.on_mouse_down_events, &node);
-        if (found_cb != NULL) 
-        {                   
-            struct NU_Callback_Info* cb_info = (struct NU_Callback_Info*)found_cb;
+        if (found_cb != NULL)
+        {
+            struct NU_EventCallbackInfo* cb_info = (struct NU_EventCallbackInfo*)found_cb;
             cb_info->event.mouse.mouseBtn = mouseBtn;
             cb_info->event.mouse.mouseX = mouseX;
             cb_info->event.mouse.mouseY = mouseY;
@@ -242,7 +242,7 @@ void TriggerOnClickEvent(NodeP* nodeP, float mouseX, float mouseY, int mouseBtn)
         Node* node = &nodeP->node;
         void* found_cb = Hashmap_Get(&GUI.eventSystem.on_click_events, &node);
         if (found_cb != NULL) {
-            struct NU_Callback_Info* cb_info = (struct NU_Callback_Info*)found_cb;
+            struct NU_EventCallbackInfo* cb_info = (struct NU_EventCallbackInfo*)found_cb;
             cb_info->event.mouse.mouseBtn = mouseBtn;
             cb_info->event.mouse.mouseX = mouseX;
             cb_info->event.mouse.mouseY = mouseY;
@@ -257,7 +257,7 @@ void TriggerOnScrollEvent(NodeP* nodeP)
         Node* node = &nodeP->node;
         void* found_cb = Hashmap_Get(&GUI.eventSystem.on_scroll_events, &node);
         if (found_cb != NULL) {
-            struct NU_Callback_Info* cb_info = (struct NU_Callback_Info*)found_cb;
+            struct NU_EventCallbackInfo* cb_info = (struct NU_EventCallbackInfo*)found_cb;
             cb_info->callback(cb_info->event, cb_info->args);
         }
     }
@@ -269,7 +269,7 @@ void TriggerOnInputFocusEvent(NodeP* nodeP)
         Node* node = &nodeP->node;
         void* found_cb = Hashmap_Get(&GUI.eventSystem.on_input_focus_events, &node);
         if (found_cb != NULL) {
-            struct NU_Callback_Info* cb_info = (struct NU_Callback_Info*)found_cb;
+            struct NU_EventCallbackInfo* cb_info = (struct NU_EventCallbackInfo*)found_cb;
             cb_info->callback(cb_info->event, cb_info->args);
         }
     }
@@ -281,7 +281,7 @@ void TriggerOnInputDefocusEvent(NodeP* nodeP)
         Node* node = &nodeP->node;
         void* found_cb = Hashmap_Get(&GUI.eventSystem.on_input_defocus_events, &node);
         if (found_cb != NULL) {
-            struct NU_Callback_Info* cb_info = (struct NU_Callback_Info*)found_cb;
+            struct NU_EventCallbackInfo* cb_info = (struct NU_EventCallbackInfo*)found_cb;
             cb_info->callback(cb_info->event, cb_info->args);
         }
     }
@@ -293,7 +293,7 @@ void TriggerOnInputChangedEvent(NodeP* nodeP, const char* text)
         Node* node = &nodeP->node;
         void* found_cb = Hashmap_Get(&GUI.eventSystem.on_input_changed_events, &node);
         if (found_cb != NULL) {
-            struct NU_Callback_Info* cb_info = (struct NU_Callback_Info*)found_cb;
+            struct NU_EventCallbackInfo* cb_info = (struct NU_EventCallbackInfo*)found_cb;
             strcpy(cb_info->event.input.text, text);
             cb_info->callback(cb_info->event, cb_info->args);
         }
@@ -316,8 +316,8 @@ void CheckForResizeEvents()
         while(Hashmap_IteratorNext(&it, &key, &val))
         {
             // Cast key, val to correct types
-            Node* node = *(Node**)key; 
-            struct NU_Callback_Info* cb_info = (struct NU_Callback_Info*)val;
+            Node* node = *(Node**)key;
+            struct NU_EventCallbackInfo* cb_info = (struct NU_EventCallbackInfo*)val;
 
             // Skip if node was recently deleted
             NodeP* nodeP = NODEP_OF(node);
@@ -355,8 +355,8 @@ void TriggerAllMouseupEvents(float mouseX, float mouseY, int mouseBtn)
         while(Hashmap_IteratorNext(&it, &key, &val))
         {
             // Cast key, value to correct types
-            Node* node = *(Node**)key; 
-            struct NU_Callback_Info* cb_info = (struct NU_Callback_Info*)val;
+            Node* node = *(Node**)key;
+            struct NU_EventCallbackInfo* cb_info = (struct NU_EventCallbackInfo*)val;
 
             // Skip if node was recently deleted
             NodeP* nodeP = NODEP_OF(node);
@@ -385,8 +385,8 @@ void TriggerAllMouseMoveEvents(float mouseX, float mouseY, float mouseDeltaX, fl
         while(Hashmap_IteratorNext(&it, &key, &val))
         {
             // Cast key, value to correct types
-            Node* node = *(Node**)key; 
-            struct NU_Callback_Info* cb_info = (struct NU_Callback_Info*)val;
+            Node* node = *(Node**)key;
+            struct NU_EventCallbackInfo* cb_info = (struct NU_EventCallbackInfo*)val;
 
             // Skip if node was recently deleted
             NodeP* nodeP = NODEP_OF(node);
@@ -416,7 +416,7 @@ void TriggerAllMouseWheelEvents(float wheelDelta)
         {
             // Cast key, value to correct types
             Node* node = *(Node**)key;
-            struct NU_Callback_Info* cb_info = (struct NU_Callback_Info*)val;
+            struct NU_EventCallbackInfo* cb_info = (struct NU_EventCallbackInfo*)val;
 
             // Skip if node was recently deleted
             NodeP* nodeP = NODEP_OF(node);
@@ -441,7 +441,7 @@ void TriggerAllMouseDownOutsideEvents(float mouseX, float mouseY, int mouseBtn)
         {
             // Cast key, value to correct types
             Node* node = *(Node**)key;
-            struct NU_Callback_Info* cb_info = (struct NU_Callback_Info*)val;
+            struct NU_EventCallbackInfo* cb_info = (struct NU_EventCallbackInfo*)val;
 
             // Skip if node was recently deleted OR node is hovered
             NodeP* nodeP = NODEP_OF(node);
@@ -471,7 +471,7 @@ void TriggerAllOnKeyDownEvents(SDL_Keycode keycode, bool repeat)
         {
             // Cast key, value to correct types
             Node* node = *(Node**)key;
-            struct NU_Callback_Info* cb_info = (struct NU_Callback_Info*)val;
+            struct NU_EventCallbackInfo* cb_info = (struct NU_EventCallbackInfo*)val;
 
             // Skip if node was recently deleted
             NodeP* nodeP = NODEP_OF(node);
@@ -497,7 +497,7 @@ void TriggerAllOnKeyUpEvents(SDL_Keycode keycode, bool repeat)
         {
             // Cast key, value to correct types
             Node* node = *(Node**)key;
-            struct NU_Callback_Info* cb_info = (struct NU_Callback_Info*)val;
+            struct NU_EventCallbackInfo* cb_info = (struct NU_EventCallbackInfo*)val;
 
             // Skip if node was recently deleted
             NodeP* nodeP = NODEP_OF(node);
@@ -523,7 +523,7 @@ void TriggerAllOnTypeEvents(const char* text)
         {
             // Cast key, value to correct types
             Node* node = *(Node**)key;
-            struct NU_Callback_Info* cb_info = (struct NU_Callback_Info*)val;
+            struct NU_EventCallbackInfo* cb_info = (struct NU_EventCallbackInfo*)val;
 
             // Skip if node was recently deleted
             NodeP* nodeP = NODEP_OF(node);
@@ -535,6 +535,3 @@ void TriggerAllOnTypeEvents(const char* text)
         }
     }
 }
-
-
-

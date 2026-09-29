@@ -364,7 +364,7 @@ bool EventWatcher(void* data, SDL_Event* event)
 
                 // Apply psuedo HOVER
                 if (GUI.mouse_down_node == GUI.hovered_node) {
-                    Stylesheet_ApplyPseudoStyleToNode(&GUI.stylesheet, GUI.hovered_node, PSEUDO_PRESS);
+                    Stylesheet_ApplyPseudoStyleToNode(&GUI.stylesheet, GUI.hovered_node, PSEUDO_HOVER);
                 }
                 // Reset style
                 else {
@@ -401,7 +401,7 @@ bool EventWatcher(void* data, SDL_Event* event)
             Node* n = &node->node;
             float trackHeight = n->height - n->borderTop - n->borderBottom;
             float usableTrackHeight = trackHeight - scrollbarStyle->trackPadTop - scrollbarStyle->trackPadBottom;
-            node->scrollV -= event->wheel.y * (usableTrackHeight / node->node.contentHeight) * 0.2f;
+            node->scrollV -= event->wheel.y * (usableTrackHeight / node->node.contentHeight) * 0.12f;
             node->scrollV = min(max(node->scrollV, 0.0f), 1.0f); // Clamp to range [0,1]
             TriggerOnScrollEvent(node);
             GUI.awaiting_redraw = true;

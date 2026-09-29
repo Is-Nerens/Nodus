@@ -13,12 +13,12 @@
 #define IGNORE_MOUSE                    (1ULL << 8)
 
 // State flags
-#define STATE_FLAG_HIDDEN       (1 << 0)
-#define STATE_FLAG_POS_ABSOLUTE (1 << 1)
-#define STATE_FLAG_DELETED      (1 << 2)
+#define STATE_FLAG_HIDDEN               (1 << 0)
+#define STATE_FLAG_POS_ABSOLUTE         (1 << 1)
+#define STATE_FLAG_DELETED              (1 << 2)
 
 // Property flags
-#define PROPERTY_FLAG_LAYOUT_DIR   (1ULL << 0)
+#define PROPERTY_FLAG_LAYOUT_DIR        (1ULL << 0)
 #define PROPERTY_FLAG_GROW              (1ULL << 1)
 #define PROPERTY_FLAG_VERTICAL_SCROLL   (1ULL << 2)
 #define PROPERTY_FLAG_HORIZONTAL_SCROLL (1ULL << 3)
@@ -127,17 +127,11 @@ typedef struct NodeP
     u8 stateFlags;
     u8 fontId;
     u8 windowID;
-    char horizontalAlignment;
-    char verticalAlignment;
-    char horizontalTextAlignment;
-    char verticalTextAlignment;
+    u8 horizontalAlignment;
+    u8 verticalAlignment;
+    u8 horizontalTextAlignment;
+    u8 verticalTextAlignment;
 } NodeP;
-
-
-
-
-
-
 
 typedef struct NU_NodeDimensions
 {

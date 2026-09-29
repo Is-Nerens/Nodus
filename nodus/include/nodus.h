@@ -3,16 +3,11 @@
 #include <stdlib.h>
 #include <string.h>
 #include <stdint.h>
-#include <SDL3/SDL.h>
-#include <GL/glew.h>
-#include <ft2build.h>
-#include FT_FREETYPE_H
-#include FT_MULTIPLE_MASTERS_H
+#include <stdbool.h>
+#include <stddef.h>
 
 // Import macro
-#if defined(IPC_STATIC)
-    #define _IMPORT
-#elif defined(_WIN64)
+#if defined(_WIN64)
     #define _IMPORT __declspec(dllimport)
 #elif defined(__APPLE__) || defined(__linux__)
     #define _IMPORT __attribute__((visibility("default")))
@@ -261,10 +256,10 @@ enum NU_Keycode
 
 typedef struct NU_Event_Info_Mouse
 {
-    int mouse_btn;
-    int mouse_x, mouse_y;
-    float delta_x, delta_y;
-    float wheel_delta;
+    int mouseBtn;
+    int mouseX, mouseY;
+    float deltaX, deltaY;
+    float wheelDelta;
 } NU_Event_Info_Mouse;
 
 typedef struct NU_Event_Info_Input
@@ -292,13 +287,14 @@ typedef struct NU_Event
     NU_Event_Info_Type type;
 } NU_Event;
 
-typedef void (*NU_Callback)(NU_Event event, void* args);
+typedef void (*NU_EventCallback)(NU_Event event, void* args);
+typedef void (*NU_Callback)(void* args);
 
-struct NU_Callback_Info
+struct NU_EventCallbackInfo
 {
     NU_Event event;
     void* args;
-    NU_Callback callback;
+    NU_EventCallback callback;
 };
 
 
@@ -306,7 +302,9 @@ struct NU_Callback_Info
 // UI functions
 _IMPORT int NU_Create_Gui(const char* xml_filepath, const char* css_filepath);
 _IMPORT void NU_Quit(void);
-_IMPORT int NU_Running(void);
+_IMPORT void NU_Run(void);
+_IMPORT int NU_AddTimer(uint32_t intervalMs, NU_Callback callback, void* args);
+_IMPORT void NU_RemoveTimer(int timer);
 
 // Error functions
 _IMPORT void NU_ClearErrors(void);
@@ -315,6 +313,9 @@ _IMPORT const char* NU_GetNextError(void);
 // Window functions
 _IMPORT void NU_Set_Window_Fullscreen(Node* node);
 _IMPORT void NU_Set_Window_Windowed(Node* node);
+
+// Screen query functions
+_IMPORT void NU_Get_Screen_Dimensions(Node* node, int* screenWidthOut, int* screenHeightOut);
 
 // Cursor functions
 _IMPORT void NU_Set_Cursor_Default(void);
@@ -332,6 +333,8 @@ _IMPORT void NU_Set_Cursor_NeswResize(void);
 _IMPORT Node* NU_PARENT(Node* node);
 _IMPORT Node* NU_CHILD(Node* node, uint32_t childIndex);
 _IMPORT int NU_CHILD_COUNT(Node* node);
+_IMPORT Node* NU_NEXT_SIBLING(Node* node);
+_IMPORT Node* NU_PREVIOUS_SIBLING(Node* node);
 _IMPORT Node* NU_CREATE_NODE(Node* parent, NodeType type);
 _IMPORT void NU_DELETE_NODE(Node* node);
 _IMPORT void NU_SHIFT_NODE_IN_PARENT(Node* node, int index);
@@ -344,6 +347,16 @@ _IMPORT Node* NU_HOVERED_NODE();
 _IMPORT void NU_SHOW(Node* node);
 _IMPORT void NU_HIDE(Node* node);
 _IMPORT int NU_IS_SHOWN(Node* node);
+_IMPORT void NU_GROW_VERTICAL(Node* node);
+_IMPORT void NU_GROW_HORIZONTAL(Node* node);
+_IMPORT void NU_GROW_BOTH(Node* node);
+_IMPORT void NU_GROW_NONE(Node* node);
+_IMPORT void NU_GROW_IGNORE_STYLESHEET(Node* node);
+_IMPORT void NU_GROW_ENABLE_STYLESHEET(Node* node);
+_IMPORT void NU_BACKGROUND_VISIBILITY_SHOWN(Node* node);
+_IMPORT void NU_BACKGROUND_VISIBILITY_HIDDEN(Node* node);
+_IMPORT void NU_BACKGROUND_VISIBILITY_IGNORE_STYLESHEET(Node* node);
+_IMPORT void NU_BACKGROUND_VISIBILITY_ENABLE_STYLESHEET(Node* node);
 _IMPORT void NU_SET_WINDOW_TITLE(Node* windowNode, const char* title);
 _IMPORT Node* NU_Get_Node_By_Id(const char* id);
 _IMPORT NU_Nodelist NU_Get_Nodes_By_Class(char* const class);
@@ -354,12 +367,13 @@ _IMPORT Node* NU_Get_First_Descendent_With_Class(Node* node, const char* class);
 _IMPORT int NU_Descends_From(Node* node, Node* ancestor);
 _IMPORT void NU_Nodelist_Free(NU_Nodelist* nodelist);
 _IMPORT void NU_Set_Class(Node* node, const char* class);
+_IMPORT void NU_Remove_Class(Node* node);
 
 // Event functions
 _IMPORT void NU_Register_Event(
   Node* node,
   void* args,
-  NU_Callback callback,
+  NU_EventCallback callback,
   enum NU_Event_Type event
 );
 

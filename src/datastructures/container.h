@@ -21,6 +21,7 @@
 
 #pragma once
 #include <stdlib.h>
+#include <string.h>
 
 typedef struct Container {
     void* data;
@@ -35,7 +36,7 @@ typedef struct Container {
 
 static inline Container Container_Create(size_t elementSize)
 {
-    const int initialCapacity = 8;
+    const int initialCapacity = 12;
 
     Container container = {0};
     container.elementSize = elementSize;

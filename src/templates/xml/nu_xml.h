@@ -74,6 +74,11 @@ void NU_Parse_Property(const enum NU_XML_TOKEN token, NodeP* currentNode, char* 
                 case 'b':
                     currentNode->overrideStyleFlags |= PROPERTY_FLAG_GROW;
                     currentNode->layoutFlags |= (GROW_HORIZONTAL | GROW_VERTICAL);
+                default:
+                    if (stringEquals(ptext, "none")) {
+                        currentNode->overrideStyleFlags |= PROPERTY_FLAG_GROW;
+                        currentNode->layoutFlags &= ~(GROW_HORIZONTAL | GROW_VERTICAL);
+                    }
                     break;
             }
             break;
@@ -283,6 +288,8 @@ void NU_Parse_Property(const enum NU_XML_TOKEN token, NodeP* currentNode, char* 
             struct RGB rgb;
             if (Parse_Hexcode(ptext, current_text_ref->char_count, &rgb)) {
                 currentNode->overrideStyleFlags |= PROPERTY_FLAG_BACKGROUND;
+                currentNode->overrideStyleFlags &= ~PROPERTY_FLAG_HIDE_BACKGROUND;
+                currentNode->layoutFlags &= ~HIDE_BACKGROUND;
                 currentNode->node.backgroundR = rgb.r;
                 currentNode->node.backgroundG = rgb.g;
                 currentNode->node.backgroundB = rgb.b;

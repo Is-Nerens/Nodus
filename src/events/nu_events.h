@@ -46,17 +46,17 @@ void EventSystem_Free()
 
 
 
-void NU_Internal_Register_Event(Node* node, void* args, NU_EventCallback callback, enum NU_Event_Type event_type)
+void NU_Internal_Bind_Event(NuNode* node, void* args, NU_EventCallback callback, enum NU_Event_Type event_type, int widgetID)
 {
     struct NU_Event event = {0}; event.node = node;
-    struct NU_EventCallbackInfo cb_info = { event, args, callback };
+    struct NU_EventCallbackInfo cb_info = { event, args, callback, widgetID };
 
-    NodeP* nodeP = NODEP_OF(node);
+    Node* nodeP = NODEP_OF(node);
 
     switch (event_type) {
         case NU_EVENT_ON_CLICK:
             nodeP->eventFlags |= NU_EVENT_FLAG_ON_CLICK;
-            Hashmap_Set(&GUI.eventSystem.on_click_events, &node, &cb_info);
+            Hashmap_Set(&GUI.eventSystem.on_click_events, &nodeP, &cb_info);
             break;
         case NU_EVENT_ON_INPUT_CHANGED:
             nodeP->eventFlags |= NU_EVENT_FLAG_ON_INPUT_CHANGED;
@@ -64,129 +64,172 @@ void NU_Internal_Register_Event(Node* node, void* args, NU_EventCallback callbac
             break;
         case NU_EVENT_ON_SCROLL:
             nodeP->eventFlags |= NU_EVENT_FLAG_ON_SCROLL;
-            Hashmap_Set(&GUI.eventSystem.on_scroll_events, &node, &cb_info);
+            Hashmap_Set(&GUI.eventSystem.on_scroll_events, &nodeP, &cb_info);
             break;
         case NU_EVENT_ON_RESIZE:
             nodeP->eventFlags |= NU_EVENT_FLAG_ON_RESIZE;
-            Hashmap_Set(&GUI.eventSystem.on_resize_events, &node, &cb_info);
+            Hashmap_Set(&GUI.eventSystem.on_resize_events, &nodeP, &cb_info);
             NU_NodeDimensions initial_dimensions = { -1.0f, -1.0f };
             Hashmap_Set(&GUI.eventSystem.node_resize_tracking, &node, &initial_dimensions);
             break;
         case NU_EVENT_ON_MOUSE_DOWN:
             nodeP->eventFlags |= NU_EVENT_FLAG_ON_MOUSE_DOWN;
-            Hashmap_Set(&GUI.eventSystem.on_mouse_down_events, &node, &cb_info);
+            Hashmap_Set(&GUI.eventSystem.on_mouse_down_events, &nodeP, &cb_info);
             break;
         case NU_EVENT_ON_MOUSE_UP:
             nodeP->eventFlags |= NU_EVENT_FLAG_ON_MOUSE_UP;
-            Hashmap_Set(&GUI.eventSystem.on_mouse_up_events, &node, &cb_info);
+            Hashmap_Set(&GUI.eventSystem.on_mouse_up_events, &nodeP, &cb_info);
             break;
         case NU_EVENT_ON_MOUSE_DOWN_OUTSIDE:
             nodeP->eventFlags |= NU_EVENT_FLAG_ON_MOUSE_DOWN_OUTSIDE;
-            Hashmap_Set(&GUI.eventSystem.on_mouse_down_outside_events, &node, &cb_info);
+            Hashmap_Set(&GUI.eventSystem.on_mouse_down_outside_events, &nodeP, &cb_info);
             break;
         case NU_EVENT_ON_MOUSE_MOVED:
             nodeP->eventFlags |= NU_EVENT_FLAG_ON_MOUSE_MOVED;
-            Hashmap_Set(&GUI.eventSystem.on_mouse_move_events, &node, &cb_info);
+            Hashmap_Set(&GUI.eventSystem.on_mouse_move_events, &nodeP, &cb_info);
             break;
         case NU_EVENT_ON_MOUSE_IN:
             nodeP->eventFlags |= NU_EVENT_FLAG_ON_MOUSE_IN;
-            Hashmap_Set(&GUI.eventSystem.on_mouse_in_events, &node, &cb_info);
+            Hashmap_Set(&GUI.eventSystem.on_mouse_in_events, &nodeP, &cb_info);
             break;
         case NU_EVENT_ON_MOUSE_OUT:
             nodeP->eventFlags |= NU_EVENT_FLAG_ON_MOUSE_OUT;
-            Hashmap_Set(&GUI.eventSystem.on_mouse_out_events, &node, &cb_info);
+            Hashmap_Set(&GUI.eventSystem.on_mouse_out_events, &nodeP, &cb_info);
             break;
         case NU_EVENT_ON_MOUSE_WHEEL:
             nodeP->eventFlags |= NU_EVENT_FLAG_ON_MOUSE_WHEEL;
-            Hashmap_Set(&GUI.eventSystem.on_mouse_wheel_events, &node, &cb_info);
+            Hashmap_Set(&GUI.eventSystem.on_mouse_wheel_events, &nodeP, &cb_info);
             break;
         case NU_EVENT_ON_INPUT_FOCUS:
             nodeP->eventFlags |= NU_EVENT_FLAG_ON_INPUT_FOCUS;
-            Hashmap_Set(&GUI.eventSystem.on_input_focus_events, &node, &cb_info);
+            Hashmap_Set(&GUI.eventSystem.on_input_focus_events, &nodeP, &cb_info);
             break;
         case NU_EVENT_ON_INPUT_DEFOCUS:
             nodeP->eventFlags |= NU_EVENT_FLAG_ON_INPUT_DEFOCUS;
-            Hashmap_Set(&GUI.eventSystem.on_input_defocus_events, &node, &cb_info);
+            Hashmap_Set(&GUI.eventSystem.on_input_defocus_events, &nodeP, &cb_info);
             break;
         case NU_EVENT_ON_KEY_DOWN:
             nodeP->eventFlags |= NU_EVENT_FLAG_ON_KEY_DOWN;
-            Hashmap_Set(&GUI.eventSystem.on_key_down_events, &node, &cb_info);
+            Hashmap_Set(&GUI.eventSystem.on_key_down_events, &nodeP, &cb_info);
             break;
         case NU_EVENT_ON_KEY_UP:
             nodeP->eventFlags |= NU_EVENT_FLAG_ON_KEY_UP;
-            Hashmap_Set(&GUI.eventSystem.on_key_up_events, &node, &cb_info);
+            Hashmap_Set(&GUI.eventSystem.on_key_up_events, &nodeP, &cb_info);
             break;
         case NU_EVENT_ON_TYPE:
             nodeP->eventFlags |= NU_EVENT_FLAG_ON_TYPE;
-            Hashmap_Set(&GUI.eventSystem.on_type_events, &node, &cb_info);
+            Hashmap_Set(&GUI.eventSystem.on_type_events, &nodeP, &cb_info);
             break;
     }
 }
 
-void NU_Unregister_All_Non_Iterated_Events(NodeP* node)
+void NU_Unregister_All_Non_Iterated_Events(Node* node)
 {
     if (node->eventFlags & NU_EVENT_FLAG_ON_CLICK) {
-        Hashmap_Delete(&GUI.eventSystem.on_click_events, &node->node);
+        Hashmap_Delete(&GUI.eventSystem.on_click_events, &node);
     }
     if (node->eventFlags & NU_EVENT_FLAG_ON_INPUT_CHANGED) {
-        Hashmap_Delete(&GUI.eventSystem.on_input_changed_events, &node->node);
+        Hashmap_Delete(&GUI.eventSystem.on_input_changed_events, &node);
     }
     if (node->eventFlags & NU_EVENT_FLAG_ON_SCROLL) {
-        Hashmap_Delete(&GUI.eventSystem.on_scroll_events, &node->node);
+        Hashmap_Delete(&GUI.eventSystem.on_scroll_events, &node);
     }
     if (node->eventFlags & NU_EVENT_FLAG_ON_MOUSE_DOWN) {
-        Hashmap_Delete(&GUI.eventSystem.on_mouse_down_events, &node->node);
+        Hashmap_Delete(&GUI.eventSystem.on_mouse_down_events, &node);
     }
     if (node->eventFlags & NU_EVENT_FLAG_ON_MOUSE_DOWN_OUTSIDE) {
-        Hashmap_Delete(&GUI.eventSystem.on_mouse_down_outside_events, &node->node);
+        Hashmap_Delete(&GUI.eventSystem.on_mouse_down_outside_events, &node);
     }
     if (node->eventFlags & NU_EVENT_FLAG_ON_MOUSE_MOVED) {
-        Hashmap_Delete(&GUI.eventSystem.on_mouse_move_events, &node->node);
+        Hashmap_Delete(&GUI.eventSystem.on_mouse_move_events, &node);
     }
     if (node->eventFlags & NU_EVENT_FLAG_ON_MOUSE_IN) {
-        Hashmap_Delete(&GUI.eventSystem.on_mouse_in_events, &node->node);
+        Hashmap_Delete(&GUI.eventSystem.on_mouse_in_events, &node);
     }
     if (node->eventFlags & NU_EVENT_FLAG_ON_MOUSE_OUT) {
-        Hashmap_Delete(&GUI.eventSystem.on_mouse_out_events, &node->node);
+        Hashmap_Delete(&GUI.eventSystem.on_mouse_out_events, &node);
     }
     if (node->eventFlags & NU_EVENT_FLAG_ON_INPUT_FOCUS) {
-        Hashmap_Delete(&GUI.eventSystem.on_input_focus_events, &node->node);
+        Hashmap_Delete(&GUI.eventSystem.on_input_focus_events, &node);
     }
     if (node->eventFlags & NU_EVENT_FLAG_ON_INPUT_DEFOCUS) {
-        Hashmap_Delete(&GUI.eventSystem.on_input_defocus_events, &node->node);
+        Hashmap_Delete(&GUI.eventSystem.on_input_defocus_events, &node);
     }
 }
 
-void NU_Unregister_All_Iterated_Events(NodeP* node)
+void NU_Unregister_All_Iterated_Events(Node* node)
 {
     if (node->eventFlags & NU_EVENT_FLAG_ON_RESIZE) {
-        Hashmap_Delete(&GUI.eventSystem.on_resize_events, &node->node);
-        Hashmap_Delete(&GUI.eventSystem.node_resize_tracking, &node->node);
+        Hashmap_Delete(&GUI.eventSystem.on_resize_events, &node);
+        Hashmap_Delete(&GUI.eventSystem.node_resize_tracking, &node);
     }
     if (node->eventFlags & NU_EVENT_FLAG_ON_MOUSE_UP) {
-        Hashmap_Delete(&GUI.eventSystem.on_mouse_up_events, &node->node);
+        Hashmap_Delete(&GUI.eventSystem.on_mouse_up_events, &node);
     }
     if (node->eventFlags & NU_EVENT_FLAG_ON_MOUSE_MOVED) {
-        Hashmap_Delete(&GUI.eventSystem.on_mouse_move_events, &node->node);
+        Hashmap_Delete(&GUI.eventSystem.on_mouse_move_events, &node);
     }
     if (node->eventFlags & NU_EVENT_FLAG_ON_MOUSE_WHEEL) {
-        Hashmap_Delete(&GUI.eventSystem.on_mouse_wheel_events, &node->node);
+        Hashmap_Delete(&GUI.eventSystem.on_mouse_wheel_events, &node);
     }
     if (node->eventFlags & NU_EVENT_FLAG_ON_KEY_DOWN) {
-        Hashmap_Delete(&GUI.eventSystem.on_input_defocus_events, &node->node);
+        Hashmap_Delete(&GUI.eventSystem.on_input_defocus_events, &node);
     }
     if (node->eventFlags & NU_EVENT_FLAG_ON_KEY_UP) {
-        Hashmap_Delete(&GUI.eventSystem.on_input_defocus_events, &node->node);
+        Hashmap_Delete(&GUI.eventSystem.on_input_defocus_events, &node);
     }
     if (node->eventFlags & NU_EVENT_FLAG_ON_TYPE) {
-        Hashmap_Delete(&GUI.eventSystem.on_type_events, &node->node);
+        Hashmap_Delete(&GUI.eventSystem.on_type_events, &node);
     }
 }
 
-void TriggerOnMouseOutEvent(NodeP* nodeP, float mouseX, float mouseY)
+void NU_DissociateNode(Node* node)
 {
-    if (nodeP->eventFlags & NU_EVENT_FLAG_ON_MOUSE_OUT) {
-        Node* node = &nodeP->node;
+    NU_Unregister_All_Non_Iterated_Events(node);
+
+    switch(node->type) {
+        case NU_TYPE_WINDOW:
+            WindowManager_DeleteSubwindow(&GUI.winManager, node);
+            break;
+        case NU_TYPE_CANVAS:
+            NU_DeleteCanvasContext(node->special.canvas.ctxHandle);
+            break;
+        case NU_TYPE_INPUT: {
+            InputText* inputText = Container_Get(&GUI.textInputs, node->special.input.textInputHandle);
+            InputText_Free(inputText);
+            Container_Remove(&GUI.textInputs, node->special.input.textInputHandle);
+            break;
+        }
+        default:
+            break;
+    }
+    if (node->id != NULL) {
+        Stringmap_Delete(&GUI.id_node_map, node->id);
+    }
+    if (node == GUI.hovered_node) {
+        GUI.hovered_node = NULL;
+    }
+    if (node == GUI.mouse_down_node) {
+        GUI.mouse_down_node = NULL;
+    }
+    if (node == GUI.scroll_hovered_node) {
+        GUI.scroll_hovered_node = NULL;
+    }
+    if (node == GUI.scroll_mouse_down_node) {
+        GUI.scroll_mouse_down_node = NULL;
+    }
+    if (node == GUI.focused_node) {
+        GUI.focused_node = NULL;
+    }
+
+    if (node->widgetID != -1) {
+        Container_Remove(&GUI.widgets, node->widgetID);
+    }
+}
+
+void TriggerOnMouseOutEvent(Node* node, float mouseX, float mouseY)
+{
+    if (node->eventFlags & NU_EVENT_FLAG_ON_MOUSE_OUT) {
         void* found_cb = Hashmap_Get(&GUI.eventSystem.on_mouse_out_events, &node);
         if (found_cb != NULL) {
             struct NU_EventCallbackInfo* cb_info = (struct NU_EventCallbackInfo*)found_cb;
@@ -196,15 +239,20 @@ void TriggerOnMouseOutEvent(NodeP* nodeP, float mouseX, float mouseY)
             cb_info->event.mouse.deltaX = 0.0f;
             cb_info->event.mouse.deltaY = 0.0f;
             cb_info->event.mouse.wheelDelta = 0.0f;
-            cb_info->callback(cb_info->event, cb_info->args);
+            if (cb_info->callback) cb_info->callback(cb_info->event, cb_info->args);
+
+            // Run widget update function (if widget is bound)
+            if (cb_info->widgetID >= 0) {
+                NU_Widget* widget = Container_Get(&GUI.widgets, cb_info->widgetID);
+                widget->updateCB(&widget->root->public.common, widget->updateCB_Args);
+            }
         }
     }
 }
 
-void TriggerOnMouseInEvent(NodeP* nodeP, float mouseX, float mouseY)
+void TriggerOnMouseInEvent(Node* node, float mouseX, float mouseY)
 {
-    if (nodeP->eventFlags & NU_EVENT_FLAG_ON_MOUSE_IN) {
-        Node* node = &nodeP->node;
+    if (node->eventFlags & NU_EVENT_FLAG_ON_MOUSE_IN) {
         void* found_cb = Hashmap_Get(&GUI.eventSystem.on_mouse_in_events, &node);
         if (found_cb != NULL) {
             struct NU_EventCallbackInfo* cb_info = (struct NU_EventCallbackInfo*)found_cb;
@@ -214,16 +262,21 @@ void TriggerOnMouseInEvent(NodeP* nodeP, float mouseX, float mouseY)
             cb_info->event.mouse.deltaX = 0.0f;
             cb_info->event.mouse.deltaY = 0.0f;
             cb_info->event.mouse.wheelDelta = 0.0f;
-            cb_info->callback(cb_info->event, cb_info->args);
+            if (cb_info->callback) cb_info->callback(cb_info->event, cb_info->args);
+
+            // Run widget update function (if widget is bound)
+            if (cb_info->widgetID >= 0) {
+                NU_Widget* widget = Container_Get(&GUI.widgets, cb_info->widgetID);
+                widget->updateCB(&widget->root->public.common, widget->updateCB_Args);
+            }
         }
     }
 }
 
-void TriggerOnMouseDownEvent(NodeP* nodeP, float mouseX, float mouseY, int mouseBtn)
+void TriggerOnMouseDownEvent(Node* node, float mouseX, float mouseY, int mouseBtn)
 {
-    if (nodeP->eventFlags & NU_EVENT_FLAG_ON_MOUSE_DOWN)
+    if (node->eventFlags & NU_EVENT_FLAG_ON_MOUSE_DOWN)
     {
-        Node* node = &nodeP->node;
         void* found_cb = Hashmap_Get(&GUI.eventSystem.on_mouse_down_events, &node);
         if (found_cb != NULL)
         {
@@ -231,71 +284,102 @@ void TriggerOnMouseDownEvent(NodeP* nodeP, float mouseX, float mouseY, int mouse
             cb_info->event.mouse.mouseBtn = mouseBtn;
             cb_info->event.mouse.mouseX = mouseX;
             cb_info->event.mouse.mouseY = mouseY;
-            cb_info->callback(cb_info->event, cb_info->args);
+            if (cb_info->callback) cb_info->callback(cb_info->event, cb_info->args);
+
+            // Run widget update function (if widget is bound)
+            if (cb_info->widgetID >= 0) {
+                NU_Widget* widget = Container_Get(&GUI.widgets, cb_info->widgetID);
+                widget->updateCB(&widget->root->public.common, widget->updateCB_Args);
+            }
         }
     }
 }
 
-void TriggerOnClickEvent(NodeP* nodeP, float mouseX, float mouseY, int mouseBtn)
+void TriggerOnClickEvent(Node* node, float mouseX, float mouseY, int mouseBtn)
 {
-    if (nodeP->eventFlags & NU_EVENT_FLAG_ON_CLICK) {
-        Node* node = &nodeP->node;
+    if (node->eventFlags & NU_EVENT_FLAG_ON_CLICK) {
         void* found_cb = Hashmap_Get(&GUI.eventSystem.on_click_events, &node);
         if (found_cb != NULL) {
             struct NU_EventCallbackInfo* cb_info = (struct NU_EventCallbackInfo*)found_cb;
             cb_info->event.mouse.mouseBtn = mouseBtn;
             cb_info->event.mouse.mouseX = mouseX;
             cb_info->event.mouse.mouseY = mouseY;
-            cb_info->callback(cb_info->event, cb_info->args);
+            if (cb_info->callback) cb_info->callback(cb_info->event, cb_info->args);
+
+            // Run widget update function (if widget is bound)
+            if (cb_info->widgetID >= 0) {
+                NU_Widget* widget = Container_Get(&GUI.widgets, cb_info->widgetID);
+                widget->updateCB(&widget->root->public.common, widget->updateCB_Args);
+            }
         }
     }
 }
 
-void TriggerOnScrollEvent(NodeP* nodeP)
+void TriggerOnScrollEvent(Node* node)
 {
-    if (nodeP->eventFlags & NU_EVENT_FLAG_ON_SCROLL) {
-        Node* node = &nodeP->node;
+    if (node->eventFlags & NU_EVENT_FLAG_ON_SCROLL) {
         void* found_cb = Hashmap_Get(&GUI.eventSystem.on_scroll_events, &node);
         if (found_cb != NULL) {
             struct NU_EventCallbackInfo* cb_info = (struct NU_EventCallbackInfo*)found_cb;
-            cb_info->callback(cb_info->event, cb_info->args);
+            if (cb_info->callback) cb_info->callback(cb_info->event, cb_info->args);
+
+            // Run widget update function (if widget is bound)
+            if (cb_info->widgetID >= 0) {
+                NU_Widget* widget = Container_Get(&GUI.widgets, cb_info->widgetID);
+                widget->updateCB(&widget->root->public.common, widget->updateCB_Args);
+            }
         }
     }
 }
 
-void TriggerOnInputFocusEvent(NodeP* nodeP)
+void TriggerOnInputFocusEvent(Node* node)
 {
-    if (nodeP->eventFlags & NU_EVENT_FLAG_ON_INPUT_FOCUS) {
-        Node* node = &nodeP->node;
+    if (node->eventFlags & NU_EVENT_FLAG_ON_INPUT_FOCUS) {
         void* found_cb = Hashmap_Get(&GUI.eventSystem.on_input_focus_events, &node);
         if (found_cb != NULL) {
             struct NU_EventCallbackInfo* cb_info = (struct NU_EventCallbackInfo*)found_cb;
-            cb_info->callback(cb_info->event, cb_info->args);
+            if (cb_info->callback) cb_info->callback(cb_info->event, cb_info->args);
+
+            // Run widget update function (if widget is bound)
+            if (cb_info->widgetID >= 0) {
+                NU_Widget* widget = Container_Get(&GUI.widgets, cb_info->widgetID);
+                widget->updateCB(&widget->root->public.common, widget->updateCB_Args);
+            }
         }
     }
 }
 
-void TriggerOnInputDefocusEvent(NodeP* nodeP)
+void TriggerOnInputDefocusEvent(Node* node)
 {
-    if (nodeP->eventFlags & NU_EVENT_FLAG_ON_INPUT_DEFOCUS) {
-        Node* node = &nodeP->node;
+    if (node->eventFlags & NU_EVENT_FLAG_ON_INPUT_DEFOCUS) {
         void* found_cb = Hashmap_Get(&GUI.eventSystem.on_input_defocus_events, &node);
         if (found_cb != NULL) {
             struct NU_EventCallbackInfo* cb_info = (struct NU_EventCallbackInfo*)found_cb;
-            cb_info->callback(cb_info->event, cb_info->args);
+            if (cb_info->callback) cb_info->callback(cb_info->event, cb_info->args);
+
+            // Run widget update function (if widget is bound)
+            if (cb_info->widgetID >= 0) {
+                NU_Widget* widget = Container_Get(&GUI.widgets, cb_info->widgetID);
+                widget->updateCB(&widget->root->public.common, widget->updateCB_Args);
+            }
         }
     }
 }
 
-void TriggerOnInputChangedEvent(NodeP* nodeP, const char* text)
+void TriggerOnInputChangedEvent(Node* node, const char* text)
 {
-    if (nodeP->eventFlags & NU_EVENT_FLAG_ON_INPUT_CHANGED) {
-        Node* node = &nodeP->node;
+    if (node->eventFlags & NU_EVENT_FLAG_ON_INPUT_CHANGED) {
         void* found_cb = Hashmap_Get(&GUI.eventSystem.on_input_changed_events, &node);
         if (found_cb != NULL) {
             struct NU_EventCallbackInfo* cb_info = (struct NU_EventCallbackInfo*)found_cb;
             strcpy(cb_info->event.input.text, text);
-            cb_info->callback(cb_info->event, cb_info->args);
+            if (cb_info->callback) cb_info->callback(cb_info->event, cb_info->args);
+
+            // Run widget update function (if widget is bound)
+            if (cb_info->widgetID >= 0) {
+                NU_Widget* widget = Container_Get(&GUI.widgets, cb_info->widgetID);
+                widget->updateCB(&widget->root->public.common, widget->updateCB_Args);
+            }
         }
     }
 }
@@ -320,8 +404,7 @@ void CheckForResizeEvents()
             struct NU_EventCallbackInfo* cb_info = (struct NU_EventCallbackInfo*)val;
 
             // Skip if node was recently deleted
-            NodeP* nodeP = NODEP_OF(node);
-            if (NodeStateDeleted(nodeP)) continue;
+            if (NodeStateDeleted(node)) continue;
 
             // Get current dimensions
             void* dims_get = Hashmap_Get(resizeTrackingHmap, &node);
@@ -331,7 +414,13 @@ void CheckForResizeEvents()
             if (dims->width != -1.0f && (node->width != dims->width || node->height != dims->height)) {
                 dims->width = node->width;
                 dims->height = node->height;
-                cb_info->callback(cb_info->event, cb_info->args);
+                if (cb_info->callback) cb_info->callback(cb_info->event, cb_info->args);
+
+                // Run widget update function (if widget is bound)
+                if (cb_info->widgetID >= 0) {
+                    NU_Widget* widget = Container_Get(&GUI.widgets, cb_info->widgetID);
+                    widget->updateCB(&widget->root->public.common, widget->updateCB_Args);
+                }
                 continue;
             }
 
@@ -359,8 +448,7 @@ void TriggerAllMouseupEvents(float mouseX, float mouseY, int mouseBtn)
             struct NU_EventCallbackInfo* cb_info = (struct NU_EventCallbackInfo*)val;
 
             // Skip if node was recently deleted
-            NodeP* nodeP = NODEP_OF(node);
-            if (NodeStateDeleted(nodeP)) continue;
+            if (NodeStateDeleted(node)) continue;
 
             // Set calback event values and trigger
             cb_info->event.mouse.mouseBtn = mouseBtn;
@@ -369,7 +457,13 @@ void TriggerAllMouseupEvents(float mouseX, float mouseY, int mouseBtn)
             cb_info->event.mouse.deltaX = 0.0f;
             cb_info->event.mouse.deltaY = 0.0f;
             cb_info->event.mouse.wheelDelta = 0.0f;
-            cb_info->callback(cb_info->event, cb_info->args);
+            if (cb_info->callback) cb_info->callback(cb_info->event, cb_info->args);
+
+            // Run widget update function (if widget is bound)
+            if (cb_info->widgetID >= 0) {
+                NU_Widget* widget = Container_Get(&GUI.widgets, cb_info->widgetID);
+                widget->updateCB(&widget->root->public.common, widget->updateCB_Args);
+            }
         }
     }
 }
@@ -389,8 +483,7 @@ void TriggerAllMouseMoveEvents(float mouseX, float mouseY, float mouseDeltaX, fl
             struct NU_EventCallbackInfo* cb_info = (struct NU_EventCallbackInfo*)val;
 
             // Skip if node was recently deleted
-            NodeP* nodeP = NODEP_OF(node);
-            if (NodeStateDeleted(nodeP)) continue;
+            if (NodeStateDeleted(node)) continue;
 
             // Set callback event values and trigger
             cb_info->event.mouse.mouseBtn = -1;
@@ -399,7 +492,13 @@ void TriggerAllMouseMoveEvents(float mouseX, float mouseY, float mouseDeltaX, fl
             cb_info->event.mouse.deltaX = mouseDeltaX;
             cb_info->event.mouse.deltaY = mouseDeltaY;
             cb_info->event.mouse.wheelDelta = 0.0f;
-            cb_info->callback(cb_info->event, cb_info->args);
+            if (cb_info->callback) cb_info->callback(cb_info->event, cb_info->args);
+
+            // Run widget update function (if widget is bound)
+            if (cb_info->widgetID >= 0) {
+                NU_Widget* widget = Container_Get(&GUI.widgets, cb_info->widgetID);
+                widget->updateCB(&widget->root->public.common, widget->updateCB_Args);
+            }
         }
     }
 }
@@ -419,12 +518,17 @@ void TriggerAllMouseWheelEvents(float wheelDelta)
             struct NU_EventCallbackInfo* cb_info = (struct NU_EventCallbackInfo*)val;
 
             // Skip if node was recently deleted
-            NodeP* nodeP = NODEP_OF(node);
-            if (NodeStateDeleted(nodeP)) continue;
+            if (NodeStateDeleted(node)) continue;
 
             // Set calback event values and trigger
             cb_info->event.mouse.wheelDelta = wheelDelta;
-            cb_info->callback(cb_info->event, cb_info->args);
+            if (cb_info->callback) cb_info->callback(cb_info->event, cb_info->args);
+
+            // Run widget update function (if widget is bound)
+            if (cb_info->widgetID >= 0) {
+                NU_Widget* widget = Container_Get(&GUI.widgets, cb_info->widgetID);
+                widget->updateCB(&widget->root->public.common, widget->updateCB_Args);
+            }
         }
     }
 }
@@ -444,8 +548,7 @@ void TriggerAllMouseDownOutsideEvents(float mouseX, float mouseY, int mouseBtn)
             struct NU_EventCallbackInfo* cb_info = (struct NU_EventCallbackInfo*)val;
 
             // Skip if node was recently deleted OR node is hovered
-            NodeP* nodeP = NODEP_OF(node);
-            if (NodeStateDeleted(nodeP) || node == &GUI.hovered_node->node) continue;
+            if (NodeStateDeleted(node) || node == GUI.hovered_node) continue;
 
             // Set calback event values and trigger
             cb_info->event.mouse.mouseBtn = mouseBtn;
@@ -454,7 +557,13 @@ void TriggerAllMouseDownOutsideEvents(float mouseX, float mouseY, int mouseBtn)
             cb_info->event.mouse.deltaX = 0.0f;
             cb_info->event.mouse.deltaY = 0.0f;
             cb_info->event.mouse.wheelDelta = 0.0f;
-            cb_info->callback(cb_info->event, cb_info->args);
+            if (cb_info->callback) cb_info->callback(cb_info->event, cb_info->args);
+
+            // Run widget update function (if widget is bound)
+            if (cb_info->widgetID >= 0) {
+                NU_Widget* widget = Container_Get(&GUI.widgets, cb_info->widgetID);
+                widget->updateCB(&widget->root->public.common, widget->updateCB_Args);
+            }
         }
     }
 }
@@ -474,13 +583,18 @@ void TriggerAllOnKeyDownEvents(SDL_Keycode keycode, bool repeat)
             struct NU_EventCallbackInfo* cb_info = (struct NU_EventCallbackInfo*)val;
 
             // Skip if node was recently deleted
-            NodeP* nodeP = NODEP_OF(node);
-            if (NodeStateDeleted(nodeP)) continue;
+            if (NodeStateDeleted(node)) continue;
 
             // Set calback event values and trigger
             cb_info->event.keypress.keycode = keycode;
             cb_info->event.keypress.repeat = repeat;
-            cb_info->callback(cb_info->event, cb_info->args);
+            if (cb_info->callback) cb_info->callback(cb_info->event, cb_info->args);
+
+            // Run widget update function (if widget is bound)
+            if (cb_info->widgetID >= 0) {
+                NU_Widget* widget = Container_Get(&GUI.widgets, cb_info->widgetID);
+                widget->updateCB(&widget->root->public.common, widget->updateCB_Args);
+            }
         }
     }
 }
@@ -500,13 +614,18 @@ void TriggerAllOnKeyUpEvents(SDL_Keycode keycode, bool repeat)
             struct NU_EventCallbackInfo* cb_info = (struct NU_EventCallbackInfo*)val;
 
             // Skip if node was recently deleted
-            NodeP* nodeP = NODEP_OF(node);
-            if (NodeStateDeleted(nodeP)) continue;
+            if (NodeStateDeleted(node)) continue;
 
             // Set calback event values and trigger
             cb_info->event.keypress.keycode = keycode;
             cb_info->event.keypress.repeat = repeat;
-            cb_info->callback(cb_info->event, cb_info->args);
+            if (cb_info->callback) cb_info->callback(cb_info->event, cb_info->args);
+
+            // Run widget update function (if widget is bound)
+            if (cb_info->widgetID >= 0) {
+                NU_Widget* widget = Container_Get(&GUI.widgets, cb_info->widgetID);
+                widget->updateCB(&widget->root->public.common, widget->updateCB_Args);
+            }
         }
     }
 }
@@ -526,12 +645,17 @@ void TriggerAllOnTypeEvents(const char* text)
             struct NU_EventCallbackInfo* cb_info = (struct NU_EventCallbackInfo*)val;
 
             // Skip if node was recently deleted
-            NodeP* nodeP = NODEP_OF(node);
-            if (NodeStateDeleted(nodeP)) continue;
+            if (NodeStateDeleted(node)) continue;
 
             // Set calback event values and trigger
             strcpy(cb_info->event.type.text, text);
-            cb_info->callback(cb_info->event, cb_info->args);
+            if (cb_info->callback) cb_info->callback(cb_info->event, cb_info->args);
+
+            // Run widget update function (if widget is bound)
+            if (cb_info->widgetID >= 0) {
+                NU_Widget* widget = Container_Get(&GUI.widgets, cb_info->widgetID);
+                widget->updateCB(&widget->root->public.common, widget->updateCB_Args);
+            }
         }
     }
 }

@@ -29,7 +29,7 @@ bool EventWatcher(void* data, SDL_Event* event)
     else if (event->type == SDL_EVENT_WINDOW_DISPLAY_CHANGED)
     {
         SDL_Window* window = SDL_GetWindowFromID(event->window.windowID);
-        NodeP* windowNode = GetWindowNodeFromSDL_Window(&GUI.winManager, window);
+        Node* windowNode = GetWindowNodeFromSDL_Window(&GUI.winManager, window);
         NU_Window* win = GetNodeWindow(&GUI.winManager, windowNode);
 
         int prevScreenWidth = win->screenWidth;
@@ -55,9 +55,9 @@ bool EventWatcher(void* data, SDL_Event* event)
         // if in text edit mode
         if (GUI.focused_node != NULL)
         {
-            NodeP* inputNode = GUI.focused_node;
+            Node* inputNode = GUI.focused_node;
             NU_Font* font = Stylesheet_Get_Font(&GUI.stylesheet, inputNode->fontId);
-            InputText* inputText = Container_Get(&GUI.textInputs, inputNode->typeData.input.textInputHandle);
+            InputText* inputText = Container_Get(&GUI.textInputs, inputNode->special.input.textInputHandle);
             SDL_Keymod mods = event->key.mod;
 
             bool textChanged = false;
@@ -160,7 +160,7 @@ bool EventWatcher(void* data, SDL_Event* event)
 
         if (GUI.focused_node != NULL) {
             NU_Font* font = Stylesheet_Get_Font(&GUI.stylesheet, GUI.focused_node->fontId);
-            InputText* inputText = Container_Get(&GUI.textInputs, GUI.focused_node->typeData.input.textInputHandle);
+            InputText* inputText = Container_Get(&GUI.textInputs, GUI.focused_node->special.input.textInputHandle);
 
             int updated = 0;
             if (InputText_IsHighlighting(inputText)) {
@@ -197,17 +197,17 @@ bool EventWatcher(void* data, SDL_Event* event)
         if (GUI.scroll_mouse_down_node != NULL)
         {
             // Compute scrollV
-            NodeP* node = GUI.scroll_mouse_down_node;
+            Node* node = GUI.scroll_mouse_down_node;
             Stylesheet_Scrollbar_Style* scrollbarStyle = &GUI.stylesheet.scrollbarStyle;
-            Node* n = &node->node;
-            float trackHeight = n->height - n->borderTop - n->borderBottom;
+            NuNodeGeneric* n = &node->public.generic;
+            float trackHeight = node->height - n->borderTop - n->borderBottom;
             float usableTrackHeight = trackHeight - scrollbarStyle->trackPadTop - scrollbarStyle->trackPadBottom;
-            float scrollContentHeight = n->contentHeight;
+            float scrollContentHeight = node->contentHeight;
             float scrollViewHeight = usableTrackHeight - n->padTop - n->padBottom;
             float scrollScaleFactor = scrollViewHeight / scrollContentHeight;
-            float thumbHeight = fmaxf(scrollViewHeight / n->contentHeight * usableTrackHeight, scrollbarStyle->thumbMinSize);
+            float thumbHeight = fmaxf(scrollViewHeight / node->contentHeight * usableTrackHeight, scrollbarStyle->thumbMinSize);
             float scrollTravel = usableTrackHeight - thumbHeight;
-            float trackY = n->y + n->borderTop;
+            float trackY = node->y + n->borderTop;
             float thumbY = trackY + scrollbarStyle->trackPadTop + node->scrollV * scrollTravel;
             float trackTop = trackY + scrollbarStyle->trackPadTop;
             float dragDist = (mouseY - GUI.v_scroll_thumb_grab_offset) - trackTop;
@@ -225,9 +225,9 @@ bool EventWatcher(void* data, SDL_Event* event)
 
         // if focused on text input -> update highlighting
         if (GUI.focused_node != NULL) {
-            NodeP* node = GUI.focused_node;
+            Node* node = GUI.focused_node;
             NU_Font* font = Stylesheet_Get_Font(&GUI.stylesheet, node->fontId);
-            InputText* inputText = Container_Get(&GUI.textInputs, node->typeData.input.textInputHandle);
+            InputText* inputText = Container_Get(&GUI.textInputs, node->special.input.textInputHandle);
             if (InputText_MouseDrag(inputText, node, font, mouseX)) {
                 GUI.awaiting_redraw = true;
             }
@@ -283,8 +283,8 @@ bool EventWatcher(void* data, SDL_Event* event)
         }
 
         // Update focused node and prev focused node
-        NodeP* prevFocusedNode = GUI.focused_node;
-        if (GUI.hovered_node && GUI.hovered_node->type == NU_INPUT) {
+        Node* prevFocusedNode = GUI.focused_node;
+        if (GUI.hovered_node && GUI.hovered_node->type == NU_TYPE_INPUT) {
             GUI.focused_node = GUI.hovered_node;
         }
         else {
@@ -295,7 +295,7 @@ bool EventWatcher(void* data, SDL_Event* event)
         if (GUI.focused_node != NULL)
         {
             NU_Font* font = Stylesheet_Get_Font(&GUI.stylesheet, GUI.focused_node->fontId);
-            InputText* inputText = Container_Get(&GUI.textInputs, GUI.focused_node->typeData.input.textInputHandle);
+            InputText* inputText = Container_Get(&GUI.textInputs, GUI.focused_node->special.input.textInputHandle);
 
             if (GUI.focused_node != prevFocusedNode) {
                 InputText_MousePlaceCursor(inputText, GUI.focused_node, font, mouseX);
@@ -310,9 +310,9 @@ bool EventWatcher(void* data, SDL_Event* event)
         }
 
         // Defocus prev focused input node
-        if (prevFocusedNode != NULL && prevFocusedNode->type == NU_INPUT && prevFocusedNode != GUI.focused_node)
+        if (prevFocusedNode != NULL && prevFocusedNode->type == NU_TYPE_INPUT && prevFocusedNode != GUI.focused_node)
         {
-            InputText* inputText = Container_Get(&GUI.textInputs, prevFocusedNode->typeData.input.textInputHandle);
+            InputText* inputText = Container_Get(&GUI.textInputs, prevFocusedNode->special.input.textInputHandle);
 
             InputText_Defocus(inputText);
 
@@ -380,7 +380,7 @@ bool EventWatcher(void* data, SDL_Event* event)
 
         // if focused on input text node
         if (GUI.focused_node != NULL) {
-            InputText* inputText = Container_Get(&GUI.textInputs, GUI.focused_node->typeData.input.textInputHandle);
+            InputText* inputText = Container_Get(&GUI.textInputs, GUI.focused_node->special.input.textInputHandle);
             InputText_MouseUp(inputText);
             GUI.awaiting_redraw = true;
         }
@@ -391,17 +391,17 @@ bool EventWatcher(void* data, SDL_Event* event)
     else if (event->type == SDL_EVENT_MOUSE_WHEEL)
     {
         // If scrolling
-        NodeP* node = GUI.scroll_hovered_node;
+        Node* node = GUI.scroll_hovered_node;
         if (node != NULL)
         {
             NU_Mouse_Hover();
 
             // Update scrollV
             Stylesheet_Scrollbar_Style* scrollbarStyle = &GUI.stylesheet.scrollbarStyle;
-            Node* n = &node->node;
-            float trackHeight = n->height - n->borderTop - n->borderBottom;
+            NuNodeGeneric* n = &node->public.generic;
+            float trackHeight = node->height - n->borderTop - n->borderBottom;
             float usableTrackHeight = trackHeight - scrollbarStyle->trackPadTop - scrollbarStyle->trackPadBottom;
-            node->scrollV -= event->wheel.y * (usableTrackHeight / node->node.contentHeight) * 0.12f;
+            node->scrollV -= event->wheel.y * (usableTrackHeight / node->contentHeight) * 0.12f;
             node->scrollV = min(max(node->scrollV, 0.0f), 1.0f); // Clamp to range [0,1]
             TriggerOnScrollEvent(node);
             GUI.awaiting_redraw = true;

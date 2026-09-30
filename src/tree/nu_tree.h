@@ -10,7 +10,7 @@
 typedef struct Tree
 {
     Nalloc* layerAllocs;
-    NodeP* root;
+    Node* root;
     u32 layerAllocsCapacity;
     u32 depth;
     u32 nodeCount;
@@ -18,9 +18,9 @@ typedef struct Tree
     Array deletedButNotFreedNodes;
 } Tree;
 
-typedef void (*TreeDeleteCallback)(NodeP* node);
+typedef void (*TreeDeleteCallback)(Node* node);
 
-NodeP* TreeCreate(Tree* tree, NodeType rootType)
+Node* TreeCreate(Tree* tree)
 {
     // create layer allocators
     tree->layerAllocsCapacity = 4;
@@ -31,25 +31,17 @@ NodeP* TreeCreate(Tree* tree, NodeType rootType)
         else Nalloc_Init(&tree->layerAllocs[i], 100);
     }
 
-    Array_Init(&tree->deletedButNotFreedNodes, sizeof(NodeP*), 25);
-    Array_Init(&tree->deleteStack, sizeof(NodeP*), 100);
+    Array_Init(&tree->deletedButNotFreedNodes, sizeof(Node*), 25);
+    Array_Init(&tree->deleteStack, sizeof(Node*), 100);
 
     // member variables
     tree->depth = 1;
     tree->nodeCount = 1;
 
     // create root node
-    NodeP* root = Nalloc_Alloc(&tree->layerAllocs[0]);
-    root->type = rootType;
-    root->parent = NULL;
-    root->nextSibling = NULL;
-    root->firstChild = NULL;
-    root->lastChild = NULL;
-    root->clippedAncestor = NULL;
-    root->childCount = 0;
-    root->layer = 0;
-    root->stateFlags = 0;
-    NU_ApplyNodeDefaults(root);
+    Node* root = Nalloc_Alloc(&tree->layerAllocs[0]);
+    NU_ApplyNodeDefaults(root, NULL, NU_TYPE_WINDOW, 0);
+
     tree->root = root;
     return root;
 }
@@ -74,7 +66,7 @@ void TreeAddLayer(Tree* tree)
     tree->layerAllocsCapacity = newCapacity;
 }
 
-NodeP* TreeCreateNode(Tree* tree, NodeP* parent, NodeType type)
+Node* TreeCreateNode(Tree* tree, Node* parent, u8 type)
 {
     // add additional layer allocator if necessary
     if (parent->layer + 1 == tree->layerAllocsCapacity) {
@@ -87,17 +79,8 @@ NodeP* TreeCreateNode(Tree* tree, NodeP* parent, NodeType type)
 
     // allocate new node
     Nalloc* nalloc = &tree->layerAllocs[parent->layer + 1];
-    NodeP* newNode = Nalloc_Alloc(nalloc);
-    newNode->type = type;
-    newNode->parent = parent;
-    newNode->nextSibling = NULL;
-    newNode->firstChild = NULL;
-    newNode->lastChild = NULL;
-    newNode->clippedAncestor = NULL;
-    newNode->childCount = 0;
-    newNode->layer = parent->layer + 1;
-    newNode->stateFlags = 0;
-    NU_ApplyNodeDefaults(newNode);
+    Node* newNode = Nalloc_Alloc(nalloc);
+    NU_ApplyNodeDefaults(newNode, parent, type, parent->layer + 1);
 
     // parent has no children
     if (parent->firstChild == NULL) {
@@ -115,10 +98,10 @@ NodeP* TreeCreateNode(Tree* tree, NodeP* parent, NodeType type)
     return newNode;
 }
 
-void TreeShiftNodeInParent(Tree* tree, NodeP* node, int index)
+void TreeShiftNodeInParent(Tree* tree, Node* node, int index)
 {
     if (!node || !node->parent) return;
-    NodeP* parent = node->parent;
+    Node* parent = node->parent;
 
     if (parent->childCount <= 1) return;
 
@@ -128,7 +111,7 @@ void TreeShiftNodeInParent(Tree* tree, NodeP* node, int index)
 
     // Find current index
     int currentIndex = 0;
-    NodeP* it = parent->firstChild;
+    Node* it = parent->firstChild;
     while (it && it != node) {
         it = it->nextSibling;
         currentIndex++;
@@ -137,7 +120,7 @@ void TreeShiftNodeInParent(Tree* tree, NodeP* node, int index)
     if (!it) return;                 // not found (shouldn't happen)
     if (currentIndex == index) return;  // already in position
 
-    // Detach from sibling chain 
+    // Detach from sibling chain
     if (node->prevSibling) node->prevSibling->nextSibling = node->nextSibling;
     else parent->firstChild = node->nextSibling;
 
@@ -154,9 +137,9 @@ void TreeShiftNodeInParent(Tree* tree, NodeP* node, int index)
         parent->firstChild = node;
     }
     else {
-        NodeP* at = parent->firstChild;
-        for (int i=0; i<index; i++) { 
-            at = at->nextSibling; 
+        Node* at = parent->firstChild;
+        for (int i=0; i<index; i++) {
+            at = at->nextSibling;
         }
         node->prevSibling = at->prevSibling;
         node->nextSibling = at;
@@ -167,20 +150,20 @@ void TreeShiftNodeInParent(Tree* tree, NodeP* node, int index)
     if (index == parent->childCount - 1) parent->lastChild = node;
 }
 
-void TreeReparentNode(Tree* tree, NodeP* node, NodeP* newParent)
+void TreeReparentNode(Tree* tree, Node* node, Node* newParent)
 {
     if (!node || !newParent) return;
     if (node->parent == newParent) return;
     if (node == newParent) return;
 
     // Guard: ensure newParent is not a descendant of node
-    NodeP* ancestor = newParent->parent;
+    Node* ancestor = newParent->parent;
     while (ancestor != NULL) {
         if (ancestor == node) return;
         ancestor = ancestor->parent;
     }
 
-    NodeP* oldParent = node->parent;
+    Node* oldParent = node->parent;
 
     // Detach from old parent's sibling chain
     if (node->prevSibling) node->prevSibling->nextSibling = node->nextSibling;
@@ -197,7 +180,7 @@ void TreeReparentNode(Tree* tree, NodeP* node, NodeP* newParent)
     node->nextSibling = NULL;
     node->clippedAncestor = NULL;
     node->layer = newParent->layer + 1;
-    if (node->type != NU_WINDOW) {
+    if (node->type != NU_TYPE_WINDOW) {
         node->windowID = newParent->windowID;
     }
 
@@ -212,14 +195,14 @@ void TreeReparentNode(Tree* tree, NodeP* node, NodeP* newParent)
     newParent->childCount++;
 }
 
-void TreeDeleteLeaf(Tree* tree, NodeP* leaf, TreeDeleteCallback deleteCB)
+void TreeDeleteLeaf(Tree* tree, Node* leaf, TreeDeleteCallback deleteCB)
 {
     tree->nodeCount--;
 
     // case 1: leaf node has no siblings
     if (leaf->parent->childCount == 1) {
-        leaf->parent->firstChild = NULL; 
-        leaf->parent->lastChild = NULL; 
+        leaf->parent->firstChild = NULL;
+        leaf->parent->lastChild = NULL;
         leaf->parent->childCount = 0;
     }
     // case 2: leaf is last child in parent
@@ -242,15 +225,15 @@ void TreeDeleteLeaf(Tree* tree, NodeP* leaf, TreeDeleteCallback deleteCB)
         }
         leaf->parent->childCount--;
     }
-    
+
     if (deleteCB != NULL) deleteCB(leaf);
 
     // Add to list of deleted but not freed nodes
-    Array_Push(&tree->deletedButNotFreedNodes, &leaf); 
+    Array_Push(&tree->deletedButNotFreedNodes, &leaf);
     leaf->stateFlags |= STATE_FLAG_DELETED;
 }
 
-void TreeDeleteNode(Tree* tree, NodeP* node, TreeDeleteCallback deleteCB)
+void TreeDeleteNode(Tree* tree, Node* node, TreeDeleteCallback deleteCB)
 {
     if (node->firstChild == NULL) {
         TreeDeleteLeaf(tree, node, deleteCB);
@@ -258,7 +241,7 @@ void TreeDeleteNode(Tree* tree, NodeP* node, TreeDeleteCallback deleteCB)
     }
 
     // push children only (NOT node itself)
-    NodeP* sib = node->firstChild;
+    Node* sib = node->firstChild;
     while (sib != NULL) {
         Array_Push(&tree->deleteStack, &sib);
         sib = sib->nextSibling;
@@ -271,11 +254,11 @@ void TreeDeleteNode(Tree* tree, NodeP* node, TreeDeleteCallback deleteCB)
 
     while (tree->deleteStack.size > 0) {
 
-        NodeP* cur = *(NodeP**)Array_Get(&tree->deleteStack, tree->deleteStack.size-1);
+        Node* cur = *(Node**)Array_Get(&tree->deleteStack, tree->deleteStack.size-1);
         tree->deleteStack.size--;
 
         // push children
-        NodeP* c = cur->firstChild;
+        Node* c = cur->firstChild;
         while (c != NULL) {
             Array_Push(&tree->deleteStack, &c);
             c = c->nextSibling;
@@ -295,7 +278,7 @@ void TreeDeleteNode(Tree* tree, NodeP* node, TreeDeleteCallback deleteCB)
 void TreeFreeDeleted(Tree* tree)
 {
     for (int i=0; i<tree->deletedButNotFreedNodes.size; i++) {
-        NodeP* deletedNode = *(NodeP**)Array_Get(&tree->deletedButNotFreedNodes, i);
+        Node* deletedNode = *(Node**)Array_Get(&tree->deletedButNotFreedNodes, i);
         Nalloc* nalloc = &tree->layerAllocs[deletedNode->layer];
         Nalloc_Free(nalloc, deletedNode);
     }

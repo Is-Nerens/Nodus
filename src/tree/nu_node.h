@@ -60,79 +60,158 @@
 #define PROPERTY_FLAG_INPUT_TYPE        (1ULL << 39)
 #define PROPERTY_FLAG_FONT              (1ULL << 40)
 
-#define NODEP_OF(ptr) ((NodeP *)((char *)(ptr) - offsetof(NodeP, node)))
+// Node type
+#define NU_TYPE_WINDOW 0
+#define NU_TYPE_BOX    1
+#define NU_TYPE_BUTTON 2
+#define NU_TYPE_INPUT  3
+#define NU_TYPE_CANVAS 4
+#define NU_TYPE_IMAGE  5
+#define NU_TYPE_TABLE  6
+#define NU_TYPE_THEAD  7
+#define NU_TYPE_ROW    8
+#define NU_TYPE_FRAME  9
+#define NU_TYPE_IMPORT 10
+#define NU_TYPE_UNKNOWN 11
 
-typedef enum NodeType
-{
-    NU_WINDOW, NU_BOX, NU_BUTTON,
-    NU_INPUT, NU_CANVAS, NU_IMAGE,
-    NU_TABLE, NU_THEAD, NU_ROW,
-    NU_FRAME, NU_IMPORT, NU_NAT
-} NodeType;
+// Get containing Node* of public node
+#define NODEP_OF(ptr)((Node*)((char*)(ptr) - offsetof(Node, public)))
 
-typedef struct InputTypeData {
+/* Members common to all node types */
+#define NU_NODE_FIELDS \
+    u16 preferredWidth, preferredHeight; \
+    u16 minWidth, maxWidth; \
+    u16 minHeight, maxHeight; \
+    i16 left, right, top, bottom; \
+    u8 gap; \
+    u8 padTop, padBottom, padLeft, padRight; \
+    u8 borderTop, borderBottom, borderLeft, borderRight; \
+    u8 borderRadiusTl, borderRadiusTr; \
+    u8 borderRadiusBl, borderRadiusBr; \
+    u8 backgroundR, backgroundG, backgroundB; \
+    u8 borderR, borderG, borderB; \
+    u8 textR, textG, textB;
+
+/* Node type definitions */
+typedef struct NuNode {
+    NU_NODE_FIELDS;
+} NuNode;
+
+typedef struct NuNodeGeneric {
+    NU_NODE_FIELDS;
+    char* textContent;
+} NuNodeGeneric;
+
+typedef struct NuWindow {
+    NU_NODE_FIELDS;
+    char* textContent;
+} NuWindow;
+
+typedef struct NuBox {
+    NU_NODE_FIELDS;
+    char* textContent;
+} NuBox;
+
+typedef struct NuButton {
+    NU_NODE_FIELDS;
+    char* textContent;
+} NuButton;
+
+typedef struct NuInput {
+    NU_NODE_FIELDS;
+} NuInput;
+
+typedef struct NuCanvas {
+    NU_NODE_FIELDS;
+} NuCanvas;
+
+typedef struct NuImage {
+    NU_NODE_FIELDS;
+} NuImage;
+
+typedef struct NuTable {
+    NU_NODE_FIELDS;
+} NuTable;
+
+typedef struct NuThead {
+    NU_NODE_FIELDS;
+} NuThead;
+
+typedef struct NuRow {
+    NU_NODE_FIELDS;
+} NuRow;
+
+typedef struct NuFrame {
+    NU_NODE_FIELDS;
+} NuFrame;
+
+typedef union PublicNodeStructUnion {
+    NuNodeGeneric generic;
+    NuNode common;
+    NuWindow window;
+    NuBox box;
+    NuButton button;
+    NuInput input;
+    NuCanvas canvas;
+    NuImage image;
+    NuTable table;
+    NuThead thead;
+    NuRow row;
+    NuFrame frame;
+} PublicNodeStructUnion;
+
+/* Node type-specific data */
+typedef struct NuInputData {
     int textInputHandle;
-} InputTypeData;
+} NuInputSpecial;
 
-typedef struct ImageTypeData {
+typedef struct NuImageSpecial {
     int imageHandle;
-} ImageTypeData;
+} NuImageSpecial;
 
-typedef struct CanvasTypeData {
+typedef struct NuCanvasSpecial {
     int ctxHandle;
-} CanvasTypeData;
+} NuCanvasSpecial;
 
+typedef union NodeSpecialDataUnion {
+    NuInputSpecial input;
+    NuImageSpecial image;
+    NuCanvasSpecial canvas;
+} NodeSpecialDataUnion;
 
-typedef union NodeTypeData {
-    InputTypeData input;
-    ImageTypeData image;
-    CanvasTypeData canvas;
-} NodeTypeData;
-
+/* Private node storing public and private members */
 typedef struct Node
 {
-    char* textContent;
     float x, y, width, height;
     float contentWidth, contentHeight;
-    u16 prefWidth, prefHeight;
-    u16 minWidth, maxWidth, minHeight, maxHeight;
-    i16 left, right, top, bottom;
-    u8 gap, padTop, padBottom, padLeft, padRight;
-    u8 borderTop, borderBottom, borderLeft, borderRight;
-    u8 borderRadiusTl, borderRadiusTr, borderRadiusBl, borderRadiusBr;
-    u8 backgroundR, backgroundG, backgroundB;
-    u8 borderR, borderG, borderB;
-    u8 textR, textG, textB;
-} Node;
-
-typedef struct NodeP
-{
-    Node node;
-    NodeType type;
-    NodeTypeData typeData; // 4 bytes
-    struct NodeP* parent;
-    struct NodeP* nextSibling;
-    struct NodeP* prevSibling;
-    struct NodeP* firstChild;
-    struct NodeP* lastChild;
-    struct NodeP* clippedAncestor;
+    float scrollX, scrollV;
+    PublicNodeStructUnion public;   // Publicly accesible to library user
+    struct Node* parent;
+    struct Node* nextSibling;      // Next sibling in linked-list style array
+    struct Node* prevSibling;      // Prev sibling in linked-list style array
+    struct Node* firstChild;       // First child in linked-list style child array
+    struct Node* lastChild;        // Last child in linked-list style child array
+    struct Node* clippedAncestor;  // Optional ancestor that has render clipping -> for calculating clipping union
     char* class;
     char* id;
-    u64 overrideStyleFlags;
-    float scrollX, scrollV;
+    u64 overrideStyleFlags;         // Bitflags determine which style properties ignore the stylesheet
+    NodeSpecialDataUnion special;   // Node type-specific data
+    int widgetID;
     u16 childCount;
-    u16 eventFlags;
-    u16 layoutFlags;
-    u8 layer;
-    u8 stateFlags;
-    u8 fontId;
-    u8 windowID;
-    u8 horizontalAlignment;
-    u8 verticalAlignment;
-    u8 horizontalTextAlignment;
-    u8 verticalTextAlignment;
-} NodeP;
+    u16 eventFlags;                 // Bit flags indicating bound events
+    u16 layoutFlags;                // Bit flags controlling layout and rendering
+    u8 type;
+    u8 layer;                       // Depth of this node in the tree [0, 1, ..n]
+    u8 stateFlags;                  // State bitflags (eg. "STATE_FLAG_HIDDEN")
+    u8 fontId;                      // Index of a font container datastructure
+    u8 windowID;                    // Index of a window container datastructure
+    u8 horizontalAlignment;         // Left, Center, Right [0, 1, 2]
+    u8 verticalAlignment;           // Top, Center, Bottom [0, 1, 2]
+    u8 horizontalTextAlignment;     // Left, Center, Right [0, 1, 2]
+    u8 verticalTextAlignment;       // Top, Center, Bottom [0, 1, 2]
+} Node;
 
+/* Other structs used by the layout engine */
 typedef struct NU_NodeDimensions
 {
     float width, height;
@@ -146,77 +225,74 @@ typedef struct NU_ClipBounds
     float right;
 } NU_ClipBounds;
 
-void NU_ApplyNodeDefaults(NodeP* node)
-{
-    // zero init
-    memset(&node->node, 0, sizeof(node->node));
-    memset(&node->typeData, 0, sizeof(node->typeData));
 
-    node->class = NULL;
-    node->id = NULL;
-    node->node.textContent = NULL;
-    node->layoutFlags = 0;
-    node->node.maxWidth = UINT16_MAX;
-    node->node.maxHeight = UINT16_MAX;
-    node->node.prefWidth = 0;
-    node->node.prefHeight = 0;
-    node->node.left = node->node.right = node->node.top = node->node.bottom = INT16_MIN;
-    node->node.backgroundR = node->node.backgroundG = node->node.backgroundB = 50;
-    node->node.borderR = node->node.borderG = node->node.borderB = 100;
-    node->node.textR = node->node.textG = node->node.textB = 255;
-    node->overrideStyleFlags = 0;
-    node->scrollX = 0.0f;
-    node->scrollV = 0.0f;
-    node->fontId = 0;
-    node->horizontalAlignment = 0;
-    node->verticalAlignment = 0;
+/* Initialises node */
+void NU_ApplyNodeDefaults(Node* node, Node* parent, u8 type, u16 layer)
+{
+    // Zero init
+    memset(node, 0, sizeof(Node));
+
+    // Init members passed as args to this function
+    node->parent = parent;
+    node->layer = layer;
+    node->type = type;
+
+    // Set specific fields to default values
+    node->public.generic.maxWidth = node->public.generic.maxHeight = UINT16_MAX;
+    node->public.generic.backgroundR = node->public.generic.backgroundG = node->public.generic.backgroundB = 50;
+    node->public.generic.borderR = node->public.generic.borderG = node->public.generic.borderB = 100;
+    node->public.generic.textR = node->public.generic.textG = node->public.generic.textB = 255;
     node->horizontalTextAlignment = 1;
     node->verticalTextAlignment = 1;
+    node->widgetID = -1;
 
     // Set defaults based on node type
     switch (node->type)
     {
-    case NU_TABLE:
+    case NU_TYPE_TABLE:
         node->overrideStyleFlags |= PROPERTY_FLAG_LAYOUT_DIR;
         node->layoutFlags |= LAYOUT_VERTICAL;
         break;
-    case NU_THEAD:
+    case NU_TYPE_THEAD:
         node->overrideStyleFlags |= PROPERTY_FLAG_GROW;
         node->layoutFlags |= GROW_HORIZONTAL;
         break;
-    case NU_ROW:
+    case NU_TYPE_ROW:
         node->overrideStyleFlags |= PROPERTY_FLAG_GROW;
         node->layoutFlags |= GROW_HORIZONTAL;
         break;
-    case NU_INPUT:
-        node->typeData.input.textInputHandle = -1;
+    case NU_TYPE_INPUT:
+        node->special.input.textInputHandle = -1;
         break;
-    case NU_CANVAS:
-        node->typeData.canvas.ctxHandle = -1;
+    case NU_TYPE_CANVAS:
+        node->special.canvas.ctxHandle = -1;
         break;
-    case NU_FRAME:
+    case NU_TYPE_FRAME:
         node->overrideStyleFlags |= PROPERTY_FLAG_HIDE_BACKGROUND;
         node->layoutFlags |= HIDE_BACKGROUND;
         break;
     default:
         break;
     }
-    if (node->type != NU_WINDOW) {
+
+    // Inherit parent's window (if node is not a window itself)
+    if (node->type != NU_TYPE_WINDOW) {
         node->windowID = node->parent->windowID;
     }
 }
 
-inline bool NodeStateHidden(NodeP* node)
+/* Useful quality of life functions for querying node state */
+inline bool NodeStateHidden(Node* node)
 {
     return (node->stateFlags & STATE_FLAG_HIDDEN) != 0;
 }
 
-inline bool NodeStatePosAbsolute(NodeP* node)
+inline bool NodeStatePosAbsolute(Node* node)
 {
     return (node->stateFlags & STATE_FLAG_POS_ABSOLUTE) != 0;
 }
 
-inline bool NodeStateDeleted(NodeP* node)
+inline bool NodeStateDeleted(Node* node)
 {
     return (node->stateFlags & STATE_FLAG_DELETED) != 0;
 }

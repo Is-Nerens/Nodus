@@ -27,7 +27,7 @@ typedef struct
     Array textRefs;
 } TokenTextRefsPair;
 
-void NU_Parse_Property(const enum NU_XML_TOKEN token, NodeP* currentNode, char* ptext, struct Text_Ref* current_text_ref, ImageResourceLoader* imageResourceLoader)
+void NU_Parse_Property(const enum NU_XML_TOKEN token, Node* currentNode, char* ptext, struct Text_Ref* current_text_ref, ImageResourceLoader* imageResourceLoader)
 {
     char c = ptext[0];
 
@@ -127,7 +127,7 @@ void NU_Parse_Property(const enum NU_XML_TOKEN token, NodeP* currentNode, char* 
             u8 gap;
             if (String_To_u8(&gap, ptext)) {
                 currentNode->overrideStyleFlags |= PROPERTY_FLAG_GAP;
-                currentNode->node.gap = gap;
+                currentNode->public.generic.gap = gap;
             }
             break;
         }
@@ -138,7 +138,7 @@ void NU_Parse_Property(const enum NU_XML_TOKEN token, NodeP* currentNode, char* 
             u16 width;
             if (String_To_Uint16(&width, ptext)) {
                 currentNode->overrideStyleFlags |= PROPERTY_FLAG_PREFERRED_WIDTH;
-                currentNode->node.prefWidth = width;
+                currentNode->public.generic.preferredWidth = width;
             }
             break;
         }
@@ -148,7 +148,7 @@ void NU_Parse_Property(const enum NU_XML_TOKEN token, NodeP* currentNode, char* 
             u16 minWidth;
             if (String_To_Uint16(&minWidth, ptext)) {
                 currentNode->overrideStyleFlags |= PROPERTY_FLAG_MIN_WIDTH;
-                currentNode->node.minWidth = minWidth;
+                currentNode->public.generic.minWidth = minWidth;
             }
             break;
         }
@@ -158,7 +158,7 @@ void NU_Parse_Property(const enum NU_XML_TOKEN token, NodeP* currentNode, char* 
             u16 maxWidth;
             if (String_To_Uint16(&maxWidth, ptext)) {
                 currentNode->overrideStyleFlags |= PROPERTY_FLAG_MAX_WIDTH;
-                currentNode->node.maxWidth = maxWidth;
+                currentNode->public.generic.maxWidth = maxWidth;
             }
             break;
         }
@@ -168,7 +168,7 @@ void NU_Parse_Property(const enum NU_XML_TOKEN token, NodeP* currentNode, char* 
             u16 height;
             if (String_To_Uint16(&height, ptext)) {
                 currentNode->overrideStyleFlags |= PROPERTY_FLAG_PREFERRED_HEIGHT;
-                currentNode->node.prefHeight = height;
+                currentNode->public.generic.preferredHeight = height;
             }
             break;
         }
@@ -178,7 +178,7 @@ void NU_Parse_Property(const enum NU_XML_TOKEN token, NodeP* currentNode, char* 
             u16 minHeight;
             if (String_To_Uint16(& minHeight, ptext)) {
                 currentNode->overrideStyleFlags |= PROPERTY_FLAG_MIN_HEIGHT;
-                currentNode->node.minHeight = minHeight;
+                currentNode->public.generic.minHeight = minHeight;
             }
             break;
         }
@@ -188,7 +188,7 @@ void NU_Parse_Property(const enum NU_XML_TOKEN token, NodeP* currentNode, char* 
             u16 maxHeight;
             if (String_To_Uint16(&maxHeight, ptext)) {
                 currentNode->overrideStyleFlags |= PROPERTY_FLAG_MAX_HEIGHT;
-                currentNode->node.maxHeight = maxHeight;
+                currentNode->public.generic.maxHeight = maxHeight;
             }
             break;
         }
@@ -253,7 +253,7 @@ void NU_Parse_Property(const enum NU_XML_TOKEN token, NodeP* currentNode, char* 
         case LEFT_PROPERTY: {
             int16_t abs_position;
             if (String_To_Int16(&abs_position, ptext)) {
-                currentNode->node.left = abs_position;
+                currentNode->public.generic.left = abs_position;
                 currentNode->overrideStyleFlags |= PROPERTY_FLAG_LEFT;
             }
             break;
@@ -262,13 +262,13 @@ void NU_Parse_Property(const enum NU_XML_TOKEN token, NodeP* currentNode, char* 
         case RIGHT_PROPERTY: {
             int16_t abs_position;
             if (String_To_Int16(&abs_position, ptext)) {
-                currentNode->node.right = abs_position;
+                currentNode->public.generic.right = abs_position;
                 currentNode->overrideStyleFlags |= PROPERTY_FLAG_RIGHT;
             }
             break;
             case TOP_PROPERTY:
             if (String_To_Int16(&abs_position, ptext)) {
-                currentNode->node.top = abs_position;
+                currentNode->public.generic.top = abs_position;
                 currentNode->overrideStyleFlags |= PROPERTY_FLAG_TOP;
             }
             break;
@@ -277,7 +277,7 @@ void NU_Parse_Property(const enum NU_XML_TOKEN token, NodeP* currentNode, char* 
         case BOTTOM_PROPERTY: {
             int16_t abs_position;
             if (String_To_Int16(&abs_position, ptext)) {
-                currentNode->node.bottom = abs_position;
+                currentNode->public.generic.bottom = abs_position;
                 currentNode->overrideStyleFlags |= PROPERTY_FLAG_BOTTOM;
             }
             break;
@@ -290,9 +290,9 @@ void NU_Parse_Property(const enum NU_XML_TOKEN token, NodeP* currentNode, char* 
                 currentNode->overrideStyleFlags |= PROPERTY_FLAG_BACKGROUND;
                 currentNode->overrideStyleFlags &= ~PROPERTY_FLAG_HIDE_BACKGROUND;
                 currentNode->layoutFlags &= ~HIDE_BACKGROUND;
-                currentNode->node.backgroundR = rgb.r;
-                currentNode->node.backgroundG = rgb.g;
-                currentNode->node.backgroundB = rgb.b;
+                currentNode->public.generic.backgroundR = rgb.r;
+                currentNode->public.generic.backgroundG = rgb.g;
+                currentNode->public.generic.backgroundB = rgb.b;
             } else if (strcmp(ptext, "none") == 0) {
                 currentNode->overrideStyleFlags |= PROPERTY_FLAG_HIDE_BACKGROUND;
                 currentNode->layoutFlags |= HIDE_BACKGROUND;
@@ -305,9 +305,9 @@ void NU_Parse_Property(const enum NU_XML_TOKEN token, NodeP* currentNode, char* 
             struct RGB rgb;
             if (Parse_Hexcode(ptext, current_text_ref->char_count, &rgb)) {
                 currentNode->overrideStyleFlags |= PROPERTY_FLAG_BORDER_COLOUR;
-                currentNode->node.borderR = rgb.r;
-                currentNode->node.borderG = rgb.g;
-                currentNode->node.borderB = rgb.b;
+                currentNode->public.generic.borderR = rgb.r;
+                currentNode->public.generic.borderG = rgb.g;
+                currentNode->public.generic.borderB = rgb.b;
             }
             break;
         }
@@ -317,9 +317,9 @@ void NU_Parse_Property(const enum NU_XML_TOKEN token, NodeP* currentNode, char* 
             struct RGB rgb;
             if (Parse_Hexcode(ptext, current_text_ref->char_count, &rgb)) {
                 currentNode->overrideStyleFlags |= PROPERTY_FLAG_TEXT_COLOUR;
-                currentNode->node.textR = rgb.r;
-                currentNode->node.textG = rgb.g;
-                currentNode->node.textB = rgb.b;
+                currentNode->public.generic.textR = rgb.r;
+                currentNode->public.generic.textG = rgb.g;
+                currentNode->public.generic.textB = rgb.b;
             }
             break;
         }
@@ -329,10 +329,10 @@ void NU_Parse_Property(const enum NU_XML_TOKEN token, NodeP* currentNode, char* 
             u8 property_uint8;
             if (String_To_u8(&property_uint8, ptext)) {
                 currentNode->overrideStyleFlags |= PROPERTY_FLAG_BORDER_TOP | PROPERTY_FLAG_BORDER_BOTTOM | PROPERTY_FLAG_BORDER_LEFT | PROPERTY_FLAG_BORDER_RIGHT;
-                currentNode->node.borderTop = property_uint8;
-                currentNode->node.borderBottom = property_uint8;
-                currentNode->node.borderLeft = property_uint8;
-                currentNode->node.borderRight = property_uint8;
+                currentNode->public.generic.borderTop = property_uint8;
+                currentNode->public.generic.borderBottom = property_uint8;
+                currentNode->public.generic.borderLeft = property_uint8;
+                currentNode->public.generic.borderRight = property_uint8;
             }
             break;
         }
@@ -340,7 +340,7 @@ void NU_Parse_Property(const enum NU_XML_TOKEN token, NodeP* currentNode, char* 
             u8 property_uint8;
             if (String_To_u8(&property_uint8, ptext)) {
                 currentNode->overrideStyleFlags |= PROPERTY_FLAG_BORDER_TOP;
-                currentNode->node.borderTop = property_uint8;
+                currentNode->public.generic.borderTop = property_uint8;
             }
             break;
         }
@@ -348,7 +348,7 @@ void NU_Parse_Property(const enum NU_XML_TOKEN token, NodeP* currentNode, char* 
             u8 property_uint8;
             if (String_To_u8(&property_uint8, ptext)) {
                 currentNode->overrideStyleFlags |= PROPERTY_FLAG_BORDER_BOTTOM;
-                currentNode->node.borderBottom = property_uint8;
+                currentNode->public.generic.borderBottom = property_uint8;
             }
             break;
         }
@@ -356,7 +356,7 @@ void NU_Parse_Property(const enum NU_XML_TOKEN token, NodeP* currentNode, char* 
             u8 property_uint8;
             if (String_To_u8(&property_uint8, ptext)) {
                 currentNode->overrideStyleFlags |= PROPERTY_FLAG_BORDER_LEFT;
-                currentNode->node.borderLeft = property_uint8;
+                currentNode->public.generic.borderLeft = property_uint8;
             }
             break;
         }
@@ -364,7 +364,7 @@ void NU_Parse_Property(const enum NU_XML_TOKEN token, NodeP* currentNode, char* 
             u8 property_uint8;
             if (String_To_u8(&property_uint8, ptext)) {
                 currentNode->overrideStyleFlags |= PROPERTY_FLAG_BORDER_RIGHT;
-                currentNode->node.borderRight = property_uint8;
+                currentNode->public.generic.borderRight = property_uint8;
             }
             break;
         }
@@ -374,10 +374,10 @@ void NU_Parse_Property(const enum NU_XML_TOKEN token, NodeP* currentNode, char* 
             u8 property_uint8;
             if (String_To_u8(&property_uint8, ptext)) {
                 currentNode->overrideStyleFlags |= PROPERTY_FLAG_BORDER_RADIUS_TL | PROPERTY_FLAG_BORDER_RADIUS_TR | PROPERTY_FLAG_BORDER_RADIUS_BL | PROPERTY_FLAG_BORDER_RADIUS_BR;
-                currentNode->node.borderRadiusTl = property_uint8;
-                currentNode->node.borderRadiusTr = property_uint8;
-                currentNode->node.borderRadiusBl = property_uint8;
-                currentNode->node.borderRadiusBr = property_uint8;
+                currentNode->public.generic.borderRadiusTl = property_uint8;
+                currentNode->public.generic.borderRadiusTr = property_uint8;
+                currentNode->public.generic.borderRadiusBl = property_uint8;
+                currentNode->public.generic.borderRadiusBr = property_uint8;
             }
             break;
         }
@@ -385,7 +385,7 @@ void NU_Parse_Property(const enum NU_XML_TOKEN token, NodeP* currentNode, char* 
             u8 property_uint8;
             if (String_To_u8(&property_uint8, ptext)) {
                 currentNode->overrideStyleFlags |= PROPERTY_FLAG_BORDER_RADIUS_TL;
-                currentNode->node.borderRadiusTl = property_uint8;
+                currentNode->public.generic.borderRadiusTl = property_uint8;
             }
             break;
         }
@@ -393,7 +393,7 @@ void NU_Parse_Property(const enum NU_XML_TOKEN token, NodeP* currentNode, char* 
             u8 property_uint8;
             if (String_To_u8(&property_uint8, ptext)) {
                 currentNode->overrideStyleFlags |= PROPERTY_FLAG_BORDER_RADIUS_TR;
-                currentNode->node.borderRadiusTr = property_uint8;
+                currentNode->public.generic.borderRadiusTr = property_uint8;
             }
             break;
         }
@@ -401,7 +401,7 @@ void NU_Parse_Property(const enum NU_XML_TOKEN token, NodeP* currentNode, char* 
             u8 property_uint8;
             if (String_To_u8(&property_uint8, ptext)) {
                 currentNode->overrideStyleFlags |= PROPERTY_FLAG_BORDER_RADIUS_BL;
-                currentNode->node.borderRadiusBl = property_uint8;
+                currentNode->public.generic.borderRadiusBl = property_uint8;
             }
             break;
         }
@@ -409,7 +409,7 @@ void NU_Parse_Property(const enum NU_XML_TOKEN token, NodeP* currentNode, char* 
             u8 property_uint8;
             if (String_To_u8(&property_uint8, ptext)) {
                 currentNode->overrideStyleFlags |= PROPERTY_FLAG_BORDER_RADIUS_BR;
-                currentNode->node.borderRadiusBr = property_uint8;
+                currentNode->public.generic.borderRadiusBr = property_uint8;
             }
             break;
         }
@@ -419,10 +419,10 @@ void NU_Parse_Property(const enum NU_XML_TOKEN token, NodeP* currentNode, char* 
             u8 property_uint8;
             if (String_To_u8(&property_uint8, ptext)) {
                 currentNode->overrideStyleFlags |= PROPERTY_FLAG_PAD_TOP | PROPERTY_FLAG_PAD_BOTTOM | PROPERTY_FLAG_PAD_LEFT | PROPERTY_FLAG_PAD_RIGHT;
-                currentNode->node.padTop    = property_uint8;
-                currentNode->node.padBottom = property_uint8;
-                currentNode->node.padLeft   = property_uint8;
-                currentNode->node.padRight  = property_uint8;
+                currentNode->public.generic.padTop    = property_uint8;
+                currentNode->public.generic.padBottom = property_uint8;
+                currentNode->public.generic.padLeft   = property_uint8;
+                currentNode->public.generic.padRight  = property_uint8;
             }
             break;
         }
@@ -430,7 +430,7 @@ void NU_Parse_Property(const enum NU_XML_TOKEN token, NodeP* currentNode, char* 
             u8 property_uint8;
             if (String_To_u8(&property_uint8, ptext)) {
                 currentNode->overrideStyleFlags |= PROPERTY_FLAG_PAD_TOP;
-                currentNode->node.padTop = property_uint8;
+                currentNode->public.generic.padTop = property_uint8;
             }
             break;
         }
@@ -438,7 +438,7 @@ void NU_Parse_Property(const enum NU_XML_TOKEN token, NodeP* currentNode, char* 
             u8 property_uint8;
             if (String_To_u8(&property_uint8, ptext)) {
                 currentNode->overrideStyleFlags |= PROPERTY_FLAG_PAD_BOTTOM;
-                currentNode->node.padBottom = property_uint8;
+                currentNode->public.generic.padBottom = property_uint8;
             }
             break;
         }
@@ -446,7 +446,7 @@ void NU_Parse_Property(const enum NU_XML_TOKEN token, NodeP* currentNode, char* 
             u8 property_uint8;
             if (String_To_u8(&property_uint8, ptext)) {
                 currentNode->overrideStyleFlags |= PROPERTY_FLAG_PAD_LEFT;
-                currentNode->node.padLeft = property_uint8;
+                currentNode->public.generic.padLeft = property_uint8;
             }
             break;
         }
@@ -454,25 +454,25 @@ void NU_Parse_Property(const enum NU_XML_TOKEN token, NodeP* currentNode, char* 
             u8 property_uint8;
             if (String_To_u8(&property_uint8, ptext)) {
                 currentNode->overrideStyleFlags |= PROPERTY_FLAG_PAD_RIGHT;
-                currentNode->node.padRight = property_uint8;
+                currentNode->public.generic.padRight = property_uint8;
             }
             break;
         }
 
         // Image source
         case IMAGE_SOURCE_PROPERTY: {
-            if (currentNode->type == NU_CANVAS && currentNode->type == NU_INPUT) break;
+            if (currentNode->type == NU_TYPE_CANVAS && currentNode->type == NU_TYPE_INPUT) break;
 
             int imageHandle = ImageResourceLoader_GetLoadedImageHandle(imageResourceLoader, ptext);
 
             // Image not loaded yet
             if (imageHandle == 0) {
                 imageHandle = ImageResourceLoader_LoadImage(imageResourceLoader, ptext);
-                currentNode->typeData.image.imageHandle = imageHandle;
+                currentNode->special.image.imageHandle = imageHandle;
                 currentNode->overrideStyleFlags |= PROPERTY_FLAG_IMAGE;
             }
             else {
-                currentNode->typeData.image.imageHandle = imageHandle;
+                currentNode->special.image.imageHandle = imageHandle;
                 currentNode->overrideStyleFlags |= PROPERTY_FLAG_IMAGE;
             }
             break;
@@ -480,9 +480,9 @@ void NU_Parse_Property(const enum NU_XML_TOKEN token, NodeP* currentNode, char* 
 
         // Input type property
         case INPUT_TYPE_PROPERTY: {
-            if (currentNode->type != NU_INPUT) break;
+            if (currentNode->type != NU_TYPE_INPUT) break;
             currentNode->overrideStyleFlags |= PROPERTY_FLAG_INPUT_TYPE;
-            InputText* inputText = Container_Get(&GUI.textInputs, currentNode->typeData.input.textInputHandle);
+            InputText* inputText = Container_Get(&GUI.textInputs, currentNode->special.input.textInputHandle);
             if (strcmp(ptext, "number") == 0) {
                 inputText->type = 1;
             } else {
@@ -492,7 +492,7 @@ void NU_Parse_Property(const enum NU_XML_TOKEN token, NodeP* currentNode, char* 
         }
 
         case TITLE_PROPERTY:
-            if (currentNode->type != NU_WINDOW) break;
+            if (currentNode->type != NU_TYPE_WINDOW) break;
             SDL_SetWindowTitle(GetSDL_Window(&GUI.winManager, currentNode->windowID), ptext);
             break;
 
@@ -501,7 +501,7 @@ void NU_Parse_Property(const enum NU_XML_TOKEN token, NodeP* currentNode, char* 
     }
 }
 
-int NU_Parse_Component(NodeP* currentNode, char* src, TokenArray* tokens, struct Array* textRefs, ImageResourceLoader* ImageResourceLoader)
+int NU_Parse_Component(Node* currentNode, char* src, TokenArray* tokens, struct Array* textRefs, ImageResourceLoader* ImageResourceLoader)
 {
     enum XMLGenCtx ctx = GENCTX_GLOBAL;
     struct Text_Ref* current_text_ref;
@@ -524,28 +524,28 @@ int NU_Parse_Component(NodeP* currentNode, char* src, TokenArray* tokens, struct
                 // -----------------
                 // Enforce type rules
                 // -----------------
-                NodeType type = NU_TokenToNodeType(TokenArray_Get(tokens, i+1));
+                u8 type = NU_TokenToNodeType(TokenArray_Get(tokens, i+1));
                 if ((ctx == GENCTX_IN_CONTENT_OF_TABLE_WITHOUT_CHILDREN ||
                     ctx == GENCTX_IN_CONTENT_OF_TABLE_WITH_THEAD ||
                     ctx == GENCTX_IN_CONTENT_OF_TABLE_WITHOUT_THEAD) &&
-                    type != NU_ROW &&
-                    type != NU_THEAD)
+                    type != NU_TYPE_ROW &&
+                    type != NU_TYPE_THEAD)
                 {
                     ErrorSystem_AddError(&GUI.errorSystem, "<XML Error> children of <table> must be <row> or <thead>");
                     return 0;
                 }
-                else if (ctx == GENCTX_IN_CONTENT_OF_TABLE_WITH_THEAD && type == NU_THEAD) {
+                else if (ctx == GENCTX_IN_CONTENT_OF_TABLE_WITH_THEAD && type == NU_TYPE_THEAD) {
                     ErrorSystem_AddError(&GUI.errorSystem, "<XML Error> <table> cannot have multiple <thead>");
                     return 0;
                 }
-                else if (ctx != GENCTX_IN_CONTENT_OF_TABLE_WITHOUT_CHILDREN && type == NU_THEAD) {
+                else if (ctx != GENCTX_IN_CONTENT_OF_TABLE_WITHOUT_CHILDREN && type == NU_TYPE_THEAD) {
                     ErrorSystem_AddError(&GUI.errorSystem, "<XML Error> <thead> must have parent of type <table> and can only be the first child");
                     return 0;
                 }
                 else if (!(ctx == GENCTX_IN_CONTENT_OF_TABLE_WITHOUT_CHILDREN ||
                     ctx == GENCTX_IN_CONTENT_OF_TABLE_WITH_THEAD ||
                     ctx == GENCTX_IN_CONTENT_OF_TABLE_WITHOUT_THEAD) &&
-                    type == NU_ROW)
+                    type == NU_TYPE_ROW)
                 {
                     ErrorSystem_AddError(&GUI.errorSystem, "<XML Error> <row> must have parent of type <table>");
                     return 0;
@@ -559,24 +559,24 @@ int NU_Parse_Component(NodeP* currentNode, char* src, TokenArray* tokens, struct
                 // ----------------------------------------
                 // --- Handle scenarios for different tags
                 // ----------------------------------------
-                if (currentNode->type == NU_WINDOW) { // If node is a window -> create SDL window
+                if (currentNode->type == NU_TYPE_WINDOW) { // If node is a window -> create SDL window
                     CreateSubwindow(&GUI.winManager, currentNode);
                 }
-                else if (currentNode->type == NU_INPUT) {
+                else if (currentNode->type == NU_TYPE_INPUT) {
                     InputText inputText; InputText_Init(&inputText);
-                    currentNode->typeData.input.textInputHandle = Container_Add(&GUI.textInputs, &inputText);
+                    currentNode->special.input.textInputHandle = Container_Add(&GUI.textInputs, &inputText);
                 }
-                else if (currentNode->type == NU_TABLE) {
+                else if (currentNode->type == NU_TYPE_TABLE) {
                     ctx = GENCTX_IN_CONTENT_OF_TABLE_WITHOUT_CHILDREN;
                 }
-                else if (currentNode->type == NU_THEAD) {
+                else if (currentNode->type == NU_TYPE_THEAD) {
                     ctx = GENCTX_IN_CONTENT_OF_THEAD;
                 }
-                else if (currentNode->type == NU_ROW) {
+                else if (currentNode->type == NU_TYPE_ROW) {
                     if (ctx == GENCTX_IN_CONTENT_OF_TABLE_WITHOUT_THEAD) ctx = GENCTX_IN_CONTENT_OF_ROW_IN_TABLE_WITHOUT_THEAD;
                     else ctx = GENCTX_IN_CONTENT_OF_ROW_IN_TABLE_WITH_THEAD;
                 }
-                else if(currentNode->type == NU_IMPORT) {
+                else if(currentNode->type == NU_TYPE_IMPORT) {
                     ctx = GENCTX_IN_TAG_OF_IMPORT;
                 }
 
@@ -599,9 +599,9 @@ int NU_Parse_Component(NodeP* currentNode, char* src, TokenArray* tokens, struct
             }
 
             // Context switch
-            if (currentNode->type == NU_TABLE) ctx = GENCTX_GLOBAL;      // <table> closes
-            else if (currentNode->type == NU_THEAD) ctx = GENCTX_IN_CONTENT_OF_TABLE_WITH_THEAD; // <thead> closes
-            else if (currentNode->type == NU_ROW) {          // <row> closes
+            if (currentNode->type == NU_TYPE_TABLE) ctx = GENCTX_GLOBAL;      // <table> closes
+            else if (currentNode->type == NU_TYPE_THEAD) ctx = GENCTX_IN_CONTENT_OF_TABLE_WITH_THEAD; // <thead> closes
+            else if (currentNode->type == NU_TYPE_ROW) {          // <row> closes
                 if (ctx == GENCTX_IN_CONTENT_OF_ROW_IN_TABLE_WITH_THEAD) ctx = GENCTX_IN_CONTENT_OF_TABLE_WITH_THEAD;
                 else ctx = GENCTX_IN_CONTENT_OF_TABLE_WITHOUT_THEAD;
             }
@@ -617,9 +617,9 @@ int NU_Parse_Component(NodeP* currentNode, char* src, TokenArray* tokens, struct
         if (token == CLOSE_END_TAG)
         {
             // Context switch
-            if (currentNode->type == NU_TABLE) ctx = GENCTX_GLOBAL;      // <table> closes
-            else if (currentNode->type == NU_THEAD) ctx = GENCTX_IN_CONTENT_OF_TABLE_WITH_THEAD; // <thead> closes
-            else if (currentNode->type == NU_ROW) {          // <row> closes
+            if (currentNode->type == NU_TYPE_TABLE) ctx = GENCTX_GLOBAL;      // <table> closes
+            else if (currentNode->type == NU_TYPE_THEAD) ctx = GENCTX_IN_CONTENT_OF_TABLE_WITH_THEAD; // <thead> closes
+            else if (currentNode->type == NU_TYPE_ROW) {          // <row> closes
                 if (ctx == GENCTX_IN_CONTENT_OF_ROW_IN_TABLE_WITH_THEAD) ctx = GENCTX_IN_CONTENT_OF_TABLE_WITH_THEAD;
                 else ctx = GENCTX_IN_CONTENT_OF_TABLE_WITHOUT_THEAD;
             }
@@ -635,16 +635,16 @@ int NU_Parse_Component(NodeP* currentNode, char* src, TokenArray* tokens, struct
         // ------------
         if (token == TEXT_CONTENT)
         {
-            if (currentNode->type == NU_WINDOW ||
-                currentNode->type == NU_BOX    ||
-                currentNode->type == NU_BUTTON ||
-                currentNode->type == NU_IMAGE)
+            if (currentNode->type == NU_TYPE_WINDOW ||
+                currentNode->type == NU_TYPE_BOX    ||
+                currentNode->type == NU_TYPE_BUTTON ||
+                currentNode->type == NU_TYPE_IMAGE)
             {
                 current_text_ref = Array_Get(textRefs, text_ref_index);
                 char c = src[current_text_ref->src_index];
                 char* text = &src[current_text_ref->src_index];
                 src[current_text_ref->src_index + current_text_ref->char_count] = '\0';
-                currentNode->node.textContent = StringArena_Add(&GUI.nodeTextArena, text);
+                currentNode->public.generic.textContent = StringArena_Add(&GUI.nodeTextArena, text);
             }
 
             // Continue ^
@@ -696,7 +696,7 @@ int NU_Generate_Tree(char* src, TokenArray* tokens, struct Array* textRefs, Imag
     // -----------------------
     // Create root window node
     // -----------------------
-    NodeP* rootNode = TreeCreate(&GUI.tree, NU_WINDOW);
+    Node* rootNode = TreeCreate(&GUI.tree);
     AssignRootWindow(&GUI.winManager, rootNode);
 
     // ---------------------------------
@@ -722,7 +722,7 @@ int NU_Generate_Tree(char* src, TokenArray* tokens, struct Array* textRefs, Imag
     // -----------------------
     enum XMLGenCtx ctx = GENCTX_GLOBAL;
 
-    NodeP* currentNode = rootNode;
+    Node* currentNode = rootNode;
     int i = 2;
     while (i < tokens->size - 3)
     {
@@ -738,28 +738,28 @@ int NU_Generate_Tree(char* src, TokenArray* tokens, struct Array* textRefs, Imag
                 // -----------------
                 // Enforce type rules
                 // -----------------
-                NodeType type = NU_TokenToNodeType(TokenArray_Get(tokens, i+1));
+                u8 type = NU_TokenToNodeType(TokenArray_Get(tokens, i+1));
                 if ((ctx == GENCTX_IN_CONTENT_OF_TABLE_WITHOUT_CHILDREN ||
                     ctx == GENCTX_IN_CONTENT_OF_TABLE_WITH_THEAD ||
                     ctx == GENCTX_IN_CONTENT_OF_TABLE_WITHOUT_THEAD) &&
-                    type != NU_ROW &&
-                    type != NU_THEAD)
+                    type != NU_TYPE_ROW &&
+                    type != NU_TYPE_THEAD)
                 {
                     ErrorSystem_AddError(&GUI.errorSystem, "<XML Error> children of <table> must be <row> or <thead>");
                     goto error;
                 }
-                else if (ctx == GENCTX_IN_CONTENT_OF_TABLE_WITH_THEAD && type == NU_THEAD) {
+                else if (ctx == GENCTX_IN_CONTENT_OF_TABLE_WITH_THEAD && type == NU_TYPE_THEAD) {
                     ErrorSystem_AddError(&GUI.errorSystem, "<XML Error> <table> cannot have multiple <thead>");
                     goto error;
                 }
-                else if (ctx != GENCTX_IN_CONTENT_OF_TABLE_WITHOUT_CHILDREN && type == NU_THEAD) {
+                else if (ctx != GENCTX_IN_CONTENT_OF_TABLE_WITHOUT_CHILDREN && type == NU_TYPE_THEAD) {
                     ErrorSystem_AddError(&GUI.errorSystem, "<XML Error> <thead> must have parent of type <table> and can only be the first child");
                     goto error;
                 }
                 else if (!(ctx == GENCTX_IN_CONTENT_OF_TABLE_WITHOUT_CHILDREN ||
                     ctx == GENCTX_IN_CONTENT_OF_TABLE_WITH_THEAD ||
                     ctx == GENCTX_IN_CONTENT_OF_TABLE_WITHOUT_THEAD) &&
-                    type == NU_ROW)
+                    type == NU_TYPE_ROW)
                 {
                     ErrorSystem_AddError(&GUI.errorSystem, "<XML Error><row> must have parent of type <table>");
                     goto error;
@@ -769,25 +769,25 @@ int NU_Generate_Tree(char* src, TokenArray* tokens, struct Array* textRefs, Imag
                 // ----------------------------------------
                 // Create a new node and add it to the tree
                 // ----------------------------------------
-                if (type != NU_IMPORT) {
+                if (type != NU_TYPE_IMPORT) {
                     currentNode = TreeCreateNode(&GUI.tree, currentNode, type);
 
                     // ----------------------------------------
                     // --- Handle scenarios for different tags
                     // ----------------------------------------
-                    if (currentNode->type == NU_WINDOW) { // If node is a window -> create SDL window
+                    if (currentNode->type == NU_TYPE_WINDOW) { // If node is a window -> create SDL window
                         CreateSubwindow(&GUI.winManager, currentNode);
-                    } else if (currentNode->type == NU_INPUT) {
+                    } else if (currentNode->type == NU_TYPE_INPUT) {
                         InputText inputText; InputText_Init(&inputText);
-                        currentNode->typeData.input.textInputHandle = Container_Add(&GUI.textInputs, &inputText);
+                        currentNode->special.input.textInputHandle = Container_Add(&GUI.textInputs, &inputText);
                     }
-                    else if (currentNode->type == NU_TABLE) {
+                    else if (currentNode->type == NU_TYPE_TABLE) {
                         ctx = GENCTX_IN_CONTENT_OF_TABLE_WITHOUT_CHILDREN;
                     }
-                    else if (currentNode->type == NU_THEAD) {
+                    else if (currentNode->type == NU_TYPE_THEAD) {
                         ctx = GENCTX_IN_CONTENT_OF_THEAD;
                     }
-                    else if (currentNode->type == NU_ROW) {
+                    else if (currentNode->type == NU_TYPE_ROW) {
                         if (ctx == GENCTX_IN_CONTENT_OF_TABLE_WITHOUT_THEAD) ctx = GENCTX_IN_CONTENT_OF_ROW_IN_TABLE_WITHOUT_THEAD;
                         else ctx = GENCTX_IN_CONTENT_OF_ROW_IN_TABLE_WITH_THEAD;
                     }
@@ -816,7 +816,7 @@ int NU_Generate_Tree(char* src, TokenArray* tokens, struct Array* textRefs, Imag
                 // ---------------------------
                 // Enforce close grammar rules
                 //----------------------------
-                if (!AssertTagCloseStartGrammar(tokens, i, NU_IMPORT)) goto error;
+                if (!AssertTagCloseStartGrammar(tokens, i, NU_TYPE_IMPORT)) goto error;
 
                 ctx = GENCTX_GLOBAL;
                 i+=3;            // Increment token index
@@ -831,9 +831,9 @@ int NU_Generate_Tree(char* src, TokenArray* tokens, struct Array* textRefs, Imag
             }
 
             // Context switch
-            if (currentNode->type == NU_TABLE) ctx = GENCTX_GLOBAL;      // <table> closes
-            else if (currentNode->type == NU_THEAD) ctx = GENCTX_IN_CONTENT_OF_TABLE_WITH_THEAD; // <thead> closes
-            else if (currentNode->type == NU_ROW) {          // <row> closes
+            if (currentNode->type == NU_TYPE_TABLE) ctx = GENCTX_GLOBAL;      // <table> closes
+            else if (currentNode->type == NU_TYPE_THEAD) ctx = GENCTX_IN_CONTENT_OF_TABLE_WITH_THEAD; // <thead> closes
+            else if (currentNode->type == NU_TYPE_ROW) {          // <row> closes
                 if (ctx == GENCTX_IN_CONTENT_OF_ROW_IN_TABLE_WITH_THEAD) ctx = GENCTX_IN_CONTENT_OF_TABLE_WITH_THEAD;
                 else ctx = GENCTX_IN_CONTENT_OF_TABLE_WITHOUT_THEAD;
             }
@@ -856,9 +856,9 @@ int NU_Generate_Tree(char* src, TokenArray* tokens, struct Array* textRefs, Imag
             }
 
             // Context switch
-            if (currentNode->type == NU_TABLE) ctx = GENCTX_GLOBAL;      // <table> closes
-            else if (currentNode->type == NU_THEAD) ctx = GENCTX_IN_CONTENT_OF_TABLE_WITH_THEAD; // <thead> closes
-            else if (currentNode->type == NU_ROW) {          // <row> closes
+            if (currentNode->type == NU_TYPE_TABLE) ctx = GENCTX_GLOBAL;      // <table> closes
+            else if (currentNode->type == NU_TYPE_THEAD) ctx = GENCTX_IN_CONTENT_OF_TABLE_WITH_THEAD; // <thead> closes
+            else if (currentNode->type == NU_TYPE_ROW) {          // <row> closes
                 if (ctx == GENCTX_IN_CONTENT_OF_ROW_IN_TABLE_WITH_THEAD) ctx = GENCTX_IN_CONTENT_OF_TABLE_WITH_THEAD;
                 else ctx = GENCTX_IN_CONTENT_OF_TABLE_WITHOUT_THEAD;
             }
@@ -874,16 +874,16 @@ int NU_Generate_Tree(char* src, TokenArray* tokens, struct Array* textRefs, Imag
         // ------------
         if (token == TEXT_CONTENT)
         {
-            if (currentNode->type == NU_WINDOW ||
-                currentNode->type == NU_BOX    ||
-                currentNode->type == NU_BUTTON ||
-                currentNode->type == NU_IMAGE)
+            if (currentNode->type == NU_TYPE_WINDOW ||
+                currentNode->type == NU_TYPE_BOX    ||
+                currentNode->type == NU_TYPE_BUTTON ||
+                currentNode->type == NU_TYPE_IMAGE)
             {
                 current_text_ref = Array_Get(textRefs, text_ref_index);
                 char c = src[current_text_ref->src_index];
                 char* text = &src[current_text_ref->src_index];
                 src[current_text_ref->src_index + current_text_ref->char_count] = '\0';
-                currentNode->node.textContent = StringArena_Add(&GUI.nodeTextArena, text);
+                currentNode->public.generic.textContent = StringArena_Add(&GUI.nodeTextArena, text);
             }
 
             // Continue ^

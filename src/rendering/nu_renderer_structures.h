@@ -12,7 +12,7 @@ typedef struct {
 } NU_RGB;
 
 typedef struct {
-    float x, y, z; 
+    float x, y, z;
     float r, g, b;
 } vertex_rgb;
 
@@ -91,7 +91,7 @@ typedef struct {
     int textLayerIndex;
     float canvasWidth;
     float canvasHeight;
-    NodeP* node;
+    Node* node;
 } NU_Canvas_Context;
 
 void RGB_From_Hex(const char* hexstring, NU_RGB* result)

@@ -1,4 +1,4 @@
-#pragma once 
+#pragma once
 
 #define XML_PROPERTY_FIRST ID_PROPERTY
 #define XML_PROPERTY_LAST TITLE_PROPERTY
@@ -25,13 +25,13 @@ const char* nu_xml_keywords[] = {
     "frame", "import"
 };
 typedef enum NU_XML_TOKEN
-{   
+{
     // -------------------------------------------------------------
     // --- These enums positionally correspond to keywords above ---
     // -------------------------------------------------------------
 
     // Properties
-    ID_PROPERTY, CLASS_PROPERTY, 
+    ID_PROPERTY, CLASS_PROPERTY,
     LAYOUT_DIRECTION_PROPERTY, GROW_PROPERTY,
     OVERFLOW_V_PROPERTY, OVERFLOW_H_PROPERTY,
     POSITION_PROPERTY,
@@ -112,13 +112,13 @@ NU_XML_TOKEN NU_Word_To_Property_Token(char* word, u8 wordLen)
     return UNDEFINED_PROPERTY;
 }
 
-NodeType NU_TokenToNodeType(NU_XML_TOKEN token)
+u8 NU_TokenToNodeType(NU_XML_TOKEN token)
 {
-    if (token < XML_TAG_FIRST || token > XML_TAG_LAST) return NU_NAT;
+    if (token < XML_TAG_FIRST || token > XML_TAG_LAST) return NU_TYPE_UNKNOWN;
     return token - XML_TAG_FIRST;
 }
 
 int NU_Is_Token_Property(NU_XML_TOKEN t)
 {
-    return (t >= XML_PROPERTY_FIRST && t <= XML_PROPERTY_LAST) || t == UNDEFINED_PROPERTY; 
+    return (t >= XML_PROPERTY_FIRST && t <= XML_PROPERTY_LAST) || t == UNDEFINED_PROPERTY;
 }

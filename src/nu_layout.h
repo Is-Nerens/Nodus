@@ -6,28 +6,28 @@
 #include <utils/performance.h>
 #include <text/nu_text_layout.h>
 
-static void NU_ApplyMinMaxWidthConstraint(NodeP* node)
+static void NU_ApplyMinMaxWidthConstraint(Node* node)
 {
-    node->node.width = min(max(node->node.width, node->node.minWidth), node->node.maxWidth);
-    node->node.width = max(node->node.width, node->node.prefWidth);
+    node->width = min(max(node->width, node->public.generic.minWidth), node->public.generic.maxWidth);
+    node->width = max(node->width, node->public.generic.preferredWidth);
 }
 
-static void NU_ApplyMinMaxHeightConstraint(NodeP* node)
+static void NU_ApplyMinMaxHeightConstraint(Node* node)
 {
-    node->node.height = min(max(node->node.height, node->node.minHeight), node->node.maxHeight);
-    node->node.height = max(node->node.height, node->node.prefHeight);
+    node->height = min(max(node->height, node->public.generic.minHeight), node->public.generic.maxHeight);
+    node->height = max(node->height, node->public.generic.preferredHeight);
 }
 
 static void NU_Prepass(BreadthFirstSearch* bfs, Array* scrollAutoNodes)
 {
-    NodeP* node;
+    Node* node;
     while (BreadthFirstSearch_Next(bfs, &node)) {
 
         // Reset state
         node->stateFlags = 0;
 
         // Set node hidden (if explicitly hidden OR inherent hiddeness from parent unless node is a window)
-        if (node->layoutFlags & HIDDEN || (node->type != NU_WINDOW && node->parent != NULL && NodeStateHidden(node->parent))) {
+        if (node->layoutFlags & HIDDEN || (node->type != NU_TYPE_WINDOW && node->parent != NULL && NodeStateHidden(node->parent))) {
             node->stateFlags |= STATE_FLAG_HIDDEN; // Don't affect layout or draw node
         }
         // Node affects layout
@@ -47,82 +47,86 @@ static void NU_Prepass(BreadthFirstSearch* bfs, Array* scrollAutoNodes)
             }
 
             // Reset position
-            node->node.x = 0.0f;
-            node->node.y = 0.0f;
+            node->x = 0.0f;
+            node->y = 0.0f;
 
             // Compute natural
-            float natural_width = node->node.borderLeft + node->node.borderRight + node->node.padLeft + node->node.padRight;
-            float natural_height = node->node.borderTop + node->node.borderBottom + node->node.padTop + node->node.padBottom;
+            float natural_width = node->public.generic.borderLeft + node->public.generic.borderRight + node->public.generic.padLeft + node->public.generic.padRight;
+            float natural_height = node->public.generic.borderTop + node->public.generic.borderBottom + node->public.generic.padTop + node->public.generic.padBottom;
 
             // Enforce constraint -> max > min
-            node->node.maxWidth = max(node->node.maxWidth, node->node.minWidth);
-            node->node.maxHeight = max(node->node.maxHeight, node->node.minHeight);
+            node->public.generic.maxWidth = max(node->public.generic.maxWidth, node->public.generic.minWidth);
+            node->public.generic.maxHeight = max(node->public.generic.maxHeight, node->public.generic.minHeight);
 
             // Enforce constraints -> pref >= min
-            float clampedPrefWidth  = min(max(node->node.prefWidth,  node->node.minWidth),  node->node.maxWidth);
-            float clampedPrefHeight = min(max(node->node.prefHeight, node->node.minHeight), node->node.maxHeight);
+            float clampedPrefWidth  = min(max(node->public.generic.preferredWidth,  node->public.generic.minWidth),  node->public.generic.maxWidth);
+            float clampedPrefHeight = min(max(node->public.generic.preferredHeight, node->public.generic.minHeight), node->public.generic.maxHeight);
 
             // Set base, enforce constraint -> base >= natural
-            node->node.width = max(clampedPrefWidth, natural_width);
-            node->node.height = max(clampedPrefHeight, natural_height);
+            node->width = max(clampedPrefWidth, natural_width);
+            node->height = max(clampedPrefHeight, natural_height);
 
             // Reset
-            node->node.contentWidth = 0.0f;
-            node->node.contentHeight = 0.0f;
+            node->contentHeight = 0.0f;
+            node->contentHeight = 0.0f;
         }
     }
 }
 
 static void NU_CalculateTextFitWidths(BreadthFirstSearch* bfs)
 {
-    NodeP* node;
+    Node* node;
     while (BreadthFirstSearch_Next(bfs, &node)) {
 
         // Filter out
-        if (NodeStateHidden(node) || node->node.textContent == NULL || node->type == NU_FRAME) continue;
+        if (NodeStateHidden(node) || // Hidden
+            node->public.generic.textContent == NULL || // No text content
+            (node->type != NU_TYPE_WINDOW && node->type != NU_TYPE_BOX && node->type != NU_TYPE_BUTTON)) { // Not a valid node type
+            continue;
+        }
 
         NU_Font* node_font = Stylesheet_Get_Font(&GUI.stylesheet, node->fontId);
 
         // Calculate text width & height
-        float text_width = NU_Calculate_Text_Unwrapped_Width(node_font, node->node.textContent);
+        float text_width = NU_Calculate_Text_Unwrapped_Width(node_font, node->public.generic.textContent);
 
         // Calculate minimum text wrap width (longest unbreakable word)
-        float min_wrap_width = NU_Calculate_Text_Min_Wrap_Width(node_font, node->node.textContent);
+        float min_wrap_width = NU_Calculate_Text_Min_Wrap_Width(node_font, node->public.generic.textContent);
 
         // Increase width to account for text (text height will be accounted for later in NU_CalculateTextHeights())
-        float natural_width = node->node.padLeft + node->node.padRight + node->node.borderLeft + node->node.borderRight;
-        node->node.width = max(text_width + natural_width, node->node.prefWidth);
+        float natural_width = node->public.generic.padLeft + node->public.generic.padRight + node->public.generic.borderLeft + node->public.generic.borderRight;
+        node->width = max(text_width + natural_width, node->public.generic.preferredWidth);
 
         // Update content width
-        node->node.contentWidth = text_width;
+        node->contentHeight = text_width;
     }
 }
 
 static void NU_CalculateFitSizeWidths(ReverseBreadthFirstSearch* rbfs)
 {
-    NodeP* node;
+    Node* node;
     while (ReverseBreadthFirstSearch_Next(rbfs, &node)) {
         if (NodeStateHidden(node)) continue;
 
         int is_layout_horizontal = !(node->layoutFlags & LAYOUT_VERTICAL);
 
         // If node is a window -> set dimensions equal to window
-        if (node->type == NU_WINDOW) {
+        if (node->type == NU_TYPE_WINDOW) {
             int winWidth, winHeight;
             SDL_Window* window = GetSDL_Window(&GUI.winManager, node->windowID);
             SDL_GetWindowSizeInPixels(window, &winWidth, &winHeight);
-            node->node.width = (float)winWidth;
-            node->node.height = (float)winHeight;
+            node->width = (float)winWidth;
+            node->height = (float)winHeight;
         }
 
         // Calculate content width from children's widths
         int visibleChildren = 0;
-        NodeP* child = node->firstChild;
+        Node* child = node->firstChild;
         while(child != NULL) {
 
-            if (!NodeStateHidden(child) && child->type != NU_WINDOW && !(child->layoutFlags & POSITION_ABSOLUTE)) {
-                if (is_layout_horizontal) node->node.contentWidth += child->node.width;
-                else node->node.contentWidth = MAX(node->node.contentWidth, child->node.width);
+            if (!NodeStateHidden(child) && child->type != NU_TYPE_WINDOW && !(child->layoutFlags & POSITION_ABSOLUTE)) {
+                if (is_layout_horizontal) node->contentHeight += child->width;
+                else node->contentHeight = MAX(node->contentHeight, child->width);
                 visibleChildren++;
             }
 
@@ -131,9 +135,9 @@ static void NU_CalculateFitSizeWidths(ReverseBreadthFirstSearch* rbfs)
         }
 
         // Expand width to account for content width
-        if (is_layout_horizontal && visibleChildren > 0) node->node.contentWidth += (visibleChildren - 1) * node->node.gap;
-        if (node->type != NU_WINDOW && node->node.contentWidth > node->node.width) {
-            node->node.width = node->node.contentWidth + node->node.borderLeft + node->node.borderRight + node->node.padLeft + node->node.padRight;
+        if (is_layout_horizontal && visibleChildren > 0) node->contentHeight += (visibleChildren - 1) * node->public.generic.gap;
+        if (node->type != NU_TYPE_WINDOW && node->contentHeight > node->width) {
+            node->width = node->contentHeight + node->public.generic.borderLeft + node->public.generic.borderRight + node->public.generic.padLeft + node->public.generic.padRight;
             NU_ApplyMinMaxWidthConstraint(node);
         }
     }
@@ -141,7 +145,7 @@ static void NU_CalculateFitSizeWidths(ReverseBreadthFirstSearch* rbfs)
 
 static void NU_CalculateFitSizeHeights(ReverseBreadthFirstSearch* rbfs)
 {
-    NodeP* node;
+    Node* node;
     while (ReverseBreadthFirstSearch_Next(rbfs, &node)) {
         if (NodeStateHidden(node)) continue;
 
@@ -149,12 +153,12 @@ static void NU_CalculateFitSizeHeights(ReverseBreadthFirstSearch* rbfs)
 
         // Calculate content height from children's heights
         int visibleChildren = 0;
-        NodeP* child = node->firstChild;
+        Node* child = node->firstChild;
         while(child != NULL) {
 
-            if (!NodeStateHidden(child) && child->type != NU_WINDOW && !(child->layoutFlags & POSITION_ABSOLUTE)) {
-                if (is_layout_horizontal) node->node.contentHeight = MAX(node->node.contentHeight, child->node.height);
-                else node->node.contentHeight += child->node.height;
+            if (!NodeStateHidden(child) && child->type != NU_TYPE_WINDOW && !(child->layoutFlags & POSITION_ABSOLUTE)) {
+                if (is_layout_horizontal) node->contentHeight = MAX(node->contentHeight, child->height);
+                else node->contentHeight += child->height;
                 visibleChildren++;
             }
 
@@ -163,31 +167,31 @@ static void NU_CalculateFitSizeHeights(ReverseBreadthFirstSearch* rbfs)
         }
 
         // Expand node height to account for content height
-        if (!is_layout_horizontal && visibleChildren > 0) node->node.contentHeight += (visibleChildren - 1) * node->node.gap;
-        if (node->type != NU_WINDOW) {
-            if (!(node->layoutFlags & OVERFLOW_VERTICAL_SCROLL)) node->node.height = node->node.contentHeight + node->node.borderTop + node->node.borderBottom + node->node.padTop + node->node.padBottom;
+        if (!is_layout_horizontal && visibleChildren > 0) node->contentHeight += (visibleChildren - 1) * node->public.generic.gap;
+        if (node->type != NU_TYPE_WINDOW) {
+            if (!(node->layoutFlags & OVERFLOW_VERTICAL_SCROLL)) node->height = node->contentHeight + node->public.generic.borderTop + node->public.generic.borderBottom + node->public.generic.padTop + node->public.generic.padBottom;
             NU_ApplyMinMaxHeightConstraint(node);
         }
     }
 }
 
-static void NU_GrowShrinkChildWidths(NodeP* node, float scrollbarThickness)
+static void NU_GrowShrinkChildWidths(Node* node, float scrollbarThickness)
 {
-    float remainingWidth = node->node.width - node->node.padLeft - node->node.padRight - node->node.borderLeft - node->node.borderRight;
+    float remainingWidth = node->width - node->public.generic.padLeft - node->public.generic.padRight - node->public.generic.borderLeft - node->public.generic.borderRight;
     remainingWidth -= !!(node->layoutFlags & OVERFLOW_VERTICAL_SCROLL) * scrollbarThickness;
 
     // ---------------------------------------------------------------------------------------
     // --- Expand widths of absolute elements if left and right distances are both defined ---
     // ---------------------------------------------------------------------------------------
-    NodeP* child = node->firstChild;
+    Node* child = node->firstChild;
     while (child != NULL) {
 
-        if (!NodeStateHidden(child) && child->type != NU_WINDOW &&
+        if (!NodeStateHidden(child) && child->type != NU_TYPE_WINDOW &&
             child->layoutFlags & POSITION_ABSOLUTE &&
-            child->node.left >= 0.0f && child->node.right >= 0.0f)
+            child->public.generic.left >= 0.0f && child->public.generic.right >= 0.0f)
         {
-            float expandedWidth = remainingWidth - child->node.left - child->node.right;
-            if (expandedWidth > child->node.width) child->node.width = expandedWidth;
+            float expandedWidth = remainingWidth - child->public.generic.left - child->public.generic.right;
+            if (expandedWidth > child->width) child->width = expandedWidth;
             NU_ApplyMinMaxWidthConstraint(child);
         }
 
@@ -203,14 +207,14 @@ static void NU_GrowShrinkChildWidths(NodeP* node, float scrollbarThickness)
         child = node->firstChild;
         while (child != NULL) {
 
-            if (!NodeStateHidden(child) && child->type != NU_WINDOW &&
+            if (!NodeStateHidden(child) && child->type != NU_TYPE_WINDOW &&
                 !(child->layoutFlags & POSITION_ABSOLUTE) &&
                 child->layoutFlags & GROW_HORIZONTAL &&
-                remainingWidth > child->node.width)
+                remainingWidth > child->width)
             {
-                child->node.width = remainingWidth;
+                child->width = remainingWidth;
                 NU_ApplyMinMaxWidthConstraint(child);
-                node->node.contentWidth = max(node->node.contentWidth, child->node.width);
+                node->contentHeight = max(node->contentHeight, child->width);
             }
 
             // move to the next child
@@ -231,17 +235,17 @@ static void NU_GrowShrinkChildWidths(NodeP* node, float scrollbarThickness)
         child = node->firstChild;
         while (child != NULL) {
 
-            if (!NodeStateHidden(child) && child->type != NU_WINDOW && !(child->layoutFlags & POSITION_ABSOLUTE))
+            if (!NodeStateHidden(child) && child->type != NU_TYPE_WINDOW && !(child->layoutFlags & POSITION_ABSOLUTE))
             {
-                remainingWidth -= child->node.width;
-                if (child->layoutFlags & GROW_HORIZONTAL && child->type != NU_WINDOW) growable++;
+                remainingWidth -= child->width;
+                if (child->layoutFlags & GROW_HORIZONTAL && child->type != NU_TYPE_WINDOW) growable++;
                 visible++;
             }
 
             // move to the next child
             child = child->nextSibling;
         }
-        remainingWidth -= (visible - 1) * node->node.gap;
+        remainingWidth -= (visible - 1) * node->public.generic.gap;
         if (growable == 0) return;
 
         // -------------------------
@@ -259,17 +263,17 @@ static void NU_GrowShrinkChildWidths(NodeP* node, float scrollbarThickness)
             child = node->firstChild;
             while (child != NULL) {
 
-                if (!NodeStateHidden(child) && child->type != NU_WINDOW &&
+                if (!NodeStateHidden(child) && child->type != NU_TYPE_WINDOW &&
                     !(child->layoutFlags & POSITION_ABSOLUTE) &&
                     (child->layoutFlags & GROW_HORIZONTAL) &&
-                    child->node.width < child->node.maxWidth)
+                    child->width < child->public.generic.maxWidth)
                 {
                     growable++;
-                    if (child->node.width < smallest) {
+                    if (child->width < smallest) {
                         secondSmallest = smallest;
-                        smallest = child->node.width;
-                    } else if (child->node.width < secondSmallest) {
-                        secondSmallest = child->node.width;
+                        smallest = child->width;
+                    } else if (child->width < secondSmallest) {
+                        secondSmallest = child->width;
                     }
                 }
 
@@ -293,17 +297,17 @@ static void NU_GrowShrinkChildWidths(NodeP* node, float scrollbarThickness)
             while (child != NULL) {
 
                 // if child is growable
-                if (!NodeStateHidden(child) && child->type != NU_WINDOW &&
+                if (!NodeStateHidden(child) && child->type != NU_TYPE_WINDOW &&
                     !(child->layoutFlags & POSITION_ABSOLUTE) &&
                     child->layoutFlags & GROW_HORIZONTAL &&
-                    child->node.width < child->node.maxWidth &&
-                    child->node.width == smallest)
+                    child->width < child->public.generic.maxWidth &&
+                    child->width == smallest)
                 {
-                    float available = child->node.maxWidth - child->node.width;
+                    float available = child->public.generic.maxWidth - child->width;
                     float grow = min(width_to_add, available);
                     if (grow > 0.0f) {
-                        node->node.contentWidth += grow;
-                        child->node.width += grow;
+                        node->contentHeight += grow;
+                        child->width += grow;
                         remainingWidth -= grow;
                         grew_any = true;
                     }
@@ -329,17 +333,17 @@ static void NU_GrowShrinkChildWidths(NodeP* node, float scrollbarThickness)
 
             child = node->firstChild;
             while (child != NULL) {
-                if (!NodeStateHidden(child) && child->type != NU_WINDOW &&
+                if (!NodeStateHidden(child) && child->type != NU_TYPE_WINDOW &&
                     !(child->layoutFlags & POSITION_ABSOLUTE) &&
                     (child->layoutFlags & GROW_HORIZONTAL) &&
-                    child->node.width > child->node.minWidth)
+                    child->width > child->public.generic.minWidth)
                 {
                     shrinkableCount++;
-                    if (child->node.width > largest) {
+                    if (child->width > largest) {
                         secondLargest = largest;
-                        largest = child->node.width;
-                    } else if (child->node.width > secondLargest) {
-                        secondLargest = child->node.width;
+                        largest = child->width;
+                    } else if (child->width > secondLargest) {
+                        secondLargest = child->width;
                     }
                 }
 
@@ -361,17 +365,17 @@ static void NU_GrowShrinkChildWidths(NodeP* node, float scrollbarThickness)
             bool shrunk_any = false;
             child = node->firstChild;
             while (child != NULL) {
-                if (!NodeStateHidden(child) && child->type != NU_WINDOW &&
+                if (!NodeStateHidden(child) && child->type != NU_TYPE_WINDOW &&
                     !(child->layoutFlags & POSITION_ABSOLUTE) &&
                     (child->layoutFlags & GROW_HORIZONTAL) &&
-                    child->node.width > child->node.minWidth &&
-                    child->node.width == largest)
+                    child->width > child->public.generic.minWidth &&
+                    child->width == largest)
                 {
-                    float available = child->node.width - child->node.minWidth;
+                    float available = child->width - child->public.generic.minWidth;
                     float shrink = min(width_to_subtract, available);
                     if (shrink > 0.0f) {
-                        node->node.contentWidth -= shrink;
-                        child->node.width -= shrink;
+                        node->contentHeight -= shrink;
+                        child->width -= shrink;
                         remainingWidth += shrink;
                         shrunk_any = true;
                     }
@@ -385,23 +389,23 @@ static void NU_GrowShrinkChildWidths(NodeP* node, float scrollbarThickness)
     }
 }
 
-static void NU_GrowShrinkChildHeights(NodeP* node, float scrollbarThickness)
+static void NU_GrowShrinkChildHeights(Node* node, float scrollbarThickness)
 {
-    float remainingHeight = node->node.height - node->node.padTop - node->node.padBottom - node->node.borderTop - node->node.borderBottom;
+    float remainingHeight = node->height - node->public.generic.padTop - node->public.generic.padBottom - node->public.generic.borderTop - node->public.generic.borderBottom;
     remainingHeight -= !!(node->layoutFlags & OVERFLOW_HORIZONTAL_SCROLL) * scrollbarThickness;
 
     // ----------------------------------------------------------------------------------------
     // --- Expand heights of absolute elements if top and bottom distances are both defined ---
     // ----------------------------------------------------------------------------------------
-    NodeP* child = node->firstChild;
+    Node* child = node->firstChild;
     while(child != NULL) {
 
-        if (!NodeStateHidden(child) && child->type != NU_WINDOW &&
+        if (!NodeStateHidden(child) && child->type != NU_TYPE_WINDOW &&
             child->layoutFlags & POSITION_ABSOLUTE &&
-            child->node.top >= 0.0f && child->node.bottom >= 0.0f)
+            child->public.generic.top >= 0.0f && child->public.generic.bottom >= 0.0f)
         {
-            float expandedHeight = remainingHeight - child->node.top - child->node.bottom;
-            if (expandedHeight > child->node.height) child->node.height = expandedHeight;
+            float expandedHeight = remainingHeight - child->public.generic.top - child->public.generic.bottom;
+            if (expandedHeight > child->height) child->height = expandedHeight;
             NU_ApplyMinMaxHeightConstraint(child);
         }
 
@@ -414,14 +418,14 @@ static void NU_GrowShrinkChildHeights(NodeP* node, float scrollbarThickness)
         child = node->firstChild;
         while(child != NULL) {
 
-            if (!NodeStateHidden(child) && child->type != NU_WINDOW &&
+            if (!NodeStateHidden(child) && child->type != NU_TYPE_WINDOW &&
                 !(child->layoutFlags & POSITION_ABSOLUTE) &&
                 child->layoutFlags & GROW_VERTICAL &&
-                remainingHeight > child->node.height)
+                remainingHeight > child->height)
             {
-                child->node.height = remainingHeight;
+                child->height = remainingHeight;
                 NU_ApplyMinMaxHeightConstraint(child);
-                node->node.contentHeight = max(node->node.contentHeight, child->node.height);
+                node->contentHeight = max(node->contentHeight, child->height);
             }
 
             // move to the next child
@@ -438,17 +442,17 @@ static void NU_GrowShrinkChildHeights(NodeP* node, float scrollbarThickness)
         child = node->firstChild;
         while(child != NULL) {
 
-            if (!NodeStateHidden(child) && child->type != NU_WINDOW && !(child->layoutFlags & POSITION_ABSOLUTE))
+            if (!NodeStateHidden(child) && child->type != NU_TYPE_WINDOW && !(child->layoutFlags & POSITION_ABSOLUTE))
             {
-                remainingHeight -= child->node.height;
-                if (child->layoutFlags & GROW_VERTICAL && child->type != NU_WINDOW) growable++;
+                remainingHeight -= child->height;
+                if (child->layoutFlags & GROW_VERTICAL && child->type != NU_TYPE_WINDOW) growable++;
                 visible++;
             }
 
             // move to the next child
             child = child->nextSibling;
         }
-        remainingHeight -= (visible - 1) * node->node.gap;
+        remainingHeight -= (visible - 1) * node->public.generic.gap;
         if (growable == 0) return;
 
         // --------------------------
@@ -466,17 +470,17 @@ static void NU_GrowShrinkChildHeights(NodeP* node, float scrollbarThickness)
             child = node->firstChild;
             while(child != NULL) {
 
-                if (!NodeStateHidden(child) && child->type != NU_WINDOW &&
+                if (!NodeStateHidden(child) && child->type != NU_TYPE_WINDOW &&
                     !(child->layoutFlags & POSITION_ABSOLUTE) &&
                     (child->layoutFlags & GROW_VERTICAL) &&
-                    child->node.height < child->node.maxHeight)
+                    child->height < child->public.generic.maxHeight)
                 {
                     growable++;
-                    if (child->node.height < smallest) {
+                    if (child->height < smallest) {
                         secondSmallest = smallest;
-                        smallest = child->node.height;
-                    } else if (child->node.height < secondSmallest) {
-                        secondSmallest = child->node.height;
+                        smallest = child->height;
+                    } else if (child->height < secondSmallest) {
+                        secondSmallest = child->height;
                     }
                 }
 
@@ -499,17 +503,17 @@ static void NU_GrowShrinkChildHeights(NodeP* node, float scrollbarThickness)
             child = node->firstChild;
             while(child != NULL) {
 
-                if (!NodeStateHidden(child) && child->type != NU_WINDOW &&
+                if (!NodeStateHidden(child) && child->type != NU_TYPE_WINDOW &&
                     !(child->layoutFlags & POSITION_ABSOLUTE) &&
                     (child->layoutFlags & GROW_VERTICAL) &&
-                    child->node.height < child->node.maxHeight &&
-                    child->node.height == smallest)
+                    child->height < child->public.generic.maxHeight &&
+                    child->height == smallest)
                 {
-                    float available = child->node.maxHeight - child->node.height;
+                    float available = child->public.generic.maxHeight - child->height;
                     float grow = min(height_to_add, available);
                     if (grow > 0.0f) {
-                        node->node.contentHeight += grow;
-                        child->node.height += grow;
+                        node->contentHeight += grow;
+                        child->height += grow;
                         remainingHeight -= grow;
                         grew_any = true;
                     }
@@ -525,18 +529,18 @@ static void NU_GrowShrinkChildHeights(NodeP* node, float scrollbarThickness)
 
 static void NU_GrowShrinkWidths(BreadthFirstSearch* bfs, float scrollbarThickness)
 {
-    NodeP* node;
+    Node* node;
     while (BreadthFirstSearch_Next(bfs, &node)) {
-        if (NodeStateHidden(node) || node->type == NU_ROW || node->type == NU_TABLE) continue;
+        if (NodeStateHidden(node) || node->type == NU_TYPE_ROW || node->type == NU_TYPE_TABLE) continue;
         NU_GrowShrinkChildWidths(node, scrollbarThickness);
     }
 }
 
 static void NU_GrowShrinkHeights(BreadthFirstSearch* bfs, float scrollbarThickness)
 {
-    NodeP* node;
+    Node* node;
     while (BreadthFirstSearch_Next(bfs, &node)) {
-        if (NodeStateHidden(node) || node->type == NU_TABLE) continue;
+        if (NodeStateHidden(node) || node->type == NU_TYPE_TABLE) continue;
         NU_GrowShrinkChildHeights(node, scrollbarThickness);
     }
 }
@@ -545,24 +549,24 @@ static void NU_CalculateTableColumnWidths(BreadthFirstSearch* bfs, float scrollb
 {
     DepthFirstSearch flexWidthDFS = DepthFirstSearch_Reserve();
 
-    NodeP* node;
+    Node* node;
     while(BreadthFirstSearch_Next(bfs, &node))
     {
-        if (NodeStateHidden(node) || node->type != NU_TABLE || node->childCount == 0) continue;
+        if (NodeStateHidden(node) || node->type != NU_TYPE_TABLE || node->childCount == 0) continue;
 
         float columnWidths[4096]; int columnWidthsCount = 0;
 
         // ------------------------------------------------------------
         // --- Calculate the widest cell width in each table column ---
         // ------------------------------------------------------------
-        NodeP* row = node->firstChild;
+        Node* row = node->firstChild;
         while(row != NULL) {
 
             // Ignore hidden rows
             if (NodeStateHidden(row)) { row = row->nextSibling; continue; }
 
             int cellIndex = 0;
-            NodeP* cell = row->firstChild;
+            Node* cell = row->firstChild;
             while(cell != NULL) {
 
                 if (NodeStateHidden(cell)) {
@@ -576,7 +580,7 @@ static void NU_CalculateTableColumnWidths(BreadthFirstSearch* bfs, float scrollb
                 }
 
                 // Get current column width and update if cell is wider
-                if (cell->node.width > columnWidths[cellIndex]) columnWidths[cellIndex] = cell->node.width;
+                if (cell->width > columnWidths[cellIndex]) columnWidths[cellIndex] = cell->width;
 
                 cellIndex++;
                 cell = cell->nextSibling;
@@ -588,7 +592,7 @@ static void NU_CalculateTableColumnWidths(BreadthFirstSearch* bfs, float scrollb
         // -----------------------------------------------
         // --- Apply widest column widths to all cells ---
         // -----------------------------------------------
-        float tableInnerWidth = node->node.width - node->node.borderLeft - node->node.borderRight - node->node.padLeft - node->node.padRight;
+        float tableInnerWidth = node->width - node->public.generic.borderLeft - node->public.generic.borderRight - node->public.generic.padLeft - node->public.generic.padRight;
         tableInnerWidth -= !!(node->layoutFlags & OVERFLOW_VERTICAL_SCROLL) * scrollbarThickness;
         float remainingTableInnerWidth = tableInnerWidth;
         for (int k=0; k<columnWidthsCount; k++) { remainingTableInnerWidth -= columnWidths[k]; }
@@ -601,25 +605,25 @@ static void NU_CalculateTableColumnWidths(BreadthFirstSearch* bfs, float scrollb
             // Ignore hidden rows
             if (NodeStateHidden(row)) { row = row->nextSibling; continue; }
 
-            row->node.width = tableInnerWidth;
+            row->width = tableInnerWidth;
 
             // Reduce available growth space by acounting for row pad, border and child gaps
-            float row_border_pad_gap = row->node.borderLeft + row->node.borderRight + row->node.padLeft + row->node.padRight;
-            if (row->node.gap != 0.0f) {
+            float row_border_pad_gap = row->public.generic.borderLeft + row->public.generic.borderRight + row->public.generic.padLeft + row->public.generic.padRight;
+            if (row->public.generic.gap != 0.0f) {
                 int visibleCells = 0;
 
                 // iterate over cells in row
-                NodeP* cell = row->firstChild;
+                Node* cell = row->firstChild;
                 while(cell != NULL) {
                     if (NodeStateHidden(cell)) visibleCells++;
                     cell = cell->nextSibling;
                 }
-                row_border_pad_gap += row->node.gap * (visibleCells - 1);
+                row_border_pad_gap += row->public.generic.gap * (visibleCells - 1);
             }
 
             // Grow the width of all cells
             int cellIndex = 0;
-            NodeP* cell = row->firstChild;
+            Node* cell = row->firstChild;
             while(cell != NULL) {
 
                 // Ignore hidden cells
@@ -627,10 +631,10 @@ static void NU_CalculateTableColumnWidths(BreadthFirstSearch* bfs, float scrollb
 
                 // Compute and set cell width
                 float proportion = columnWidths[cellIndex] / (used_table_width);
-                cell->node.width = columnWidths[cellIndex] + (remainingTableInnerWidth - row_border_pad_gap) * proportion;
+                cell->width = columnWidths[cellIndex] + (remainingTableInnerWidth - row_border_pad_gap) * proportion;
 
                 // Grow subtree in cell
-                NodeP* dfsNode;
+                Node* dfsNode;
                 DepthFirstSearch_Reset(&flexWidthDFS, cell);
                 while(DepthFirstSearch_Next(&flexWidthDFS, &dfsNode)) {
                     NU_GrowShrinkChildWidths(dfsNode, scrollbarThickness);
@@ -651,65 +655,70 @@ static void NU_CalculateTableColumnWidths(BreadthFirstSearch* bfs, float scrollb
 
 static void NU_CalculateTextHeights(BreadthFirstSearch* bfs)
 {
-    NodeP* node;
+    Node* node;
     while (BreadthFirstSearch_Next(bfs, &node)) {
 
         // Filter out
-        if (NodeStateHidden(node) || node->type == NU_FRAME) continue;
+        if (NodeStateHidden(node) || node->type == NU_TYPE_FRAME) continue;
+        if (NodeStateHidden(node) || // Hidden
+            node->public.generic.textContent == NULL || // No text content
+            (node->type != NU_TYPE_WINDOW && node->type != NU_TYPE_BOX && node->type != NU_TYPE_BUTTON && node->type != NU_TYPE_INPUT)) { // Not a valid node type
+            continue;
+        }
 
-        if (node->type == NU_INPUT) {
+        if (node->type == NU_TYPE_INPUT) {
             NU_Font* node_font = Stylesheet_Get_Font(&GUI.stylesheet, node->fontId);
 
             // Set input height equal to line height
-            node->node.height = node_font->line_height +
-            node->node.padTop + node->node.padBottom +
-            node->node.borderTop + node->node.borderBottom;
-            node->node.contentHeight = node_font->line_height;
+            node->height = node_font->line_height +
+            node->public.generic.padTop + node->public.generic.padBottom +
+            node->public.generic.borderTop + node->public.generic.borderBottom;
+            node->contentHeight = node_font->line_height;
         }
-        else if (node->node.textContent != NULL) {
+        else {
             NU_Font* node_font = Stylesheet_Get_Font(&GUI.stylesheet, node->fontId);
 
             // Compute available inner width
-            float inner_width = node->node.width - node->node.borderLeft - node->node.borderRight - node->node.padLeft - node->node.padRight;
+            float inner_width = node->width - node->public.generic.borderLeft - node->public.generic.borderRight - node->public.generic.padLeft - node->public.generic.padRight;
 
             // Calculate text height
-            float text_height = NU_Calculate_FreeText_Height_From_Wrap_Width(node_font, node->node.textContent, inner_width);
+            float text_height = NU_Calculate_FreeText_Height_From_Wrap_Width(node_font, node->public.generic.textContent, inner_width);
 
             // Increase height to account for text
-            float natural_height = node->node.padTop + node->node.padBottom + node->node.borderTop + node->node.borderBottom;
-            node->node.height = max(text_height + natural_height, node->node.prefHeight);
+            float natural_height = node->public.generic.padTop + node->public.generic.padBottom + node->public.generic.borderTop + node->public.generic.borderBottom;
+            node->height = max(text_height + natural_height, node->public.generic.preferredHeight);
 
             // Update content height
-            node->node.contentHeight = text_height;
+            node->contentHeight = text_height;
         }
     }
 }
 
-static void NU_PositionChildrenHorizontally(NodeP* node, float scrollbarThickness)
+static void NU_PositionChildrenHorizontally(Node* node, float scrollbarThickness)
 {
     // layout dir -> top to bottom
     if (node->layoutFlags & LAYOUT_VERTICAL)
     {
-        NodeP* child = node->firstChild;
+        Node* child = node->firstChild;
         while(child != NULL) {
 
-            if (NodeStateHidden(child) || child->type == NU_WINDOW) {
+            if (NodeStateHidden(child) || child->type == NU_TYPE_WINDOW) {
                 child = child->nextSibling; continue;
             }
 
             if (!(child->layoutFlags & POSITION_ABSOLUTE)) { // position relative
-                float remaning_width = (node->node.width - node->node.padLeft - node->node.padRight - node->node.borderLeft - node->node.borderRight) - child->node.width;
+                float remaning_width = (node->width - node->public.generic.padLeft - node->public.generic.padRight - node->public.generic.borderLeft - node->public.generic.borderRight) - child->width;
                 float x_align_offset = remaning_width * 0.5f * (float)node->horizontalAlignment;
-                child->node.x = node->node.x + node->node.padLeft + node->node.borderLeft + x_align_offset;
+                child->x = node->x + node->public.generic.padLeft + node->public.generic.borderLeft + x_align_offset;
             }
             else { // position absolute
-                child->node.x = node->node.x + node->node.padLeft + node->node.borderLeft;
-                if (child->node.left != INT16_MIN) {
-                    child->node.x = node->node.x + child->node.left + node->node.padLeft + node->node.borderLeft;
+                child->x = node->x + node->public.generic.padLeft + node->public.generic.borderLeft;
+                if (child->public.generic.left != INT16_MIN) {
+                    child->x = node->x + child->public.generic.left + node->public.generic.padLeft + node->public.generic.borderLeft;
                 }
-                else if (child->node.right != INT16_MIN) {
-                    float inner_width = node->node.width - node->node.padLeft - node->node.padRight - node->node.borderLeft - node->node.borderRight;
-                    child->node.x = node->node.x + inner_width - child->node.width - child->node.right;
+                else if (child->public.generic.right != INT16_MIN) {
+                    float inner_width = node->width - node->public.generic.padLeft - node->public.generic.padRight - node->public.generic.borderLeft - node->public.generic.borderRight;
+                    child->x = node->x + inner_width - child->width - child->public.generic.right;
                 }
             }
 
@@ -721,43 +730,43 @@ static void NU_PositionChildrenHorizontally(NodeP* node, float scrollbarThicknes
     else
     {
         // calculate remaining width (optimise this by caching this value inside node's content width variable)
-        float remainingWidth = node->node.width - node->node.padLeft - node->node.padRight - node->node.borderLeft - node->node.borderRight;
+        float remainingWidth = node->width - node->public.generic.padLeft - node->public.generic.padRight - node->public.generic.borderLeft - node->public.generic.borderRight;
         remainingWidth -= !!(node->layoutFlags & OVERFLOW_VERTICAL_SCROLL) * scrollbarThickness;
 
         int numChildrenAffectingWidth = 0;
-        NodeP* child = node->firstChild;
+        Node* child = node->firstChild;
         while(child != NULL) {
-            if (!NodeStateHidden(child) && child->type != NU_WINDOW && !(child->layoutFlags & POSITION_ABSOLUTE)) {
-                remainingWidth -= child->node.width; numChildrenAffectingWidth++;
+            if (!NodeStateHidden(child) && child->type != NU_TYPE_WINDOW && !(child->layoutFlags & POSITION_ABSOLUTE)) {
+                remainingWidth -= child->width; numChildrenAffectingWidth++;
             }
 
             // move to the next child
             child = child->nextSibling;
         }
-        remainingWidth -= node->node.gap * (numChildrenAffectingWidth - 1);
+        remainingWidth -= node->public.generic.gap * (numChildrenAffectingWidth - 1);
 
 
         // position children horizontally
         float cursorX = 0.0f;
         child = node->firstChild;
         while(child != NULL) {
-            if (NodeStateHidden(child) || child->type == NU_WINDOW) {
+            if (NodeStateHidden(child) || child->type == NU_TYPE_WINDOW) {
                 child = child->nextSibling; continue;
             }
 
             if (!(child->layoutFlags & POSITION_ABSOLUTE)) { // position relative
                 float x_align_offset = remainingWidth * 0.5f * (float)node->horizontalAlignment;
-                child->node.x += node->node.x + node->node.padLeft + node->node.borderLeft + cursorX + x_align_offset;
-                cursorX += child->node.width + node->node.gap;
+                child->x += node->x + node->public.generic.padLeft + node->public.generic.borderLeft + cursorX + x_align_offset;
+                cursorX += child->width + node->public.generic.gap;
             }
             else { // position absolute
-                child->node.x = node->node.x + node->node.padLeft + node->node.borderLeft;
-                if (child->node.left != INT16_MIN) {
-                    child->node.x = node->node.x + child->node.left + node->node.padLeft + node->node.borderLeft;
+                child->x = node->x + node->public.generic.padLeft + node->public.generic.borderLeft;
+                if (child->public.generic.left != INT16_MIN) {
+                    child->x = node->x + child->public.generic.left + node->public.generic.padLeft + node->public.generic.borderLeft;
                 }
-                else if (child->node.right != INT16_MIN) {
-                    float inner_width = node->node.width - node->node.padLeft - node->node.padRight - node->node.borderLeft - node->node.borderRight;
-                    child->node.x = node->node.x + inner_width - child->node.width - child->node.right;
+                else if (child->public.generic.right != INT16_MIN) {
+                    float inner_width = node->width - node->public.generic.padLeft - node->public.generic.padRight - node->public.generic.borderLeft - node->public.generic.borderRight;
+                    child->x = node->x + inner_width - child->width - child->public.generic.right;
                 }
             }
 
@@ -767,51 +776,51 @@ static void NU_PositionChildrenHorizontally(NodeP* node, float scrollbarThicknes
     }
 }
 
-static void NU_PositionChildrenVertically(NodeP* node, float scrollbarThickness)
+static void NU_PositionChildrenVertically(Node* node, float scrollbarThickness)
 {
     float y_scroll_offset = 0.0f;
     if (node->layoutFlags & OVERFLOW_VERTICAL_SCROLL &&
         node->childCount > 0 &&
-        node->node.contentHeight > node->node.height - node->node.padTop - node->node.padBottom - node->node.borderTop - node->node.borderBottom)
+        node->contentHeight > node->height - node->public.generic.padTop - node->public.generic.padBottom - node->public.generic.borderTop - node->public.generic.borderBottom)
     {
-        float track_h = node->node.height - node->node.borderTop - node->node.borderBottom;
-        float inner_height_w_pad = track_h - node->node.padTop - node->node.padBottom;
-        float inner_proportion_of_content_height = inner_height_w_pad / node->node.contentHeight;
+        float track_h = node->height - node->public.generic.borderTop - node->public.generic.borderBottom;
+        float inner_height_w_pad = track_h - node->public.generic.padTop - node->public.generic.padBottom;
+        float inner_proportion_of_content_height = inner_height_w_pad / node->contentHeight;
         float thumb_h = inner_proportion_of_content_height * track_h;
-        float content_scroll_range = node->node.contentHeight - inner_height_w_pad;
+        float content_scroll_range = node->contentHeight - inner_height_w_pad;
         float thumb_scroll_range = track_h - thumb_h;
         float scroll_factor = content_scroll_range / max(thumb_scroll_range, 1.0f);
         y_scroll_offset += (-node->scrollV * (track_h - thumb_h)) * scroll_factor;
 
         // undo effect of scroll offset for table header row
-        if (node->firstChild->type == NU_THEAD) {
-            node->firstChild->node.y -= y_scroll_offset;
+        if (node->firstChild->type == NU_TYPE_THEAD) {
+            node->firstChild->y -= y_scroll_offset;
         }
     }
 
     // layout dir -> left to right
     if (!(node->layoutFlags & LAYOUT_VERTICAL))
     {
-        NodeP* child = node->firstChild;
+        Node* child = node->firstChild;
         while(child != NULL) {
 
-            if (NodeStateHidden(child) || child->type == NU_WINDOW) {
+            if (NodeStateHidden(child) || child->type == NU_TYPE_WINDOW) {
                 child = child->nextSibling; continue;
             }
 
             if (!(child->layoutFlags & POSITION_ABSOLUTE)) { // position relative
-                float remaining_height = (node->node.height - node->node.padTop - node->node.padBottom - node->node.borderTop - node->node.borderBottom) - child->node.height;
+                float remaining_height = (node->height - node->public.generic.padTop - node->public.generic.padBottom - node->public.generic.borderTop - node->public.generic.borderBottom) - child->height;
                 float y_align_offset = remaining_height * 0.5f * (float)node->verticalAlignment;
-                child->node.y += node->node.y + node->node.padTop + node->node.borderTop + y_align_offset + y_scroll_offset;
+                child->y += node->y + node->public.generic.padTop + node->public.generic.borderTop + y_align_offset + y_scroll_offset;
             }
             else { // position absolute
-                child->node.y = node->node.y + node->node.padTop + node->node.borderTop;
-                if (child->node.top > 0.0f) {
-                    child->node.y = node->node.y + child->node.top + node->node.padTop + node->node.borderTop;
+                child->y = node->y + node->public.generic.padTop + node->public.generic.borderTop;
+                if (child->public.generic.top > 0.0f) {
+                    child->y = node->y + child->public.generic.top + node->public.generic.padTop + node->public.generic.borderTop;
                 }
-                else if (child->node.bottom > 0.0f) {
-                    float inner_height = node->node.height - node->node.padTop - node->node.padBottom - node->node.borderTop - node->node.borderBottom;
-                    child->node.y = node->node.y + inner_height - child->node.height - child->node.bottom;
+                else if (child->public.generic.bottom > 0.0f) {
+                    float inner_height = node->height - node->public.generic.padTop - node->public.generic.padBottom - node->public.generic.borderTop - node->public.generic.borderBottom;
+                    child->y = node->y + inner_height - child->height - child->public.generic.bottom;
                 }
             }
 
@@ -824,41 +833,41 @@ static void NU_PositionChildrenVertically(NodeP* node, float scrollbarThickness)
     else
     {
         // calculate remaining height (optimise this by caching this value inside node's content height variable)
-        float remainingHeight = (node->node.height - node->node.padTop - node->node.padBottom - node->node.borderTop - node->node.borderBottom);
+        float remainingHeight = (node->height - node->public.generic.padTop - node->public.generic.padBottom - node->public.generic.borderTop - node->public.generic.borderBottom);
         remainingHeight -= !!(node->layoutFlags & OVERFLOW_HORIZONTAL_SCROLL) * scrollbarThickness;
         int numChildrenAffectingHeight = 0;
-        NodeP* child = node->firstChild;
+        Node* child = node->firstChild;
         while(child != NULL) {
-            if (!NodeStateHidden(child) && child->type != NU_WINDOW && !(child->layoutFlags & POSITION_ABSOLUTE)) {
-                remainingHeight -= child->node.height; numChildrenAffectingHeight++;
+            if (!NodeStateHidden(child) && child->type != NU_TYPE_WINDOW && !(child->layoutFlags & POSITION_ABSOLUTE)) {
+                remainingHeight -= child->height; numChildrenAffectingHeight++;
             }
 
             // move to the next child
             child = child->nextSibling;
         }
-        remainingHeight -= node->node.gap * (numChildrenAffectingHeight - 1);
+        remainingHeight -= node->public.generic.gap * (numChildrenAffectingHeight - 1);
 
         // position children vertically
         float cursorY = 0.0f;
         child = node->firstChild;
         while(child != NULL) {
-            if (NodeStateHidden(child) || child->type == NU_WINDOW) {
+            if (NodeStateHidden(child) || child->type == NU_TYPE_WINDOW) {
                 child = child->nextSibling; continue;
             }
 
             if (!(child->layoutFlags & POSITION_ABSOLUTE)) { // position relative
                 float y_align_offset = remainingHeight * 0.5f * (float)node->verticalAlignment;
-                child->node.y += node->node.y + node->node.padTop + node->node.borderTop + cursorY + y_align_offset + y_scroll_offset;
-                cursorY += child->node.height + node->node.gap;
+                child->y += node->y + node->public.generic.padTop + node->public.generic.borderTop + cursorY + y_align_offset + y_scroll_offset;
+                cursorY += child->height + node->public.generic.gap;
             }
             else { // position abosolute
-                child->node.y = node->node.y + node->node.padTop + node->node.borderTop;
-                if (child->node.top >= 0.0f) {
-                    child->node.y = node->node.y + child->node.top + node->node.padTop + node->node.borderTop;
+                child->y = node->y + node->public.generic.padTop + node->public.generic.borderTop;
+                if (child->public.generic.top >= 0.0f) {
+                    child->y = node->y + child->public.generic.top + node->public.generic.padTop + node->public.generic.borderTop;
                 }
-                else if (child->node.bottom >= 0.0f) {
-                    float inner_height = node->node.height - node->node.padTop - node->node.padBottom - node->node.borderTop - node->node.borderBottom;
-                    child->node.y = node->node.y + inner_height - child->node.height - child->node.bottom;
+                else if (child->public.generic.bottom >= 0.0f) {
+                    float inner_height = node->height - node->public.generic.padTop - node->public.generic.padBottom - node->public.generic.borderTop - node->public.generic.borderBottom;
+                    child->y = node->y + inner_height - child->height - child->public.generic.bottom;
                 }
             }
 
@@ -870,12 +879,12 @@ static void NU_PositionChildrenVertically(NodeP* node, float scrollbarThickness)
 
 static void NU_CalculatePositions(BreadthFirstSearch* bfs, float scrollbarThickness)
 {
-    NodeP* node;
+    Node* node;
     while (BreadthFirstSearch_Next(bfs, &node)) {
         if (NodeStateHidden(node)) continue;
-        if (node->type == NU_WINDOW) {
-            node->node.x = 0;
-            node->node.y = 0;
+        if (node->type == NU_TYPE_WINDOW) {
+            node->x = 0;
+            node->y = 0;
         }
         NU_PositionChildrenHorizontally(node, scrollbarThickness);
         NU_PositionChildrenVertically(node, scrollbarThickness);
@@ -884,15 +893,15 @@ static void NU_CalculatePositions(BreadthFirstSearch* bfs, float scrollbarThickn
 
 void NU_Repass(BreadthFirstSearch* bfs)
 {
-    NodeP* node;
+    Node* node;
     while (BreadthFirstSearch_Next(bfs, &node)) {
 
         if (NodeStateHidden(node)) continue;
 
-        node->node.contentWidth = 0.0f;
-        node->node.contentHeight = 0.0f;
+        node->contentHeight = 0.0f;
+        node->contentHeight = 0.0f;
 
-        NodeP* child = node->firstChild;
+        Node* child = node->firstChild;
         while(child != NULL) {
 
             if (NodeStateHidden(child)) {
@@ -901,16 +910,16 @@ void NU_Repass(BreadthFirstSearch* bfs)
             }
 
             // reset position
-            child->node.x = 0.0f;
-            child->node.y = 0.0f;
+            child->x = 0.0f;
+            child->y = 0.0f;
 
             // Set base width/height and reset content dimensions
-            float natural_width = child->node.borderLeft + child->node.borderRight + child->node.padLeft + child->node.padRight;
-            float natural_height = child->node.borderTop + child->node.borderBottom + child->node.padTop + child->node.padBottom;
-            child->node.width = max(child->node.prefWidth, natural_width);
-            child->node.height = max(child->node.prefHeight, natural_height);
-            child->node.contentWidth = 0;
-            child->node.contentHeight = 0;
+            float natural_width = child->public.generic.borderLeft + child->public.generic.borderRight + child->public.generic.padLeft + child->public.generic.padRight;
+            float natural_height = child->public.generic.borderTop + child->public.generic.borderBottom + child->public.generic.padTop + child->public.generic.padBottom;
+            child->width = max(child->public.generic.preferredWidth, natural_width);
+            child->height = max(child->public.generic.preferredHeight, natural_height);
+            child->contentWidth = 0;
+            child->contentHeight = 0;
 
             // move to next sibling
             child = child->nextSibling;
@@ -957,8 +966,8 @@ void NU_Layout()
     // SECOND PASS -> RECOMPUTE OVERFLOWED SCROLL BRANCHES
     for (u32 i=0; i<GUI.layoutScrollAutoNodes.size; i++)
     {
-        NodeP* node = *(NodeP**)Array_Get(&GUI.layoutScrollAutoNodes, i);
-        bool overflowed = node->node.contentHeight > (node->node.height - node->node.padTop - node->node.padBottom - node->node.borderTop - node->node.borderBottom);
+        Node* node = *(Node**)Array_Get(&GUI.layoutScrollAutoNodes, i);
+        bool overflowed = node->contentHeight > (node->height - node->public.generic.padTop - node->public.generic.padBottom - node->public.generic.borderTop - node->public.generic.borderBottom);
         if (!overflowed) continue;
 
         // PERFORM NECESSARY COMPUTATIONS ONLY

@@ -1,18 +1,18 @@
 #pragma once
 
-static bool NU_MouseIsOverNode(NodeP* node, float mouseX, float mouseY)
+static bool NU_MouseIsOverNode(Node* node, float mouseX, float mouseY)
 {
     // get clipping info
-    float left_wall = node->node.x;
-    float right_wall = node->node.x + node->node.width;
-    float top_wall = node->node.y;
-    float bottom_wall = node->node.y + node->node.height;
+    float left_wall = node->x;
+    float right_wall = node->x + node->width;
+    float top_wall = node->y;
+    float bottom_wall = node->y + node->height;
     if (node->clippedAncestor != NULL) {
         NU_ClipBounds* clip = Hashmap_Get(&GUI.winManager.clipMap, &node->clippedAncestor);
-        left_wall = max(clip->left, node->node.x);
-        right_wall = min(clip->right, node->node.x + node->node.width);
-        top_wall = max(clip->top, node->node.y);
-        bottom_wall = min(clip->bottom, node->node.y + node->node.height);
+        left_wall = max(clip->left, node->x);
+        right_wall = min(clip->right, node->x + node->width);
+        top_wall = max(clip->top, node->y);
+        bottom_wall = min(clip->bottom, node->y + node->height);
     }
 
     // check if mouse is within clipped bounding box
@@ -21,24 +21,24 @@ static bool NU_MouseIsOverNode(NodeP* node, float mouseX, float mouseY)
     if (!(within_x_bound && within_y_bound)) return false; // Not in bounding rect
 
     // constrain border radii
-    float borderRadiusBl = node->node.borderRadiusBl;
-    float borderRadiusBr = node->node.borderRadiusBr;
-    float borderRadiusTl = node->node.borderRadiusTl;
-    float borderRadiusTr = node->node.borderRadiusTr;
+    float borderRadiusBl = node->public.generic.borderRadiusBl;
+    float borderRadiusBr = node->public.generic.borderRadiusBr;
+    float borderRadiusTl = node->public.generic.borderRadiusTl;
+    float borderRadiusTr = node->public.generic.borderRadiusTr;
     float left_radii_sum   = borderRadiusTl + borderRadiusBl;
     float right_radii_sum  = borderRadiusTr + borderRadiusBr;
     float top_radii_sum    = borderRadiusTl + borderRadiusTr;
     float bottom_radii_sum = borderRadiusBl + borderRadiusBr;
-    if (left_radii_sum   > node->node.height)  { float scale = node->node.height / left_radii_sum;   borderRadiusTl *= scale; borderRadiusBl *= scale; }
-    if (right_radii_sum  > node->node.height)  { float scale = node->node.height / right_radii_sum;  borderRadiusTr *= scale; borderRadiusBr *= scale; }
-    if (top_radii_sum    > node->node.width )  { float scale = node->node.width  / top_radii_sum;    borderRadiusTl *= scale; borderRadiusTr *= scale; }
-    if (bottom_radii_sum > node->node.width )  { float scale = node->node.width  / bottom_radii_sum; borderRadiusBl *= scale; borderRadiusBr *= scale; }
+    if (left_radii_sum   > node->height)  { float scale = node->height / left_radii_sum;   borderRadiusTl *= scale; borderRadiusBl *= scale; }
+    if (right_radii_sum  > node->height)  { float scale = node->height / right_radii_sum;  borderRadiusTr *= scale; borderRadiusBr *= scale; }
+    if (top_radii_sum    > node->width )  { float scale = node->width  / top_radii_sum;    borderRadiusTl *= scale; borderRadiusTr *= scale; }
+    if (bottom_radii_sum > node->width )  { float scale = node->width  / bottom_radii_sum; borderRadiusBl *= scale; borderRadiusBr *= scale; }
 
     // rounded border anchors
-    vec2 tl_a = { floorf(node->node.x + borderRadiusTl),                    floorf(node->node.y + borderRadiusTl) };
-    vec2 tr_a = { floorf(node->node.x + node->node.width - borderRadiusTr), floorf(node->node.y + borderRadiusTr) };
-    vec2 bl_a = { floorf(node->node.x + borderRadiusBl),                    floorf(node->node.y + node->node.height - borderRadiusBl) };
-    vec2 br_a = { floorf(node->node.x + node->node.width - borderRadiusBr), floorf(node->node.y + node->node.height - borderRadiusBr) };
+    vec2 tl_a = { floorf(node->x + borderRadiusTl),                    floorf(node->y + borderRadiusTl) };
+    vec2 tr_a = { floorf(node->x + node->width - borderRadiusTr), floorf(node->y + borderRadiusTr) };
+    vec2 bl_a = { floorf(node->x + borderRadiusBl),                    floorf(node->y + node->height - borderRadiusBl) };
+    vec2 br_a = { floorf(node->x + node->width - borderRadiusBr), floorf(node->y + node->height - borderRadiusBr) };
 
     // ensure mouse is not in top left rounded deadzone
     if (mouseX < tl_a.x && mouseY < tl_a.y) {
@@ -76,11 +76,11 @@ static bool NU_MouseIsOverNode(NodeP* node, float mouseX, float mouseY)
 }
 
 static bool NU_Mouse_Over_Node_V_Scrollbar(
-    NodeP* node, Stylesheet_Scrollbar_Style* scrollbarStyle,
+    Node* node, Stylesheet_Scrollbar_Style* scrollbarStyle,
     float mouseX, float mouseY, float* grabOffsetOut
 )
 {
-    Node* n = &node->node;
+    NuNodeGeneric* n = &node->public.generic;
 
     // --------------------------------------
     // --- Compute constrained dimensions ---
@@ -99,20 +99,20 @@ static bool NU_Mouse_Over_Node_V_Scrollbar(
     float trackWidth = thumbWidth + (float)scrollbarStyle->trackPadLeft + (float)scrollbarStyle->trackPadRight;
 
     // Compute track height
-    float trackHeight = n->height - n->borderTop - n->borderBottom;
+    float trackHeight = node->height - n->borderTop - n->borderBottom;
     float usableTrackHeight = trackHeight - scrollbarStyle->trackPadTop - scrollbarStyle->trackPadBottom;
 
     // Compute track pos
-    float trackX = n->x + n->width - n->borderRight - trackWidth;
-    float trackY = n->y + n->borderTop;
+    float trackX = node->x + node->width - n->borderRight - trackWidth;
+    float trackY = node->y + n->borderTop;
 
     // Compute scroll transform values
-    float scrollContentHeight = n->contentHeight;
+    float scrollContentHeight = node->contentHeight;
     float scrollViewHeight = usableTrackHeight - n->padTop - n->padBottom;
     float scrollScaleFactor = scrollViewHeight / scrollContentHeight;
 
     // Compute thumb pos and constrained height
-    float thumbHeight = fmaxf(scrollViewHeight / n->contentHeight * usableTrackHeight, scrollbarStyle->thumbMinSize);
+    float thumbHeight = fmaxf(scrollViewHeight / node->contentHeight * usableTrackHeight, scrollbarStyle->thumbMinSize);
     float scrollTravel = usableTrackHeight - thumbHeight;
     float thumbY = trackY + scrollbarStyle->trackPadTop + node->scrollV * scrollTravel;
     float thumbX = trackX + scrollbarStyle->trackPadLeft;
@@ -138,11 +138,11 @@ void NU_Mouse_Hover()
 
     // Create a traversal stack
     struct Array stack;
-    Array_Init(&stack, sizeof(NodeP*), 32);
+    Array_Init(&stack, sizeof(Node*), 32);
 
     // Add absolute root nodes to stack
     for (u32 i=0; i<GUI.winManager.absoluteRootNodes.size; i++) {
-        NodeP* absolute_node = *(NodeP**)Array_Get(&GUI.winManager.absoluteRootNodes, i);
+        Node* absolute_node = *(Node**)Array_Get(&GUI.winManager.absoluteRootNodes, i);
         if (absolute_node->windowID == GUI.winManager.hoveredWindowNode->windowID && NU_MouseIsOverNode(absolute_node, mouseX, mouseY)) {
             Array_Push(&stack, &absolute_node);
         }
@@ -156,22 +156,22 @@ void NU_Mouse_Hover()
     while (stack.size > 0 && !break_loop)
     {
         // Pop the stack
-        NodeP* current_node = *(NodeP**)Array_Get(&stack, stack.size - 1);
+        Node* current_node = *(Node**)Array_Get(&stack, stack.size - 1);
         if (!(current_node->layoutFlags & IGNORE_MOUSE)) {
             GUI.hovered_node = current_node;
         }
         stack.size -= 1;
 
         // Skip children
-        if (current_node->type == NU_BUTTON) continue;
+        if (current_node->type == NU_TYPE_BUTTON) continue;
 
         // Iterate over children
-        NodeP* child = current_node->firstChild;
+        Node* child = current_node->firstChild;
         while(child != NULL) {
 
             if (NodeStateHidden(child) ||
                 child->layoutFlags & POSITION_ABSOLUTE ||
-                child->type == NU_WINDOW ||
+                child->type == NU_TYPE_WINDOW ||
                 !NU_MouseIsOverNode(child, mouseX, mouseY))
             {
                 child = child->nextSibling; continue;
@@ -179,7 +179,7 @@ void NU_Mouse_Hover()
 
             // Check for scroll hover
             if (child->layoutFlags & OVERFLOW_V_PROPERTY) {
-                bool overflow_v = child->node.contentHeight > child->node.height - child->node.borderTop - child->node.borderBottom;
+                bool overflow_v = child->contentHeight > child->height - child->public.generic.borderTop - child->public.generic.borderBottom;
                 if (overflow_v) GUI.scroll_hovered_node = child;
             }
             Array_Push(&stack, &child);

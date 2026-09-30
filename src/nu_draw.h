@@ -10,32 +10,32 @@ typedef enum NodeOverlap
     NODE_OVERLAP_INSIDE
 } NodeOverlap;
 
-void NU_AddTextMesh(NodeP* node, float z, char* textBuffer, Vertex_RGB_UV_List* vertices, Index_List* indices)
+void NU_AddTextMesh(Node* node, float z, char* textBuffer, Vertex_RGB_UV_List* vertices, Index_List* indices)
 {
     // Compute inner dimensions (content area)
-    float inner_width  = node->node.width  - node->node.borderLeft - node->node.borderRight - node->node.padLeft - node->node.padRight;
-    float inner_height = node->node.height - node->node.borderTop  - node->node.borderBottom - node->node.padTop - node->node.padBottom;
-    float remaining_w = inner_width  - node->node.contentWidth;
-    float remaining_h = inner_height - node->node.contentHeight;
+    float inner_width  = node->width  - node->public.generic.borderLeft - node->public.generic.borderRight - node->public.generic.padLeft - node->public.generic.padRight;
+    float inner_height = node->height - node->public.generic.borderTop  - node->public.generic.borderBottom - node->public.generic.padTop - node->public.generic.padBottom;
+    float remaining_w = inner_width  - node->contentWidth;
+    float remaining_h = inner_height - node->contentHeight;
     float x_align_offset = remaining_w * 0.5f * (float)node->horizontalTextAlignment;
     float y_align_offset = remaining_h * 0.5f * (float)node->verticalTextAlignment;
 
     // Top-left corner of the content area
-    float textPosX = node->node.x + node->node.borderLeft + node->node.padLeft + x_align_offset;
-    float textPosY = node->node.y + node->node.borderTop  + node->node.padTop + y_align_offset;
+    float textPosX = node->x + node->public.generic.borderLeft + node->public.generic.padLeft + x_align_offset;
+    float textPosY = node->y + node->public.generic.borderTop  + node->public.generic.padTop + y_align_offset;
 
     // Draw wrapped text inside inner_width
-    float r = (float)node->node.textR * 0.003921568627451f;
-    float g = (float)node->node.textG * 0.003921568627451f;
-    float b = (float)node->node.textB * 0.003921568627451f;
+    float r = (float)node->public.generic.textR * 0.003921568627451f;
+    float g = (float)node->public.generic.textG * 0.003921568627451f;
+    float b = (float)node->public.generic.textB * 0.003921568627451f;
     NU_Font* node_font = Stylesheet_Get_Font(&GUI.stylesheet, node->fontId);
     NU_Generate_Text_Mesh(vertices, indices, node_font, textBuffer, floorf(textPosX), floorf(textPosY), z, r, g, b, inner_width);
 }
 
-static NodeOverlap NodeVerticalOverlapState(NodeP* node, float y, float h)
+static NodeOverlap NodeVerticalOverlapState(Node* node, float y, float h)
 {
-    float top = node->node.y;
-    float bottom = top + node->node.height;
+    float top = node->y;
+    float bottom = top + node->height;
     float bounds_top = y;
     float bounds_bottom = y + h;
     int overlap = (bottom > bounds_top) & (top < bounds_bottom);
@@ -43,23 +43,23 @@ static NodeOverlap NodeVerticalOverlapState(NodeP* node, float y, float h)
     return (NodeOverlap)(overlap + inside);
 }
 
-void NU_DrawClippedNodeTextContent(NodeP* node, float z, float winWidth, float winHeight, NU_ClipBounds* clip)
+void NU_DrawClippedNodeTextContent(Node* node, float z, float winWidth, float winHeight, NU_ClipBounds* clip)
 {
     Vertex_RGB_UV_List clipped_text_vertices;
     Index_List clipped_text_indices;
     Vertex_RGB_UV_List_Init(&clipped_text_vertices, 1000);
     Index_List_Init(&clipped_text_indices, 600);
     NU_Font* node_font = Stylesheet_Get_Font(&GUI.stylesheet, node->fontId);
-    NU_AddTextMesh(node, z, node->node.textContent, &clipped_text_vertices, &clipped_text_indices);
+    NU_AddTextMesh(node, z, node->public.generic.textContent, &clipped_text_vertices, &clipped_text_indices);
     NU_Render_Text(&clipped_text_vertices, &clipped_text_indices, node_font, winWidth, winHeight, 0, 0, clip->top, clip->bottom, clip->left, clip->right);
     Vertex_RGB_UV_List_Free(&clipped_text_vertices);
     Index_List_Free(&clipped_text_indices);
 }
 
-void NU_DrawInputNodeContent(NodeP* node, float z, float winWidth, float winHeight, NU_ClipBounds* clip)
+void NU_DrawInputNodeContent(Node* node, float z, float winWidth, float winHeight, NU_ClipBounds* clip)
 {
     NU_Font* node_font = Stylesheet_Get_Font(&GUI.stylesheet, node->fontId);
-    InputText* inputText = Container_Get(&GUI.textInputs, node->typeData.input.textInputHandle);
+    InputText* inputText = Container_Get(&GUI.textInputs, node->special.input.textInputHandle);
 
     if (inputText->updateOffsetsPostLayout) {
         inputText->updateOffsetsPostLayout = false;
@@ -86,11 +86,11 @@ void NU_DrawInputNodeContent(NodeP* node, float z, float winWidth, float winHeig
     // generate and draw text
     Vertex_RGB_UV_List clipped_text_vertices; Vertex_RGB_UV_List_Init(&clipped_text_vertices, 1000);
     Index_List clipped_text_indices; Index_List_Init(&clipped_text_indices, 600);
-    float textPosX = node->node.x + node->node.borderLeft + node->node.padLeft + inputText->textOffset;
-    float textPosY = node->node.y + node->node.borderTop  + node->node.padTop;
-    float r = (float)node->node.textR * 0.003921568627451f;
-    float g = (float)node->node.textG * 0.003921568627451f;
-    float b = (float)node->node.textB * 0.003921568627451f;
+    float textPosX = node->x + node->public.generic.borderLeft + node->public.generic.padLeft + inputText->textOffset;
+    float textPosY = node->y + node->public.generic.borderTop  + node->public.generic.padTop;
+    float r = (float)node->public.generic.textR * 0.003921568627451f;
+    float g = (float)node->public.generic.textG * 0.003921568627451f;
+    float b = (float)node->public.generic.textB * 0.003921568627451f;
     NU_Generate_Text_Mesh(&clipped_text_vertices, &clipped_text_indices, node_font, inputText->buffer, floorf(textPosX), floorf(textPosY), z + 0.5f, r, g, b, 10000000.0f);
     NU_Render_Text(&clipped_text_vertices, &clipped_text_indices, node_font, winWidth, winHeight, 0, 0, clip->top, clip->bottom, clip->left, clip->right);
     Vertex_RGB_UV_List_Free(&clipped_text_vertices);
@@ -116,25 +116,25 @@ void NU_DrawInputNodeContent(NodeP* node, float z, float winWidth, float winHeig
     }
 }
 
-void NU_DrawCanvasContent(NodeP* canvas_node, float winW, float winH, NU_ClipBounds* clip)
+void NU_DrawCanvasContent(Node* canvas_node, float winW, float winH, NU_ClipBounds* clip)
 {
-    NU_Canvas_Context* ctx = Container_Get(&GUI.canvasContexts, canvas_node->typeData.canvas.ctxHandle);
+    NU_Canvas_Context* ctx = Container_Get(&GUI.canvasContexts, canvas_node->special.canvas.ctxHandle);
     if (ctx == NULL) return;
 
-    float offsetX = roundf(canvas_node->node.x + canvas_node->node.borderLeft + canvas_node->node.padLeft);
-    float offsetY = roundf(canvas_node->node.y + canvas_node->node.borderTop + canvas_node->node.padTop);
-    float top    = canvas_node->node.y + canvas_node->node.borderTop + canvas_node->node.padTop;
-    float bottom = canvas_node->node.y + canvas_node->node.height - canvas_node->node.borderBottom - canvas_node->node.padBottom;
-    float left   = canvas_node->node.x + canvas_node->node.borderLeft + canvas_node->node.padLeft;
-    float right  = canvas_node->node.x + canvas_node->node.width - canvas_node->node.borderRight - canvas_node->node.padRight;
+    float offsetX = roundf(canvas_node->x + canvas_node->public.generic.borderLeft + canvas_node->public.generic.padLeft);
+    float offsetY = roundf(canvas_node->y + canvas_node->public.generic.borderTop + canvas_node->public.generic.padTop);
+    float top    = canvas_node->y + canvas_node->public.generic.borderTop + canvas_node->public.generic.padTop;
+    float bottom = canvas_node->y + canvas_node->height - canvas_node->public.generic.borderBottom - canvas_node->public.generic.padBottom;
+    float left   = canvas_node->x + canvas_node->public.generic.borderLeft + canvas_node->public.generic.padLeft;
+    float right  = canvas_node->x + canvas_node->width - canvas_node->public.generic.borderRight - canvas_node->public.generic.padRight;
     if (clip) {
         top    = fmax_fast(top, clip->top);
         bottom = fmax_fast(bottom, clip->bottom);
         left   = fmax_fast(left, clip->left);
         right  = fmax_fast(right, clip->right);
     }
-    ctx->canvasWidth = canvas_node->node.width;
-    ctx->canvasHeight = canvas_node->node.height;
+    ctx->canvasWidth = canvas_node->width;
+    ctx->canvasHeight = canvas_node->height;
 
     // Draw canvas shape layer
     Draw_Clipped_Vertex_RGB_List(
@@ -158,11 +158,11 @@ void NU_DrawCanvasContent(NodeP* canvas_node, float winW, float winH, NU_ClipBou
     }
 }
 
-inline int NodeNotVisibleInWindow(NodeP* node, int winW, int winH)
+inline int NodeNotVisibleInWindow(Node* node, int winW, int winH)
 {
-    float right  = node->node.x + node->node.width;
-    float bottom = node->node.y + node->node.height;
-    return (right < 0 || bottom < 0 || node->node.x > winW || node->node.y > winH);
+    float right  = node->x + node->width;
+    float bottom = node->y + node->height;
+    return (right < 0 || bottom < 0 || node->x > winW || node->y > winH);
 }
 
 void NU_GenerateDrawlists()
@@ -180,32 +180,32 @@ void NU_GenerateDrawlists()
     Array_Clear(&GUI.winManager.absoluteRootNodes);
 
     // Add root to drawlist
-    NodeP* root = GUI.tree.root;
+    Node* root = GUI.tree.root;
     SetNodeDrawlist_Draw(&GUI.winManager, root);
 
     // Traverse the tree
     BreadthFirstSearch* bfs = &GUI.bfs;
     BreadthFirstSearch_Reset(bfs, root);
-    NodeP* node;
+    Node* node;
     while(BreadthFirstSearch_Next(bfs, &node)) {
 
         // Precompute node inner rect
         float nodeInnerX, nodeInnerY, nodeInnerWidth, nodeInnerHeight = 0;
         if (node->layoutFlags & OVERFLOW_VERTICAL_SCROLL) {
-            nodeInnerY = node->node.y + node->node.borderTop + node->node.padTop;
-            nodeInnerHeight = node->node.height - node->node.borderTop - node->node.borderBottom - node->node.padTop - node->node.padBottom;
+            nodeInnerY = node->y + node->public.generic.borderTop + node->public.generic.padTop;
+            nodeInnerHeight = node->height - node->public.generic.borderTop - node->public.generic.borderBottom - node->public.generic.padTop - node->public.generic.padBottom;
 
             // Handle case where node is a table with a thead
-            if (node->type == NU_TABLE && node->childCount > 0) {
-                if (node->firstChild->type == NU_THEAD) {
-                    nodeInnerY += node->firstChild->node.height;
-                    nodeInnerHeight -= node->firstChild->node.height;
+            if (node->type == NU_TYPE_TABLE && node->childCount > 0) {
+                if (node->firstChild->type == NU_TYPE_THEAD) {
+                    nodeInnerY += node->firstChild->height;
+                    nodeInnerHeight -= node->firstChild->height;
                 }
             }
         }
         if (node->layoutFlags & OVERFLOW_HORIZONTAL_SCROLL) {
-            nodeInnerX = node->node.x + node->node.borderLeft + node->node.padLeft;
-            nodeInnerWidth = node->node.width - node->node.borderLeft - node->node.borderRight - node->node.padLeft - node->node.padRight;
+            nodeInnerX = node->x + node->public.generic.borderLeft + node->public.generic.padLeft;
+            nodeInnerWidth = node->width - node->public.generic.borderLeft - node->public.generic.borderRight - node->public.generic.padLeft - node->public.generic.padRight;
         }
 
         // cache window dimensions
@@ -214,11 +214,11 @@ void NU_GenerateDrawlists()
         SDL_GetWindowSizeInPixels(window, &winW, &winH);
 
         // iterate over children
-        NodeP* child = node->firstChild;
+        Node* child = node->firstChild;
         while(child != NULL)
         {
             // if parent is not visible (ad child inherets parent's visibility) OR child is not visible OR child not visible in it's window -> mark as hidded -> skip
-            if ((NodeStateHidden(node) && child->type != NU_WINDOW) || NodeStateHidden(child) || NodeNotVisibleInWindow(child, winW, winH)) {
+            if ((NodeStateHidden(node) && child->type != NU_TYPE_WINDOW) || NodeStateHidden(child) || NodeNotVisibleInWindow(child, winW, winH)) {
                 child->stateFlags |= STATE_FLAG_HIDDEN;
                 child = child->nextSibling; continue;
             }
@@ -229,7 +229,7 @@ void NU_GenerateDrawlists()
             }
 
             // if overflowed parent's bounds
-            if (child->type != NU_WINDOW && child->type != NU_THEAD && (node->layoutFlags & OVERFLOW_VERTICAL_SCROLL)) {
+            if (child->type != NU_TYPE_WINDOW && child->type != NU_TYPE_THEAD && (node->layoutFlags & OVERFLOW_VERTICAL_SCROLL)) {
                 NodeOverlap verticalOverlap = NodeVerticalOverlapState(child, nodeInnerY, nodeInnerHeight);
 
                 // child not inside parent -> hide in this draw pass
@@ -244,8 +244,8 @@ void NU_GenerateDrawlists()
 
                     // determine clipping
                     NU_ClipBounds clip;
-                    clip.top = fmaxf(child->node.y - 1, nodeInnerY);
-                    clip.bottom = fminf(child->node.y + child->node.height, nodeInnerY + nodeInnerHeight);
+                    clip.top = fmaxf(child->y - 1, nodeInnerY);
+                    clip.bottom = fminf(child->y + child->height, nodeInnerY + nodeInnerHeight);
                     clip.left = -1.0f;
                     clip.right = 1000000.0f;
 
@@ -262,7 +262,7 @@ void NU_GenerateDrawlists()
 
                     // append node to correct window clipped node list
                     SetNodeDrawlist_Clipped(&GUI.winManager, child);
-                    if (child->type == NU_CANVAS) SetNodeDrawlist_Canvas(&GUI.winManager, child);
+                    if (child->type == NU_TYPE_CANVAS) SetNodeDrawlist_Canvas(&GUI.winManager, child);
                     child = child->nextSibling; continue;
                 }
             }
@@ -271,13 +271,13 @@ void NU_GenerateDrawlists()
             if (node->clippedAncestor != NULL) {
                 child->clippedAncestor = node->clippedAncestor;
                 SetNodeDrawlist_Clipped(&GUI.winManager, child);
-                if (child->type == NU_CANVAS) SetNodeDrawlist_Canvas(&GUI.winManager, child);
+                if (child->type == NU_TYPE_CANVAS) SetNodeDrawlist_Canvas(&GUI.winManager, child);
                 child = child->nextSibling; continue;
             }
 
             // neither child nor parent is clipped -> append node to correct window node list
             SetNodeDrawlist_Draw(&GUI.winManager, child);
-            if (child->type == NU_CANVAS) SetNodeDrawlist_Canvas(&GUI.winManager, child);
+            if (child->type == NU_TYPE_CANVAS) SetNodeDrawlist_Canvas(&GUI.winManager, child);
 
             // move to the next child
             child = child->nextSibling;
@@ -305,7 +305,7 @@ void NU_Draw()
         NU_Font_Atlas_Upload_Or_Modify_GPU(&font->atlas);
     }
 
-    NodeP* focusedInputNode = NULL;
+    Node* focusedInputNode = NULL;
 
     // For each window
     for (u32 i=0; i<GUI.winManager.windows.size; i++)
@@ -326,45 +326,45 @@ void NU_Draw()
         // 1. Generate border rect data for unclipped nodes
         for (u32 n=0; n<drawList->drawNodes.size; n++)
         {
-            NodeP* node = *(NodeP**)Array_Get(&drawList->drawNodes, n);
+            Node* node = *(Node**)Array_Get(&drawList->drawNodes, n);
             float z = (float)(node->layer) + 32.0f * NodeStatePosAbsolute(node);
 
             // Construct border rect data
             Add_NodeRectRenderData(node, z, 0.0f, winH, 0.0f, winW, &GUI.borderRectRenderDataArray);
             if (node->layoutFlags & OVERFLOW_VERTICAL_SCROLL
-                && node->node.contentHeight > (node->node.height - node->node.padTop - node->node.padBottom - node->node.borderTop - node->node.borderBottom)) {
+                && node->contentHeight > (node->height - node->public.generic.padTop - node->public.generic.padBottom - node->public.generic.borderTop - node->public.generic.borderBottom)) {
                 Add_ScrollbarRenderData(node, z + 0.5f, &GUI.stylesheet.scrollbarStyle, &GUI.borderRectRenderDataArray);
             }
             // Construct text mesh for node's textContent
-            if (node->node.textContent != NULL) {
+            if (node->public.generic.textContent != NULL) {
                 Vertex_RGB_UV_List* text_vertices = &text_vertex_buffers[node->fontId];
                 Index_List* text_indices = &text_index_buffers[node->fontId];
-                NU_AddTextMesh(node, z, node->node.textContent, text_vertices, text_indices);
+                NU_AddTextMesh(node, z, node->public.generic.textContent, text_vertices, text_indices);
             }
             // Draw text input content (1 draw call)
-            else if (node->type == NU_INPUT) {
+            else if (node->type == NU_TYPE_INPUT) {
                 NU_ClipBounds clip = {0};
-                clip.top = node->node.y;
-                clip.left = node->node.x + node->node.borderLeft + node->node.padLeft;
-                clip.right = node->node.x + node->node.width - node->node.borderRight - node->node.padRight;
-                clip.bottom = node->node.y + node->node.height + 1000;
+                clip.top = node->y;
+                clip.left = node->x + node->public.generic.borderLeft + node->public.generic.padLeft;
+                clip.right = node->x + node->width - node->public.generic.borderRight - node->public.generic.padRight;
+                clip.bottom = node->y + node->height + 1000;
                 NU_DrawInputNodeContent(node, z, winW, winH, &clip);
             }
             // Construct image render data
-            if (node->typeData.image.imageHandle != 0 && node->type != NU_CANVAS && node->type != NU_INPUT) {
+            if (node->special.image.imageHandle != 0 && node->type != NU_TYPE_CANVAS && node->type != NU_TYPE_INPUT) {
                 ImageRenderData renderData;
-                renderData.x = node->node.x + node->node.borderLeft + node->node.padLeft;
-                renderData.y = node->node.y + node->node.borderTop + node->node.padTop;
+                renderData.x = node->x + node->public.generic.borderLeft + node->public.generic.padLeft;
+                renderData.y = node->y + node->public.generic.borderTop + node->public.generic.padTop;
                 renderData.z = z + 0.75f;
-                renderData.w = node->node.width - node->node.borderLeft - node->node.borderRight - node->node.padLeft - node->node.padRight;
-                renderData.h = node->node.height - node->node.borderTop - node->node.borderBottom - node->node.padTop - node->node.padBottom;
+                renderData.w = node->width - node->public.generic.borderLeft - node->public.generic.borderRight - node->public.generic.padLeft - node->public.generic.padRight;
+                renderData.h = node->height - node->public.generic.borderTop - node->public.generic.borderBottom - node->public.generic.padTop - node->public.generic.padBottom;
                 renderData.scissorTop = 0.0f;
                 renderData.scissorBottom = 1000000.0f;
                 renderData.scissorLeft = 0.0f;
                 renderData.scissorRight = 1000000.0f;
                 ImageResourceManager_AddImageRenderData(
                     &GUI.imageResourceManager,
-                    node->typeData.image.imageHandle,
+                    node->special.image.imageHandle,
                     &renderData
                 );
             }
@@ -385,7 +385,7 @@ void NU_Draw()
 
         // 4. Draw clipped node border rects + images + text + text input
         for (u32 n=0; n<drawList->clippedDrawNodes.size; n++) {
-            NodeP* node = *(NodeP**)Array_Get(&drawList->clippedDrawNodes, n);
+            Node* node = *(Node**)Array_Get(&drawList->clippedDrawNodes, n);
             float z = (float)(node->layer) + 32.0f * NodeStatePosAbsolute(node);
 
             // Draw border rect (1 draw call)
@@ -394,34 +394,34 @@ void NU_Draw()
             Draw_SDF_Border_Rects(GUI.borderRectRenderDataArray, winW, winH); Array_Clear(&GUI.borderRectRenderDataArray);
 
             // Draw text content (1 draw call)
-            if (node->node.textContent != NULL) {
+            if (node->public.generic.textContent != NULL) {
                 NU_DrawClippedNodeTextContent(node, z + 0.5f, winW, winH, clip);
             }
             // Draw text input (1 draw call)
-            else if (node->type == NU_INPUT) {
-                InputText* inputText = Container_Get(&GUI.textInputs, node->typeData.input.textInputHandle);
+            else if (node->type == NU_TYPE_INPUT) {
+                InputText* inputText = Container_Get(&GUI.textInputs, node->special.input.textInputHandle);
                 if (inputText->numBytes > 0) {
                     NU_ClipBounds innerClip = *clip;
-                    innerClip.left += node->node.borderLeft + node->node.padLeft;
-                    innerClip.right -= node->node.borderRight + node->node.padRight;
+                    innerClip.left += node->public.generic.borderLeft + node->public.generic.padLeft;
+                    innerClip.right -= node->public.generic.borderRight + node->public.generic.padRight;
                     NU_DrawInputNodeContent(node, z, winW, winH, &innerClip);
                 }
             }
             // Construct image render data
-            if (node->typeData.image.imageHandle != 0 && node->type != NU_CANVAS && node->type != NU_INPUT) {
+            if (node->special.image.imageHandle != 0 && node->type != NU_TYPE_CANVAS && node->type != NU_TYPE_INPUT) {
                 ImageRenderData renderData;
-                renderData.x = node->node.x + node->node.borderLeft + node->node.padLeft;
-                renderData.y = node->node.y + node->node.borderTop + node->node.padTop;
+                renderData.x = node->x + node->public.generic.borderLeft + node->public.generic.padLeft;
+                renderData.y = node->y + node->public.generic.borderTop + node->public.generic.padTop;
                 renderData.z = z + 0.75f;
-                renderData.w = node->node.width - node->node.borderLeft - node->node.borderRight - node->node.padLeft - node->node.padRight;
-                renderData.h = node->node.height - node->node.borderTop - node->node.borderBottom - node->node.padTop - node->node.padBottom;
+                renderData.w = node->width - node->public.generic.borderLeft - node->public.generic.borderRight - node->public.generic.padLeft - node->public.generic.padRight;
+                renderData.h = node->height - node->public.generic.borderTop - node->public.generic.borderBottom - node->public.generic.padTop - node->public.generic.padBottom;
                 renderData.scissorTop = clip->top;
                 renderData.scissorBottom = clip->bottom;
                 renderData.scissorLeft = clip->left;
                 renderData.scissorRight = clip->right;
                 ImageResourceManager_AddImageRenderData(
                     &GUI.imageResourceManager,
-                    node->typeData.image.imageHandle,
+                    node->special.image.imageHandle,
                     &renderData
                 );
             }
@@ -429,7 +429,7 @@ void NU_Draw()
 
         // 5. Draw all canvas content
         for (u32 n=0; n<drawList->canvasNodes.size; n++) {
-            NodeP* node = *(NodeP**)Array_Get(&drawList->canvasNodes, n);
+            Node* node = *(Node**)Array_Get(&drawList->canvasNodes, n);
             float z = (float)(node->layer) + 32.0f * NodeStatePosAbsolute(node);
             NU_DrawCanvasContent(node, winW, winH, NULL);
         }

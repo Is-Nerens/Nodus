@@ -2,7 +2,7 @@
 #include <input_text/nu_input_text_struct.h>
 
 // Updates the cursorOffset and textOffset
-void InputText_UpdateCusorTextOffsets(InputText* text, NodeP* node, NU_Font* font, i8 moveDelta)
+void InputText_UpdateCusorTextOffsets(InputText* text, Node* node, NU_Font* font, i8 moveDelta)
 {
     // calculate text width from start to cursor
     char temp = text->buffer[text->cursorBytes];
@@ -11,11 +11,11 @@ void InputText_UpdateCusorTextOffsets(InputText* text, NodeP* node, NU_Font* fon
     text->buffer[text->cursorBytes] = temp;
 
     // calculate inner input width
-    float innerWidth = node->node.width
-        - node->node.borderLeft
-        - node->node.borderRight
-        - node->node.padLeft
-        - node->node.padRight;
+    float innerWidth = node->width
+        - node->public.generic.borderLeft
+        - node->public.generic.borderRight
+        - node->public.generic.padLeft
+        - node->public.generic.padRight;
 
     // set relative cursor offset
     text->cursorOffset = text->textOffset + preCursorTextWidth;
@@ -37,22 +37,22 @@ void InputText_UpdateCusorTextOffsets(InputText* text, NodeP* node, NU_Font* fon
     }
 }
 
-void InputText_ComputeCursorTextOffset_PlaceEnd(InputText* text, NodeP* node, NU_Font* font)
+void InputText_ComputeCursorTextOffset_PlaceEnd(InputText* text, Node* node, NU_Font* font)
 {
     // Compute offsets
     float textWidth = NU_Calculate_Text_Unwrapped_Width(font, text->buffer);
-    float innerWidth = node->node.width
-        - node->node.borderLeft
-        - node->node.borderRight
-        - node->node.padLeft
-        - node->node.padRight;
+    float innerWidth = node->width
+        - node->public.generic.borderLeft
+        - node->public.generic.borderRight
+        - node->public.generic.padLeft
+        - node->public.generic.padRight;
     if (textWidth > innerWidth) text->textOffset = innerWidth - textWidth;
     else text->textOffset = 0.0f;
     text->cursorOffset = textWidth + text->textOffset;
 }
 
 // Updates the highlightOffset and textOffset
-void InputText_UpdateHighlightTextOffsets(InputText* text, NodeP* node, NU_Font* font, i8 moveDelta)
+void InputText_UpdateHighlightTextOffsets(InputText* text, Node* node, NU_Font* font, i8 moveDelta)
 {
     // calculate text width from start to cursor
     char temp = text->buffer[text->highlightBytes];
@@ -61,11 +61,11 @@ void InputText_UpdateHighlightTextOffsets(InputText* text, NodeP* node, NU_Font*
     text->buffer[text->highlightBytes] = temp;
 
     // calculate inner input width
-    float innerWidth = node->node.width
-        - node->node.borderLeft
-        - node->node.borderRight
-        - node->node.padLeft
-        - node->node.padRight;
+    float innerWidth = node->width
+        - node->public.generic.borderLeft
+        - node->public.generic.borderRight
+        - node->public.generic.padLeft
+        - node->public.generic.padRight;
 
     // set relative highlight offset
     text->highlightOffset = text->textOffset + preHighlightTextWidth;
@@ -104,7 +104,7 @@ inline int InputText_IsHighlighting(InputText* text)
 }
 
 // Writes to text at cursorBytes position -> returns 1 if updated
-int InputText_Write(InputText* text, NodeP* node, NU_Font* font, const char* string)
+int InputText_Write(InputText* text, Node* node, NU_Font* font, const char* string)
 {
     // if stores numeric value
     if (text->type == 1) {
@@ -160,7 +160,7 @@ void InputText_RemoveCodepointBeforeCursor(InputText* text)
 }
 
 // Removes one char at cursorBytes position -> returns 1 if updated
-int InputText_Backspace(InputText* text, NodeP* node, NU_Font* font)
+int InputText_Backspace(InputText* text, Node* node, NU_Font* font)
 {
     if (text->cursorBytes == 0) return 0;
 
@@ -176,7 +176,7 @@ int InputText_Backspace(InputText* text, NodeP* node, NU_Font* font)
 }
 
 // Removes one word before cursorBytes position -> returns 1 if updated
-int InputText_BackspaceWord(InputText* text, NodeP* node, NU_Font* font)
+int InputText_BackspaceWord(InputText* text, Node* node, NU_Font* font)
 {
     if (text->cursorBytes == 0) return 0;
 
@@ -251,7 +251,7 @@ int InputText_BackspaceWord(InputText* text, NodeP* node, NU_Font* font)
     return 1;
 }
 
-int InputText_RemoveHighlightedText(InputText* text, NodeP* node, NU_Font* font)
+int InputText_RemoveHighlightedText(InputText* text, Node* node, NU_Font* font)
 {
     // Compute highlight start end
     u16 highlightStart = text->highlightBytes;
@@ -292,7 +292,7 @@ int InputText_RemoveHighlightedText(InputText* text, NodeP* node, NU_Font* font)
 }
 
 // Moves the cursor on space to the left -> returns 1 if cursor moved
-int InputText_MoveCursorLeft(InputText* text, NodeP* node, NU_Font* font)
+int InputText_MoveCursorLeft(InputText* text, Node* node, NU_Font* font)
 {
     // can't move any further left
     if (text->cursorBytes == 0) return 0;
@@ -309,7 +309,7 @@ int InputText_MoveCursorLeft(InputText* text, NodeP* node, NU_Font* font)
 }
 
 // Moves the cursor on space to the right -> returns 1 if cursor moved
-int InputText_MoveCursorRight(InputText* text, NodeP* node, NU_Font* font)
+int InputText_MoveCursorRight(InputText* text, Node* node, NU_Font* font)
 {
     // can't move any further right
     if (text->cursorBytes >= text->numBytes) return 0;
@@ -328,7 +328,7 @@ int InputText_MoveCursorRight(InputText* text, NodeP* node, NU_Font* font)
 }
 
 // Moves the cursor on space to the left of the preceeding word -> returns 1 if cursor moved
-int InputText_MoveCursorLeftSpan(InputText* text, NodeP* node, NU_Font* font)
+int InputText_MoveCursorLeftSpan(InputText* text, Node* node, NU_Font* font)
 {
     // can't move any further left
     if (text->cursorBytes == 0) return 0;
@@ -363,7 +363,7 @@ int InputText_MoveCursorLeftSpan(InputText* text, NodeP* node, NU_Font* font)
 }
 
 // Moves the cursor on space to the right of the proceeding word -> returns 1 if cursor moved
-int InputText_MoveCursorRightSpan(InputText* text, NodeP* node, NU_Font* font)
+int InputText_MoveCursorRightSpan(InputText* text, Node* node, NU_Font* font)
 {
     // can't move any further right
     if (text->cursorBytes >= text->numBytes) return 0;
@@ -401,9 +401,9 @@ int InputText_MoveCursorRightSpan(InputText* text, NodeP* node, NU_Font* font)
     return 1;
 }
 
-void InputText_MousePlaceCursor(InputText* text, NodeP* node, NU_Font* font, float mouseX)
+void InputText_MousePlaceCursor(InputText* text, Node* node, NU_Font* font, float mouseX)
 {
-    float inputLeftX = node->node.x + node->node.padLeft + node->node.borderLeft;
+    float inputLeftX = node->x + node->public.generic.padLeft + node->public.generic.borderLeft;
     float mouseRelX = mouseX - inputLeftX - text->textOffset;
 
     // Loop over glyphs in text, computing the glyph's x and width given the textOffset
@@ -421,11 +421,11 @@ void InputText_MousePlaceCursor(InputText* text, NodeP* node, NU_Font* font, flo
     text->dragging = true;
 }
 
-int InputText_MouseDrag(InputText* text, NodeP* node, NU_Font* font, float mouseX)
+int InputText_MouseDrag(InputText* text, Node* node, NU_Font* font, float mouseX)
 {
     if (!text->dragging) return 0;
 
-    float inputLeftX = node->node.x + node->node.padLeft + node->node.borderLeft;
+    float inputLeftX = node->x + node->public.generic.padLeft + node->public.generic.borderLeft;
     float mouseRelX = mouseX - inputLeftX - text->textOffset;
 
     u16 prevHighlightBytes = text->highlightBytes;
@@ -475,7 +475,7 @@ void InputText_CopyToClipboard(InputText* text)
     text->buffer[highlightEnd] = temp;
 }
 
-void InputText_SetText(InputText* text, NodeP* node, NU_Font* font, const char* str)
+void InputText_SetText(InputText* text, Node* node, NU_Font* font, const char* str)
 {
     if (!str) return;  // nothing to paste
 
@@ -572,7 +572,7 @@ void InputText_SetText(InputText* text, NodeP* node, NU_Font* font, const char* 
     text->updateOffsetsPostLayout = true;
 }
 
-static inline void InputText_PasteFromClipboard(InputText* text, NodeP* node, NU_Font* font)
+static inline void InputText_PasteFromClipboard(InputText* text, Node* node, NU_Font* font)
 {
     // Get clipboard text
     char* clip = SDL_GetClipboardText();

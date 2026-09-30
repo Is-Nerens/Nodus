@@ -14,7 +14,7 @@ typedef struct StyleItem
     int nextVariationIndex;
     int screenQueryIndex;
     int imageHandle;
-    u16 prefWidth, prefHeight;
+    u16 preferredWidth, preferredHeight;
     u16 minWidth, maxWidth, minHeight, maxHeight;
     i16 left, right, top, bottom;
     u16 layoutFlags;

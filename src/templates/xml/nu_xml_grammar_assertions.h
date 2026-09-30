@@ -5,17 +5,17 @@ static int AssertRootGrammar(TokenArray* tokens)
     // ENFORCE RULE: FIRST TOKEN MUST BE OPEN TAG
     // ENFORCE RULE: SECOND TOKEN MUST BE TAG NAME
     // ENFORCE RULE: THIRD TOKEN MUST BE CLOSE_TAG | PROPERTY
-    int root_open = tokens->size > 2 && 
+    int root_open = tokens->size > 2 &&
         TokenArray_Get(tokens, 0) == OPEN_TAG &&
         TokenArray_Get(tokens, 1) == WINDOW_TAG;
 
     if (tokens->size > 2 &&
         TokenArray_Get(tokens, 0) == OPEN_TAG &&
-        TokenArray_Get(tokens, 1) == WINDOW_TAG) 
+        TokenArray_Get(tokens, 1) == WINDOW_TAG)
     {
-        if (tokens->size > 5 && 
+        if (tokens->size > 5 &&
             TokenArray_Get(tokens, tokens->size-3) == OPEN_END_TAG &&
-            TokenArray_Get(tokens, tokens->size-2) == WINDOW_TAG && 
+            TokenArray_Get(tokens, tokens->size-2) == WINDOW_TAG &&
             TokenArray_Get(tokens, tokens->size-1) == CLOSE_TAG)
         {
             return 1; // Success
@@ -35,9 +35,9 @@ static int AssertRootGrammar(TokenArray* tokens)
 
 static int AssertNewTagGrammar(struct TokenArray* tokens, int i)
 {
-    // ENFORCE RULE: NEXT TOKEN SHOULD BE TAG NAME 
+    // ENFORCE RULE: NEXT TOKEN SHOULD BE TAG NAME
     // ENFORCE RULE: THIRD TOKEN MUST BE CLOSE CLOSE_END OR PROPERTY
-    if (i < tokens->size - 2 && NU_TokenToNodeType(TokenArray_Get(tokens, i+1)) != NU_NAT)
+    if (i < tokens->size - 2 && NU_TokenToNodeType(TokenArray_Get(tokens, i+1)) != NU_TYPE_UNKNOWN)
     {
         enum NU_XML_TOKEN third_token = TokenArray_Get(tokens, i+2);
         if (third_token == CLOSE_TAG || third_token == CLOSE_END_TAG || NU_Is_Token_Property(third_token)) return 1; // Success
@@ -59,12 +59,12 @@ static int AssertPropertyGrammar(struct TokenArray* tokens, int i)
     return 0; // Failure
 }
 
-static int AssertTagCloseStartGrammar(struct TokenArray* tokens, int i, NodeType openType)
+static int AssertTagCloseStartGrammar(struct TokenArray* tokens, int i, u8 openType)
 {
     // ENFORCE RULE: NEXT TOKEN SHOULD BE TAG AND MUST MATCH OPENING TAG
     // ENDORCE RULE: THIRD TOKEN MUST BE A TAG END
-    if (i < tokens->size - 2 && 
-        NU_TokenToNodeType(TokenArray_Get(tokens, i+1)) == openType && 
+    if (i < tokens->size - 2 &&
+        NU_TokenToNodeType(TokenArray_Get(tokens, i+1)) == openType &&
         TokenArray_Get(tokens, i+2) == CLOSE_TAG) return 1; // Success
     else {
         ErrorSystem_AddError(&GUI.errorSystem, "<XML Error> Open and close tags do not match");

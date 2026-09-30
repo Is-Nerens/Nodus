@@ -10,7 +10,6 @@
 #include "nu_stylesheet_tokeniser.h"
 #include "nu_stylesheet_parser.h"
 #include "nu_stylesheet_apply.h"
-#include "nu_stylesheet_screen_query.h"
 
 void Stylesheet_Init(Stylesheet* ss)
 {

@@ -3,7 +3,7 @@
 
 typedef struct NU_Nodelist {
     size_t count;
-    Node** nodes;
+    NuNode** nodes;
 } NU_Nodelist;
 
 typedef struct NU_Nodelist_Internal
@@ -17,7 +17,7 @@ void NU_Nodelist_Init(NU_Nodelist_Internal* nodelist, size_t capacity)
     capacity = MAX(capacity, 5);
     nodelist->capacity = capacity;
     nodelist->nodelist.count = 0;
-    nodelist->nodelist.nodes = malloc(capacity * sizeof(Node*));
+    nodelist->nodelist.nodes = malloc(capacity * sizeof(NuNode*));
 }
 
 void NU_Nodelist_Grow(NU_Nodelist_Internal* nodelist)
@@ -25,38 +25,38 @@ void NU_Nodelist_Grow(NU_Nodelist_Internal* nodelist)
     nodelist->capacity = MAX(nodelist->capacity * 2, 2);
     nodelist->nodelist.nodes = realloc(
         nodelist->nodelist.nodes,
-        nodelist->capacity * sizeof(Node*)
+        nodelist->capacity * sizeof(NuNode*)
     );
 }
 
-void NU_Nodelist_Push(NU_Nodelist_Internal* nodelist, Node* node)
+void NU_Nodelist_Push(NU_Nodelist_Internal* nodelist, NuNode* node)
 {
     if (nodelist->nodelist.count == nodelist->capacity) {
         NU_Nodelist_Grow(nodelist);
     }
 
     void* dst = (char*)nodelist->nodelist.nodes
-        + nodelist->nodelist.count * sizeof(Node*);
+        + nodelist->nodelist.count * sizeof(NuNode*);
 
-    memcpy(dst, &node, sizeof(Node*));
+    memcpy(dst, &node, sizeof(NuNode*));
     nodelist->nodelist.count += 1;
 }
 
-inline Node* NU_Nodelist_Get(NU_Nodelist* nodelist, size_t index)
+inline NuNode* NU_Nodelist_Get(NU_Nodelist* nodelist, size_t index)
 {
     return nodelist->nodes[index];
 }
 
-void NU_Nodelist_Set(NU_Nodelist* nodelist, size_t index, Node* node)
+void NU_Nodelist_Set(NU_Nodelist* nodelist, size_t index, NuNode* node)
 {
     // Out of bounds
     if (index >= nodelist->count) return;
 
-    void* dst = (char*)nodelist->nodes + index * sizeof(Node*);
-    memcpy(dst, &node, sizeof(Node*));
+    void* dst = (char*)nodelist->nodes + index * sizeof(NuNode*);
+    memcpy(dst, &node, sizeof(NuNode*));
 }
 
-void NU_Nodelist_Insert(NU_Nodelist_Internal* nodelist, size_t index, Node* node)
+void NU_Nodelist_Insert(NU_Nodelist_Internal* nodelist, size_t index, NuNode* node)
 {
     // Out of bounds — can only insert at or before size
     if (index > nodelist->nodelist.count) return;
@@ -69,21 +69,21 @@ void NU_Nodelist_Insert(NU_Nodelist_Internal* nodelist, size_t index, Node* node
     // Shift elements forward from 'index' to 'size - 1'
     if (index < nodelist->nodelist.count) {
         void* dest = (char*)nodelist->nodelist.nodes
-            + ((index + 1) * sizeof(Node*));
+            + ((index + 1) * sizeof(NuNode*));
         void* src  = (char*)nodelist->nodelist.nodes
-            + (index * sizeof(Node*));
+            + (index * sizeof(NuNode*));
 
         size_t bytes_to_move =
-            (nodelist->nodelist.count - index) * sizeof(Node*);
+            (nodelist->nodelist.count - index) * sizeof(NuNode*);
 
         memmove(dest, src, bytes_to_move);
     }
 
     // Insert the new value
     void* dst = (char*)nodelist->nodelist.nodes
-        + (index * sizeof(Node*));
+        + (index * sizeof(NuNode*));
 
-    memcpy(dst, &node, sizeof(Node*));
+    memcpy(dst, &node, sizeof(NuNode*));
 
     // Update size
     nodelist->nodelist.count += 1;
@@ -96,13 +96,13 @@ void NU_Nodelist_Swap(NU_Nodelist* nodelist, size_t index_a, size_t index_b)
         return;
     }
 
-    Node* temp = nodelist->nodes[index_a];
+    NuNode* temp = nodelist->nodes[index_a];
     nodelist->nodes[index_a] = nodelist->nodes[index_b];
     nodelist->nodes[index_b] = temp;
 }
 
 void NU_Nodelist_Delete_Backfill(NU_Nodelist* nodelist, size_t index)
-{   
+{
     // Out of bounds
     if (index >= nodelist->count) {
         return;
@@ -111,12 +111,12 @@ void NU_Nodelist_Delete_Backfill(NU_Nodelist* nodelist, size_t index)
     // Copy last element into the deleted slot
     size_t last_index = nodelist->count - 1;
     if (index != last_index) {
-        void* dst = (char*)nodelist->nodes + index * sizeof(Node*);
-        void* src = (char*)nodelist->nodes + last_index * sizeof(Node*);
-        memcpy(dst, src, sizeof(Node*));
+        void* dst = (char*)nodelist->nodes + index * sizeof(NuNode*);
+        void* src = (char*)nodelist->nodes + last_index * sizeof(NuNode*);
+        memcpy(dst, src, sizeof(NuNode*));
     }
 
-    // Reduce size 
+    // Reduce size
     nodelist->count -= 1;
 }
 
@@ -130,15 +130,15 @@ void NU_Nodelist_Delete_Backshift(NU_Nodelist* nodelist, size_t index)
     // Shift items back to fill overwrite deleted
     if (index < nodelist->count - 1)
     {
-        void* dest = (char*)nodelist->nodes + (index * sizeof(Node*));
-        void* src  = (char*)nodelist->nodes + ((index + 1) * sizeof(Node*));
+        void* dest = (char*)nodelist->nodes + (index * sizeof(NuNode*));
+        void* src  = (char*)nodelist->nodes + ((index + 1) * sizeof(NuNode*));
 
         size_t num_bytes_to_move =
-            (nodelist->count - index - 1) * sizeof(Node*);
+            (nodelist->count - index - 1) * sizeof(NuNode*);
 
         memmove(dest, src, num_bytes_to_move);
     }
 
-    // Reduce size 
+    // Reduce size
     nodelist->count--;
 }

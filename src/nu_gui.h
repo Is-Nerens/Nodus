@@ -64,6 +64,7 @@ typedef void (*NU_Callback)(void* args);
 #include <rendering/image/nu_image.h>
 #include <events/nu_event_defs.h>
 #include <nu_timer.h>
+#include <nu_widget.h>
 
 struct NU_GUI
 {
@@ -78,18 +79,19 @@ struct NU_GUI
     Container canvasContexts;
     Container textInputs;
     Container timers;
+    Container widgets;
 
     // Pseudo nodes
-    NodeP* hovered_node;
-    NodeP* prev_hovered_node;
-    NodeP* mouse_down_node;
-    NodeP* prev_mouse_down_node;
-    NodeP* focused_node;
-    NodeP* prev_focused_node;
+    Node* hovered_node;
+    Node* prev_hovered_node;
+    Node* mouse_down_node;
+    Node* prev_mouse_down_node;
+    Node* focused_node;
+    Node* prev_focused_node;
 
     // Scroll state
-    NodeP* scroll_hovered_node;
-    NodeP* scroll_mouse_down_node;
+    Node* scroll_hovered_node;
+    Node* scroll_mouse_down_node;
     float v_scroll_thumb_grab_offset;
 
     // States
@@ -142,7 +144,6 @@ struct NU_GUI GUI;
 #include <nu_draw.h>
 #include <nu_mouse_detection.h>
 #include <events/nu_events.h>
-#include <nu_dom.h>
 
 void NU_Internal_Quit()
 {
@@ -158,6 +159,7 @@ void NU_Internal_Quit()
     Container_Free(&GUI.canvasContexts);
     Container_Free(&GUI.textInputs);
     Container_Free(&GUI.timers);
+    Container_Free(&GUI.widgets);
     Array_Free(&GUI.borderRectRenderDataArray);
     BreadthFirstSearch_Free(&GUI.bfs);
     ReverseBreadthFirstSearch_Free(&GUI.rbfs);
@@ -187,18 +189,19 @@ int NU_Internal_Create_Gui(const char* xml_filepath, const char* css_filepath)
     StringArena_Init(&GUI.nodeTextArena, 1024);
     Stringset_Init(&GUI.class_string_set, 1024, 100);
     Stringset_Init(&GUI.id_string_set, 1024, 100);
-    Stringmap_Init(&GUI.id_node_map, sizeof(NodeP*), 128, 2048);
+    Stringmap_Init(&GUI.id_node_map, sizeof(Node*), 128, 2048);
 
     // Init canvas context and text input containers
     GUI.canvasContexts = Container_Create(sizeof(NU_Canvas_Context));
     GUI.textInputs = Container_Create(sizeof(InputText));
     GUI.timers = Container_Create(sizeof(NU_Timer));
+    GUI.widgets = Container_Create(sizeof(NU_Widget));
 
     // Init Event System (allocates memory)
     EventSystem_Init();
 
     // Init layout and draw datastructures
-    Array_Init(&GUI.layoutScrollAutoNodes, sizeof(NodeP*), 20);
+    Array_Init(&GUI.layoutScrollAutoNodes, sizeof(Node*), 20);
     Array_Init(&GUI.borderRectRenderDataArray, sizeof(BorderRectRenderData), 2000);
 
     // Cursors

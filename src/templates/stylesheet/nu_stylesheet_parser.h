@@ -19,13 +19,13 @@ void Stylesheet_OverwriteStyleItem(StyleItem* item, StyleItem* overwriter)
     if (overwriter->propertyFlags & PROPERTY_FLAG_HIDE_BACKGROUND)   item->layoutFlags = (item->layoutFlags & ~HIDE_BACKGROUND)                 | (overwriter->layoutFlags & HIDE_BACKGROUND);
 
     // Overwrite gap and size fields (branchless)
-    item->gap        = item->gap        * !(overwriter->propertyFlags & PROPERTY_FLAG_GAP)              + overwriter->gap        * !!(overwriter->propertyFlags & PROPERTY_FLAG_GAP);
-    item->prefWidth  = item->prefWidth  * !(overwriter->propertyFlags & PROPERTY_FLAG_PREFERRED_WIDTH)  + overwriter->prefWidth  * !!(overwriter->propertyFlags & PROPERTY_FLAG_PREFERRED_WIDTH);
-    item->minWidth   = item->minWidth   * !(overwriter->propertyFlags & PROPERTY_FLAG_MIN_WIDTH)        + overwriter->minWidth   * !!(overwriter->propertyFlags & PROPERTY_FLAG_MIN_WIDTH);
-    item->maxWidth   = item->maxWidth   * !(overwriter->propertyFlags & PROPERTY_FLAG_MAX_WIDTH)        + overwriter->maxWidth   * !!(overwriter->propertyFlags & PROPERTY_FLAG_MAX_WIDTH);
-    item->prefHeight = item->prefHeight * !(overwriter->propertyFlags & PROPERTY_FLAG_PREFERRED_HEIGHT) + overwriter->prefHeight * !!(overwriter->propertyFlags & PROPERTY_FLAG_PREFERRED_HEIGHT);
-    item->minHeight  = item->minHeight  * !(overwriter->propertyFlags & PROPERTY_FLAG_MIN_HEIGHT)       + overwriter->minHeight  * !!(overwriter->propertyFlags & PROPERTY_FLAG_MIN_HEIGHT);
-    item->maxHeight  = item->maxHeight  * !(overwriter->propertyFlags & PROPERTY_FLAG_MAX_HEIGHT)       + overwriter->maxHeight  * !!(overwriter->propertyFlags & PROPERTY_FLAG_MAX_HEIGHT);
+    item->gap             = item->gap             * !(overwriter->propertyFlags & PROPERTY_FLAG_GAP)              + overwriter->gap             * !!(overwriter->propertyFlags & PROPERTY_FLAG_GAP);
+    item->preferredWidth  = item->preferredWidth  * !(overwriter->propertyFlags & PROPERTY_FLAG_PREFERRED_WIDTH)  + overwriter->preferredWidth  * !!(overwriter->propertyFlags & PROPERTY_FLAG_PREFERRED_WIDTH);
+    item->minWidth        = item->minWidth        * !(overwriter->propertyFlags & PROPERTY_FLAG_MIN_WIDTH)        + overwriter->minWidth        * !!(overwriter->propertyFlags & PROPERTY_FLAG_MIN_WIDTH);
+    item->maxWidth        = item->maxWidth        * !(overwriter->propertyFlags & PROPERTY_FLAG_MAX_WIDTH)        + overwriter->maxWidth        * !!(overwriter->propertyFlags & PROPERTY_FLAG_MAX_WIDTH);
+    item->preferredHeight = item->preferredHeight * !(overwriter->propertyFlags & PROPERTY_FLAG_PREFERRED_HEIGHT) + overwriter->preferredHeight * !!(overwriter->propertyFlags & PROPERTY_FLAG_PREFERRED_HEIGHT);
+    item->minHeight       = item->minHeight       * !(overwriter->propertyFlags & PROPERTY_FLAG_MIN_HEIGHT)       + overwriter->minHeight       * !!(overwriter->propertyFlags & PROPERTY_FLAG_MIN_HEIGHT);
+    item->maxHeight       = item->maxHeight       * !(overwriter->propertyFlags & PROPERTY_FLAG_MAX_HEIGHT)       + overwriter->maxHeight       * !!(overwriter->propertyFlags & PROPERTY_FLAG_MAX_HEIGHT);
 
     // Overwrite alignments (branchless)
     item->horizontalAlignment     = item->horizontalAlignment     * !(overwriter->propertyFlags & PROPERTY_FLAG_ALIGN_H)      + overwriter->horizontalAlignment     * !!(overwriter->propertyFlags & PROPERTY_FLAG_ALIGN_H);
@@ -172,7 +172,7 @@ u64 Stylesheet_Parse_Property(Stylesheet* ss, const enum NU_Style_Token token, S
 
         // Set preferred width
         case STYLE_WIDTH_PROPERTY:
-            propertyFlagsSet |= (PROPERTY_FLAG_PREFERRED_WIDTH * String_To_Uint16(&item->prefWidth, text));
+            propertyFlagsSet |= (PROPERTY_FLAG_PREFERRED_WIDTH * String_To_Uint16(&item->preferredWidth, text));
             break;
 
         // Set min width
@@ -187,7 +187,7 @@ u64 Stylesheet_Parse_Property(Stylesheet* ss, const enum NU_Style_Token token, S
 
         // Set preferred height
         case STYLE_HEIGHT_PROPERTY:
-            propertyFlagsSet |= (PROPERTY_FLAG_PREFERRED_HEIGHT * String_To_Uint16(&item->prefHeight, text));
+            propertyFlagsSet |= (PROPERTY_FLAG_PREFERRED_HEIGHT * String_To_Uint16(&item->preferredHeight, text));
             break;
 
         // Set min height
@@ -570,7 +570,7 @@ void Stylesheet_Parse_Variable_Property(Stylesheet* ss, const enum NU_Style_Toke
         // Set preferred width
         case STYLE_WIDTH_PROPERTY:
             if (variable.type == STYLESHEET_VARIABLE_DTYPE_NUMBER) {
-                item->prefWidth = variable.value;
+                item->preferredWidth = variable.value;
                 item->propertyFlags |= PROPERTY_FLAG_PREFERRED_WIDTH;
             }
             break;
@@ -594,7 +594,7 @@ void Stylesheet_Parse_Variable_Property(Stylesheet* ss, const enum NU_Style_Toke
         // Set preferred height
         case STYLE_HEIGHT_PROPERTY:
             if (variable.type == STYLESHEET_VARIABLE_DTYPE_NUMBER) {
-                item->prefHeight = variable.value;
+                item->preferredHeight = variable.value;
                 item->propertyFlags |= PROPERTY_FLAG_PREFERRED_HEIGHT;
             }
             break;

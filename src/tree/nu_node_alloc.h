@@ -4,7 +4,7 @@
 typedef union NallocChunk NallocChunk;
 union NallocChunk {
     NallocChunk* next;
-    char buffer[184];
+    char buffer[188];
 };
 
 typedef struct ArrayStart

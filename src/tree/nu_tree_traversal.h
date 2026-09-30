@@ -5,8 +5,8 @@
 // Depth First Search iterator
 // ---------------------------
 typedef struct DFSFrame {
-    NodeP* node;
-    NodeP* nextChild;
+    Node* node;
+    Node* nextChild;
     uint8_t visited;   // 0 = not returned yet, 1 = returned
 } DFSFrame;
 
@@ -17,7 +17,7 @@ typedef struct DepthFirstSearch {
     u32 capacity;
 } DepthFirstSearch;
 
-DepthFirstSearch DepthFirstSearch_Create(NodeP* root)
+DepthFirstSearch DepthFirstSearch_Create(Node* root)
 {
     DepthFirstSearch dfs;
     dfs.capacity = 64;
@@ -27,7 +27,7 @@ DepthFirstSearch DepthFirstSearch_Create(NodeP* root)
     return dfs;
 }
 
-int DepthFirstSearch_Next(DepthFirstSearch* dfs, NodeP** nodeOut)
+int DepthFirstSearch_Next(DepthFirstSearch* dfs, Node** nodeOut)
 {
     while (dfs->size > 0) {
         DFSFrame* top = &dfs->stack[dfs->size - 1];
@@ -41,7 +41,7 @@ int DepthFirstSearch_Next(DepthFirstSearch* dfs, NodeP** nodeOut)
 
         // Descend into children
         if (top->nextChild != NULL) {
-            NodeP* child = top->nextChild;
+            Node* child = top->nextChild;
             top->nextChild = child->nextSibling;
 
             if (dfs->size == dfs->capacity) {
@@ -73,7 +73,7 @@ DepthFirstSearch DepthFirstSearch_Reserve()
     return dfs;
 }
 
-void DepthFirstSearch_Reset(DepthFirstSearch* dfs, NodeP* root)
+void DepthFirstSearch_Reset(DepthFirstSearch* dfs, Node* root)
 {
     dfs->stack[0] = (DFSFrame){ .node = root, .nextChild = root->firstChild };
     dfs->size = 1;
@@ -95,7 +95,7 @@ void DepthFirstSearch_Free(DepthFirstSearch* dfs)
 // Breadth First Search iterator
 // -----------------------------
 typedef struct BFSQueue {
-    NodeP** data;
+    Node** data;
     u32 size;
     u32 capacity;
     u32 front;
@@ -103,11 +103,11 @@ typedef struct BFSQueue {
 
 typedef struct BreadthFirstSearch {
     BFSQueue queue;
-    NodeP* root;
+    Node* root;
 } BreadthFirstSearch;
 
 static void BFSQueue_Init(BFSQueue* q, u32 cap) {
-    q->data = malloc(sizeof(NodeP*) * cap);
+    q->data = malloc(sizeof(Node*) * cap);
     q->size = 0;
     q->front = 0;
     q->capacity = cap;
@@ -119,20 +119,20 @@ static void BFSQueue_Free(BFSQueue* q) {
     q->size = q->front = q->capacity = 0;
 }
 
-static void BFSQueue_Push(BFSQueue* q, NodeP* node) {
+static void BFSQueue_Push(BFSQueue* q, Node* node) {
     if (q->size >= q->capacity) {
         q->capacity *= 2;
-        q->data = realloc(q->data, sizeof(NodeP*) * q->capacity);
+        q->data = realloc(q->data, sizeof(Node*) * q->capacity);
     }
     q->data[q->size++] = node;
 }
 
-static NodeP* BFSQueue_Pop(BFSQueue* q) {
+static Node* BFSQueue_Pop(BFSQueue* q) {
     if (q->front >= q->size) return NULL;
     return q->data[q->front++];
 }
 
-BreadthFirstSearch BreadthFirstSearch_Create(NodeP* root) {
+BreadthFirstSearch BreadthFirstSearch_Create(Node* root) {
     BreadthFirstSearch bfs;
     BFSQueue_Init(&bfs.queue, 64);
     if (root) {
@@ -142,22 +142,22 @@ BreadthFirstSearch BreadthFirstSearch_Create(NodeP* root) {
     return bfs;
 }
 
-void BreadthFirstSearch_Reset(BreadthFirstSearch* bfs, NodeP* root) {
+void BreadthFirstSearch_Reset(BreadthFirstSearch* bfs, Node* root) {
     bfs->queue.front = 0;
     bfs->queue.size = 0;
     bfs->root = root;
     if (bfs->root) BFSQueue_Push(&bfs->queue, bfs->root);
 }
 
-int BreadthFirstSearch_Next(BreadthFirstSearch* bfs, NodeP** nodeOut) {
-    NodeP* node = BFSQueue_Pop(&bfs->queue);
+int BreadthFirstSearch_Next(BreadthFirstSearch* bfs, Node** nodeOut) {
+    Node* node = BFSQueue_Pop(&bfs->queue);
     if (!node) {
         BreadthFirstSearch_Reset(bfs, bfs->root);
         return 0;
     }
     *nodeOut = node;
 
-    NodeP* child = node->firstChild;
+    Node* child = node->firstChild;
     while (child) {
         BFSQueue_Push(&bfs->queue, child);
         child = child->nextSibling;
@@ -179,12 +179,12 @@ void BreadthFirstSearch_Free(BreadthFirstSearch* bfs) {
 // Reverse Breadth First Search iterator
 // -------------------------------------
 typedef struct ReverseBreadthFirstSearch {
-    NodeP** nodes;
+    Node** nodes;
     u32 count;
     u32 index;
 } ReverseBreadthFirstSearch;
 
-ReverseBreadthFirstSearch ReverseBreadthFirstSearch_Create(NodeP* root) {
+ReverseBreadthFirstSearch ReverseBreadthFirstSearch_Create(Node* root) {
     ReverseBreadthFirstSearch rBFS = {0};
     if (!root) return rBFS;
 
@@ -194,20 +194,20 @@ ReverseBreadthFirstSearch ReverseBreadthFirstSearch_Create(NodeP* root) {
     BFSQueue_Push(&queue, root);
 
     // temp stack for layers
-    NodeP*** layerStack = malloc(sizeof(NodeP**) * 16);
+    Node*** layerStack = malloc(sizeof(Node**) * 16);
     u32* layerCounts = malloc(sizeof(u32) * 16);
     u32 layerStackSize = 0;
     u32 layerCapacity = 16;
 
     while (queue.front < queue.size) {
         u32 layerCount = queue.size - queue.front;
-        NodeP** layerNodes = malloc(sizeof(NodeP*) * layerCount);
+        Node** layerNodes = malloc(sizeof(Node*) * layerCount);
 
         for (u32 i = 0; i < layerCount; i++) {
-            NodeP* node = BFSQueue_Pop(&queue);
+            Node* node = BFSQueue_Pop(&queue);
             layerNodes[i] = node;
 
-            NodeP* child = node->firstChild;
+            Node* child = node->firstChild;
             while (child) {
                 BFSQueue_Push(&queue, child);
                 child = child->nextSibling;
@@ -216,7 +216,7 @@ ReverseBreadthFirstSearch ReverseBreadthFirstSearch_Create(NodeP* root) {
 
         if (layerStackSize == layerCapacity) {
             layerCapacity *= 2;
-            layerStack = realloc(layerStack, sizeof(NodeP**) * layerCapacity);
+            layerStack = realloc(layerStack, sizeof(Node**) * layerCapacity);
             layerCounts = realloc(layerCounts, sizeof(u32) * layerCapacity);
         }
 
@@ -231,7 +231,7 @@ ReverseBreadthFirstSearch ReverseBreadthFirstSearch_Create(NodeP* root) {
     u32 total = 0;
     for (u32 i = 0; i < layerStackSize; i++) total += layerCounts[i];
 
-    rBFS.nodes = malloc(sizeof(NodeP*) * total);
+    rBFS.nodes = malloc(sizeof(Node*) * total);
     rBFS.count = total;
     rBFS.index = 0;
 
@@ -250,7 +250,7 @@ ReverseBreadthFirstSearch ReverseBreadthFirstSearch_Create(NodeP* root) {
     return rBFS;
 }
 
-int ReverseBreadthFirstSearch_Next(ReverseBreadthFirstSearch* rBFS, NodeP** nodeOut) {
+int ReverseBreadthFirstSearch_Next(ReverseBreadthFirstSearch* rBFS, Node** nodeOut) {
     if (rBFS->index >= rBFS->count) {
         rBFS->index = 0; // auto-reset after traversal
         return 0;
@@ -267,7 +267,7 @@ void ReverseBreadthFirstSearch_Free(ReverseBreadthFirstSearch* rBFS) {
     rBFS->index = 0;
 }
 
-void ReverseBreadthFirstSearch_Reset(ReverseBreadthFirstSearch* rBFS, NodeP* root)
+void ReverseBreadthFirstSearch_Reset(ReverseBreadthFirstSearch* rBFS, Node* root)
 {
    ReverseBreadthFirstSearch_Free(rBFS);
    *rBFS = ReverseBreadthFirstSearch_Create(root);

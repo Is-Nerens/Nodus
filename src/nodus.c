@@ -64,7 +64,7 @@ _EXPORT void NU_Run(void) {
 
         // Safely unregister deleted nodes from iterated hashmaps and free node memory
         for (int i=0; i<GUI.tree.deletedButNotFreedNodes.size; i++) {
-            NodeP* node = *(NodeP**)Array_Get(&GUI.tree.deletedButNotFreedNodes, i);
+            Node* node = *(Node**)Array_Get(&GUI.tree.deletedButNotFreedNodes, i);
             NU_Unregister_All_Iterated_Events(node);
         }
         TreeFreeDeleted(&GUI.tree);
@@ -124,8 +124,8 @@ _EXPORT const char* NU_GetNextError() {
 // ------------------------
 // --- Window fucntions ---
 // ------------------------
-_EXPORT void NU_Set_Window_Fullscreen(Node* node) {
-    NodeP* nodeP = NODEP_OF(node);
+_EXPORT void NU_Set_Window_Fullscreen(NuNode* node) {
+    Node* nodeP = NODEP_OF(node);
     SDL_Window* window = GetSDL_Window(&GUI.winManager, nodeP->windowID);
     Uint32 flags = SDL_GetWindowFlags(window);
     if (flags & SDL_WINDOW_FULLSCREEN) return;
@@ -142,8 +142,8 @@ _EXPORT void NU_Set_Window_Fullscreen(Node* node) {
     NU_Render();
 }
 
-_EXPORT void NU_Set_Window_Windowed(Node* node) {
-    NodeP* nodeP = NODEP_OF(node);
+_EXPORT void NU_Set_Window_Windowed(NuNode* node) {
+    Node* nodeP = NODEP_OF(node);
     SDL_Window* window = GetSDL_Window(&GUI.winManager, nodeP->windowID);
     Uint32 flags = SDL_GetWindowFlags(window);
     if (!(flags & SDL_WINDOW_FULLSCREEN)) return;
@@ -163,9 +163,9 @@ _EXPORT void NU_Set_Window_Windowed(Node* node) {
 // ------------------------------
 // --- Screen Query Functions ---
 // ------------------------------
-_EXPORT void NU_Get_Screen_Dimensions(Node* node, int* screenWidthOut, int* screenHeightOut)
+_EXPORT void NU_Get_Screen_Dimensions(NuNode* node, int* screenWidthOut, int* screenHeightOut)
 {
-    NodeP* nodeP = NODEP_OF(node);
+    Node* nodeP = NODEP_OF(node);
     NU_Window* win = GetNodeWindow(&GUI.winManager, nodeP);
     *screenWidthOut = win->screenWidth;
     *screenHeightOut = win->screenHeight;
@@ -228,93 +228,155 @@ _EXPORT void NU_Set_Cursor_NeswResize(void)
 // ---------------------
 // --- DOM functions ---
 // ---------------------
-_EXPORT Node* NU_PARENT(Node* node) {
-    NodeP* nodeP = NODEP_OF(node);
+_EXPORT NuNode* NU_PARENT(NuNode* node) {
+    Node* nodeP = NODEP_OF(node);
     if (nodeP->parent == NULL) return NULL;
-    return &nodeP->parent->node;
+    return &nodeP->parent->public.common;
 }
 
-_EXPORT Node* NU_CHILD(Node* node, u32 childIndex) {
-    NodeP* nodeP = NODEP_OF(node);
+_EXPORT NuNode* NU_CHILD(NuNode* node, u32 childIndex) {
+    Node* nodeP = NODEP_OF(node);
     if (nodeP == NULL || childIndex >= nodeP->childCount) return NULL;
-    NodeP* child = nodeP->firstChild;
+    Node* child = nodeP->firstChild;
     u32 i = 0;
     while(child != NULL) {
-        if (i == childIndex) return &child->node;
+        if (i == childIndex) return &child->public.common;
         i++;
         child = child->nextSibling;
     }
     return NULL;
 }
 
-_EXPORT int NU_CHILD_COUNT(Node* node) {
-    NodeP* nodeP = NODEP_OF(node);
+_EXPORT u8 NU_TYPE(NuNode* node) {
+    return NODEP_OF(node)->type;
+}
+
+_EXPORT int NU_CHILD_COUNT(NuNode* node) {
+    Node* nodeP = NODEP_OF(node);
     return (int)nodeP->childCount;
 }
 
-_EXPORT Node* NU_NEXT_SIBLING(Node* node)
+_EXPORT NuNode* NU_NEXT_SIBLING(NuNode* node)
 {
-    NodeP* nodeP = NODEP_OF(node);
-    return &nodeP->nextSibling->node;
+    Node* nodeP = NODEP_OF(node);
+    return &nodeP->nextSibling->public.common;
 }
 
-_EXPORT Node* NU_PREVIOUS_SIBLING(Node* node)
+_EXPORT NuNode* NU_PREVIOUS_SIBLING(NuNode* node)
 {
-    NodeP* nodeP = NODEP_OF(node);
-    return &nodeP->prevSibling->node;
+    Node* nodeP = NODEP_OF(node);
+    return &nodeP->prevSibling->public.common;
 }
 
-_EXPORT Node* NU_CREATE_NODE(Node* parent, NodeType type) {
+_EXPORT NuWindow* NU_WINDOW(NuNode* parent) {
     if (parent == NULL) return NULL;
-    NodeP* parentP = NODEP_OF(parent);
-    NodeP* node = TreeCreateNode(&GUI.tree, parentP, type);
-
-    if (type == NU_INPUT) {
-        InputText inputText;
-        InputText_Init(&inputText);
-        node->typeData.input.textInputHandle = Container_Add(&GUI.textInputs, &inputText);
-    }
-    else if (type == NU_WINDOW) {
-        CreateSubwindow(&GUI.winManager, node);
-    }
-
+    Node* parentP = NODEP_OF(parent);
+    Node* node = TreeCreateNode(&GUI.tree, parentP, NU_TYPE_WINDOW);
+    CreateSubwindow(&GUI.winManager, node);
     Stylesheet_ApplyStyleToNode(&GUI.stylesheet, node);
-    return &node->node;
+    return &node->public.window;
 }
 
-_EXPORT void NU_DELETE_NODE(Node* node) {
-    NodeP* nodeP = NODEP_OF(node);
+_EXPORT NuBox* NU_BOX(NuNode* parent) {
+    if (parent == NULL) return NULL;
+    Node* parentP = NODEP_OF(parent);
+    Node* node = TreeCreateNode(&GUI.tree, parentP, NU_TYPE_BOX);
+    Stylesheet_ApplyStyleToNode(&GUI.stylesheet, node);
+    return &node->public.box;
+}
+
+_EXPORT NuButton* NU_BUTTON(NuNode* parent) {
+    if (parent == NULL) return NULL;
+    Node* parentP = NODEP_OF(parent);
+    Node* node = TreeCreateNode(&GUI.tree, parentP, NU_TYPE_BUTTON);
+    Stylesheet_ApplyStyleToNode(&GUI.stylesheet, node);
+    return &node->public.button;
+}
+
+_EXPORT NuInput* NU_INPUT(NuNode* parent) {
+    if (parent == NULL) return NULL;
+    Node* parentP = NODEP_OF(parent);
+    Node* node = TreeCreateNode(&GUI.tree, parentP, NU_TYPE_INPUT);
+    InputText inputText;
+    InputText_Init(&inputText);
+    node->special.input.textInputHandle = Container_Add(&GUI.textInputs, &inputText);
+    Stylesheet_ApplyStyleToNode(&GUI.stylesheet, node);
+    return &node->public.input;
+}
+
+_EXPORT NuCanvas* NU_CANVAS(NuNode* parent) {
+    if (parent == NULL) return NULL;
+    Node* parentP = NODEP_OF(parent);
+    Node* node = TreeCreateNode(&GUI.tree, parentP, NU_TYPE_CANVAS);
+    Stylesheet_ApplyStyleToNode(&GUI.stylesheet, node);
+    return &node->public.canvas;
+}
+
+_EXPORT NuImage* NU_IMAGE(NuNode* parent) {
+    if (parent == NULL) return NULL;
+    Node* parentP = NODEP_OF(parent);
+    Node* node = TreeCreateNode(&GUI.tree, parentP, NU_TYPE_IMAGE);
+    Stylesheet_ApplyStyleToNode(&GUI.stylesheet, node);
+    return &node->public.image;
+}
+
+_EXPORT NuTable* NU_TABLE(NuNode* parent) {
+    if (parent == NULL) return NULL;
+    Node* parentP = NODEP_OF(parent);
+    Node* node = TreeCreateNode(&GUI.tree, parentP, NU_TYPE_TABLE);
+    Stylesheet_ApplyStyleToNode(&GUI.stylesheet, node);
+    return &node->public.table;
+}
+
+_EXPORT NuThead* NU_THEAD(NuNode* parent) {
+    if (parent == NULL) return NULL;
+    Node* parentP = NODEP_OF(parent);
+    Node* node = TreeCreateNode(&GUI.tree, parentP, NU_TYPE_THEAD);
+    Stylesheet_ApplyStyleToNode(&GUI.stylesheet, node);
+    return &node->public.thead;
+}
+
+_EXPORT NuRow* NU_ROW(NuNode* parent) {
+    if (parent == NULL) return NULL;
+    Node* parentP = NODEP_OF(parent);
+    Node* node = TreeCreateNode(&GUI.tree, parentP, NU_TYPE_ROW);
+    Stylesheet_ApplyStyleToNode(&GUI.stylesheet, node);
+    return &node->public.row;
+}
+
+_EXPORT void NU_DELETE_NODE(NuNode* node) {
+    Node* nodeP = NODEP_OF(node);
     return TreeDeleteNode(&GUI.tree, nodeP, NU_DissociateNode);
 }
 
-_EXPORT void NU_SHIFT_NODE_IN_PARENT(Node* node, int index) {
-    NodeP* nodeP = NODEP_OF(node);
+_EXPORT void NU_SHIFT_NODE_IN_PARENT(NuNode* node, int index) {
+    Node* nodeP = NODEP_OF(node);
     TreeShiftNodeInParent(&GUI.tree, nodeP, index);
 }
 
-_EXPORT void NU_REPARENT_NODE(Node* node, Node* newParent) {
-    NodeP* nodeP = NODEP_OF(node);
-    NodeP* newParentP = NODEP_OF(newParent);
+_EXPORT void NU_REPARENT_NODE(NuNode* node, Node* newParent) {
+    Node* nodeP = NODEP_OF(node);
+    Node* newParentP = NODEP_OF(newParent);
     TreeReparentNode(&GUI.tree, nodeP, newParentP);
 }
 
-_EXPORT float NU_NODE_SCROLL(Node* node) {
-    NodeP* nodeP = NODEP_OF(node);
+_EXPORT float NU_NODE_SCROLL(NuNode* node) {
+    Node* nodeP = NODEP_OF(node);
     return nodeP->scrollV;
 }
 
-_EXPORT const char* NU_INPUT_TEXT_CONTENT(Node* node) {
-    NodeP* nodeP = NODEP_OF(node);
-    if (nodeP->type != NU_INPUT) return NULL;
-    InputText* inputText = Container_Get(&GUI.textInputs, nodeP->typeData.input.textInputHandle);
+_EXPORT const char* NU_INPUT_TEXT_CONTENT(NuNode* node) {
+    Node* nodeP = NODEP_OF(node);
+    if (nodeP->type != NU_TYPE_INPUT) return NULL;
+    InputText* inputText = Container_Get(&GUI.textInputs, nodeP->special.input.textInputHandle);
     return inputText->buffer;
 }
 
-_EXPORT void NU_FOCUS_ON_INPUT(Node* node) {
-    NodeP* nodeP = NODEP_OF(node);
-    if (nodeP->type != NU_INPUT) return;
+_EXPORT void NU_FOCUS_ON_INPUT(NuNode* node) {
+    Node* nodeP = NODEP_OF(node);
+    if (nodeP->type != NU_TYPE_INPUT) return;
 
-    NodeP* prevFocusedNode = GUI.focused_node;
+    Node* prevFocusedNode = GUI.focused_node;
     GUI.focused_node = nodeP;
 
 
@@ -323,7 +385,7 @@ _EXPORT void NU_FOCUS_ON_INPUT(Node* node) {
         // Defocus prev focused input node
         if (prevFocusedNode != NULL)
         {
-            InputText* inputText = Container_Get(&GUI.textInputs, prevFocusedNode->typeData.input.textInputHandle);
+            InputText* inputText = Container_Get(&GUI.textInputs, prevFocusedNode->special.input.textInputHandle);
             InputText_Defocus(inputText);
 
             // Trigger defocus event
@@ -342,7 +404,7 @@ _EXPORT void NU_FOCUS_ON_INPUT(Node* node) {
         // Focus on input node
         Stylesheet_ApplyPseudoStyleToNode(&GUI.stylesheet, GUI.focused_node, PSEUDO_FOCUS);
         NU_Font* font = Stylesheet_Get_Font(&GUI.stylesheet, GUI.focused_node->fontId);
-        InputText* inputText = Container_Get(&GUI.textInputs, GUI.focused_node->typeData.input.textInputHandle);
+        InputText* inputText = Container_Get(&GUI.textInputs, GUI.focused_node->special.input.textInputHandle);
         InputText_MousePlaceCursor(inputText, GUI.focused_node, font, 1000000.0f);
         SDL_StartTextInput(GetSDL_Window(&GUI.winManager, GUI.focused_node->windowID));
 
@@ -355,189 +417,220 @@ _EXPORT void NU_FOCUS_ON_INPUT(Node* node) {
     }
 }
 
-_EXPORT void NU_SET_INPUT_TEXT_CONTENT(Node* node, const char* text) {
-    NodeP* nodeP = NODEP_OF(node);
-    if (nodeP->type != NU_INPUT) return;
+_EXPORT void NU_SET_INPUT_TEXT_CONTENT(NuNode* node, const char* text) {
+    Node* nodeP = NODEP_OF(node);
+    if (nodeP->type != NU_TYPE_INPUT) return;
     NU_Font* font = Stylesheet_Get_Font(&GUI.stylesheet, nodeP->fontId);
-    InputText* inputText = Container_Get(&GUI.textInputs, nodeP->typeData.input.textInputHandle);
+    InputText* inputText = Container_Get(&GUI.textInputs, nodeP->special.input.textInputHandle);
     InputText_SetText(inputText, nodeP, font, text);
     TriggerOnInputChangedEvent(nodeP, "");
     GUI.awaiting_redraw = true;
 }
 
-_EXPORT Node* NU_HOVERED_NODE() {
+_EXPORT NuNode* NU_HOVERED_NODE() {
     if (!GUI.hovered_node) return NULL;
-    return &GUI.hovered_node->node;
+    return &GUI.hovered_node->public.common;
 }
 
-_EXPORT void NU_HIDE(Node* node) {
-    NodeP* nodeP = NODEP_OF(node);
+_EXPORT void NU_HIDE(NuNode* node) {
+    Node* nodeP = NODEP_OF(node);
     nodeP->layoutFlags |= HIDDEN;
 }
 
-_EXPORT void NU_SHOW(Node* node) {
-    NodeP* nodeP = NODEP_OF(node);
+_EXPORT void NU_SHOW(NuNode* node) {
+    Node* nodeP = NODEP_OF(node);
     nodeP->layoutFlags &= ~HIDDEN;
 }
 
-_EXPORT int NU_IS_SHOWN(Node* node) {
-    NodeP* nodeP = NODEP_OF(node);
+_EXPORT int NU_IS_SHOWN(NuNode* node) {
+    Node* nodeP = NODEP_OF(node);
     return !(nodeP->layoutFlags & HIDDEN);
 }
 
-_EXPORT void NU_GROW_VERTICAL(Node* node) {
-    NodeP* nodeP = NODEP_OF(node);
+_EXPORT void NU_GROW_VERTICAL(NuNode* node) {
+    Node* nodeP = NODEP_OF(node);
     nodeP->layoutFlags |= GROW_VERTICAL;
 }
 
-_EXPORT void NU_GROW_HORIZONTAL(Node* node) {
-    NodeP* nodeP = NODEP_OF(node);
+_EXPORT void NU_GROW_HORIZONTAL(NuNode* node) {
+    Node* nodeP = NODEP_OF(node);
     nodeP->layoutFlags |= GROW_HORIZONTAL;
 }
 
-_EXPORT void NU_GROW_BOTH(Node* node) {
-    NodeP* nodeP = NODEP_OF(node);
+_EXPORT void NU_GROW_BOTH(NuNode* node) {
+    Node* nodeP = NODEP_OF(node);
     nodeP->layoutFlags |= GROW_VERTICAL;
     nodeP->layoutFlags |= GROW_HORIZONTAL;
 }
 
-_EXPORT void NU_GROW_NONE(Node* node) {
-    NodeP* nodeP = NODEP_OF(node);
+_EXPORT void NU_GROW_NONE(NuNode* node) {
+    Node* nodeP = NODEP_OF(node);
     nodeP->layoutFlags &= ~GROW_VERTICAL;
     nodeP->layoutFlags &= ~GROW_HORIZONTAL;
 }
 
-_EXPORT void NU_GROW_IGNORE_STYLESHEET(Node* node) {
-    NodeP* nodeP = NODEP_OF(node);
+_EXPORT void NU_GROW_IGNORE_STYLESHEET(NuNode* node) {
+    Node* nodeP = NODEP_OF(node);
     nodeP->overrideStyleFlags |= PROPERTY_FLAG_GROW;
 }
 
-_EXPORT void NU_GROW_ENABLE_STYLESHEET(Node* node) {
-    NodeP* nodeP = NODEP_OF(node);
+_EXPORT void NU_GROW_ENABLE_STYLESHEET(NuNode* node) {
+    Node* nodeP = NODEP_OF(node);
     nodeP->overrideStyleFlags &= ~PROPERTY_FLAG_GROW;
 }
 
-_EXPORT void NU_BACKGROUND_VISIBILITY_SHOWN(Node* node) {
-    NodeP* nodeP = NODEP_OF(node);
+_EXPORT void NU_BACKGROUND_VISIBILITY_SHOWN(NuNode* node) {
+    Node* nodeP = NODEP_OF(node);
     nodeP->layoutFlags &= ~HIDE_BACKGROUND;
 }
 
-_EXPORT void NU_BACKGROUND_VISIBILITY_HIDDEN(Node* node) {
-    NodeP* nodeP = NODEP_OF(node);
+_EXPORT void NU_BACKGROUND_VISIBILITY_HIDDEN(NuNode* node) {
+    Node* nodeP = NODEP_OF(node);
     nodeP->layoutFlags |= HIDE_BACKGROUND;
 }
 
-_EXPORT void NU_BACKGROUND_VISIBILITY_IGNORE_STYLESHEET(Node* node) {
-    NodeP* nodeP = NODEP_OF(node);
+_EXPORT void NU_BACKGROUND_VISIBILITY_IGNORE_STYLESHEET(NuNode* node) {
+    Node* nodeP = NODEP_OF(node);
     nodeP->overrideStyleFlags |= PROPERTY_FLAG_HIDE_BACKGROUND;
 }
 
-_EXPORT void NU_BACKGROUND_VISIBILITY_ENABLE_STYLESHEET(Node* node) {
-    NodeP* nodeP = NODEP_OF(node);
+_EXPORT void NU_BACKGROUND_VISIBILITY_ENABLE_STYLESHEET(NuNode* node) {
+    Node* nodeP = NODEP_OF(node);
     nodeP->overrideStyleFlags &= ~PROPERTY_FLAG_HIDE_BACKGROUND;
 }
 
-_EXPORT void NU_SET_WINDOW_TITLE(Node* windowNode, const char* title) {
-    NodeP* nodeP = NODEP_OF(windowNode);
-    if (nodeP->type != NU_WINDOW) return;
+_EXPORT void NU_SET_WINDOW_TITLE(NuNode* windowNode, const char* title) {
+    Node* nodeP = NODEP_OF(windowNode);
+    if (nodeP->type != NU_TYPE_WINDOW) return;
     SDL_Window* window = GetSDL_Window(&GUI.winManager, nodeP->windowID);
     SDL_SetWindowTitle(window, title);
 }
 
-_EXPORT Node* NU_Get_Node_By_Id(const char* id) {
+_EXPORT NuNode* NU_NODE_WITH_ID(const char* id) {
     void* found = Stringmap_Get(&GUI.id_node_map, id);
     if (found == NULL) return NULL;
-    NodeP* node = *(NodeP**)found;
-    return &node->node;
+    Node* node = *(Node**)found;
+    return &node->public.common;
 }
 
-_EXPORT NU_Nodelist NU_Get_Nodes_By_Class(const char* class) {
+_EXPORT NU_Nodelist NU_NODES_WITH_CLASS(const char* class) {
 
     NU_Nodelist_Internal result;
     NU_Nodelist_Init(&result, 8);
     DepthFirstSearch dfs = DepthFirstSearch_Create(GUI.tree.root);
-    NodeP* node;
+    Node* node;
     while(DepthFirstSearch_Next(&dfs, &node)) {
         if (node->class != NULL && strcmp(class, node->class) == 0) {
-            NU_Nodelist_Push(&result, &node->node);
+            NU_Nodelist_Push(&result, &node->public.common);
         }
     }
     DepthFirstSearch_Free(&dfs);
     return result.nodelist;
 }
 
-_EXPORT NU_Nodelist NU_Get_Descendents_With_Class(Node* node, const char* class) {
-    NodeP* nodeP = NODEP_OF(node);
+_EXPORT NU_Nodelist NU_NODES_WITH_TYPE(const u8 type) {
+    NU_Nodelist_Internal result;
+    NU_Nodelist_Init(&result, 8);
+    DepthFirstSearch dfs = DepthFirstSearch_Create(GUI.tree.root);
+    Node* node;
+    while(DepthFirstSearch_Next(&dfs, &node)) {
+        if (node->type == type) {
+            NU_Nodelist_Push(&result, &node->public.common);
+        }
+    }
+    DepthFirstSearch_Free(&dfs);
+    return result.nodelist;
+}
+
+_EXPORT NU_Nodelist NU_DESCENDENTS_WITH_CLASS(NuNode* node, const char* class) {
+    Node* nodeP = NODEP_OF(node);
     NU_Nodelist_Internal result;
     NU_Nodelist_Init(&result, 8);
     DepthFirstSearch dfs = DepthFirstSearch_Create(nodeP);
-    NodeP* currNode;
+    Node* currNode;
     while(DepthFirstSearch_Next(&dfs, &currNode)) {
         if (currNode->class != NULL && strcmp(class, currNode->class) == 0) {
-            NU_Nodelist_Push(&result, &currNode->node);
+            NU_Nodelist_Push(&result, &currNode->public.common);
         }
     }
     DepthFirstSearch_Free(&dfs);
     return result.nodelist;
 }
 
-_EXPORT NU_Nodelist NU_Get_Nodes_By_Tag(NodeType type) {
+_EXPORT NU_Nodelist NU_DESCENDENTS_WITH_TYPE(NuNode* node, const u8 type) {
+    Node* nodeP = NODEP_OF(node);
     NU_Nodelist_Internal result;
     NU_Nodelist_Init(&result, 8);
-    DepthFirstSearch dfs = DepthFirstSearch_Create(GUI.tree.root);
-    NodeP* node;
-    while(DepthFirstSearch_Next(&dfs, &node)) {
-        if (node->type == type) {
-            NU_Nodelist_Push(&result, &node->node);
+    DepthFirstSearch dfs = DepthFirstSearch_Create(nodeP);
+    Node* currNode;
+    while(DepthFirstSearch_Next(&dfs, &currNode)) {
+        if (currNode->type == type) {
+            NU_Nodelist_Push(&result, &currNode->public.common);
         }
     }
     DepthFirstSearch_Free(&dfs);
     return result.nodelist;
 }
 
-_EXPORT NU_Nodelist NU_Get_Children(Node* node) {
-    NodeP* nodeP = NODEP_OF(node);
+_EXPORT NU_Nodelist NU_CHILDREN(NuNode* node) {
+    Node* nodeP = NODEP_OF(node);
     NU_Nodelist_Internal result;
     NU_Nodelist_Init(&result, nodeP->childCount);
-    NodeP* child = nodeP->firstChild;
+    Node* child = nodeP->firstChild;
     while(child != NULL) {
-        NU_Nodelist_Push(&result, &child->node);
+        NU_Nodelist_Push(&result, &child->public.common);
         child = child->nextSibling; // move to the next child
     }
     return result.nodelist;
 }
 
-_EXPORT Node* NU_Get_First_Descendent_With_Class(Node* node, const char* class) {
-    NodeP* nodeP = NODEP_OF(node);
-    Node* result = NULL;
+_EXPORT NuNode* NU_FIRST_DESCENDENT_WITH_CLASS(NuNode* node, const char* class) {
+    Node* nodeP = NODEP_OF(node);
+    NuNode* result = NULL;
     BreadthFirstSearch_Reset(&GUI.bfs, nodeP);
-    NodeP* bfsNode;
+    Node* bfsNode;
     while(BreadthFirstSearch_Next(&GUI.bfs, &bfsNode)) {
         if (strcmp(bfsNode->class, class) == 0) {
-            result = &bfsNode->node;
+            result = &bfsNode->public.common;
             break;
         }
     }
     return result;
 }
 
-_EXPORT int NU_Descends_From(Node* node, Node* ancestor) {
+_EXPORT NuNode* NU_FIRST_DESCENDENT_WITH_TYPE(NuNode* node, const u8 type) {
+    Node* nodeP = NODEP_OF(node);
+    NuNode* result = NULL;
+    BreadthFirstSearch_Reset(&GUI.bfs, nodeP);
+    Node* bfsNode;
+    while(BreadthFirstSearch_Next(&GUI.bfs, &bfsNode)) {
+        if (bfsNode->type == type) {
+            result = &bfsNode->public.common;
+            break;
+        }
+    }
+    return result;
+}
+
+_EXPORT int NU_DOES_DESCEND(NuNode* node, NuNode* ancestor) {
     if (node == NULL || ancestor == NULL) return 0;
-    Node* curr = NU_PARENT(node);
-    while(curr != NULL) {
-        if (curr == ancestor) return 1;
-        curr = NU_PARENT(curr);
+    Node* nodeP = NODEP_OF(node);
+    Node* ancestorP = NODEP_OF(ancestor);
+    Node* currP = nodeP->parent;
+    while(currP != NULL) {
+        if (currP == ancestorP) return 1;
+        currP = currP->parent;
     }
     return 0;
 }
 
-_EXPORT void NU_Nodelist_Free(NU_Nodelist* nodelist) {
+_EXPORT void NU_NODELIST_FREE(NU_Nodelist* nodelist) {
     free(nodelist->nodes);
     nodelist->count = 0;
 }
 
-_EXPORT void NU_Set_Class(Node* node, const char* class) {
-    NodeP* nodeP = NODEP_OF(node);
+_EXPORT void NU_SET_CLASS(NuNode* node, const char* class) {
+    Node* nodeP = NODEP_OF(node);
     if (class == nodeP->class) return;
 
     nodeP->class = NULL;
@@ -570,9 +663,9 @@ _EXPORT void NU_Set_Class(Node* node, const char* class) {
     GUI.awaiting_redraw = true;
 }
 
-_EXPORT void NU_Remove_Class(Node* node)
+_EXPORT void NU_REMOVE_CLASS(NuNode* node)
 {
-    NodeP* nodeP = NODEP_OF(node);
+    Node* nodeP = NODEP_OF(node);
     if (nodeP->class == NULL) return;
     nodeP->class = NULL;
 
@@ -586,22 +679,55 @@ _EXPORT void NU_Remove_Class(Node* node)
     GUI.awaiting_redraw = true;
 }
 
-// -----------------------
-// --- Event functions ---
-// -----------------------
-_EXPORT void NU_Register_Event(
-  Node* node,
-  void* args,
+_EXPORT void NU_BIND_EVENT(
+  NuNode* node,
   NU_EventCallback callback,
-  enum NU_Event_Type event_type)
+  void* args,
+  enum NU_Event_Type event_type,
+  int widgetID)
 {
-    NU_Internal_Register_Event(node, args, callback, event_type);
+    NU_Internal_Bind_Event(node, args, callback, event_type, widgetID);
+}
+
+
+
+_EXPORT int NU_WIDGET(NuNode* widgetRoot,
+    NU_WidgetCreateCallback createCB,
+    NU_WidgetUpdateCallback updateCB,
+    void* createCB_Args,
+    void* updateCB_Args)
+{
+    // Widget already assigned to root
+    if (NODEP_OF(widgetRoot)->widgetID != -1) return NODEP_OF(widgetRoot)->widgetID;
+
+    NU_Widget widget;
+    widget.root = NODEP_OF(widgetRoot);
+    widget.updateCB = updateCB;
+    widget.updateCB_Args = updateCB_Args;
+    int widgetID = Container_Add(&GUI.widgets, &widget);
+    createCB(widgetRoot, widgetID, createCB_Args);
+
+    return widgetID;
+}
+
+_EXPORT void NU_WIDGET_UPDATE(int widgetID)
+{
+    NU_Widget* widget = Container_Get(&GUI.widgets, widgetID);
+    widget->updateCB(&widget->root->public.common, widget->updateCB_Args);
+}
+
+_EXPORT void NU_WIDGET_DELETE(int widgetID, int deleteRoot)
+{
+    NU_Widget* widget = Container_Get(&GUI.widgets, widgetID);
+    widget->root->widgetID = -1; // unassign
+    if (deleteRoot) TreeDeleteNode(&GUI.tree, widget->root, NU_DissociateNode);
+    Container_Remove(&GUI.widgets, widgetID);
 }
 
 // -----------------------------
 // --- Canvas API functions ---
 // -----------------------------
-_EXPORT int64_t NU_Get_Canvas_Ctx(Node* canvasNode)
+_EXPORT int64_t NU_Get_Canvas_Ctx(NuNode* canvasNode)
 {
     return NU_Internal_Get_Canvas_Context(canvasNode);
 }

@@ -5,15 +5,15 @@
 
 #define NORMALIZE(dx, dy) do { float len = sqrtf((dx)*(dx) + (dy)*(dy)); if (len > 0.0001f) { dx /= len; dy /= len; } } while(0)
 
-int NU_Internal_Get_Canvas_Context(Node* node)
+int NU_Internal_Get_Canvas_Context(NuNode* node)
 {
-    NodeP* nodeP = NODEP_OF(node);
-    if (nodeP->type != NU_CANVAS) return -1;
-    if (nodeP->typeData.canvas.ctxHandle != -1) return nodeP->typeData.canvas.ctxHandle;
+    Node* nodeP = NODEP_OF(node);
+    if (nodeP->type != NU_TYPE_CANVAS) return -1;
+    if (nodeP->special.canvas.ctxHandle != -1) return nodeP->special.canvas.ctxHandle;
 
     // Create a new canvas ctx
     NU_Canvas_Context ctx;
-    ctx.isShapeLayer = true; 
+    ctx.isShapeLayer = true;
     ctx.fontID = 0;
     ctx.z = 1;
     ctx.textLayerIndex = 0;
@@ -33,13 +33,13 @@ int NU_Internal_Get_Canvas_Context(Node* node)
 
     // Add ctx
     int ctxId = Container_Add(&GUI.canvasContexts, &ctx);
-    nodeP->typeData.canvas.ctxHandle = ctxId;
+    nodeP->special.canvas.ctxHandle = ctxId;
     return ctxId;
 }
 
 void NU_DeleteCanvasContext(int contextID)
 {
-    NU_Canvas_Context* ctx = Container_Get(&GUI.canvasContexts, contextID); 
+    NU_Canvas_Context* ctx = Container_Get(&GUI.canvasContexts, contextID);
     if (ctx == NULL) return;
 
     // Free vertices and indices of each layer
@@ -60,7 +60,7 @@ void NU_DeleteCanvasContext(int contextID)
 
 void NU_Internal_Clear_Canvas(int contextID)
 {
-    NU_Canvas_Context* ctx = Container_Get(&GUI.canvasContexts, contextID); 
+    NU_Canvas_Context* ctx = Container_Get(&GUI.canvasContexts, contextID);
     if (ctx == NULL) return;
 
     // Clear vertices and indices of each text layer (except layer 0)
@@ -84,12 +84,12 @@ void NU_Internal_Clear_Canvas(int contextID)
 
 void NU_Internal_Border_Rect(
     int contextID,
-    float x, float y, float w, float h, 
+    float x, float y, float w, float h,
     float thickness,
     NU_RGB border_col,
     NU_RGB fill_col)
 {
-    NU_Canvas_Context* ctx = Container_Get(&GUI.canvasContexts, contextID); 
+    NU_Canvas_Context* ctx = Container_Get(&GUI.canvasContexts, contextID);
     if (ctx == NULL) return;
 
     // Constrain dimensions based on thickness
@@ -110,8 +110,8 @@ void NU_Internal_Border_Rect(
     Index_List* indices = &ctx->shapeLayer.indices;
 
     // --- Allocate extra space in vertex and index lists ---
-    u32 additional_vertices = 12;    
-    u32 additional_indices = 30;          
+    u32 additional_vertices = 12;
+    u32 additional_indices = 30;
     if (vertices->size + additional_vertices > vertices->capacity) Vertex_RGB_List_Grow(vertices, additional_vertices);
     if (indices->size + additional_indices > indices->capacity) Index_List_Grow(indices, additional_indices);
 
@@ -204,14 +204,14 @@ void NU_Internal_Border_Rect(
 
 void NU_Internal_Triangle(
     int contextID,
-    float x1, float y1, 
-    float x2, float y2, 
+    float x1, float y1,
+    float x2, float y2,
     float x3, float y3,
     float thickness,
     NU_RGB border_col,
     NU_RGB fill_col)
 {
-    NU_Canvas_Context* ctx = Container_Get(&GUI.canvasContexts, contextID); 
+    NU_Canvas_Context* ctx = Container_Get(&GUI.canvasContexts, contextID);
     if (ctx == NULL) return;
 
     // Skip if triangle is offscreen
@@ -234,13 +234,13 @@ void NU_Internal_Triangle(
     float z = (float)(ctx->node->layer) + ctx->z * 0.005f;
 
     // --- Allocate extra space in vertex and index lists ---
-    u32 additional_vertices = 6;    
-    u32 additional_indices = 21;          
+    u32 additional_vertices = 6;
+    u32 additional_indices = 21;
     if (vertices->size + additional_vertices > vertices->capacity) Vertex_RGB_List_Grow(vertices, additional_vertices);
     if (indices->size + additional_indices > indices->capacity) Index_List_Grow(indices, additional_indices);
 
     u32 vertex_offset = vertices->size;
-    
+
     // --- Outer triangle (border) ---
     vertices->array[vertex_offset + 0] = (vertex_rgb){ x1, y1, border_col.r, border_col.g, border_col.b };
     vertices->array[vertex_offset + 1] = (vertex_rgb){ x2, y2, border_col.r, border_col.g, border_col.b };
@@ -307,7 +307,7 @@ void NU_Internal_Triangle(
 
 void NU_Internal_Vline(int contextID, float x, float y, float height, float thickness, NU_RGB col)
 {
-    NU_Canvas_Context* ctx = Container_Get(&GUI.canvasContexts, contextID); 
+    NU_Canvas_Context* ctx = Container_Get(&GUI.canvasContexts, contextID);
     if (ctx == NULL) return;
 
     float canvasWidth = ctx->canvasWidth;
@@ -333,21 +333,21 @@ void NU_Internal_Vline(int contextID, float x, float y, float height, float thic
     float z = (float)(ctx->node->layer) + ctx->z * 0.005f;
 
     // --- Allocate extra space in vertex and index lists ---
-    u32 additional_vertices = 4;    
-    u32 additional_indices = 6;          
+    u32 additional_vertices = 4;
+    u32 additional_indices = 6;
     if (vertices->size + additional_vertices > vertices->capacity) Vertex_RGB_List_Grow(vertices, additional_vertices);
     if (indices->size + additional_indices > indices->capacity) Index_List_Grow(indices, additional_indices);
 
     // Add pixel alignment offset
     x += 0.5f;
     float half_thick = thickness * 0.5f;
- 
+
     // Create mesh
     u32 vertex_offset = vertices->size;
     vertices->array[vertex_offset] = (vertex_rgb){ x - half_thick, y, z, col.r, col.g, col.b }; // Bottom point (y) - thick -
-    vertices->array[vertex_offset + 1] = (vertex_rgb){ x + half_thick, y, z, col.r, col.g, col.b }; // Bottom point (y) - thick + 
+    vertices->array[vertex_offset + 1] = (vertex_rgb){ x + half_thick, y, z, col.r, col.g, col.b }; // Bottom point (y) - thick +
     vertices->array[vertex_offset + 2] = (vertex_rgb){ x - half_thick, y + height, z, col.r, col.g, col.b }; // Top point (y1) - thick -
-    vertices->array[vertex_offset + 3] = (vertex_rgb){ x + half_thick, y + height, z, col.r, col.g, col.b }; // Top point (y1) - thick + 
+    vertices->array[vertex_offset + 3] = (vertex_rgb){ x + half_thick, y + height, z, col.r, col.g, col.b }; // Top point (y1) - thick +
 
     // Indices
     u32* indices_write = indices->array + indices->size;
@@ -364,7 +364,7 @@ void NU_Internal_Vline(int contextID, float x, float y, float height, float thic
 
 void NU_Internal_Hline(int contextID, float x, float y, float width, float thickness, NU_RGB col)
 {
-    NU_Canvas_Context* ctx = Container_Get(&GUI.canvasContexts, contextID); 
+    NU_Canvas_Context* ctx = Container_Get(&GUI.canvasContexts, contextID);
     if (ctx == NULL) return;
 
     float canvasWidth = ctx->canvasWidth;
@@ -390,21 +390,21 @@ void NU_Internal_Hline(int contextID, float x, float y, float width, float thick
     float z = (float)(ctx->node->layer) + ctx->z * 0.005f;
 
     // --- Allocate extra space in vertex and index lists ---
-    u32 additional_vertices = 4;    
-    u32 additional_indices = 6;          
+    u32 additional_vertices = 4;
+    u32 additional_indices = 6;
     if (vertices->size + additional_vertices > vertices->capacity) Vertex_RGB_List_Grow(vertices, additional_vertices);
     if (indices->size + additional_indices > indices->capacity) Index_List_Grow(indices, additional_indices);
 
     // Add pixel alignment offset
     y += 0.5f;
     float half_thick = thickness * 0.5f;
-    
+
     // Create mesh
     u32 vertex_offset = vertices->size;
     vertices->array[vertex_offset] = (vertex_rgb){ x, y - half_thick, z, col.r, col.g, col.b }; // Left point (x) - thick -
-    vertices->array[vertex_offset + 1] = (vertex_rgb){ x, y + half_thick, z, col.r, col.g, col.b }; // Left point (x) - thick + 
+    vertices->array[vertex_offset + 1] = (vertex_rgb){ x, y + half_thick, z, col.r, col.g, col.b }; // Left point (x) - thick +
     vertices->array[vertex_offset + 2] = (vertex_rgb){ x + width, y - half_thick, z, col.r, col.g, col.b }; // Right point (x1) - thick -
-    vertices->array[vertex_offset + 3] = (vertex_rgb){ x + width, y + half_thick, z, col.r, col.g, col.b }; // Right point (x1) - thick + 
+    vertices->array[vertex_offset + 3] = (vertex_rgb){ x + width, y + half_thick, z, col.r, col.g, col.b }; // Right point (x1) - thick +
 
     // Indices
     u32* indices_write = indices->array + indices->size;
@@ -426,7 +426,7 @@ void NU_Internal_Line(
     NU_RGB col
 )
 {
-    NU_Canvas_Context* ctx = Container_Get(&GUI.canvasContexts, contextID); 
+    NU_Canvas_Context* ctx = Container_Get(&GUI.canvasContexts, contextID);
     if (ctx == NULL) return;
 
     float twoThick = thickness * 2.0f;
@@ -434,9 +434,9 @@ void NU_Internal_Line(
     float canvasHeight = ctx->canvasHeight;
 
     // Skip if line is not visible on canvas
-    if ((x1 < -twoThick && x2 < -twoThick) || 
-        (x1 > ctx->canvasWidth && x2 > ctx->canvasWidth) || 
-        (y1 < -twoThick && y2 < -twoThick) || 
+    if ((x1 < -twoThick && x2 < -twoThick) ||
+        (x1 > ctx->canvasWidth && x2 > ctx->canvasWidth) ||
+        (y1 < -twoThick && y2 < -twoThick) ||
         (y1 > ctx->canvasHeight + twoThick && y2 > ctx->canvasHeight + twoThick)) {
         return;
     }
@@ -541,8 +541,8 @@ void NU_Internal_Line(
     float z = (float)(ctx->node->layer) + ctx->z * 0.005f;
 
     // --- Allocate extra space in vertex and index lists ---
-    u32 additional_vertices = 4;    
-    u32 additional_indices = 6;          
+    u32 additional_vertices = 4;
+    u32 additional_indices = 6;
     if (vertices->size + additional_vertices > vertices->capacity) Vertex_RGB_List_Grow(vertices, additional_vertices);
     if (indices->size + additional_indices > indices->capacity) Index_List_Grow(indices, additional_indices);
 
@@ -567,9 +567,9 @@ void NU_Internal_Line(
 
     u32 vertex_offset = vertices->size;
     vertices->array[vertex_offset] = (vertex_rgb){ x1 - px, y1 - py, z, col.r, col.g, col.b }; // V1 -> thick -
-    vertices->array[vertex_offset + 1] = (vertex_rgb){ x1 + px, y1 + py, z, col.r, col.g, col.b }; // V1 -> thick + 
+    vertices->array[vertex_offset + 1] = (vertex_rgb){ x1 + px, y1 + py, z, col.r, col.g, col.b }; // V1 -> thick +
     vertices->array[vertex_offset + 2] = (vertex_rgb){ x2 - px, y2 - py, z, col.r, col.g, col.b }; // V2 -> thick -
-    vertices->array[vertex_offset + 3] = (vertex_rgb){ x2 + px, y2 + py, z, col.r, col.g, col.b }; // V2 -> thick + 
+    vertices->array[vertex_offset + 3] = (vertex_rgb){ x2 + px, y2 + py, z, col.r, col.g, col.b }; // V2 -> thick +
 
     // Indices
     u32* indices_write = indices->array + indices->size;
@@ -593,7 +593,7 @@ void NU_Internal_Dashed_Line(
     NU_RGB col
 )
 {
-    NU_Canvas_Context* ctx = Container_Get(&GUI.canvasContexts, contextID); 
+    NU_Canvas_Context* ctx = Container_Get(&GUI.canvasContexts, contextID);
     if (ctx == NULL) return;
 
     float twoThick = thickness * 2.0f;
@@ -601,9 +601,9 @@ void NU_Internal_Dashed_Line(
     float canvasHeight = ctx->canvasHeight;
 
     // Skip if line is not visible on canvas
-    if ((x1 < -twoThick && x2 < -twoThick) || 
-        (x1 > ctx->canvasWidth && x2 > ctx->canvasWidth) || 
-        (y1 < -twoThick && y2 < -twoThick) || 
+    if ((x1 < -twoThick && x2 < -twoThick) ||
+        (x1 > ctx->canvasWidth && x2 > ctx->canvasWidth) ||
+        (y1 < -twoThick && y2 < -twoThick) ||
         (y1 > ctx->canvasHeight + twoThick && y2 > ctx->canvasHeight + twoThick)) {
         return;
     }
@@ -678,33 +678,33 @@ void NU_Internal_Dashed_Line(
         float cy1 = y1 + (y2 - y1) * t0;
         float cx2 = x1 + (x2 - x1) * t1;
         float cy2 = y1 + (y2 - y1) * t1;
-        
+
         // Calculate the fractional positions along the original line
         float orig_dx = ox2 - ox1;
         float orig_dy = oy2 - oy1;
         float orig_len2 = orig_dx * orig_dx + orig_dy * orig_dy;
-        
+
         if (orig_len2 == 0.0f) return;
-        
+
         float inv_orig_len2 = 1.0f / orig_len2;
-        
+
         // Project clipped points onto original line to get accurate t_start and t_end
         t_start = ((cx1 - ox1) * orig_dx + (cy1 - oy1) * orig_dy) * inv_orig_len2;
         t_end   = ((cx2 - ox1) * orig_dx + (cy2 - oy1) * orig_dy) * inv_orig_len2;
-        
+
         // Clamp t values to ensure they're within [0,1]
         if (t_start < 0.0f) t_start = 0.0f;
         if (t_start > 1.0f) t_start = 1.0f;
         if (t_end < 0.0f) t_end = 0.0f;
         if (t_end > 1.0f) t_end = 1.0f;
-        
+
         // Ensure t_start < t_end
         if (t_start > t_end) {
             float temp = t_start;
             t_start = t_end;
             t_end = temp;
         }
-        
+
         x1 = cx1; y1 = cy1;
         x2 = cx2; y2 = cy2;
     }
@@ -714,7 +714,7 @@ void NU_Internal_Dashed_Line(
         t_start = 0.0f;
         t_end = 1.0f;
     }
-    
+
     // Pixel stradle offsets
     x1 += 0.5f;
     x2 += 0.5f;
@@ -747,12 +747,12 @@ void NU_Internal_Dashed_Line(
     // Calculate the phase at the start of the clipped line
     float world_start = t_start * orig_len;
     float world_end   = t_end   * orig_len;
-    
+
     // Find the starting offset within the pattern
     float phase = fmodf(world_start, pattern_total_len);
     u32 start_pattern_index = 0;
     float pattern_offset = 0.0f;
-    
+
     for (u32 i = 0; i < dash_pattern_len; i++) {
         float segment_len = (float)dash_pattern[i];
         if (phase < pattern_offset + segment_len) {
@@ -761,7 +761,7 @@ void NU_Internal_Dashed_Line(
         }
         pattern_offset += segment_len;
     }
-    
+
     float step_x = dx * inv_len;
     float step_y = dy * inv_len;
 
@@ -798,21 +798,21 @@ void NU_Internal_Dashed_Line(
     u32 i = start_pattern_index;
     float remaining_in_segment = (float)dash_pattern[i] - (phase - pattern_offset);
     float half_thick = thickness * 0.5f;  // FIXED: was 0.25f
-    
+
     // Pre-calculate perpendicular direction (constant for the whole line)
     float perp_x = -step_y * half_thick;
     float perp_y =  step_x * half_thick;
-    
+
     while (travelled < world_end)
     {
         float segment_len = remaining_in_segment;
         float next = travelled + segment_len;
-        
+
         if (next > world_end) {
             segment_len = world_end - travelled;
             next = world_end;
         }
-        
+
         if (i % 2 == 0)
         {
             // Draw dash segment
@@ -820,14 +820,14 @@ void NU_Internal_Dashed_Line(
             float sy1 = y1 + step_y * (travelled - world_start);
             float sx2 = x1 + step_x * (next - world_start);
             float sy2 = y1 + step_y * (next - world_start);
-            
+
             u32 v0 = vertices->size;
             vertex_rgb* v = vertices->array + v0;
             v[0] = (vertex_rgb){ sx1 - perp_x, sy1 - perp_y, z, col.r, col.g, col.b };
             v[1] = (vertex_rgb){ sx1 + perp_x, sy1 + perp_y, z, col.r, col.g, col.b };
             v[2] = (vertex_rgb){ sx2 - perp_x, sy2 - perp_y, z, col.r, col.g, col.b };
             v[3] = (vertex_rgb){ sx2 + perp_x, sy2 + perp_y, z, col.r, col.g, col.b };
-            
+
             u32* id = indices->array + indices->size;
             id[0] = v0;
             id[1] = v0 + 1;
@@ -835,11 +835,11 @@ void NU_Internal_Dashed_Line(
             id[3] = v0 + 1;
             id[4] = v0 + 2;
             id[5] = v0 + 3;
-            
+
             vertices->size += 4;
             indices->size += 6;
         }
-        
+
         travelled = next;
         i = (i + 1) % dash_pattern_len;
         remaining_in_segment = (float)dash_pattern[i];
@@ -849,7 +849,7 @@ void NU_Internal_Dashed_Line(
 
 void NU_Internal_Set_Canvas_Font(int contextID, const char* fontName)
 {
-    NU_Canvas_Context* ctx = Container_Get(&GUI.canvasContexts, contextID); 
+    NU_Canvas_Context* ctx = Container_Get(&GUI.canvasContexts, contextID);
     if (ctx == NULL) return;
 
     // Get fontID
@@ -879,14 +879,14 @@ void NU_Internal_Set_Canvas_Font(int contextID, const char* fontName)
 }
 
 void NU_Internal_Text(
-    int contextID, 
-    float x, 
-    float y, 
-    float wrapWidth, 
+    int contextID,
+    float x,
+    float y,
+    float wrapWidth,
     NU_RGB col,
     const char* string)
 {
-    NU_Canvas_Context* ctx = Container_Get(&GUI.canvasContexts, contextID); 
+    NU_Canvas_Context* ctx = Container_Get(&GUI.canvasContexts, contextID);
     if (ctx == NULL) return;
     NU_Font* font = Stylesheet_Get_Font(&GUI.stylesheet, ctx->fontID);
 
@@ -911,7 +911,7 @@ void NU_Internal_Text(
 
 float NU_Internal_Text_Height(int contextID, float wrapWidth, const char* string)
 {
-    NU_Canvas_Context* ctx = Container_Get(&GUI.canvasContexts, contextID); 
+    NU_Canvas_Context* ctx = Container_Get(&GUI.canvasContexts, contextID);
     if (ctx == NULL) return 0.0f; // node type is not valid therefore there is no context
 
     NU_Font* font = Stylesheet_Get_Font(&GUI.stylesheet, ctx->fontID);
@@ -920,7 +920,7 @@ float NU_Internal_Text_Height(int contextID, float wrapWidth, const char* string
 
 float NU_Internal_Text_Width(int contextID, const char* string)
 {
-    NU_Canvas_Context* ctx = Container_Get(&GUI.canvasContexts, contextID); 
+    NU_Canvas_Context* ctx = Container_Get(&GUI.canvasContexts, contextID);
     if (ctx == NULL) return 0.0f; // node type is not valid therefore there is no context
 
     NU_Font* font = Stylesheet_Get_Font(&GUI.stylesheet, ctx->fontID);
@@ -928,15 +928,15 @@ float NU_Internal_Text_Width(int contextID, const char* string)
 }
 
 void NU_Internal_LText(
-    int contextID, 
-    float x, 
-    float y, 
-    float wrapWidth, 
+    int contextID,
+    float x,
+    float y,
+    float wrapWidth,
     NU_RGB col,
     const char* string,
     size_t stringLen)
 {
-    NU_Canvas_Context* ctx = Container_Get(&GUI.canvasContexts, contextID); 
+    NU_Canvas_Context* ctx = Container_Get(&GUI.canvasContexts, contextID);
     if (ctx == NULL) return;
     NU_Font* font = Stylesheet_Get_Font(&GUI.stylesheet, ctx->fontID);
 
@@ -961,7 +961,7 @@ void NU_Internal_LText(
 
 float NU_Internal_LText_Height(int contextID, float wrapWidth, const char* string, size_t stringLen)
 {
-    NU_Canvas_Context* ctx = Container_Get(&GUI.canvasContexts, contextID); 
+    NU_Canvas_Context* ctx = Container_Get(&GUI.canvasContexts, contextID);
     if (ctx == NULL) return 0.0f; // node type is not valid therefore there is no context
 
     NU_Font* font = Stylesheet_Get_Font(&GUI.stylesheet, ctx->fontID);
@@ -970,7 +970,7 @@ float NU_Internal_LText_Height(int contextID, float wrapWidth, const char* strin
 
 float NU_Internal_LText_Width(int contextID, const char* string, size_t stringLen)
 {
-    NU_Canvas_Context* ctx = Container_Get(&GUI.canvasContexts, contextID); 
+    NU_Canvas_Context* ctx = Container_Get(&GUI.canvasContexts, contextID);
     if (ctx == NULL) return 0.0f; // node type is not valid therefore there is no context
 
     NU_Font* font = Stylesheet_Get_Font(&GUI.stylesheet, ctx->fontID);
@@ -979,7 +979,7 @@ float NU_Internal_LText_Width(int contextID, const char* string, size_t stringLe
 
 float NU_Internal_Codepoint_Width(int contextID, u32 codepoint)
 {
-    NU_Canvas_Context* ctx = Container_Get(&GUI.canvasContexts, contextID); 
+    NU_Canvas_Context* ctx = Container_Get(&GUI.canvasContexts, contextID);
     if (ctx == NULL) return 0.0f; // node type is not valid therefore there is no context
 
     NU_Font* font = Stylesheet_Get_Font(&GUI.stylesheet, ctx->fontID);
@@ -989,7 +989,7 @@ float NU_Internal_Codepoint_Width(int contextID, u32 codepoint)
 
 float NU_Internal_Text_Line_Height(int contextID)
 {
-    NU_Canvas_Context* ctx = Container_Get(&GUI.canvasContexts, contextID); 
+    NU_Canvas_Context* ctx = Container_Get(&GUI.canvasContexts, contextID);
     if (ctx == NULL) return 0.0f; // node type is not valid therefore there is no context
     NU_Font* font = Stylesheet_Get_Font(&GUI.stylesheet, ctx->fontID);
     return font->line_height;

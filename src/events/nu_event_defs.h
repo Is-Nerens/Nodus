@@ -64,7 +64,7 @@ typedef struct NU_Event_Info_Type
 
 typedef struct NU_Event
 {
-    Node* node;
+    NuNode* node;
     NU_Event_Info_Mouse mouse;
     NU_Event_Info_Input input;
     NU_Event_Info_Keypress keypress;
@@ -78,6 +78,7 @@ struct NU_EventCallbackInfo
     NU_Event event;
     void* args;
     NU_EventCallback callback;
+    int widgetID;
 };
 
 typedef struct EventSystem {
@@ -109,30 +110,30 @@ void EventSystem_Init();
 void EventSystem_Free();
 
 void NU_Internal_Register_Event(
-    Node* node,
+    NuNode* node,
     void* args,
     NU_EventCallback callback,
     enum NU_Event_Type
     event_type
 );
 
-void NU_Unregister_All_Events(NodeP* node);
+void NU_Unregister_All_Events(Node* node);
 
-void TriggerOnMouseInEvent(NodeP* nodeP, float mouseX, float mouseY);
+void TriggerOnMouseInEvent(Node* node, float mouseX, float mouseY);
 
-void TriggerOnMouseOutEvent(NodeP* nodeP, float mouseX, float mouseY);
+void TriggerOnMouseOutEvent(Node* node, float mouseX, float mouseY);
 
-void TriggerOnMouseDownEvent(NodeP* nodeP, float mouseX, float mouseY, int mouseBtn);
+void TriggerOnMouseDownEvent(Node* node, float mouseX, float mouseY, int mouseBtn);
 
-void TriggerOnClickEvent(NodeP* nodeP, float mouseX, float mouseY, int mouseBtn);
+void TriggerOnClickEvent(Node* node, float mouseX, float mouseY, int mouseBtn);
 
-void TriggerOnScrollEvent(NodeP* nodeP);
+void TriggerOnScrollEvent(Node* node);
 
-void TriggerOnInputFocusEvent(NodeP* nodeP);
+void TriggerOnInputFocusEvent(Node* node);
 
-void TriggerOnInputDefocusEvent(NodeP* nodeP);
+void TriggerOnInputDefocusEvent(Node* node);
 
-void TriggerOnInputChangedEvent(NodeP* nodeP, const char* text);
+void TriggerOnInputChangedEvent(Node* node, const char* text);
 
 void CheckForResizeEvents();
 

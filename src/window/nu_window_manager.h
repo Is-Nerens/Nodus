@@ -23,7 +23,7 @@ void WindowManager_UpdateWindowScreenDimensions(WindowManager* winManager, int w
     }
 }
 
-void CreateSubwindow(WindowManager* winManager, NodeP* node)
+void CreateSubwindow(WindowManager* winManager, Node* node)
 {
     // Create NU_Window
     NU_Window win;
@@ -42,9 +42,9 @@ void CreateSubwindow(WindowManager* winManager, NodeP* node)
 
     // Init drawlist
     NU_WindowDrawlist* list = &win.drawlist;
-    Array_Init(&list->drawNodes, sizeof(NodeP*), 512);
-    Array_Init(&list->clippedDrawNodes, sizeof(NodeP*), 64);
-    Array_Init(&list->canvasNodes, sizeof(NodeP*), 16);
+    Array_Init(&list->drawNodes, sizeof(Node*), 512);
+    Array_Init(&list->clippedDrawNodes, sizeof(Node*), 64);
+    Array_Init(&list->canvasNodes, sizeof(Node*), 16);
 
     // Add NU_Window to Window Manager
     node->windowID = Container_Add(&winManager->windows, &win);
@@ -52,7 +52,7 @@ void CreateSubwindow(WindowManager* winManager, NodeP* node)
     WindowManager_UpdateWindowScreenDimensions(winManager, node->windowID);
 }
 
-void WindowManager_DeleteSubwindow(WindowManager* winManager, NodeP* node)
+void WindowManager_DeleteSubwindow(WindowManager* winManager, Node* node)
 {
     NU_Window* nuWin = Container_Get(&winManager->windows, node->windowID);
 
@@ -81,9 +81,9 @@ void WindowManager_Init(WindowManager* winManager)
     // Init datastructures
     winManager->lastClickedWindow = NULL;
     winManager->windows = Container_Create(sizeof(NU_Window));
-    Array_Init(&winManager->absoluteRootNodes, sizeof(NodeP*), 8);
+    Array_Init(&winManager->absoluteRootNodes, sizeof(Node*), 8);
     Array_Init(&winManager->recycledSDLWindows, sizeof(SDL_Window*), 8);
-    Hashmap_Init(&winManager->clipMap, sizeof(NodeP*), sizeof(NU_ClipBounds), 16);
+    Hashmap_Init(&winManager->clipMap, sizeof(Node*), sizeof(NU_ClipBounds), 16);
 
     // Create root NU_Window
     NU_Window win;
@@ -133,7 +133,7 @@ int GetFrametime()
     return frameTimeMs;
 }
 
-inline NU_Window* GetNodeWindow(WindowManager* winManager, NodeP* node)
+inline NU_Window* GetNodeWindow(WindowManager* winManager, Node* node)
 {
     return Container_Get(&winManager->windows, node->windowID);
 }
@@ -144,7 +144,7 @@ SDL_Window* GetSDL_Window(WindowManager* winManager, int windowID)
     return win->window;
 }
 
-NodeP* GetWindowNodeFromSDL_Window(WindowManager* winManager, SDL_Window* window)
+Node* GetWindowNodeFromSDL_Window(WindowManager* winManager, SDL_Window* window)
 {
     for (int i=0; i<winManager->windows.size; i++) {
         NU_Window* win = Container_GetAt(&winManager->windows, i);
@@ -161,19 +161,19 @@ NU_WindowDrawlist* GetDrawlist(WindowManager* winManager, int windowID)
     return &win->drawlist;
 }
 
-void AssignRootWindow(WindowManager* winManager, NodeP* rootNode)
+void AssignRootWindow(WindowManager* winManager, Node* rootNode)
 {
     SDL_Window* window = GetSDL_Window(winManager, winManager->rootWindowID);
     SDL_ShowWindow(window);
 
     int winW, winH;
     SDL_GetWindowSizeInPixels(window, &winW, &winH);
-    rootNode->node.width = (float)winW;
-    rootNode->node.height = (float)winH;
-    rootNode->node.minWidth = winW;
-    rootNode->node.maxWidth = winW;
-    rootNode->node.minHeight = winH;
-    rootNode->node.maxHeight = winH;
+    rootNode->width = (float)winW;
+    rootNode->height = (float)winH;
+    rootNode->public.generic.minWidth = winW;
+    rootNode->public.generic.maxWidth = winW;
+    rootNode->public.generic.minHeight = winH;
+    rootNode->public.generic.maxHeight = winH;
     rootNode->windowID = winManager->rootWindowID;
     NU_Window* rootWin = Container_Get(&winManager->windows, rootNode->windowID);
     rootWin->windowNode = rootNode;
@@ -183,9 +183,9 @@ void AssignRootWindow(WindowManager* winManager, NodeP* rootNode)
 
     // Initialise drawlist
     NU_WindowDrawlist* list = GetDrawlist(winManager, winManager->rootWindowID);
-    Array_Init(&list->drawNodes, sizeof(NodeP*), 512);
-    Array_Init(&list->clippedDrawNodes, sizeof(NodeP*), 64);
-    Array_Init(&list->canvasNodes, sizeof(NodeP*), 16);
+    Array_Init(&list->drawNodes, sizeof(Node*), 512);
+    Array_Init(&list->clippedDrawNodes, sizeof(Node*), 64);
+    Array_Init(&list->canvasNodes, sizeof(Node*), 16);
 
     NU_Draw_Init();
 }
@@ -221,19 +221,19 @@ inline void WindowBeginFrame(SDL_Window* window)
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT | GL_STENCIL_BUFFER_BIT);
 }
 
-inline void SetNodeDrawlist_Draw(WindowManager* winManager, NodeP* node)
+inline void SetNodeDrawlist_Draw(WindowManager* winManager, Node* node)
 {
     NU_WindowDrawlist* list = GetDrawlist(winManager, node->windowID);
     Array_Push(&list->drawNodes, &node);
 }
 
-inline void SetNodeDrawlist_Clipped(WindowManager* winManager, NodeP* node)
+inline void SetNodeDrawlist_Clipped(WindowManager* winManager, Node* node)
 {
     NU_WindowDrawlist* list = GetDrawlist(winManager, node->windowID);
     Array_Push(&list->clippedDrawNodes, &node);
 }
 
-inline void SetNodeDrawlist_Canvas(WindowManager* winManager, NodeP* node)
+inline void SetNodeDrawlist_Canvas(WindowManager* winManager, Node* node)
 {
     NU_WindowDrawlist* list = GetDrawlist(winManager, node->windowID);
     Array_Push(&list->canvasNodes, &node);

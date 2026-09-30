@@ -23,42 +23,80 @@ extern "C" {
 // Opaque structs
 typedef struct NU_Stylesheet NU_Stylesheet;
 
-// Visible structs
-typedef enum NodeType
-{
-    NU_WINDOW, NU_BOX, NU_BUTTON,
-    NU_INPUT, NU_CANVAS, NU_IMAGE,
-    NU_TABLE, NU_THEAD, NU_ROW, NU_NAT,
-    NU_FRAME, NU_IMPORT
-} NodeType;
-
-typedef struct Node
-{
-    char* textContent;
-    float x, y, width, height;
-    float contentWidth, contentHeight;
-    uint16_t prefWidth, prefHeight;
-    uint16_t minWidth, maxWidth, minHeight, maxHeight;
-    int16_t left, right, top, bottom;
-    uint8_t gap, padTop, padBottom, padLeft, padRight;
-    uint8_t borderTop, borderBottom, borderLeft, borderRight;
-    uint8_t borderRadiusTl, borderRadiusTr, borderRadiusBl, borderRadiusBr;
-    uint8_t backgroundR, backgroundG, backgroundB;
-    uint8_t borderR, borderG, borderB;
+/* Members common to all node types */
+#define NU_NODE_FIELDS \
+    uint16_t preferredWidth, preferredHeight; \
+    uint16_t minWidth, maxWidth; \
+    uint16_t minHeight, maxHeight; \
+    int16_t left, right, top, bottom; \
+    uint8_t gap; \
+    uint8_t padTop, padBottom, padLeft, padRight; \
+    uint8_t borderTop, borderBottom, borderLeft, borderRight; \
+    uint8_t borderRadiusTl, borderRadiusTr; \
+    uint8_t borderRadiusBl, borderRadiusBr; \
+    uint8_t backgroundR, backgroundG, backgroundB; \
+    uint8_t borderR, borderG, borderB; \
     uint8_t textR, textG, textB;
-} Node;
+
+/* Node type definitions */
+typedef struct NuNode {
+    NU_NODE_FIELDS;
+} NuNode;
+
+typedef struct NuWindow {
+    NU_NODE_FIELDS;
+    char* textContent;
+} NuWindow;
+
+typedef struct NuBox {
+    NU_NODE_FIELDS;
+    char* textContent;
+} NuBox;
+
+typedef struct NuButton {
+    NU_NODE_FIELDS;
+    char* textContent;
+} NuButton;
+
+typedef struct NuInput {
+    NU_NODE_FIELDS;
+} NuInput;
+
+typedef struct NuCanvas {
+    NU_NODE_FIELDS;
+} NuCanvas;
+
+typedef struct NuImage {
+    NU_NODE_FIELDS;
+} NuImage;
+
+typedef struct NuTable {
+    NU_NODE_FIELDS;
+} NuTable;
+
+typedef struct NuThead {
+    NU_NODE_FIELDS;
+} NuThead;
+
+typedef struct NuRow {
+    NU_NODE_FIELDS;
+} NuRow;
+
+typedef struct NuFrame {
+    NU_NODE_FIELDS;
+} NuFrame;
 
 typedef struct NU_Nodelist
 {
     size_t size;
-    Node** nodes;
+    NuNode** nodes;
 } NU_Nodelist;
 
 typedef struct {
     float r, g, b;
 } NU_RGB;
 
-enum NU_Event_Type
+enum NU_EventType
 {
     NU_EVENT_ON_CLICK,
     NU_EVENT_ON_INPUT_CHANGED,
@@ -81,8 +119,6 @@ enum NU_Event_Type
 enum NU_Keycode
 {
     NU_KEY_UNKNOWN = 0,
-
-    // Printable keys (ASCII range - these are correct)
     NU_KEY_SPACE = 32,
     NU_KEY_APOSTROPHE = 39,
     NU_KEY_COMMA = 44,
@@ -131,16 +167,12 @@ enum NU_Keycode
     NU_KEY_BACKSLASH = 92,
     NU_KEY_RIGHT_BRACKET = 93,
     NU_KEY_GRAVE = 96,
-
-    // Control keys (corrected from SDL header)
     NU_KEY_ESCAPE = 27,
     NU_KEY_ENTER = 13,
     NU_KEY_TAB = 9,
     NU_KEY_BACKSPACE = 8,
     NU_KEY_DELETE = 127,
-    NU_KEY_CLEAR = 0x4000009cu,  // 1073741980 - from SDL header
-
-    // Navigation keys (CORRECTED - these were wrong!)
+    NU_KEY_CLEAR = 0x4000009cu,
     NU_KEY_UP = 0x40000052u,        // 1073741906
     NU_KEY_DOWN = 0x40000051u,      // 1073741905
     NU_KEY_LEFT = 0x40000050u,      // 1073741904
@@ -150,8 +182,6 @@ enum NU_Keycode
     NU_KEY_PAGE_UP = 0x4000004bu,   // 1073741899
     NU_KEY_PAGE_DOWN = 0x4000004eu, // 1073741902
     NU_KEY_INSERT = 0x40000049u,    // 1073741897
-
-    // Modifier keys (corrected)
     NU_KEY_LEFT_SHIFT = 0x400000e1u,   // 1073742049
     NU_KEY_LEFT_CTRL = 0x400000e0u,    // 1073742048
     NU_KEY_LEFT_ALT = 0x400000e2u,     // 1073742050
@@ -160,13 +190,9 @@ enum NU_Keycode
     NU_KEY_RIGHT_CTRL = 0x400000e4u,   // 1073742052
     NU_KEY_RIGHT_ALT = 0x400000e6u,    // 1073742054
     NU_KEY_RIGHT_GUI = 0x400000e7u,    // 1073742055
-
-    // Lock keys (corrected)
     NU_KEY_CAPS_LOCK = 0x40000039u,    // 1073741881
     NU_KEY_NUM_LOCK = 0x40000053u,     // 1073741907
     NU_KEY_SCROLL_LOCK = 0x40000047u,  // 1073741895
-
-    // Keypad keys (corrected)
     NU_KEY_KP_0 = 0x40000062u,         // 1073741922
     NU_KEY_KP_1 = 0x40000059u,         // 1073741913
     NU_KEY_KP_2 = 0x4000005au,         // 1073741914
@@ -186,8 +212,6 @@ enum NU_Keycode
     NU_KEY_KP_EQUALS = 0x40000067u,    // 1073741927
     NU_KEY_KP_COMMA = 0x40000085u,     // 1073741957
     NU_KEY_KP_SPACE = 0x400000cdu,     // 1073742029
-
-    // Function keys (corrected - these are scancode based)
     NU_KEY_F1 = 0x4000003au,   // 1073741882
     NU_KEY_F2 = 0x4000003bu,   // 1073741883
     NU_KEY_F3 = 0x4000003cu,   // 1073741884
@@ -212,12 +236,8 @@ enum NU_Keycode
     NU_KEY_F22 = 0x40000071u,  // 1073741937
     NU_KEY_F23 = 0x40000072u,  // 1073741938
     NU_KEY_F24 = 0x40000073u,  // 1073741939
-
-    // Print screen and pause (corrected)
     NU_KEY_PRINT_SCREEN = 0x40000046u,  // 1073741894
     NU_KEY_PAUSE = 0x40000048u,        // 1073741896
-
-    // Miscellaneous (corrected)
     NU_KEY_APPLICATION = 0x40000065u,   // 1073741925
     NU_KEY_POWER = 0x40000066u,        // 1073741926
     NU_KEY_EXECUTE = 0x40000074u,      // 1073741940
@@ -234,8 +254,6 @@ enum NU_Keycode
     NU_KEY_MUTE = 0x4000007fu,         // 1073741951
     NU_KEY_VOLUME_UP = 0x40000080u,    // 1073741952
     NU_KEY_VOLUME_DOWN = 0x40000081u,  // 1073741953
-
-    // Audio control (corrected)
     NU_KEY_AUDIO_NEXT = 0x4000010bu,   // 1073742091
     NU_KEY_AUDIO_PREV = 0x4000010cu,   // 1073742092
     NU_KEY_AUDIO_STOP = 0x4000010du,   // 1073742093
@@ -243,8 +261,6 @@ enum NU_Keycode
     NU_KEY_AUDIO_MUTE = 0x4000007fu,   // 1073741951
     NU_KEY_AUDIO_VOLUME_UP = 0x40000080u,   // 1073741952
     NU_KEY_AUDIO_VOLUME_DOWN = 0x40000081u, // 1073741953
-
-    // Browser keys (corrected)
     NU_KEY_AC_SEARCH = 0x40000118u,    // 1073742104
     NU_KEY_AC_HOME = 0x40000119u,      // 1073742105
     NU_KEY_AC_BACK = 0x4000011au,      // 1073742106
@@ -254,41 +270,54 @@ enum NU_Keycode
     NU_KEY_AC_BOOKMARKS = 0x4000011eu, // 1073742110
 };
 
-typedef struct NU_Event_Info_Mouse
+#define NU_TYPE_WINDOW 0
+#define NU_TYPE_BOX    1
+#define NU_TYPE_BUTTON 2
+#define NU_TYPE_INPUT  3
+#define NU_TYPE_CANVAS 4
+#define NU_TYPE_IMAGE  5
+#define NU_TYPE_TABLE  6
+#define NU_TYPE_THEAD  7
+#define NU_TYPE_ROW    8
+#define NU_TYPE_FRAME  9
+
+typedef struct NU_EventInfoMouse
 {
     int mouseBtn;
     int mouseX, mouseY;
     float deltaX, deltaY;
     float wheelDelta;
-} NU_Event_Info_Mouse;
+} NU_EventInfoMouse;
 
-typedef struct NU_Event_Info_Input
+typedef struct NU_EventInfoInput
 {
     char text[5];
-} NU_Event_Info_Input;
+} NU_EventInfoInput;
 
-typedef struct NU_Event_Info_Keypress
+typedef struct NU_EventInfoKeypress
 {
     enum NU_Keycode keycode;
     bool repeat;
-} NU_Event_Info_Keypress;
+} NU_EventInfoKeypress;
 
-typedef struct NU_Event_Info_Type
+typedef struct NU_EventInfoType
 {
     char text[5];
-} NU_Event_Info_Type;
+} NU_EventInfoType;
 
 typedef struct NU_Event
 {
-    Node* node;
-    NU_Event_Info_Mouse mouse;
-    NU_Event_Info_Input input;
-    NU_Event_Info_Keypress keypress;
-    NU_Event_Info_Type type;
+    NuNode* node;
+    NU_EventInfoMouse mouse;
+    NU_EventInfoInput input;
+    NU_EventInfoKeypress keypress;
+    NU_EventInfoType type;
 } NU_Event;
 
 typedef void (*NU_EventCallback)(NU_Event event, void* args);
 typedef void (*NU_Callback)(void* args);
+typedef void (*NU_WidgetCreateCallback)(NuNode* root, int widgetID, void* args);
+typedef void (*NU_WidgetUpdateCallback)(NuNode* root, void* args);
 
 struct NU_EventCallbackInfo
 {
@@ -311,11 +340,11 @@ _IMPORT void NU_ClearErrors(void);
 _IMPORT const char* NU_GetNextError(void);
 
 // Window functions
-_IMPORT void NU_Set_Window_Fullscreen(Node* node);
-_IMPORT void NU_Set_Window_Windowed(Node* node);
+_IMPORT void NU_Set_Window_Fullscreen(NuNode* node);
+_IMPORT void NU_Set_Window_Windowed(NuNode* node);
 
 // Screen query functions
-_IMPORT void NU_Get_Screen_Dimensions(Node* node, int* screenWidthOut, int* screenHeightOut);
+_IMPORT void NU_Get_Screen_Dimensions(NuNode* node, int* screenWidthOut, int* screenHeightOut);
 
 // Cursor functions
 _IMPORT void NU_Set_Cursor_Default(void);
@@ -329,63 +358,91 @@ _IMPORT void NU_Set_Cursor_EwResize(void);
 _IMPORT void NU_Set_Cursor_NwseResize(void);
 _IMPORT void NU_Set_Cursor_NeswResize(void);
 
-// DOM functions
-_IMPORT Node* NU_PARENT(Node* node);
-_IMPORT Node* NU_CHILD(Node* node, uint32_t childIndex);
-_IMPORT int NU_CHILD_COUNT(Node* node);
-_IMPORT Node* NU_NEXT_SIBLING(Node* node);
-_IMPORT Node* NU_PREVIOUS_SIBLING(Node* node);
-_IMPORT Node* NU_CREATE_NODE(Node* parent, NodeType type);
-_IMPORT void NU_DELETE_NODE(Node* node);
-_IMPORT void NU_SHIFT_NODE_IN_PARENT(Node* node, int index);
-_IMPORT void NU_REPARENT_NODE(Node* node, Node* newParent);
-_IMPORT float NU_NODE_SCROLL(Node* node);
-_IMPORT const char* NU_INPUT_TEXT_CONTENT(Node* node);
-_IMPORT void NU_FOCUS_ON_INPUT(Node* node);
-_IMPORT void NU_SET_INPUT_TEXT_CONTENT(Node* node, const char* text);
-_IMPORT Node* NU_HOVERED_NODE();
-_IMPORT void NU_SHOW(Node* node);
-_IMPORT void NU_HIDE(Node* node);
-_IMPORT int NU_IS_SHOWN(Node* node);
-_IMPORT void NU_GROW_VERTICAL(Node* node);
-_IMPORT void NU_GROW_HORIZONTAL(Node* node);
-_IMPORT void NU_GROW_BOTH(Node* node);
-_IMPORT void NU_GROW_NONE(Node* node);
-_IMPORT void NU_GROW_IGNORE_STYLESHEET(Node* node);
-_IMPORT void NU_GROW_ENABLE_STYLESHEET(Node* node);
-_IMPORT void NU_BACKGROUND_VISIBILITY_SHOWN(Node* node);
-_IMPORT void NU_BACKGROUND_VISIBILITY_HIDDEN(Node* node);
-_IMPORT void NU_BACKGROUND_VISIBILITY_IGNORE_STYLESHEET(Node* node);
-_IMPORT void NU_BACKGROUND_VISIBILITY_ENABLE_STYLESHEET(Node* node);
-_IMPORT void NU_SET_WINDOW_TITLE(Node* windowNode, const char* title);
-_IMPORT Node* NU_Get_Node_By_Id(const char* id);
-_IMPORT NU_Nodelist NU_Get_Nodes_By_Class(char* const class);
-_IMPORT NU_Nodelist NU_Get_Descendents_With_Class(Node* node, char* const class);
-_IMPORT NU_Nodelist NU_Get_Nodes_By_Tag(NodeType type);
-_IMPORT NU_Nodelist NU_Get_Children(Node* node);
-_IMPORT Node* NU_Get_First_Descendent_With_Class(Node* node, const char* class);
-_IMPORT int NU_Descends_From(Node* node, Node* ancestor);
-_IMPORT void NU_Nodelist_Free(NU_Nodelist* nodelist);
-_IMPORT void NU_Set_Class(Node* node, const char* class);
-_IMPORT void NU_Remove_Class(Node* node);
+// Node traversal
+_IMPORT NuNode* NU_PARENT(NuNode* node);
+_IMPORT NuNode* NU_CHILD(NuNode* node, uint32_t childIndex);
+_IMPORT NuNode* NU_NEXT_SIBLING(NuNode* node);
+_IMPORT NuNode* NU_PREVIOUS_SIBLING(NuNode* node);
 
-// Event functions
-_IMPORT void NU_Register_Event(
-  Node* node,
-  void* args,
+// Node queries
+_IMPORT uint8_t NU_TYPE(NuNode* node);
+_IMPORT int NU_CHILD_COUNT(NuNode* node);
+_IMPORT int NU_IS_SHOWN(NuNode* node);
+_IMPORT float NU_NODE_SCROLL(NuNode* node);
+
+// Node creation and deletion
+_IMPORT NuWindow* NU_WINDOW(NuNode* parent);
+_IMPORT NuBox* NU_BOX(NuNode* parent);
+_IMPORT NuButton* NU_BUTTON(NuNode* parent);
+_IMPORT NuInput* NU_INPUT(NuNode* parent);
+_IMPORT NuCanvas* NU_CANVAS(NuNode* parent);
+_IMPORT NuImage* NU_IMAGE(NuNode* parent);
+_IMPORT NuTable* NU_TABLE(NuNode* parent);
+_IMPORT NuThead* NU_THEAD(NuNode* parent);
+_IMPORT NuRow* NU_ROW(NuNode* parent);
+_IMPORT void NU_DELETE_NODE(NuNode* node);
+
+// Node translation
+_IMPORT void NU_SHIFT_NODE_IN_PARENT(NuNode* node, int index);
+_IMPORT void NU_REPARENT_NODE(NuNode* node, NuNode* newParent);
+
+// Generic node functions
+_IMPORT NuNode* NU_HOVERED_NODE();
+_IMPORT int NU_DOES_DESCEND(NuNode* node, NuNode* ancestor);
+_IMPORT void NU_SHOW(NuNode* node);
+_IMPORT void NU_HIDE(NuNode* node);
+_IMPORT void NU_GROW_VERTICAL(NuNode* node);
+_IMPORT void NU_GROW_HORIZONTAL(NuNode* node);
+_IMPORT void NU_GROW_BOTH(NuNode* node);
+_IMPORT void NU_GROW_NONE(NuNode* node);
+_IMPORT void NU_GROW_IGNORE_STYLESHEET(NuNode* node);
+_IMPORT void NU_GROW_ENABLE_STYLESHEET(NuNode* node);
+_IMPORT void NU_BACKGROUND_VISIBILITY_SHOWN(NuNode* node);
+_IMPORT void NU_BACKGROUND_VISIBILITY_HIDDEN(NuNode* node);
+_IMPORT void NU_BACKGROUND_VISIBILITY_IGNORE_STYLESHEET(NuNode* node);
+_IMPORT void NU_BACKGROUND_VISIBILITY_ENABLE_STYLESHEET(NuNode* node);
+_IMPORT void NU_SET_CLASS(NuNode* node, const char* class);
+_IMPORT void NU_REMOVE_CLASS(NuNode* node);
+_IMPORT void NU_BIND_EVENT(
+  NuNode* node,
   NU_EventCallback callback,
-  enum NU_Event_Type event
+  void* args,
+  enum NU_EventType event,
+  int widgetID
 );
 
+// Special node type functions
+_IMPORT void NU_FOCUS_ON_INPUT(NuNode* node);
+_IMPORT const char* NU_INPUT_TEXT_CONTENT(NuInput* input);
+_IMPORT void NU_SET_INPUT_TEXT_CONTENT(NuInput* input, const char* text);
+_IMPORT void NU_SET_WINDOW_TITLE(NuNode* windowNode, const char* title);
+
+// Node retrieval functions
+_IMPORT NuNode* NU_NODE_WITH_ID(const char* id);
+_IMPORT NU_Nodelist NU_NODES_WITH_CLASS(char* const class);
+_IMPORT NU_Nodelist NU_NODES_WITH_TYPE(uint8_t type);
+_IMPORT NU_Nodelist NU_DESCENDENTS_WITH_CLASS(NuNode* node, char* const class);
+_IMPORT NU_Nodelist NU_DESCENDENTS_WITH_TYPE(NuNode* node, const uint8_t type);
+_IMPORT NuNode* NU_FIRST_DESCENDENT_WITH_CLASS(NuNode* node, const char* class);
+_IMPORT NuNode* NU_FIRST_DESCENDENT_WITH_TYPE(NuNode* node, const uint8_t type);
+_IMPORT NU_Nodelist NU_CHILDREN(NuNode* node);
+_IMPORT void NU_NODELIST_FREE(NU_Nodelist* nodelist);
+
+// Widget functions
+_IMPORT int NU_WIDGET(NuNode* widgetRoot,
+    NU_WidgetCreateCallback createCB,
+    NU_WidgetUpdateCallback updateCB,
+    void* createCB_Args,
+    void* updateCB_Args
+);
+_IMPORT void NU_WIDGET_UPDATE(int widgetID);
+_IMPORT void NU_WIDGET_DELETE(int widgetID, int deleteRoot);
+
 // Canvas functions
-_IMPORT int NU_Get_Canvas_Ctx(Node* canvasNode);
-
+_IMPORT int NU_Get_Canvas_Ctx(NuNode* canvasNode);
 _IMPORT void NU_Clear_Canvas(int contextID);
-
 _IMPORT void NU_Render();
-
 _IMPORT NU_RGB NU_RGB_From_Hex(const char* hex);
-
 _IMPORT void NU_Border_Rect(
     int contextID,
     float x, float y, float w, float h,
@@ -393,7 +450,6 @@ _IMPORT void NU_Border_Rect(
     NU_RGB border_col,
     NU_RGB fill_col
 );
-
 _IMPORT void NU_Triangle(
     int contextID,
     float x1, float y1,
@@ -403,28 +459,24 @@ _IMPORT void NU_Triangle(
     NU_RGB border_col,
     NU_RGB fill_col
 );
-
 _IMPORT void NU_Vline(
     int contextID,
     float x, float y, float height,
     float thickness,
     NU_RGB col
 );
-
 _IMPORT void NU_Hline(
     int contextID,
     float x, float y, float width,
     float thickness,
     NU_RGB col
 );
-
 _IMPORT void NU_Line(
     int contextID,
     float x1, float y1, float x2, float y2,
     float thickness,
     NU_RGB col
 );
-
 _IMPORT void NU_Dashed_Line(
     int contextID,
     float x1, float y1, float x2, float y2,
@@ -433,48 +485,76 @@ _IMPORT void NU_Dashed_Line(
     uint32_t dash_pattern_len,
     NU_RGB col
 );
-
 _IMPORT void NU_Set_Canvas_Font(int contextID, const char* font_name);
-
 _IMPORT void NU_Text(
     int contextID,
     float x, float y, float wrapWidth,
     NU_RGB col, const char* string
 );
-
 _IMPORT float NU_Text_Height(
     int contextID,
     float wrapWidth,
     const char* string
 );
-
 _IMPORT float NU_Text_Width(
     int contextID,
     const char* string
 );
-
 _IMPORT void NU_LText(
     int contextID,
     float x, float y, float wrapWidth,
     NU_RGB col, const char* string,
     size_t stringLen
 );
-
 _IMPORT float NU_LText_Height(
     int contextID,
     float wrapWidth,
     const char* string,
     size_t stringLen
 );
-
 _IMPORT float NU_LText_Width(
     int contextID,
     const char* string,
     size_t stringLen
 );
-
 _IMPORT float NU_Text_Line_Height(int contextID);
 
 #ifdef __cplusplus
 }
 #endif
+
+
+
+
+
+
+// void build(void* data)
+// {
+//     NuWindow* parent;
+//     NuBtn* btn = NU_Button((NuNode*)(parent), "btn-class", eventCB, event_flags);
+//     NuText* btnText = NU_Text((NuNode*)(btn), "label-class", "text", eventCB, event_flags);
+// }
+
+// void update(void* data)
+// {
+//     Node* widgetRoot = ...;
+//     NuBtn* btn = NU_CHILD(widgetRoot, 0);
+//     NuText* text = NU_CHILD((Node*)(btn), 0);
+//     //Or NuText* = data->text; (if you want to store a text reference)
+// }
+
+// int NU_Widget(void* build, void* update);
+// int NU_WidgetUpdate(int widgetID);
+
+// // Therefore: If you provide NULL for the update callback, the library will
+// // automatically delete all the widget nodes and recreate them by calling "build"
+
+
+
+// typedef struct NuWidget {
+//     int id;
+//     NuNode *root;
+//     void (*build)(void *data);
+//     void (*update)(void *data);
+//     void *data;
+// } NuWidget;

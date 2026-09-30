@@ -14,7 +14,7 @@ typedef struct NU_Window
 {
     SDL_Window* window;
     NU_WindowDrawlist drawlist;
-    NodeP* windowNode;
+    Node* windowNode;
     int screenWidth;
     int screenHeight;
     float renderScale;
@@ -27,7 +27,7 @@ typedef struct WindowManager
     Array recycledSDLWindows;
     Array absoluteRootNodes;
     Hashmap clipMap;
-    NodeP* hoveredWindowNode;
+    Node* hoveredWindowNode;
     SDL_Window* lastClickedWindow;
     int rootWindowID;
 } WindowManager;

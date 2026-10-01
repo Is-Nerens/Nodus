@@ -13,16 +13,16 @@ typedef enum NodeOverlap
 void NU_AddTextMesh(Node* node, float z, char* textBuffer, Vertex_RGB_UV_List* vertices, Index_List* indices)
 {
     // Compute inner dimensions (content area)
-    float inner_width  = node->width  - node->public.generic.borderLeft - node->public.generic.borderRight - node->public.generic.padLeft - node->public.generic.padRight;
-    float inner_height = node->height - node->public.generic.borderTop  - node->public.generic.borderBottom - node->public.generic.padTop - node->public.generic.padBottom;
-    float remaining_w = inner_width  - node->contentWidth;
-    float remaining_h = inner_height - node->contentHeight;
+    float inner_width  = node->public.generic.width  - node->public.generic.borderLeft - node->public.generic.borderRight - node->public.generic.padLeft - node->public.generic.padRight;
+    float inner_height = node->public.generic.height - node->public.generic.borderTop  - node->public.generic.borderBottom - node->public.generic.padTop - node->public.generic.padBottom;
+    float remaining_w = inner_width  - node->public.generic.contentWidth;
+    float remaining_h = inner_height - node->public.generic.contentHeight;
     float x_align_offset = remaining_w * 0.5f * (float)node->horizontalTextAlignment;
     float y_align_offset = remaining_h * 0.5f * (float)node->verticalTextAlignment;
 
     // Top-left corner of the content area
-    float textPosX = node->x + node->public.generic.borderLeft + node->public.generic.padLeft + x_align_offset;
-    float textPosY = node->y + node->public.generic.borderTop  + node->public.generic.padTop + y_align_offset;
+    float textPosX = node->public.generic.x + node->public.generic.borderLeft + node->public.generic.padLeft + x_align_offset;
+    float textPosY = node->public.generic.y + node->public.generic.borderTop  + node->public.generic.padTop + y_align_offset;
 
     // Draw wrapped text inside inner_width
     float r = (float)node->public.generic.textR * 0.003921568627451f;
@@ -34,8 +34,8 @@ void NU_AddTextMesh(Node* node, float z, char* textBuffer, Vertex_RGB_UV_List* v
 
 static NodeOverlap NodeVerticalOverlapState(Node* node, float y, float h)
 {
-    float top = node->y;
-    float bottom = top + node->height;
+    float top = node->public.generic.y;
+    float bottom = top + node->public.generic.height;
     float bounds_top = y;
     float bounds_bottom = y + h;
     int overlap = (bottom > bounds_top) & (top < bounds_bottom);
@@ -86,8 +86,8 @@ void NU_DrawInputNodeContent(Node* node, float z, float winWidth, float winHeigh
     // generate and draw text
     Vertex_RGB_UV_List clipped_text_vertices; Vertex_RGB_UV_List_Init(&clipped_text_vertices, 1000);
     Index_List clipped_text_indices; Index_List_Init(&clipped_text_indices, 600);
-    float textPosX = node->x + node->public.generic.borderLeft + node->public.generic.padLeft + inputText->textOffset;
-    float textPosY = node->y + node->public.generic.borderTop  + node->public.generic.padTop;
+    float textPosX = node->public.generic.x + node->public.generic.borderLeft + node->public.generic.padLeft + inputText->textOffset;
+    float textPosY = node->public.generic.y + node->public.generic.borderTop  + node->public.generic.padTop;
     float r = (float)node->public.generic.textR * 0.003921568627451f;
     float g = (float)node->public.generic.textG * 0.003921568627451f;
     float b = (float)node->public.generic.textB * 0.003921568627451f;
@@ -121,20 +121,20 @@ void NU_DrawCanvasContent(Node* canvas_node, float winW, float winH, NU_ClipBoun
     NU_Canvas_Context* ctx = Container_Get(&GUI.canvasContexts, canvas_node->special.canvas.ctxHandle);
     if (ctx == NULL) return;
 
-    float offsetX = roundf(canvas_node->x + canvas_node->public.generic.borderLeft + canvas_node->public.generic.padLeft);
-    float offsetY = roundf(canvas_node->y + canvas_node->public.generic.borderTop + canvas_node->public.generic.padTop);
-    float top    = canvas_node->y + canvas_node->public.generic.borderTop + canvas_node->public.generic.padTop;
-    float bottom = canvas_node->y + canvas_node->height - canvas_node->public.generic.borderBottom - canvas_node->public.generic.padBottom;
-    float left   = canvas_node->x + canvas_node->public.generic.borderLeft + canvas_node->public.generic.padLeft;
-    float right  = canvas_node->x + canvas_node->width - canvas_node->public.generic.borderRight - canvas_node->public.generic.padRight;
+    float offsetX = roundf(canvas_node->public.generic.x + canvas_node->public.generic.borderLeft + canvas_node->public.generic.padLeft);
+    float offsetY = roundf(canvas_node->public.generic.y + canvas_node->public.generic.borderTop + canvas_node->public.generic.padTop);
+    float top    = canvas_node->public.generic.y + canvas_node->public.generic.borderTop + canvas_node->public.generic.padTop;
+    float bottom = canvas_node->public.generic.y + canvas_node->public.generic.height - canvas_node->public.generic.borderBottom - canvas_node->public.generic.padBottom;
+    float left   = canvas_node->public.generic.x + canvas_node->public.generic.borderLeft + canvas_node->public.generic.padLeft;
+    float right  = canvas_node->public.generic.x + canvas_node->public.generic.width - canvas_node->public.generic.borderRight - canvas_node->public.generic.padRight;
     if (clip) {
         top    = fmax_fast(top, clip->top);
         bottom = fmax_fast(bottom, clip->bottom);
         left   = fmax_fast(left, clip->left);
         right  = fmax_fast(right, clip->right);
     }
-    ctx->canvasWidth = canvas_node->width;
-    ctx->canvasHeight = canvas_node->height;
+    ctx->canvasWidth = canvas_node->public.generic.width;
+    ctx->canvasHeight = canvas_node->public.generic.height;
 
     // Draw canvas shape layer
     Draw_Clipped_Vertex_RGB_List(
@@ -160,9 +160,9 @@ void NU_DrawCanvasContent(Node* canvas_node, float winW, float winH, NU_ClipBoun
 
 inline int NodeNotVisibleInWindow(Node* node, int winW, int winH)
 {
-    float right  = node->x + node->width;
-    float bottom = node->y + node->height;
-    return (right < 0 || bottom < 0 || node->x > winW || node->y > winH);
+    float right  = node->public.generic.x + node->public.generic.width;
+    float bottom = node->public.generic.y + node->public.generic.height;
+    return (right < 0 || bottom < 0 || node->public.generic.x > winW || node->public.generic.y > winH);
 }
 
 void NU_GenerateDrawlists()
@@ -192,20 +192,20 @@ void NU_GenerateDrawlists()
         // Precompute node inner rect
         float nodeInnerX, nodeInnerY, nodeInnerWidth, nodeInnerHeight = 0;
         if (node->layoutFlags & OVERFLOW_VERTICAL_SCROLL) {
-            nodeInnerY = node->y + node->public.generic.borderTop + node->public.generic.padTop;
-            nodeInnerHeight = node->height - node->public.generic.borderTop - node->public.generic.borderBottom - node->public.generic.padTop - node->public.generic.padBottom;
+            nodeInnerY = node->public.generic.y + node->public.generic.borderTop + node->public.generic.padTop;
+            nodeInnerHeight = node->public.generic.height - node->public.generic.borderTop - node->public.generic.borderBottom - node->public.generic.padTop - node->public.generic.padBottom;
 
             // Handle case where node is a table with a thead
             if (node->type == NU_TYPE_TABLE && node->childCount > 0) {
                 if (node->firstChild->type == NU_TYPE_THEAD) {
-                    nodeInnerY += node->firstChild->height;
-                    nodeInnerHeight -= node->firstChild->height;
+                    nodeInnerY += node->firstChild->public.generic.height;
+                    nodeInnerHeight -= node->firstChild->public.generic.height;
                 }
             }
         }
         if (node->layoutFlags & OVERFLOW_HORIZONTAL_SCROLL) {
-            nodeInnerX = node->x + node->public.generic.borderLeft + node->public.generic.padLeft;
-            nodeInnerWidth = node->width - node->public.generic.borderLeft - node->public.generic.borderRight - node->public.generic.padLeft - node->public.generic.padRight;
+            nodeInnerX = node->public.generic.x + node->public.generic.borderLeft + node->public.generic.padLeft;
+            nodeInnerWidth = node->public.generic.width - node->public.generic.borderLeft - node->public.generic.borderRight - node->public.generic.padLeft - node->public.generic.padRight;
         }
 
         // cache window dimensions
@@ -244,8 +244,8 @@ void NU_GenerateDrawlists()
 
                     // determine clipping
                     NU_ClipBounds clip;
-                    clip.top = fmaxf(child->y - 1, nodeInnerY);
-                    clip.bottom = fminf(child->y + child->height, nodeInnerY + nodeInnerHeight);
+                    clip.top = fmaxf(child->public.generic.y - 1, nodeInnerY);
+                    clip.bottom = fminf(child->public.generic.y + child->public.generic.height, nodeInnerY + nodeInnerHeight);
                     clip.left = -1.0f;
                     clip.right = 1000000.0f;
 
@@ -332,7 +332,7 @@ void NU_Draw()
             // Construct border rect data
             Add_NodeRectRenderData(node, z, 0.0f, winH, 0.0f, winW, &GUI.borderRectRenderDataArray);
             if (node->layoutFlags & OVERFLOW_VERTICAL_SCROLL
-                && node->contentHeight > (node->height - node->public.generic.padTop - node->public.generic.padBottom - node->public.generic.borderTop - node->public.generic.borderBottom)) {
+                && node->public.generic.contentHeight > (node->public.generic.height - node->public.generic.padTop - node->public.generic.padBottom - node->public.generic.borderTop - node->public.generic.borderBottom)) {
                 Add_ScrollbarRenderData(node, z + 0.5f, &GUI.stylesheet.scrollbarStyle, &GUI.borderRectRenderDataArray);
             }
             // Construct text mesh for node's textContent
@@ -344,20 +344,20 @@ void NU_Draw()
             // Draw text input content (1 draw call)
             else if (node->type == NU_TYPE_INPUT) {
                 NU_ClipBounds clip = {0};
-                clip.top = node->y;
-                clip.left = node->x + node->public.generic.borderLeft + node->public.generic.padLeft;
-                clip.right = node->x + node->width - node->public.generic.borderRight - node->public.generic.padRight;
-                clip.bottom = node->y + node->height + 1000;
+                clip.top = node->public.generic.y;
+                clip.left = node->public.generic.x + node->public.generic.borderLeft + node->public.generic.padLeft;
+                clip.right = node->public.generic.x + node->public.generic.width - node->public.generic.borderRight - node->public.generic.padRight;
+                clip.bottom = node->public.generic.y + node->public.generic.height + 1000;
                 NU_DrawInputNodeContent(node, z, winW, winH, &clip);
             }
             // Construct image render data
             if (node->special.image.imageHandle != 0 && node->type != NU_TYPE_CANVAS && node->type != NU_TYPE_INPUT) {
                 ImageRenderData renderData;
-                renderData.x = node->x + node->public.generic.borderLeft + node->public.generic.padLeft;
-                renderData.y = node->y + node->public.generic.borderTop + node->public.generic.padTop;
+                renderData.x = node->public.generic.x + node->public.generic.borderLeft + node->public.generic.padLeft;
+                renderData.y = node->public.generic.y + node->public.generic.borderTop + node->public.generic.padTop;
                 renderData.z = z + 0.75f;
-                renderData.w = node->width - node->public.generic.borderLeft - node->public.generic.borderRight - node->public.generic.padLeft - node->public.generic.padRight;
-                renderData.h = node->height - node->public.generic.borderTop - node->public.generic.borderBottom - node->public.generic.padTop - node->public.generic.padBottom;
+                renderData.w = node->public.generic.width - node->public.generic.borderLeft - node->public.generic.borderRight - node->public.generic.padLeft - node->public.generic.padRight;
+                renderData.h = node->public.generic.height - node->public.generic.borderTop - node->public.generic.borderBottom - node->public.generic.padTop - node->public.generic.padBottom;
                 renderData.scissorTop = 0.0f;
                 renderData.scissorBottom = 1000000.0f;
                 renderData.scissorLeft = 0.0f;
@@ -410,11 +410,11 @@ void NU_Draw()
             // Construct image render data
             if (node->special.image.imageHandle != 0 && node->type != NU_TYPE_CANVAS && node->type != NU_TYPE_INPUT) {
                 ImageRenderData renderData;
-                renderData.x = node->x + node->public.generic.borderLeft + node->public.generic.padLeft;
-                renderData.y = node->y + node->public.generic.borderTop + node->public.generic.padTop;
+                renderData.x = node->public.generic.x + node->public.generic.borderLeft + node->public.generic.padLeft;
+                renderData.y = node->public.generic.y + node->public.generic.borderTop + node->public.generic.padTop;
                 renderData.z = z + 0.75f;
-                renderData.w = node->width - node->public.generic.borderLeft - node->public.generic.borderRight - node->public.generic.padLeft - node->public.generic.padRight;
-                renderData.h = node->height - node->public.generic.borderTop - node->public.generic.borderBottom - node->public.generic.padTop - node->public.generic.padBottom;
+                renderData.w = node->public.generic.width - node->public.generic.borderLeft - node->public.generic.borderRight - node->public.generic.padLeft - node->public.generic.padRight;
+                renderData.h = node->public.generic.height - node->public.generic.borderTop - node->public.generic.borderBottom - node->public.generic.padTop - node->public.generic.padBottom;
                 renderData.scissorTop = clip->top;
                 renderData.scissorBottom = clip->bottom;
                 renderData.scissorLeft = clip->left;

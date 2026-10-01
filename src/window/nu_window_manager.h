@@ -168,8 +168,8 @@ void AssignRootWindow(WindowManager* winManager, Node* rootNode)
 
     int winW, winH;
     SDL_GetWindowSizeInPixels(window, &winW, &winH);
-    rootNode->width = (float)winW;
-    rootNode->height = (float)winH;
+    rootNode->public.generic.width = (float)winW;
+    rootNode->public.generic.height = (float)winH;
     rootNode->public.generic.minWidth = winW;
     rootNode->public.generic.maxWidth = winW;
     rootNode->public.generic.minHeight = winH;

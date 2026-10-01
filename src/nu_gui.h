@@ -180,6 +180,8 @@ int NU_Internal_Create_Gui(const char* xml_filepath, const char* css_filepath)
     SDL_SetHint("SDL_MOUSE_FOCUS_CLICKTHROUGH", "1");
     SDL_SetHint(SDL_HINT_MAC_SCROLL_MOMENTUM, "1");
 
+    printf("sizeof(Node) = %zu\n", sizeof(Node));
+
     // Init Systems
     WindowManager_Init(&GUI.winManager);
     ImageResourceManager_Init(&GUI.imageResourceManager);

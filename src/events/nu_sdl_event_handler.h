@@ -199,20 +199,20 @@ bool EventWatcher(void* data, SDL_Event* event)
             // Compute scrollV
             Node* node = GUI.scroll_mouse_down_node;
             Stylesheet_Scrollbar_Style* scrollbarStyle = &GUI.stylesheet.scrollbarStyle;
-            NuNodeGeneric* n = &node->public.generic;
-            float trackHeight = node->height - n->borderTop - n->borderBottom;
+            NuNodeGenericAccess* n = &node->public.generic;
+            float trackHeight = node->public.generic.height - n->borderTop - n->borderBottom;
             float usableTrackHeight = trackHeight - scrollbarStyle->trackPadTop - scrollbarStyle->trackPadBottom;
-            float scrollContentHeight = node->contentHeight;
+            float scrollContentHeight = node->public.generic.contentHeight;
             float scrollViewHeight = usableTrackHeight - n->padTop - n->padBottom;
             float scrollScaleFactor = scrollViewHeight / scrollContentHeight;
-            float thumbHeight = fmaxf(scrollViewHeight / node->contentHeight * usableTrackHeight, scrollbarStyle->thumbMinSize);
+            float thumbHeight = fmaxf(scrollViewHeight / node->public.generic.contentHeight * usableTrackHeight, scrollbarStyle->thumbMinSize);
             float scrollTravel = usableTrackHeight - thumbHeight;
-            float trackY = node->y + n->borderTop;
-            float thumbY = trackY + scrollbarStyle->trackPadTop + node->scrollV * scrollTravel;
+            float trackY = node->public.generic.y + n->borderTop;
+            float thumbY = trackY + scrollbarStyle->trackPadTop + node->public.generic.scrollV * scrollTravel;
             float trackTop = trackY + scrollbarStyle->trackPadTop;
             float dragDist = (mouseY - GUI.v_scroll_thumb_grab_offset) - trackTop;
-            node->scrollV = dragDist / (usableTrackHeight - thumbHeight);
-            node->scrollV = min(max(node->scrollV, 0.0f), 1.0f); // Clamp to range [0,1]
+            node->public.generic.scrollV = dragDist / (usableTrackHeight - thumbHeight);
+            node->public.generic.scrollV = min(max(node->public.generic.scrollV, 0.0f), 1.0f); // Clamp to range [0,1]
 
             TriggerOnScrollEvent(node);
 
@@ -398,11 +398,11 @@ bool EventWatcher(void* data, SDL_Event* event)
 
             // Update scrollV
             Stylesheet_Scrollbar_Style* scrollbarStyle = &GUI.stylesheet.scrollbarStyle;
-            NuNodeGeneric* n = &node->public.generic;
-            float trackHeight = node->height - n->borderTop - n->borderBottom;
+            NuNodeGenericAccess* n = &node->public.generic;
+            float trackHeight = node->public.generic.height - n->borderTop - n->borderBottom;
             float usableTrackHeight = trackHeight - scrollbarStyle->trackPadTop - scrollbarStyle->trackPadBottom;
-            node->scrollV -= event->wheel.y * (usableTrackHeight / node->contentHeight) * 0.12f;
-            node->scrollV = min(max(node->scrollV, 0.0f), 1.0f); // Clamp to range [0,1]
+            node->public.generic.scrollV -= event->wheel.y * (usableTrackHeight / node->public.generic.contentHeight) * 0.12f;
+            node->public.generic.scrollV = min(max(node->public.generic.scrollV, 0.0f), 1.0f); // Clamp to range [0,1]
             TriggerOnScrollEvent(node);
             GUI.awaiting_redraw = true;
         }

@@ -3,16 +3,16 @@
 static bool NU_MouseIsOverNode(Node* node, float mouseX, float mouseY)
 {
     // get clipping info
-    float left_wall = node->x;
-    float right_wall = node->x + node->width;
-    float top_wall = node->y;
-    float bottom_wall = node->y + node->height;
+    float left_wall = node->public.generic.x;
+    float right_wall = node->public.generic.x + node->public.generic.width;
+    float top_wall = node->public.generic.y;
+    float bottom_wall = node->public.generic.y + node->public.generic.height;
     if (node->clippedAncestor != NULL) {
         NU_ClipBounds* clip = Hashmap_Get(&GUI.winManager.clipMap, &node->clippedAncestor);
-        left_wall = max(clip->left, node->x);
-        right_wall = min(clip->right, node->x + node->width);
-        top_wall = max(clip->top, node->y);
-        bottom_wall = min(clip->bottom, node->y + node->height);
+        left_wall = max(clip->left, node->public.generic.x);
+        right_wall = min(clip->right, node->public.generic.x + node->public.generic.width);
+        top_wall = max(clip->top, node->public.generic.y);
+        bottom_wall = min(clip->bottom, node->public.generic.y + node->public.generic.height);
     }
 
     // check if mouse is within clipped bounding box
@@ -29,16 +29,16 @@ static bool NU_MouseIsOverNode(Node* node, float mouseX, float mouseY)
     float right_radii_sum  = borderRadiusTr + borderRadiusBr;
     float top_radii_sum    = borderRadiusTl + borderRadiusTr;
     float bottom_radii_sum = borderRadiusBl + borderRadiusBr;
-    if (left_radii_sum   > node->height)  { float scale = node->height / left_radii_sum;   borderRadiusTl *= scale; borderRadiusBl *= scale; }
-    if (right_radii_sum  > node->height)  { float scale = node->height / right_radii_sum;  borderRadiusTr *= scale; borderRadiusBr *= scale; }
-    if (top_radii_sum    > node->width )  { float scale = node->width  / top_radii_sum;    borderRadiusTl *= scale; borderRadiusTr *= scale; }
-    if (bottom_radii_sum > node->width )  { float scale = node->width  / bottom_radii_sum; borderRadiusBl *= scale; borderRadiusBr *= scale; }
+    if (left_radii_sum   > node->public.generic.height)  { float scale = node->public.generic.height / left_radii_sum;   borderRadiusTl *= scale; borderRadiusBl *= scale; }
+    if (right_radii_sum  > node->public.generic.height)  { float scale = node->public.generic.height / right_radii_sum;  borderRadiusTr *= scale; borderRadiusBr *= scale; }
+    if (top_radii_sum    > node->public.generic.width )  { float scale = node->public.generic.width  / top_radii_sum;    borderRadiusTl *= scale; borderRadiusTr *= scale; }
+    if (bottom_radii_sum > node->public.generic.width )  { float scale = node->public.generic.width  / bottom_radii_sum; borderRadiusBl *= scale; borderRadiusBr *= scale; }
 
     // rounded border anchors
-    vec2 tl_a = { floorf(node->x + borderRadiusTl),                    floorf(node->y + borderRadiusTl) };
-    vec2 tr_a = { floorf(node->x + node->width - borderRadiusTr), floorf(node->y + borderRadiusTr) };
-    vec2 bl_a = { floorf(node->x + borderRadiusBl),                    floorf(node->y + node->height - borderRadiusBl) };
-    vec2 br_a = { floorf(node->x + node->width - borderRadiusBr), floorf(node->y + node->height - borderRadiusBr) };
+    vec2 tl_a = { floorf(node->public.generic.x + borderRadiusTl),                    floorf(node->public.generic.y + borderRadiusTl) };
+    vec2 tr_a = { floorf(node->public.generic.x + node->public.generic.width - borderRadiusTr), floorf(node->public.generic.y + borderRadiusTr) };
+    vec2 bl_a = { floorf(node->public.generic.x + borderRadiusBl),                    floorf(node->public.generic.y + node->public.generic.height - borderRadiusBl) };
+    vec2 br_a = { floorf(node->public.generic.x + node->public.generic.width - borderRadiusBr), floorf(node->public.generic.y + node->public.generic.height - borderRadiusBr) };
 
     // ensure mouse is not in top left rounded deadzone
     if (mouseX < tl_a.x && mouseY < tl_a.y) {
@@ -80,7 +80,7 @@ static bool NU_Mouse_Over_Node_V_Scrollbar(
     float mouseX, float mouseY, float* grabOffsetOut
 )
 {
-    NuNodeGeneric* n = &node->public.generic;
+    NuNodeGenericAccess* n = &node->public.generic;
 
     // --------------------------------------
     // --- Compute constrained dimensions ---
@@ -99,22 +99,22 @@ static bool NU_Mouse_Over_Node_V_Scrollbar(
     float trackWidth = thumbWidth + (float)scrollbarStyle->trackPadLeft + (float)scrollbarStyle->trackPadRight;
 
     // Compute track height
-    float trackHeight = node->height - n->borderTop - n->borderBottom;
+    float trackHeight = node->public.generic.height - n->borderTop - n->borderBottom;
     float usableTrackHeight = trackHeight - scrollbarStyle->trackPadTop - scrollbarStyle->trackPadBottom;
 
     // Compute track pos
-    float trackX = node->x + node->width - n->borderRight - trackWidth;
-    float trackY = node->y + n->borderTop;
+    float trackX = node->public.generic.x + node->public.generic.width - n->borderRight - trackWidth;
+    float trackY = node->public.generic.y + n->borderTop;
 
     // Compute scroll transform values
-    float scrollContentHeight = node->contentHeight;
+    float scrollContentHeight = node->public.generic.contentHeight;
     float scrollViewHeight = usableTrackHeight - n->padTop - n->padBottom;
     float scrollScaleFactor = scrollViewHeight / scrollContentHeight;
 
     // Compute thumb pos and constrained height
-    float thumbHeight = fmaxf(scrollViewHeight / node->contentHeight * usableTrackHeight, scrollbarStyle->thumbMinSize);
+    float thumbHeight = fmaxf(scrollViewHeight / node->public.generic.contentHeight * usableTrackHeight, scrollbarStyle->thumbMinSize);
     float scrollTravel = usableTrackHeight - thumbHeight;
-    float thumbY = trackY + scrollbarStyle->trackPadTop + node->scrollV * scrollTravel;
+    float thumbY = trackY + scrollbarStyle->trackPadTop + node->public.generic.scrollV * scrollTravel;
     float thumbX = trackX + scrollbarStyle->trackPadLeft;
 
     // Output grab offset
@@ -179,7 +179,7 @@ void NU_Mouse_Hover()
 
             // Check for scroll hover
             if (child->layoutFlags & OVERFLOW_V_PROPERTY) {
-                bool overflow_v = child->contentHeight > child->height - child->public.generic.borderTop - child->public.generic.borderBottom;
+                bool overflow_v = child->public.generic.contentHeight > child->public.generic.height - child->public.generic.borderTop - child->public.generic.borderBottom;
                 if (overflow_v) GUI.scroll_hovered_node = child;
             }
             Array_Push(&stack, &child);

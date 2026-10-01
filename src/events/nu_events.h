@@ -46,7 +46,7 @@ void EventSystem_Free()
 
 
 
-void NU_Internal_Bind_Event(NuNode* node, void* args, NU_EventCallback callback, enum NU_Event_Type event_type, int widgetID)
+void NU_Internal_Bind_Event(NuNode* node, void* args, NU_EventCallback callback, enum NU_EventType event_type, int widgetID)
 {
     struct NU_Event event = {0}; event.node = node;
     struct NU_EventCallbackInfo cb_info = { event, args, callback, widgetID };
@@ -244,7 +244,7 @@ void TriggerOnMouseOutEvent(Node* node, float mouseX, float mouseY)
             // Run widget update function (if widget is bound)
             if (cb_info->widgetID >= 0) {
                 NU_Widget* widget = Container_Get(&GUI.widgets, cb_info->widgetID);
-                widget->updateCB(&widget->root->public.common, widget->updateCB_Args);
+                widget->updateCB((NuNode*)(widget->root), widget->updateCB_Args, &cb_info->event);
             }
         }
     }
@@ -267,7 +267,7 @@ void TriggerOnMouseInEvent(Node* node, float mouseX, float mouseY)
             // Run widget update function (if widget is bound)
             if (cb_info->widgetID >= 0) {
                 NU_Widget* widget = Container_Get(&GUI.widgets, cb_info->widgetID);
-                widget->updateCB(&widget->root->public.common, widget->updateCB_Args);
+                widget->updateCB((NuNode*)(widget->root), widget->updateCB_Args, &cb_info->event);
             }
         }
     }
@@ -289,7 +289,7 @@ void TriggerOnMouseDownEvent(Node* node, float mouseX, float mouseY, int mouseBt
             // Run widget update function (if widget is bound)
             if (cb_info->widgetID >= 0) {
                 NU_Widget* widget = Container_Get(&GUI.widgets, cb_info->widgetID);
-                widget->updateCB(&widget->root->public.common, widget->updateCB_Args);
+                widget->updateCB((NuNode*)(widget->root), widget->updateCB_Args, &cb_info->event);
             }
         }
     }
@@ -309,7 +309,7 @@ void TriggerOnClickEvent(Node* node, float mouseX, float mouseY, int mouseBtn)
             // Run widget update function (if widget is bound)
             if (cb_info->widgetID >= 0) {
                 NU_Widget* widget = Container_Get(&GUI.widgets, cb_info->widgetID);
-                widget->updateCB(&widget->root->public.common, widget->updateCB_Args);
+                widget->updateCB((NuNode*)(widget->root), widget->updateCB_Args, &cb_info->event);
             }
         }
     }
@@ -326,7 +326,7 @@ void TriggerOnScrollEvent(Node* node)
             // Run widget update function (if widget is bound)
             if (cb_info->widgetID >= 0) {
                 NU_Widget* widget = Container_Get(&GUI.widgets, cb_info->widgetID);
-                widget->updateCB(&widget->root->public.common, widget->updateCB_Args);
+                widget->updateCB((NuNode*)(widget->root), widget->updateCB_Args, &cb_info->event);
             }
         }
     }
@@ -343,7 +343,7 @@ void TriggerOnInputFocusEvent(Node* node)
             // Run widget update function (if widget is bound)
             if (cb_info->widgetID >= 0) {
                 NU_Widget* widget = Container_Get(&GUI.widgets, cb_info->widgetID);
-                widget->updateCB(&widget->root->public.common, widget->updateCB_Args);
+                widget->updateCB((NuNode*)(widget->root), widget->updateCB_Args, &cb_info->event);
             }
         }
     }
@@ -360,7 +360,7 @@ void TriggerOnInputDefocusEvent(Node* node)
             // Run widget update function (if widget is bound)
             if (cb_info->widgetID >= 0) {
                 NU_Widget* widget = Container_Get(&GUI.widgets, cb_info->widgetID);
-                widget->updateCB(&widget->root->public.common, widget->updateCB_Args);
+                widget->updateCB((NuNode*)(widget->root), widget->updateCB_Args, &cb_info->event);
             }
         }
     }
@@ -378,7 +378,7 @@ void TriggerOnInputChangedEvent(Node* node, const char* text)
             // Run widget update function (if widget is bound)
             if (cb_info->widgetID >= 0) {
                 NU_Widget* widget = Container_Get(&GUI.widgets, cb_info->widgetID);
-                widget->updateCB(&widget->root->public.common, widget->updateCB_Args);
+                widget->updateCB((NuNode*)(widget->root), widget->updateCB_Args, &cb_info->event);
             }
         }
     }
@@ -411,23 +411,23 @@ void CheckForResizeEvents()
             NU_NodeDimensions* dims = (NU_NodeDimensions*)dims_get;
 
             // Resize detected? -> update dims and call callback
-            if (dims->width != -1.0f && (node->width != dims->width || node->height != dims->height)) {
-                dims->width = node->width;
-                dims->height = node->height;
+            if (dims->width != -1.0f && (node->public.generic.width != dims->width || node->public.generic.height != dims->height)) {
+                dims->width = node->public.generic.width;
+                dims->height = node->public.generic.height;
                 if (cb_info->callback) cb_info->callback(cb_info->event, cb_info->args);
 
                 // Run widget update function (if widget is bound)
                 if (cb_info->widgetID >= 0) {
                     NU_Widget* widget = Container_Get(&GUI.widgets, cb_info->widgetID);
-                    widget->updateCB(&widget->root->public.common, widget->updateCB_Args);
+                    widget->updateCB((NuNode*)(widget->root), widget->updateCB_Args, &cb_info->event);
                 }
                 continue;
             }
 
             // Init dims
             if (dims->width == -1.0f) {
-                dims->width = node->width;
-                dims->height = node->height;
+                dims->width = node->public.generic.width;
+                dims->height = node->public.generic.height;
             }
         }
     }
@@ -462,7 +462,7 @@ void TriggerAllMouseupEvents(float mouseX, float mouseY, int mouseBtn)
             // Run widget update function (if widget is bound)
             if (cb_info->widgetID >= 0) {
                 NU_Widget* widget = Container_Get(&GUI.widgets, cb_info->widgetID);
-                widget->updateCB(&widget->root->public.common, widget->updateCB_Args);
+                widget->updateCB((NuNode*)(widget->root), widget->updateCB_Args, &cb_info->event);
             }
         }
     }
@@ -497,7 +497,7 @@ void TriggerAllMouseMoveEvents(float mouseX, float mouseY, float mouseDeltaX, fl
             // Run widget update function (if widget is bound)
             if (cb_info->widgetID >= 0) {
                 NU_Widget* widget = Container_Get(&GUI.widgets, cb_info->widgetID);
-                widget->updateCB(&widget->root->public.common, widget->updateCB_Args);
+                widget->updateCB((NuNode*)(widget->root), widget->updateCB_Args, &cb_info->event);
             }
         }
     }
@@ -527,7 +527,7 @@ void TriggerAllMouseWheelEvents(float wheelDelta)
             // Run widget update function (if widget is bound)
             if (cb_info->widgetID >= 0) {
                 NU_Widget* widget = Container_Get(&GUI.widgets, cb_info->widgetID);
-                widget->updateCB(&widget->root->public.common, widget->updateCB_Args);
+                widget->updateCB((NuNode*)(widget->root), widget->updateCB_Args, &cb_info->event);
             }
         }
     }
@@ -562,7 +562,7 @@ void TriggerAllMouseDownOutsideEvents(float mouseX, float mouseY, int mouseBtn)
             // Run widget update function (if widget is bound)
             if (cb_info->widgetID >= 0) {
                 NU_Widget* widget = Container_Get(&GUI.widgets, cb_info->widgetID);
-                widget->updateCB(&widget->root->public.common, widget->updateCB_Args);
+                widget->updateCB((NuNode*)(widget->root), widget->updateCB_Args, &cb_info->event);
             }
         }
     }
@@ -593,7 +593,7 @@ void TriggerAllOnKeyDownEvents(SDL_Keycode keycode, bool repeat)
             // Run widget update function (if widget is bound)
             if (cb_info->widgetID >= 0) {
                 NU_Widget* widget = Container_Get(&GUI.widgets, cb_info->widgetID);
-                widget->updateCB(&widget->root->public.common, widget->updateCB_Args);
+                widget->updateCB((NuNode*)(widget->root), widget->updateCB_Args, &cb_info->event);
             }
         }
     }
@@ -624,7 +624,7 @@ void TriggerAllOnKeyUpEvents(SDL_Keycode keycode, bool repeat)
             // Run widget update function (if widget is bound)
             if (cb_info->widgetID >= 0) {
                 NU_Widget* widget = Container_Get(&GUI.widgets, cb_info->widgetID);
-                widget->updateCB(&widget->root->public.common, widget->updateCB_Args);
+                widget->updateCB((NuNode*)(widget->root), widget->updateCB_Args, &cb_info->event);
             }
         }
     }
@@ -654,7 +654,7 @@ void TriggerAllOnTypeEvents(const char* text)
             // Run widget update function (if widget is bound)
             if (cb_info->widgetID >= 0) {
                 NU_Widget* widget = Container_Get(&GUI.widgets, cb_info->widgetID);
-                widget->updateCB(&widget->root->public.common, widget->updateCB_Args);
+                widget->updateCB((NuNode*)(widget->root), widget->updateCB_Args, &cb_info->event);
             }
         }
     }

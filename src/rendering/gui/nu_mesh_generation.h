@@ -16,17 +16,17 @@ void Add_NodeRectRenderData(
     Array* borderRects
 )
 {
-    NuNodeGeneric* n = &node->public.generic;
+    NuNodeGenericAccess* n = &node->public.generic;
 
     u8 alpha = 255;
     if (node->layoutFlags & HIDE_BACKGROUND) alpha = 0;
 
     BorderRectRenderData* renderData = Array_PushEmpty(borderRects);
-    renderData->x = floorf(node->x);
-    renderData->y = floorf(node->y);
+    renderData->x = floorf(n->x);
+    renderData->y = floorf(n->y);
     renderData->z = z;
-    renderData->w = floorf(node->x + node->width)  - renderData->x;
-    renderData->h = floorf(node->y + node->height) - renderData->y;
+    renderData->w = floorf(n->x + n->width)  - renderData->x;
+    renderData->h = floorf(n->y + n->height) - renderData->y;
 
     // Constrain border radii against floored dimensions
     float borderRadiusTl = n->borderRadiusTl;
@@ -74,7 +74,7 @@ void Add_ScrollbarRenderData(
     Array* borderRects
 )
 {
-    NuNodeGeneric* n = &node->public.generic;
+    NuNodeGenericAccess* n = &node->public.generic;
 
     // --------------------------------------
     // --- Compute constrained dimensions ---
@@ -93,22 +93,22 @@ void Add_ScrollbarRenderData(
     float trackWidth = thumbWidth + (float)scrollbarStyle->trackPadLeft + (float)scrollbarStyle->trackPadRight;
 
     // Compute track height
-    float trackHeight = node->height - n->borderTop - n->borderBottom;
+    float trackHeight = n->height - n->borderTop - n->borderBottom;
     float usableTrackHeight = trackHeight - scrollbarStyle->trackPadTop - scrollbarStyle->trackPadBottom;
 
     // Compute track pos
-    float trackX = node->x + node->width - n->borderRight - trackWidth;
-    float trackY = node->y + n->borderTop;
+    float trackX = n->x + n->width - n->borderRight - trackWidth;
+    float trackY = n->y + n->borderTop;
 
     // Compute scroll transform values
-    float scrollContentHeight = node->contentHeight;
+    float scrollContentHeight = n->contentHeight;
     float scrollViewHeight = usableTrackHeight - n->padTop - n->padBottom;
     float scrollScaleFactor = scrollViewHeight / scrollContentHeight;
 
     // Compute thumb pos and constrained height
-    float thumbHeight = fmaxf(scrollViewHeight / node->contentHeight * usableTrackHeight, scrollbarStyle->thumbMinSize);
+    float thumbHeight = fmaxf(scrollViewHeight / n->contentHeight * usableTrackHeight, scrollbarStyle->thumbMinSize);
     float scrollTravel = usableTrackHeight - thumbHeight;
-    float thumbY = trackY + scrollbarStyle->trackPadTop + node->scrollV * scrollTravel;
+    float thumbY = trackY + scrollbarStyle->trackPadTop + n->scrollV * scrollTravel;
     float thumbX = trackX + scrollbarStyle->trackPadLeft;
 
     // Constrain thumb border radii based on thumb width and height
@@ -223,10 +223,10 @@ void NU_ConstructInputCursorMesh(
     Vertex_RGB_List* vertices,
     Index_List* indices)
 {
-    NuNodeGeneric* n = &node->public.generic;
-    float x = node->x + n->borderLeft + n->padLeft + inputText->cursorOffset;
-    float y = node->y + n->borderTop + n->padTop;
-    float innerHeight = node->height - n->borderTop  - n->borderBottom - n->padTop - n->padBottom;
+    NuNodeGenericAccess* n = &node->public.generic;
+    float x = n->x + n->borderLeft + n->padLeft + inputText->cursorOffset;
+    float y = n->y + n->borderTop + n->padTop;
+    float innerHeight = n->height - n->borderTop  - n->borderBottom - n->padTop - n->padBottom;
 
     vertices->array[0] = (vertex_rgb){ x, y, z, 1.0f, 1.0f, 1.0f }; // top left
     vertices->array[1] = (vertex_rgb){ x + 1, y, z, 1.0f, 1.0f, 1.0f }; // top right
@@ -252,14 +252,14 @@ void NU_ConstructInputHighlightMesh(
     Vertex_RGB_List* vertices,
     Index_List* indices)
 {
-    NuNodeGeneric* n = &node->public.generic;
+    NuNodeGenericAccess* n = &node->public.generic;
 
-    float cursorX = node->x + n->borderLeft + n->padLeft + inputText->cursorOffset;
-    float highlightX = node->x + n->borderLeft + n->padLeft + inputText->highlightOffset;
+    float cursorX = n->x + n->borderLeft + n->padLeft + inputText->cursorOffset;
+    float highlightX = n->x + n->borderLeft + n->padLeft + inputText->highlightOffset;
     float x = highlightX; if (cursorX < x) x = cursorX;
-    float y = node->y + n->borderTop + n->padTop;
+    float y = n->y + n->borderTop + n->padTop;
     float width = fabs(cursorX - highlightX);
-    float height = node->height - n->borderTop - n->borderBottom - n->padTop - n->padBottom;
+    float height = n->height - n->borderTop - n->borderBottom - n->padTop - n->padBottom;
 
     float highlightR = 0.26f;
     float highlightG = 0.54f;

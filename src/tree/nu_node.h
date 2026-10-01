@@ -79,6 +79,9 @@
 
 /* Members common to all node types */
 #define NU_NODE_FIELDS \
+    float x, y, width, height; \
+    float contentWidth, contentHeight; \
+    float scrollX, scrollV; \
     u16 preferredWidth, preferredHeight; \
     u16 minWidth, maxWidth; \
     u16 minHeight, maxHeight; \
@@ -92,72 +95,86 @@
     u8 borderR, borderG, borderB; \
     u8 textR, textG, textB;
 
-/* Node type definitions */
-typedef struct NuNode {
-    NU_NODE_FIELDS;
-} NuNode;
 
-typedef struct NuNodeGeneric {
+/* Node type opaque definitions */
+typedef struct NuNode NuNode;
+typedef struct NuWindow NuWindow;
+typedef struct NuBox NuBox;
+typedef struct NuFrame NuFrame;
+typedef struct NuButton NuButton;
+typedef struct NuInput NuInput;
+typedef struct NuCanvas NuCanvas;
+typedef struct NuImage NuImage;
+typedef struct NuTable NuTable;
+typedef struct NuThead NuThead;
+typedef struct NuRow NuRow;
+
+/* Node type accessible definitions */
+typedef struct NuNodeAccess {
+    NU_NODE_FIELDS;
+} NuNodeAccess;
+
+typedef struct NuNodeGenericAccess {
     NU_NODE_FIELDS;
     char* textContent;
-} NuNodeGeneric;
+} NuNodeGenericAccess;
 
-typedef struct NuWindow {
+typedef struct NuWindowAccess {
     NU_NODE_FIELDS;
     char* textContent;
-} NuWindow;
+} NuWindowAccess;
 
-typedef struct NuBox {
+typedef struct NuBoxAccess {
     NU_NODE_FIELDS;
     char* textContent;
-} NuBox;
+} NuBoxAccess;
 
-typedef struct NuButton {
+typedef struct NuFrameAccess {
+    NU_NODE_FIELDS;
+} NuFrameAccess;
+
+typedef struct NuButtonAccess {
     NU_NODE_FIELDS;
     char* textContent;
-} NuButton;
+} NuButtonAccess;
 
-typedef struct NuInput {
+typedef struct NuInputAccess {
     NU_NODE_FIELDS;
-} NuInput;
+} NuInputAccess;
 
-typedef struct NuCanvas {
+typedef struct NuCanvasAccess {
     NU_NODE_FIELDS;
-} NuCanvas;
+} NuCanvasAccess;
 
-typedef struct NuImage {
+typedef struct NuImageAccess {
     NU_NODE_FIELDS;
-} NuImage;
+} NuImageAccess;
 
-typedef struct NuTable {
+typedef struct NuTableAccess {
     NU_NODE_FIELDS;
-} NuTable;
+} NuTableAccess;
 
-typedef struct NuThead {
+typedef struct NuTheadAccess {
     NU_NODE_FIELDS;
-} NuThead;
+} NuTheadAccess;
 
-typedef struct NuRow {
+typedef struct NuRowAccess {
     NU_NODE_FIELDS;
-} NuRow;
-
-typedef struct NuFrame {
-    NU_NODE_FIELDS;
-} NuFrame;
+} NuRowAccess;
 
 typedef union PublicNodeStructUnion {
-    NuNodeGeneric generic;
-    NuNode common;
-    NuWindow window;
-    NuBox box;
-    NuButton button;
-    NuInput input;
-    NuCanvas canvas;
-    NuImage image;
-    NuTable table;
-    NuThead thead;
-    NuRow row;
-    NuFrame frame;
+    NuNodeGenericAccess generic;
+    NuNodeAccess common;
+    NuWindowAccess window;
+    NuBoxAccess box;
+    NuButtonAccess button;
+    NuInputAccess input;
+    NuCanvasAccess canvas;
+    NuImageAccess image;
+    NuTableAccess table;
+    NuTheadAccess thead;
+    NuRowAccess row;
+    NuFrameAccess frame;
 } PublicNodeStructUnion;
 
 /* Node type-specific data */
@@ -182,10 +199,7 @@ typedef union NodeSpecialDataUnion {
 /* Private node storing public and private members */
 typedef struct Node
 {
-    float x, y, width, height;
-    float contentWidth, contentHeight;
-    float scrollX, scrollV;
-    PublicNodeStructUnion public;   // Publicly accesible to library user
+    PublicNodeStructUnion public;   // Publicly readible to library user
     struct Node* parent;
     struct Node* nextSibling;      // Next sibling in linked-list style array
     struct Node* prevSibling;      // Prev sibling in linked-list style array

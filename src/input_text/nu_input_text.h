@@ -11,7 +11,7 @@ void InputText_UpdateCusorTextOffsets(InputText* text, Node* node, NU_Font* font
     text->buffer[text->cursorBytes] = temp;
 
     // calculate inner input width
-    float innerWidth = node->width
+    float innerWidth = node->public.generic.width
         - node->public.generic.borderLeft
         - node->public.generic.borderRight
         - node->public.generic.padLeft
@@ -41,7 +41,7 @@ void InputText_ComputeCursorTextOffset_PlaceEnd(InputText* text, Node* node, NU_
 {
     // Compute offsets
     float textWidth = NU_Calculate_Text_Unwrapped_Width(font, text->buffer);
-    float innerWidth = node->width
+    float innerWidth = node->public.generic.width
         - node->public.generic.borderLeft
         - node->public.generic.borderRight
         - node->public.generic.padLeft
@@ -61,7 +61,7 @@ void InputText_UpdateHighlightTextOffsets(InputText* text, Node* node, NU_Font* 
     text->buffer[text->highlightBytes] = temp;
 
     // calculate inner input width
-    float innerWidth = node->width
+    float innerWidth = node->public.generic.width
         - node->public.generic.borderLeft
         - node->public.generic.borderRight
         - node->public.generic.padLeft
@@ -403,7 +403,7 @@ int InputText_MoveCursorRightSpan(InputText* text, Node* node, NU_Font* font)
 
 void InputText_MousePlaceCursor(InputText* text, Node* node, NU_Font* font, float mouseX)
 {
-    float inputLeftX = node->x + node->public.generic.padLeft + node->public.generic.borderLeft;
+    float inputLeftX = node->public.generic.x + node->public.generic.padLeft + node->public.generic.borderLeft;
     float mouseRelX = mouseX - inputLeftX - text->textOffset;
 
     // Loop over glyphs in text, computing the glyph's x and width given the textOffset
@@ -425,7 +425,7 @@ int InputText_MouseDrag(InputText* text, Node* node, NU_Font* font, float mouseX
 {
     if (!text->dragging) return 0;
 
-    float inputLeftX = node->x + node->public.generic.padLeft + node->public.generic.borderLeft;
+    float inputLeftX = node->public.generic.x + node->public.generic.padLeft + node->public.generic.borderLeft;
     float mouseRelX = mouseX - inputLeftX - text->textOffset;
 
     u16 prevHighlightBytes = text->highlightBytes;

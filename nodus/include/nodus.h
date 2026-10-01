@@ -38,53 +38,66 @@ typedef struct NU_Stylesheet NU_Stylesheet;
     uint8_t borderR, borderG, borderB; \
     uint8_t textR, textG, textB;
 
+/* Node type opaque definitions */
+typedef struct NuNode NuNode;
+typedef struct NuWindow NuWindow;
+typedef struct NuBox NuBox;
+typedef struct NuFrame NuFrame;
+typedef struct NuButton NuButton;
+typedef struct NuInput NuInput;
+typedef struct NuCanvas NuCanvas;
+typedef struct NuImage NuImage;
+typedef struct NuTable NuTable;
+typedef struct NuThead NuThead;
+typedef struct NuRow NuRow;
+
 /* Node type definitions */
-typedef struct NuNode {
+typedef struct NuNodeAccess {
     NU_NODE_FIELDS;
-} NuNode;
+} NuNodeAccess;
 
-typedef struct NuWindow {
+typedef struct NuWindowAccess {
     NU_NODE_FIELDS;
     char* textContent;
-} NuWindow;
+} NuWindowAccess;
 
-typedef struct NuBox {
+typedef struct NuBoxAccess {
     NU_NODE_FIELDS;
     char* textContent;
-} NuBox;
+} NuBoxAccess;
 
-typedef struct NuButton {
+typedef struct NuButtonAccess {
     NU_NODE_FIELDS;
     char* textContent;
-} NuButton;
+} NuButtonAccess;
 
-typedef struct NuInput {
+typedef struct NuInputAccess {
     NU_NODE_FIELDS;
-} NuInput;
+} NuInputAccess;
 
-typedef struct NuCanvas {
+typedef struct NuCanvasAccess {
     NU_NODE_FIELDS;
-} NuCanvas;
+} NuCanvasAccess;
 
-typedef struct NuImage {
+typedef struct NuImageAccess {
     NU_NODE_FIELDS;
-} NuImage;
+} NuImageAccess;
 
-typedef struct NuTable {
+typedef struct NuTableAccess {
     NU_NODE_FIELDS;
-} NuTable;
+} NuTableAccess;
 
-typedef struct NuThead {
+typedef struct NuTheadAccess {
     NU_NODE_FIELDS;
-} NuThead;
+} NuTheadAccess;
 
-typedef struct NuRow {
+typedef struct NuRowAccess {
     NU_NODE_FIELDS;
-} NuRow;
+} NuRowAccess;
 
-typedef struct NuFrame {
+typedef struct NuFrameAccess {
     NU_NODE_FIELDS;
-} NuFrame;
+} NuFrameAccess;
 
 typedef struct NU_Nodelist
 {
@@ -312,12 +325,13 @@ typedef struct NU_Event
     NU_EventInfoInput input;
     NU_EventInfoKeypress keypress;
     NU_EventInfoType type;
+    enum NU_EventType eventType;
 } NU_Event;
 
 typedef void (*NU_EventCallback)(NU_Event event, void* args);
 typedef void (*NU_Callback)(void* args);
 typedef void (*NU_WidgetCreateCallback)(NuNode* root, int widgetID, void* args);
-typedef void (*NU_WidgetUpdateCallback)(NuNode* root, void* args);
+typedef void (*NU_WidgetUpdateCallback)(NuNode* root, void* args, const NU_Event* event);
 
 struct NU_EventCallbackInfo
 {
@@ -368,11 +382,11 @@ _IMPORT NuNode* NU_PREVIOUS_SIBLING(NuNode* node);
 _IMPORT uint8_t NU_TYPE(NuNode* node);
 _IMPORT int NU_CHILD_COUNT(NuNode* node);
 _IMPORT int NU_IS_SHOWN(NuNode* node);
-_IMPORT float NU_NODE_SCROLL(NuNode* node);
 
-// Node creation and deletion
+// Node creation functions
 _IMPORT NuWindow* NU_WINDOW(NuNode* parent);
 _IMPORT NuBox* NU_BOX(NuNode* parent);
+_IMPORT NuFrame* NU_FRAME(NuNode* parent);
 _IMPORT NuButton* NU_BUTTON(NuNode* parent);
 _IMPORT NuInput* NU_INPUT(NuNode* parent);
 _IMPORT NuCanvas* NU_CANVAS(NuNode* parent);
@@ -380,11 +394,64 @@ _IMPORT NuImage* NU_IMAGE(NuNode* parent);
 _IMPORT NuTable* NU_TABLE(NuNode* parent);
 _IMPORT NuThead* NU_THEAD(NuNode* parent);
 _IMPORT NuRow* NU_ROW(NuNode* parent);
+
+// Node deletion
 _IMPORT void NU_DELETE_NODE(NuNode* node);
 
-// Node translation
-_IMPORT void NU_SHIFT_NODE_IN_PARENT(NuNode* node, int index);
-_IMPORT void NU_REPARENT_NODE(NuNode* node, NuNode* newParent);
+// Node member variable read access functions
+_IMPORT const NuWindowAccess* NU_WINDOW_GET(NuWindow* window);
+_IMPORT const NuBoxAccess*    NU_BOX_GET(NuBox* box);
+_IMPORT const NuFrameAccess*  NU_FRAME_GET(NuFrame* frame);
+_IMPORT const NuButtonAccess* NU_BUTTON_GET(NuButton* button);
+_IMPORT const NuInputAccess*  NU_INPUT_GET(NuInput* input);
+_IMPORT const NuCanvasAccess* NU_CANVAS_GET(NuCanvas* canvas);
+_IMPORT const NuImageAccess*  NU_IMAGE_GET(NuImage* image);
+_IMPORT const NuTableAccess*  NU_TABLE_GET(NuTable* table);
+_IMPORT const NuTheadAccess*  NU_THEAD_GET(NuThead* thead);
+_IMPORT const NuRowAccess*    NU_ROW_GET(NuRow* row);
+
+// Generic node set functions
+_IMPORT void NU_SET_PREFERRED_WIDTH(NuNode* node, uint16_t preferredWidth);
+_IMPORT void NU_SET_PREFERRED_HEIGHT(NuNode* node, uint16_t preferredHeight);
+_IMPORT void NU_SET_MIN_WIDTH(NuNode* node, uint16_t minWidth);
+_IMPORT void NU_SET_MAX_WIDTH(NuNode* node, uint16_t maxWidth);
+_IMPORT void NU_SET_MIN_HEIGHT(NuNode* node, uint16_t minHeight);
+_IMPORT void NU_SET_MAX_HEIGHT(NuNode* node, uint16_t maxHeight);
+_IMPORT void NU_SET_LEFT(NuNode* node, uint16_t left);
+_IMPORT void NU_SET_RIGHT(NuNode* node, uint16_t right);
+_IMPORT void NU_SET_TOP(NuNode* node, uint16_t top);
+_IMPORT void NU_SET_BOTTOM(NuNode* node, uint16_t bottom);
+_IMPORT void NU_SET_GAP(NuNode* node, uint8_t gap);
+_IMPORT void NU_SET_PAD_TOP(NuNode* node, uint8_t padTop);
+_IMPORT void NU_SET_PAD_BOTTOM(NuNode* node, uint8_t padBottom);
+_IMPORT void NU_SET_PAD_LEFT(NuNode* node, uint8_t padLeft);
+_IMPORT void NU_SET_PAD_RIGHT(NuNode* node, uint8_t padRight);
+_IMPORT void NU_SET_BORDER_TOP(NuNode* node, uint8_t borderTop);
+_IMPORT void NU_SET_BORDER_BOTTOM(NuNode* node, uint8_t borderBottom);
+_IMPORT void NU_SET_BORDER_LEFT(NuNode* node, uint8_t borderLeft);
+_IMPORT void NU_SET_BORDER_RIGHT(NuNode* node, uint8_t borderRight);
+_IMPORT void NU_SET_BORDER_RADIUS_TL(NuNode* node, uint8_t borderRadiusTl);
+_IMPORT void NU_SET_BORDER_RADIUS_TR(NuNode* node, uint8_t borderRadiusTr);
+_IMPORT void NU_SET_BORDER_RADIUS_BL(NuNode* node, uint8_t borderRadiusBl);
+_IMPORT void NU_SET_BORDER_RADIUS_BR(NuNode* node, uint8_t borderRadiusBr);
+_IMPORT void NU_SET_BACKGROUND_RGB(NuNode* node, NU_RGB rgb);
+_IMPORT void NU_SET_BORDER_RGB(NuNode* node, NU_RGB rgb);
+_IMPORT void NU_SET_TEXT_RGB(NuNode* node, NU_RGB rgb);
+_IMPORT void NU_SET_BACKGROUND_HEX(NuNode* node, const char* hexcode);
+_IMPORT void NU_SET_BORDER_HEX(NuNode* node, const char* hexcode);
+_IMPORT void NU_SET_TEXT_HEX(NuNode* node, const char* hexcode);
+
+// Node type specific set functions
+_IMPORT void NU_WINDOW_SET_TEXT_CONTENT(NuWindow* window, char* string);
+_IMPORT void NU_BOX_SET_TEXT_CONTENT(NuBox* box, char* string);
+_IMPORT void NU_BUTTON_SET_TEXT_CONTENT(NuButton* button, char* string);
+_IMPORT void NU_INPUT_SET_TEXT_CONTENT(NuInput* input, const char* string);
+_IMPORT void NU_WINDOW_SET_TITLE(NuNode* windowNode, const char* title);
+
+// Special node type functions
+_IMPORT void NU_INPUT_FOCUS(NuNode* node);
+_IMPORT const char* NU_INPUT_GET_TEXT_CONTENT(NuInput* input);
+
 
 // Generic node functions
 _IMPORT NuNode* NU_HOVERED_NODE();
@@ -403,6 +470,8 @@ _IMPORT void NU_BACKGROUND_VISIBILITY_IGNORE_STYLESHEET(NuNode* node);
 _IMPORT void NU_BACKGROUND_VISIBILITY_ENABLE_STYLESHEET(NuNode* node);
 _IMPORT void NU_SET_CLASS(NuNode* node, const char* class);
 _IMPORT void NU_REMOVE_CLASS(NuNode* node);
+_IMPORT void NU_SHIFT_NODE_IN_PARENT(NuNode* node, int index);
+_IMPORT void NU_REPARENT_NODE(NuNode* node, NuNode* newParent);
 _IMPORT void NU_BIND_EVENT(
   NuNode* node,
   NU_EventCallback callback,
@@ -410,12 +479,6 @@ _IMPORT void NU_BIND_EVENT(
   enum NU_EventType event,
   int widgetID
 );
-
-// Special node type functions
-_IMPORT void NU_FOCUS_ON_INPUT(NuNode* node);
-_IMPORT const char* NU_INPUT_TEXT_CONTENT(NuInput* input);
-_IMPORT void NU_SET_INPUT_TEXT_CONTENT(NuInput* input, const char* text);
-_IMPORT void NU_SET_WINDOW_TITLE(NuNode* windowNode, const char* title);
 
 // Node retrieval functions
 _IMPORT NuNode* NU_NODE_WITH_ID(const char* id);
@@ -558,3 +621,33 @@ _IMPORT float NU_Text_Line_Height(int contextID);
 //     void (*update)(void *data);
 //     void *data;
 // } NuWidget;
+
+
+
+
+
+// what i realise is that without partial repaints
+// the energy consumprtion is just too high
+// it seems like if i want to set something
+// it is best to use a setter function
+// If i want to read something I can totally just
+// read from the pointer directly
+//
+// then there is no ambiguity or special cases
+//
+// NuButton* button NU_CREATE_BUTTON(parent)
+// button->x = 100.0f; button->y = 100.0f;
+// button->textContent = "once apon a time";
+// button->borderRadiusTopLeft = 5;
+// float width = button->width;
+// NU_RENDER_BRANCH(button);
+//
+// OR
+// NuButton* button NU_CREATE_BUTTON(parent)
+// NU_SET_X((NuNode*)button, 100.0f);
+// NU_SET_Y((NuNode*)button, 100.0f);
+// NU_SET_TEXT_CONTENT((NuNode*)button, 100.0f);
+// NU_SET_BORDER_RADIUS_TOP_LEFT((NuNode*)button, 100.0f);
+// const float width = NU_BUTTON_GET(NuButton*)->width;
+// const NuButtonGet* buttonGet = NU_BUTTON_GET(NuButton*);
+// float height = buttonGet->height;

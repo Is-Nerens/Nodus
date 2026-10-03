@@ -1,59 +1,8 @@
 #pragma once
-#include <stdint.h> 
-#include <string.h> 
+#include <stdint.h>
+#include <string.h>
 #include "nu_font.h"
 #include <rendering/nu_renderer_structures.h>
-
-void NU_Add_Glyph_Mesh(Vertex_RGB_UV_List* vertices, Index_List* indices, NU_Glyph* glyph, NU_Font_Atlas* atlas, float penX, float penY, float z, float r, float g, float b)
-{
-    if (vertices->size + 4 > vertices->capacity) Vertex_RGB_UV_List_Grow(vertices, 4);
-    if (indices->size + 6 > indices->capacity) Index_List_Grow(indices, 6);
-    float left = penX + glyph->bearingX;
-    float top = penY - glyph->bearingY;
-    float bottom = top + glyph->height;
-    int vertex_offset = vertices->size;
-    vertices->array[vertex_offset].x = left;
-    vertices->array[vertex_offset].y = top;
-    vertices->array[vertex_offset].z = z;
-    vertices->array[vertex_offset].r = r;
-    vertices->array[vertex_offset].g = g;
-    vertices->array[vertex_offset].b = b;
-    vertices->array[vertex_offset].u = glyph->u * atlas->invWidth;
-    vertices->array[vertex_offset].v = glyph->v * atlas->invHeight;
-    vertices->array[vertex_offset + 1].x = left + (float)glyph->width;
-    vertices->array[vertex_offset + 1].y = top;
-    vertices->array[vertex_offset + 1].z = z;
-    vertices->array[vertex_offset + 1].r = r;
-    vertices->array[vertex_offset + 1].g = g;
-    vertices->array[vertex_offset + 1].b = b;
-    vertices->array[vertex_offset + 1].u = (glyph->u + glyph->width) * atlas->invWidth;
-    vertices->array[vertex_offset + 1].v = glyph->v * atlas->invHeight;
-    vertices->array[vertex_offset + 2].x = left;
-    vertices->array[vertex_offset + 2].y = bottom;
-    vertices->array[vertex_offset + 2].z = z;
-    vertices->array[vertex_offset + 2].r = r;
-    vertices->array[vertex_offset + 2].g = g;
-    vertices->array[vertex_offset + 2].b = b;
-    vertices->array[vertex_offset + 2].u = glyph->u * atlas->invWidth;
-    vertices->array[vertex_offset + 2].v = (glyph->v + glyph->height) * atlas->invHeight;
-    vertices->array[vertex_offset + 3].x = left + (float)glyph->width;
-    vertices->array[vertex_offset + 3].y = bottom;
-    vertices->array[vertex_offset + 3].z = z;
-    vertices->array[vertex_offset + 3].r = r;
-    vertices->array[vertex_offset + 3].g = g;
-    vertices->array[vertex_offset + 3].b = b;
-    vertices->array[vertex_offset + 3].u = (glyph->u + glyph->width) * atlas->invWidth;
-    vertices->array[vertex_offset + 3].v = (glyph->v + glyph->height) * atlas->invHeight;
-    vertices->size += 4;
-    uint32_t* indices_write = indices->array + indices->size;
-    *indices_write++ = vertex_offset;
-    *indices_write++ = vertex_offset + 1;
-    *indices_write++ = vertex_offset + 2;
-    *indices_write++ = vertex_offset + 1;
-    *indices_write++ = vertex_offset + 2;
-    *indices_write++ = vertex_offset + 3;
-    indices->size += 6;
-}
 
 u32 NU_GetNextCodepoint(const char* string, int* byteIndex)
 {
@@ -223,7 +172,7 @@ float NU_Calculate_FreeText_Height_From_Wrap_Width(NU_Font* font, const char* st
 
             // Calculate width of next word
             float nextWordWidth = 0.0f;
-            int j = byteIndex; 
+            int j = byteIndex;
             u32 jCodepoint;
             u32 jPrevCodepoint = 0;
             while ((jCodepoint = NU_GetNextCodepoint(string, &j)) != 0 && jCodepoint != ' ' && jCodepoint != '\t')
@@ -308,7 +257,7 @@ float NU_Calculate_LText_Height_From_Wrap_Width(NU_Font* font, const char* strin
 
             // Calculate width of next word
             float nextWordWidth = 0.0f;
-            int j = byteIndex; 
+            int j = byteIndex;
             u32 jCodepoint;
             u32 jPrevCodepoint = 0;
             while ((jCodepoint = NU_GetNextCodepoint(string, &j)) != 0 && jCodepoint != ' ' && jCodepoint != '\t')
@@ -421,13 +370,18 @@ float NU_Calculate_LText_Unwrapped_Width(NU_Font* font, const char* string, size
     return width;
 }
 
-void NU_Generate_Text_Mesh(Vertex_RGB_UV_List* vertices, Index_List* indices, NU_Font* font, const char* string, float x, float y, float z, float r, float g, float b, float maxWidth)
+void NU_Generate_Text_Renderdata(
+    Array* glyphRenderData,
+    NU_Font* font, const char* string,
+    float x, float y, float z,
+    u8 r, u8 g, u8 b,
+    float maxWidth)
 {
     if (string[0] == '\0') return;
     if (maxWidth <= 0.0f) maxWidth = 1e20f;
 
     // Init penX, penY
-    int tempI = 0; 
+    int tempI = 0;
     float penX = x;
     float penY = y + font->ascent;
 
@@ -452,7 +406,7 @@ void NU_Generate_Text_Mesh(Vertex_RGB_UV_List* vertices, Index_List* indices, NU
 
             // Calculate width of next word
             float nextWordWidth = 0.0f;
-            int j = byteIndex; 
+            int j = byteIndex;
             u32 jCodepoint;
             u32 jPrevCodepoint = 0;
             while ((jCodepoint = NU_GetNextCodepoint(string, &j)) != 0 && jCodepoint != ' ' && jCodepoint != '\t')
@@ -497,7 +451,20 @@ void NU_Generate_Text_Mesh(Vertex_RGB_UV_List* vertices, Index_List* indices, NU
                 NU_Glyph* prevGlyph = NU_Get_Glyph(font, lastCodepoint);
                 penX += NU_Get_Kerning(font, prevGlyph->index, glyph->index); // Kerning
             }
-            NU_Add_Glyph_Mesh(vertices, indices, glyph, &font->atlas, penX, penY, z, r, g, b);
+
+            // Add glyph render data
+            GlyphRenderData* renderData = Array_PushEmpty(glyphRenderData);
+            renderData->x = penX + glyph->bearingX;
+            renderData->y = penY - glyph->bearingY;
+            renderData->z = z;
+            renderData->w = (float)glyph->width;
+            renderData->h = (float)glyph->height;
+            renderData->u0 = glyph->u * font->atlas.invWidth;
+            renderData->v0 = glyph->v * font->atlas.invHeight;
+            renderData->u1 = (glyph->u + glyph->width) * font->atlas.invWidth;
+            renderData->v1 = (glyph->v + glyph->height) * font->atlas.invHeight;
+            renderData->colourRGBA = PackRGBA(r, g, b, 255);
+
             penX += glyph->advance;
         }
 
@@ -505,20 +472,19 @@ void NU_Generate_Text_Mesh(Vertex_RGB_UV_List* vertices, Index_List* indices, NU
     }
 }
 
-void NU_Generate_LText_Mesh(
-    Vertex_RGB_UV_List* vertices, 
-    Index_List* indices, 
-    NU_Font* font, 
-    const char* string, 
+void NU_Generate_LText_Renderdata(
+    Array* glyphRenderData,
+    NU_Font* font,
+    const char* string,
     size_t stringLen,
-    float x, float y, float z, 
-    float r, float g, float b, float maxWidth)
+    float x, float y, float z,
+    u8 r, u8 g, u8 b, float maxWidth)
 {
     if (stringLen == 0) return;
     if (maxWidth <= 0.0f) maxWidth = 1e20f;
 
     // Init penX, penY
-    int tempI = 0; 
+    int tempI = 0;
     float penX = x;
     float penY = y + font->ascent;
 
@@ -543,7 +509,7 @@ void NU_Generate_LText_Mesh(
 
             // Calculate width of next word
             float nextWordWidth = 0.0f;
-            int j = byteIndex; 
+            int j = byteIndex;
             u32 jCodepoint;
             u32 jPrevCodepoint = 0;
             while ((jCodepoint = NU_GetNextCodepoint(string, &j)) != 0 && jCodepoint != ' ' && jCodepoint != '\t')
@@ -588,7 +554,20 @@ void NU_Generate_LText_Mesh(
                 NU_Glyph* prevGlyph = NU_Get_Glyph(font, lastCodepoint);
                 penX += NU_Get_Kerning(font, prevGlyph->index, glyph->index); // Kerning
             }
-            NU_Add_Glyph_Mesh(vertices, indices, glyph, &font->atlas, penX, penY, z, r, g, b);
+
+            // Add glyph render data
+            GlyphRenderData* renderData = Array_PushEmpty(glyphRenderData);
+            renderData->x = penX + glyph->bearingX;
+            renderData->y = penY - glyph->bearingY;
+            renderData->z = z;
+            renderData->w = (float)glyph->width;
+            renderData->h = (float)glyph->height;
+            renderData->u0 = glyph->u * font->atlas.invWidth;
+            renderData->v0 = glyph->v * font->atlas.invHeight;
+            renderData->u1 = (glyph->u + glyph->width) * font->atlas.invWidth;
+            renderData->v1 = (glyph->v + glyph->height) * font->atlas.invHeight;
+            renderData->colourRGBA = PackRGBA(r, g, b, 255);
+
             penX += glyph->advance;
         }
 

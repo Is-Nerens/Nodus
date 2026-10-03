@@ -73,7 +73,7 @@ void Stylesheet_OverwriteStyleItem(StyleItem* item, StyleItem* overwriter)
     item->inputType   = item->inputType   * !(overwriter->propertyFlags & PROPERTY_FLAG_INPUT_TYPE) + overwriter->inputType   * !!(overwriter->propertyFlags & PROPERTY_FLAG_INPUT_TYPE);
 
     // Overwrite font Id
-    item->fontId = item->fontId * !(overwriter->propertyFlags & PROPERTY_FLAG_FONT) + overwriter->fontId  * !!(overwriter->propertyFlags & PROPERTY_FLAG_FONT);
+    item->fontIdx = item->fontIdx * !(overwriter->propertyFlags & PROPERTY_FLAG_FONT) + overwriter->fontIdx  * !!(overwriter->propertyFlags & PROPERTY_FLAG_FONT);
 }
 
 u64 Stylesheet_Parse_Property(Stylesheet* ss, const enum NU_Style_Token token, StyleItem* item, const char* text, int textLen, ImageResourceLoader* imageResourceLoader)
@@ -445,7 +445,7 @@ u64 Stylesheet_Parse_Property(Stylesheet* ss, const enum NU_Style_Token token, S
         case STYLE_FONT_PROPERTY: {
             void* foundFont = LinearStringmap_Get(&ss->fontNameIndexMap, text);
             if (foundFont) {
-                item->fontId = *(u8*)foundFont;
+                item->fontIdx = *(u8*)foundFont;
                 propertyFlagsSet |= PROPERTY_FLAG_FONT;
             }
             break;
@@ -900,7 +900,7 @@ void Stylesheet_Parse_Variable_Property(Stylesheet* ss, const enum NU_Style_Toke
 
         case STYLE_FONT_PROPERTY: {
             if (variable.type == STYLESHEET_VARIABLE_DTYPE_NUMBER) {
-                item->fontId = variable.value;
+                item->fontIdx = variable.value;
                 item->propertyFlags |= PROPERTY_FLAG_FONT;
             }
             break;
@@ -942,7 +942,8 @@ StyleTextRef* BinarySearchTextRef(Array* textRefs, int targetTokenIndex)
 
 typedef struct FontLoadJob
 {
-    NU_Font* font;
+    Stylesheet* stylesheet;
+    int fontIdx;
     int fontSize;
     int fontWeight;
     String filepath;
@@ -966,7 +967,8 @@ int FontLoaderThread(void* data)
 
     for (int i=batch->start; i<batch->end; i++) {
         FontLoadJob* job = &batch->jobs[i];
-        NU_Font_Create(job->font, StringCstr(job->filepath), job->fontSize, job->fontWeight, subpixelRendering);
+        NU_Font* font = Array_Get(&job->stylesheet->fonts, job->fontIdx);
+        NU_Font_Create(font, StringCstr(job->filepath), job->fontSize, job->fontWeight, subpixelRendering);
     }
 
     return 0;
@@ -1269,16 +1271,16 @@ static int Stylesheet_Parse_Fonts(Stylesheet* ss, char* src, TokenArray* tokens,
                 if (found_font == NULL && fontJobCount < 128)
                 {
                     // Create uninitialised font
-                    NU_Font font;
-                    u8 createFontID = Container_Add(&ss->fonts, &font);
-                    NU_Font* createFont = Container_Get(&ss->fonts, createFontID);
-                    LinearStringmap_Set(&ss->fontNameIndexMap, fontName, &createFontID);
+                    NU_Font* createFont = Array_PushEmpty(&ss->fonts);
+                    u8 createFontIdx = ss->fonts.size - 1;
+                    LinearStringmap_Set(&ss->fontNameIndexMap, fontName, &createFontIdx);
 
                     // Create a font job
+                    fontJobs[fontJobCount].stylesheet = ss;
                     fontJobs[fontJobCount].filepath = StringCreate(fontSrc);
                     fontJobs[fontJobCount].fontSize = fontSize;
                     fontJobs[fontJobCount].fontWeight = fontWeight;
-                    fontJobs[fontJobCount].font = createFont;
+                    fontJobs[fontJobCount].fontIdx = createFontIdx;
                     fontJobCount++;
                 }
             }
@@ -1331,7 +1333,7 @@ static int Stylesheet_Parse_Fonts(Stylesheet* ss, char* src, TokenArray* tokens,
 
     // Upload all font atlases to the GPU
     for (int i=0; i<ss->fonts.size; i++) {
-        NU_Font* font = Container_GetAt(&ss->fonts, i);
+        NU_Font* font = Array_Get(&ss->fonts, i);
         NU_Font_Atlas_Upload_Or_Modify_GPU(&font->atlas);
     }
 
@@ -1968,10 +1970,8 @@ static int Stylesheet_Parse(char* src, TokenArray* tokens, Array* textRefs, Line
             subpixelRendering = false;
         #endif
 
-        NU_Font font;
-        if (NU_Font_Create_Default(&font, 14, 400, subpixelRendering)) {
-            int id = Container_Add(&ss->fonts, &font); // FontID will be 0
-            NU_Font* font = Container_Get(&ss->fonts, id);
+        NU_Font* font = Array_PushEmpty(&ss->fonts); // FontID will be 0
+        if (NU_Font_Create_Default(font, 14, 400, subpixelRendering)) {
             NU_Font_Atlas_Upload_Or_Modify_GPU(&font->atlas);
         }
         else return 0;

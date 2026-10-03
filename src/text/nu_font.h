@@ -196,7 +196,7 @@ int NU_Create_Font_From_Face(NU_Font* font, FT_Face face, int heightPixels, int 
     font->descent       = (float)(face->size->metrics.descender >> 6);
     font->line_height   = (float)(face->size->metrics.height >> 6);
 
-    // Init font storage
+    // Init font storage and datastructures
     Array_Init(&font->Ascii_Glyphs, sizeof(NU_Glyph), 128);
     Hashmap_Init(&font->UTF8_Glyphs, sizeof(u32), sizeof(NU_Glyph), 256);
     NU_Font_Atlas_Create(&font->atlas, 512, 512, channels);

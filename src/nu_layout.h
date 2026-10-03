@@ -67,7 +67,7 @@ static void NU_Prepass(BreadthFirstSearch* bfs, Array* scrollAutoNodes)
             node->public.generic.height = max(clampedPrefHeight, natural_height);
 
             // Reset
-            node->public.generic.contentHeight = 0.0f;
+            node->public.generic.contentWidth = 0.0f;
             node->public.generic.contentHeight = 0.0f;
         }
     }
@@ -85,20 +85,20 @@ static void NU_CalculateTextFitWidths(BreadthFirstSearch* bfs)
             continue;
         }
 
-        NU_Font* node_font = Stylesheet_Get_Font(&GUI.stylesheet, node->fontId);
+        NU_Font* font = Stylesheet_Get_Font(&GUI.stylesheet, node->fontIdx);
 
         // Calculate text width & height
-        float text_width = NU_Calculate_Text_Unwrapped_Width(node_font, node->public.generic.textContent);
+        float text_width = NU_Calculate_Text_Unwrapped_Width(font, node->public.generic.textContent);
 
         // Calculate minimum text wrap width (longest unbreakable word)
-        float min_wrap_width = NU_Calculate_Text_Min_Wrap_Width(node_font, node->public.generic.textContent);
+        float min_wrap_width = NU_Calculate_Text_Min_Wrap_Width(font, node->public.generic.textContent);
 
         // Increase width to account for text (text height will be accounted for later in NU_CalculateTextHeights())
         float natural_width = node->public.generic.padLeft + node->public.generic.padRight + node->public.generic.borderLeft + node->public.generic.borderRight;
         node->public.generic.width = max(text_width + natural_width, node->public.generic.preferredWidth);
 
         // Update content width
-        node->public.generic.contentHeight = text_width;
+        node->public.generic.contentWidth = text_width;
     }
 }
 
@@ -125,8 +125,8 @@ static void NU_CalculateFitSizeWidths(ReverseBreadthFirstSearch* rbfs)
         while(child != NULL) {
 
             if (!NodeStateHidden(child) && child->type != NU_TYPE_WINDOW && !(child->layoutFlags & POSITION_ABSOLUTE)) {
-                if (is_layout_horizontal) node->public.generic.contentHeight += child->public.generic.width;
-                else node->public.generic.contentHeight = MAX(node->public.generic.contentHeight, child->public.generic.width);
+                if (is_layout_horizontal) node->public.generic.contentWidth += child->public.generic.width;
+                else node->public.generic.contentWidth = MAX(node->public.generic.contentWidth, child->public.generic.width);
                 visibleChildren++;
             }
 
@@ -135,9 +135,9 @@ static void NU_CalculateFitSizeWidths(ReverseBreadthFirstSearch* rbfs)
         }
 
         // Expand width to account for content width
-        if (is_layout_horizontal && visibleChildren > 0) node->public.generic.contentHeight += (visibleChildren - 1) * node->public.generic.gap;
-        if (node->type != NU_TYPE_WINDOW && node->public.generic.contentHeight > node->public.generic.width) {
-            node->public.generic.width = node->public.generic.contentHeight + node->public.generic.borderLeft + node->public.generic.borderRight + node->public.generic.padLeft + node->public.generic.padRight;
+        if (is_layout_horizontal && visibleChildren > 0) node->public.generic.contentWidth += (visibleChildren - 1) * node->public.generic.gap;
+        if (node->type != NU_TYPE_WINDOW && node->public.generic.contentWidth > node->public.generic.width) {
+            node->public.generic.width = node->public.generic.contentWidth + node->public.generic.borderLeft + node->public.generic.borderRight + node->public.generic.padLeft + node->public.generic.padRight;
             NU_ApplyMinMaxWidthConstraint(node);
         }
     }
@@ -214,7 +214,7 @@ static void NU_GrowShrinkChildWidths(Node* node, float scrollbarThickness)
             {
                 child->public.generic.width = remainingWidth;
                 NU_ApplyMinMaxWidthConstraint(child);
-                node->public.generic.contentHeight = max(node->public.generic.contentHeight, child->public.generic.width);
+                node->public.generic.contentWidth = max(node->public.generic.contentWidth, child->public.generic.width);
             }
 
             // move to the next child
@@ -306,7 +306,7 @@ static void NU_GrowShrinkChildWidths(Node* node, float scrollbarThickness)
                     float available = child->public.generic.maxWidth - child->public.generic.width;
                     float grow = min(width_to_add, available);
                     if (grow > 0.0f) {
-                        node->public.generic.contentHeight += grow;
+                        node->public.generic.contentWidth += grow;
                         child->public.generic.width += grow;
                         remainingWidth -= grow;
                         grew_any = true;
@@ -374,7 +374,7 @@ static void NU_GrowShrinkChildWidths(Node* node, float scrollbarThickness)
                     float available = child->public.generic.width - child->public.generic.minWidth;
                     float shrink = min(width_to_subtract, available);
                     if (shrink > 0.0f) {
-                        node->public.generic.contentHeight -= shrink;
+                        node->public.generic.contentWidth -= shrink;
                         child->public.generic.width -= shrink;
                         remainingWidth += shrink;
                         shrunk_any = true;
@@ -667,7 +667,7 @@ static void NU_CalculateTextHeights(BreadthFirstSearch* bfs)
         }
 
         if (node->type == NU_TYPE_INPUT) {
-            NU_Font* node_font = Stylesheet_Get_Font(&GUI.stylesheet, node->fontId);
+            NU_Font* node_font = Stylesheet_Get_Font(&GUI.stylesheet, node->fontIdx);
 
             // Set input height equal to line height
             node->public.generic.height = node_font->line_height +
@@ -676,7 +676,7 @@ static void NU_CalculateTextHeights(BreadthFirstSearch* bfs)
             node->public.generic.contentHeight = node_font->line_height;
         }
         else {
-            NU_Font* node_font = Stylesheet_Get_Font(&GUI.stylesheet, node->fontId);
+            NU_Font* node_font = Stylesheet_Get_Font(&GUI.stylesheet, node->fontIdx);
 
             // Compute available inner width
             float inner_width = node->public.generic.width - node->public.generic.borderLeft - node->public.generic.borderRight - node->public.generic.padLeft - node->public.generic.padRight;
@@ -898,7 +898,7 @@ void NU_Repass(BreadthFirstSearch* bfs)
 
         if (NodeStateHidden(node)) continue;
 
-        node->public.generic.contentHeight = 0.0f;
+        node->public.generic.contentWidth = 0.0f;
         node->public.generic.contentHeight = 0.0f;
 
         Node* child = node->firstChild;

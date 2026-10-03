@@ -106,8 +106,12 @@ typedef struct NU_Nodelist
 } NU_Nodelist;
 
 typedef struct {
-    float r, g, b;
+    uint8_t r, g, b;
 } NU_RGB;
+
+typedef struct {
+    float r, g, b;
+} NU_RGB_FL;
 
 enum NU_EventType
 {
@@ -343,45 +347,41 @@ struct NU_EventCallbackInfo
 
 
 // UI functions
-_IMPORT int NU_Create_Gui(const char* xml_filepath, const char* css_filepath);
-_IMPORT void NU_Quit(void);
-_IMPORT void NU_Run(void);
-_IMPORT int NU_AddTimer(uint32_t intervalMs, NU_Callback callback, void* args);
-_IMPORT void NU_RemoveTimer(int timer);
+_IMPORT int NU_CREATE_GUI(const char* xml_filepath, const char* css_filepath);
+_IMPORT void NU_QUIT(void);
+_IMPORT void NU_RUN(void);
+_IMPORT int NU_ADD_TIMER(uint32_t intervalMs, NU_Callback callback, void* args);
+_IMPORT void NU_REMOVE_TIMER(int timer);
 
 // Error functions
-_IMPORT void NU_ClearErrors(void);
-_IMPORT const char* NU_GetNextError(void);
-
-// Window functions
-_IMPORT void NU_Set_Window_Fullscreen(NuNode* node);
-_IMPORT void NU_Set_Window_Windowed(NuNode* node);
+_IMPORT void NU_CLEAR_ERRORS(void);
+_IMPORT const char* NU_GET_NEXT_ERROR(void);
 
 // Screen query functions
-_IMPORT void NU_Get_Screen_Dimensions(NuNode* node, int* screenWidthOut, int* screenHeightOut);
+_IMPORT void NU_GET_SCREEN_DIMENSIONS(const NuNode* node, int* screenWidthOut, int* screenHeightOut);
 
 // Cursor functions
-_IMPORT void NU_Set_Cursor_Default(void);
-_IMPORT void NU_Set_Cursor_Pointer(void);
-_IMPORT void NU_Set_Cursor_Text(void);
-_IMPORT void NU_Set_Cursor_Wait(void);
-_IMPORT void NU_Set_Cursor_Crosshair(void);
-_IMPORT void NU_Set_Cursor_Move(void);
-_IMPORT void NU_Set_Cursor_NsResize(void);
-_IMPORT void NU_Set_Cursor_EwResize(void);
-_IMPORT void NU_Set_Cursor_NwseResize(void);
-_IMPORT void NU_Set_Cursor_NeswResize(void);
+_IMPORT void NU_SET_CURSOR_DEFAULT(void);
+_IMPORT void NU_SET_CURSOR_POINTER(void);
+_IMPORT void NU_SET_CURSOR_TEXT(void);
+_IMPORT void NU_SET_CURSOR_WAIT(void);
+_IMPORT void NU_SET_CURSOR_CROSSHAIR(void);
+_IMPORT void NU_SET_CURSOR_MOVE(void);
+_IMPORT void NU_SET_CURSOR_NS_RESIZE(void);
+_IMPORT void NU_SET_CURSOR_EW_RESIZE(void);
+_IMPORT void NU_SET_CURSOR_NWSE_RESIZE(void);
+_IMPORT void NU_SET_CURSOR_NESW_RESIZE(void);
 
 // Node traversal
-_IMPORT NuNode* NU_PARENT(NuNode* node);
-_IMPORT NuNode* NU_CHILD(NuNode* node, uint32_t childIndex);
-_IMPORT NuNode* NU_NEXT_SIBLING(NuNode* node);
-_IMPORT NuNode* NU_PREVIOUS_SIBLING(NuNode* node);
+_IMPORT NuNode* NU_PARENT(const NuNode* node);
+_IMPORT NuNode* NU_CHILD(const NuNode* node, uint32_t childIndex);
+_IMPORT NuNode* NU_NEXT_SIBLING(const NuNode* node);
+_IMPORT NuNode* NU_PREVIOUS_SIBLING(const NuNode* node);
 
 // Node queries
-_IMPORT uint8_t NU_TYPE(NuNode* node);
-_IMPORT int NU_CHILD_COUNT(NuNode* node);
-_IMPORT int NU_IS_SHOWN(NuNode* node);
+_IMPORT uint8_t NU_TYPE(const NuNode* node);
+_IMPORT int NU_CHILD_COUNT(const NuNode* node);
+_IMPORT int NU_IS_SHOWN(const NuNode* node);
 
 // Node creation functions
 _IMPORT NuWindow* NU_WINDOW(NuNode* parent);
@@ -446,16 +446,18 @@ _IMPORT void NU_WINDOW_SET_TEXT_CONTENT(NuWindow* window, char* string);
 _IMPORT void NU_BOX_SET_TEXT_CONTENT(NuBox* box, char* string);
 _IMPORT void NU_BUTTON_SET_TEXT_CONTENT(NuButton* button, char* string);
 _IMPORT void NU_INPUT_SET_TEXT_CONTENT(NuInput* input, const char* string);
-_IMPORT void NU_WINDOW_SET_TITLE(NuNode* windowNode, const char* title);
+_IMPORT void NU_WINDOW_SET_TITLE(NuWindow* window, const char* string);
+_IMPORT void NU_WINDOW_SET_FULLSCREEN(NuWindow* window);
+_IMPORT void NU_WINDOW_SET_WINDOWED(NuWindow* window);
 
 // Special node type functions
 _IMPORT void NU_INPUT_FOCUS(NuNode* node);
-_IMPORT const char* NU_INPUT_GET_TEXT_CONTENT(NuInput* input);
+_IMPORT const char* NU_INPUT_GET_TEXT_CONTENT(const NuInput* input);
 
 
 // Generic node functions
 _IMPORT NuNode* NU_HOVERED_NODE();
-_IMPORT int NU_DOES_DESCEND(NuNode* node, NuNode* ancestor);
+_IMPORT int NU_DOES_DESCEND(const NuNode* node, const NuNode* ancestor);
 _IMPORT void NU_SHOW(NuNode* node);
 _IMPORT void NU_HIDE(NuNode* node);
 _IMPORT void NU_GROW_VERTICAL(NuNode* node);
@@ -484,11 +486,11 @@ _IMPORT void NU_BIND_EVENT(
 _IMPORT NuNode* NU_NODE_WITH_ID(const char* id);
 _IMPORT NU_Nodelist NU_NODES_WITH_CLASS(char* const class);
 _IMPORT NU_Nodelist NU_NODES_WITH_TYPE(uint8_t type);
-_IMPORT NU_Nodelist NU_DESCENDENTS_WITH_CLASS(NuNode* node, char* const class);
-_IMPORT NU_Nodelist NU_DESCENDENTS_WITH_TYPE(NuNode* node, const uint8_t type);
-_IMPORT NuNode* NU_FIRST_DESCENDENT_WITH_CLASS(NuNode* node, const char* class);
-_IMPORT NuNode* NU_FIRST_DESCENDENT_WITH_TYPE(NuNode* node, const uint8_t type);
-_IMPORT NU_Nodelist NU_CHILDREN(NuNode* node);
+_IMPORT NU_Nodelist NU_DESCENDENTS_WITH_CLASS(const NuNode* node, const char* const class);
+_IMPORT NU_Nodelist NU_DESCENDENTS_WITH_TYPE(const NuNode* node, uint8_t type);
+_IMPORT NuNode* NU_FIRST_DESCENDENT_WITH_CLASS(const NuNode* node, const char* class);
+_IMPORT NuNode* NU_FIRST_DESCENDENT_WITH_TYPE(const NuNode* node, uint8_t type);
+_IMPORT NU_Nodelist NU_CHILDREN(const NuNode* node);
 _IMPORT void NU_NODELIST_FREE(NU_Nodelist* nodelist);
 
 // Widget functions
@@ -502,152 +504,91 @@ _IMPORT void NU_WIDGET_UPDATE(int widgetID);
 _IMPORT void NU_WIDGET_DELETE(int widgetID, int deleteRoot);
 
 // Canvas functions
-_IMPORT int NU_Get_Canvas_Ctx(NuNode* canvasNode);
-_IMPORT void NU_Clear_Canvas(int contextID);
-_IMPORT void NU_Render();
-_IMPORT NU_RGB NU_RGB_From_Hex(const char* hex);
-_IMPORT void NU_Border_Rect(
+_IMPORT int NU_CANVAS_CTX(const NuNode* canvasNode);
+_IMPORT void NU_CANVAS_CLEAR(int contextID);
+_IMPORT void NU_RENDER();
+_IMPORT NU_RGB NU_HEX_TO_RGB(const char* hex);
+_IMPORT NU_RGB_FL NU_HEX_TO_RGB_FL(const char* hex);
+_IMPORT void NU_CANVAS_DRAW_BORDER_RECT(
     int contextID,
     float x, float y, float w, float h,
     float thickness,
-    NU_RGB border_col,
-    NU_RGB fill_col
+    NU_RGB_FL border_col,
+    NU_RGB_FL fill_col
 );
-_IMPORT void NU_Triangle(
+_IMPORT void NU_CANVAS_DRAW_TRIANGLE(
     int contextID,
     float x1, float y1,
     float x2, float y2,
     float x3, float y3,
     float thickness,
-    NU_RGB border_col,
-    NU_RGB fill_col
+    NU_RGB_FL border_col,
+    NU_RGB_FL fill_col
 );
-_IMPORT void NU_Vline(
+_IMPORT void NU_CANVAS_DRAW_VLINE(
     int contextID,
     float x, float y, float height,
     float thickness,
-    NU_RGB col
+    NU_RGB_FL col
 );
-_IMPORT void NU_Hline(
+_IMPORT void NU_CANVAS_DRAW_HLINE(
     int contextID,
     float x, float y, float width,
     float thickness,
-    NU_RGB col
+    NU_RGB_FL col
 );
-_IMPORT void NU_Line(
+_IMPORT void NU_CANVAS_DRAW_LINE(
     int contextID,
     float x1, float y1, float x2, float y2,
     float thickness,
-    NU_RGB col
+    NU_RGB_FL col
 );
-_IMPORT void NU_Dashed_Line(
+_IMPORT void NU_CANVAS_DRAW_DASHED_LINE(
     int contextID,
     float x1, float y1, float x2, float y2,
     float thickness,
     uint8_t* dash_pattern,
     uint32_t dash_pattern_len,
-    NU_RGB col
+    NU_RGB_FL col
 );
-_IMPORT void NU_Set_Canvas_Font(int contextID, const char* font_name);
-_IMPORT void NU_Text(
+_IMPORT void NU_CANVAS_SET_FONT(int contextID, const char* font_name);
+_IMPORT void NU_CANVAS_DRAW_TEXT(
     int contextID,
-    float x, float y, float wrapWidth,
-    NU_RGB col, const char* string
+    float x, float y,
+    float wrapWidth,
+    NU_RGB col,
+    const char* string
 );
-_IMPORT float NU_Text_Height(
+_IMPORT float NU_CANVAS_TEXT_HEIGHT(
     int contextID,
     float wrapWidth,
     const char* string
 );
-_IMPORT float NU_Text_Width(
+_IMPORT float NU_CANVAS_TEXT_WIDTH(
     int contextID,
     const char* string
 );
 _IMPORT void NU_LText(
     int contextID,
     float x, float y, float wrapWidth,
-    NU_RGB col, const char* string,
+    NU_RGB_FL col, const char* string,
     size_t stringLen
 );
-_IMPORT float NU_LText_Height(
+_IMPORT float NU_CANVAS_DRAW_LEN_TEXT(
     int contextID,
+    float x, float y,
     float wrapWidth,
+    NU_RGB col,
     const char* string,
     size_t stringLen
 );
-_IMPORT float NU_LText_Width(
+_IMPORT float NU_CANVAS_LEN_TEXT_WIDTH(
     int contextID,
     const char* string,
     size_t stringLen
 );
-_IMPORT float NU_Text_Line_Height(int contextID);
+_IMPORT float NU_CANVAS_TEXT_LINE_HEIGHT(int contextID);
 
 #ifdef __cplusplus
 }
 #endif
-
-
-
-
-
-
-// void build(void* data)
-// {
-//     NuWindow* parent;
-//     NuBtn* btn = NU_Button((NuNode*)(parent), "btn-class", eventCB, event_flags);
-//     NuText* btnText = NU_Text((NuNode*)(btn), "label-class", "text", eventCB, event_flags);
-// }
-
-// void update(void* data)
-// {
-//     Node* widgetRoot = ...;
-//     NuBtn* btn = NU_CHILD(widgetRoot, 0);
-//     NuText* text = NU_CHILD((Node*)(btn), 0);
-//     //Or NuText* = data->text; (if you want to store a text reference)
-// }
-
-// int NU_Widget(void* build, void* update);
-// int NU_WidgetUpdate(int widgetID);
-
-// // Therefore: If you provide NULL for the update callback, the library will
-// // automatically delete all the widget nodes and recreate them by calling "build"
-
-
-
-// typedef struct NuWidget {
-//     int id;
-//     NuNode *root;
-//     void (*build)(void *data);
-//     void (*update)(void *data);
-//     void *data;
-// } NuWidget;
-
-
-
-
-
-// what i realise is that without partial repaints
-// the energy consumprtion is just too high
-// it seems like if i want to set something
-// it is best to use a setter function
-// If i want to read something I can totally just
-// read from the pointer directly
-//
-// then there is no ambiguity or special cases
-//
-// NuButton* button NU_CREATE_BUTTON(parent)
-// button->x = 100.0f; button->y = 100.0f;
-// button->textContent = "once apon a time";
-// button->borderRadiusTopLeft = 5;
-// float width = button->width;
-// NU_RENDER_BRANCH(button);
-//
-// OR
-// NuButton* button NU_CREATE_BUTTON(parent)
-// NU_SET_X((NuNode*)button, 100.0f);
-// NU_SET_Y((NuNode*)button, 100.0f);
-// NU_SET_TEXT_CONTENT((NuNode*)button, 100.0f);
-// NU_SET_BORDER_RADIUS_TOP_LEFT((NuNode*)button, 100.0f);
-// const float width = NU_BUTTON_GET(NuButton*)->width;
-// const NuButtonGet* buttonGet = NU_BUTTON_GET(NuButton*);
-// float height = buttonGet->height;

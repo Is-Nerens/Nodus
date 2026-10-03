@@ -1,5 +1,7 @@
 #pragma once
 
+#include "nu_renderer_structures.h"
+#include "nu_shader.h"
 #include <SDL3/SDL.h>
 #include <GL/glew.h>
 #include <math.h>
@@ -13,33 +15,45 @@ GLuint sdfRectVao, sdfRectVbo;
 GLint uSdfRectScreenWidthLoc, uSdfRectScreenHeightLoc;
 
 // Image
-GLuint imageShader;
+GLuint ImageShader;
 GLuint imageVao, imageVbo;
 GLint uImageScreenWidthLoc, uImageScreenHeightLoc;
 GLint uImageTextureLoc;
 
-// gui 
+// Border rects
 GLuint BorderRectShader;
 GLuint ClippedBorderRectShader;
-GLuint ImageShader;
 GLuint borderVao, borderVbo, borderEbo;
-GLuint imageVao, imageVbo, imageEbo;
 GLint uBorderScreenWidthLoc, uBorderScreenHeightLoc, uBorderOffsetXLoc, uBorderOffsetYLoc;
 GLint uClippedScreenWidthLoc, uClippedScreenHeightLoc, uClippedOffsetXLoc, uClippedOffsetYLoc;
 GLint uBorderClipTopLoc, uBorderClipBottomLoc, uBorderClipLeftLoc, uBorderClipRightLoc;
 
-// text
-GLuint Text_Mono_Shader_Program;
-GLuint Text_Subpixel_Shader_Program;
-GLuint text_vao, text_vbo, text_ebo;
-GLint uMonoScreenWidthLoc, uMonoScreenHeightLoc, uMonoFontTextureLoc;
-GLint uSubpixelScreenWidthLoc, uSubpixelScreenHeightLoc, uSubpixelFontTextureLoc;
-GLint uSubpixelOffsetXLoc, uSubpixelOffsetYLoc;
-GLint uMonoOffsetXLoc, uMonoOffsetYLoc;
-GLint uMonoClipTopLoc, uMonoClipBottomLoc, uMonoClipLeftLoc, uMonoClipRightLoc;
-GLint uSubpixelClipTopLoc, uSubpixelClipBottomLoc, uSubpixelClipLeftLoc, uSubpixelClipRightLoc;
-GLint uMonoClipTopLoc, uMonoClipBottomLoc, uMonoClipLeftLoc, uMonoClipRightLoc;
-GLint uSubpixelClipTopLoc, uSubpixelClipBottomLoc, uSubpixelClipLeftLoc, uSubpixelClipRightLoc;
+// Text
+GLuint TextMonoShader;
+GLuint TextSubpixelShader;
+GLuint ClippedTextMonoShader;
+GLuint ClippedTextSubpixelShader;
+GLuint TextVao, TextVbo, ClippedTextVbo;
+GLuint uClippedTextVao, uClippedTextVbo;
+// screen dimension uniforms
+GLint uTextMonoScreenWidthLoc, uTextMonoScreenHeightLoc;
+GLint uTextSubpixelScreenWidthLoc, uTextSubpixelScreenHeightLoc;
+GLint uClippedTextMonoScreenWidthLoc, uClippedTextMonoScreenHeightLoc;
+GLint uClippedTextSubpixelScreenWidthLoc, uClippedTextSubpixelScreenHeightLoc;
+// offset uniforms
+GLint uTextMonoOffsetXLoc, uTextMonoOffsetYLoc;
+GLint uTextSubpixelOffsetXLoc, uTextSubpixelOffsetYLoc;
+GLint uClippedTextMonoOffsetXLoc, uClippedTextMonoOffsetYLoc;
+GLint uClippedTextSubpixelOffsetXLoc, uClippedTextSubpixelOffsetYLoc;
+// scissor uniforms
+GLint uClippedTextMonoScissorTopLoc, uClippedTextMonoScissorBottomLoc;
+GLint uClippedTextMonoScissorLeftLoc, uClippedTextMonoScissorRightLoc;
+GLint uClippedTextSubpixelScissorTopLoc, uClippedTextSubpixelScissorBottomLoc;
+GLint uClippedTextSubpixelScissorLeftLoc, uClippedTextSubpixelScissorRightLoc;
+// texture uniforms
+GLint uTextMonoFontTextureLoc, uTextSubpixelFontTextureLoc;
+GLint uClippedTextMonoFontTextureLoc, uClippedTextSubpixelFontTextureLoc;
+
 
 void NU_Init_SDF_Border_Rect_Shader()
 {
@@ -55,7 +69,7 @@ void NU_Init_SDF_Border_Rect_Shader()
     "layout(location = 7) in vec4 iScissor;\n"
     "\n"
     "out vec2 vLocalPos;\n"
-    "out vec2 vWorldPos;\n"
+    "out vec2 vScreenPos;\n"
     "out vec2 vSize;\n"
     "out vec4 vRadius;\n"
     "out vec4 vBorder;\n"
@@ -78,12 +92,11 @@ void NU_Init_SDF_Border_Rect_Shader()
     "\n"
     "void main()\n"
     "{\n"
-    "    vec2 worldPos = iPos.xy + aQuad * iSize;\n"
-    "    float ndc_x = (worldPos.x / uScreenWidth) * 2.0 - 1.0;\n"
-    "    float ndc_y = 1.0 - (worldPos.y / uScreenHeight) * 2.0;\n"
+    "    vScreenPos = iPos.xy + aQuad * iSize;\n"
+    "    float ndc_x = (vScreenPos.x / uScreenWidth) * 2.0 - 1.0;\n"
+    "    float ndc_y = 1.0 - (vScreenPos.y / uScreenHeight) * 2.0;\n"
     "    gl_Position = vec4(ndc_x, ndc_y, iPos.z * 0.015625f, 1.0);\n"
     "    vLocalPos = aQuad * iSize;\n"
-    "    vWorldPos = worldPos;\n"
     "    vSize = iSize;\n"
     "    vRadius = iRadius;\n"
     "    vBorder = iBorder;\n"
@@ -95,7 +108,7 @@ void NU_Init_SDF_Border_Rect_Shader()
     const char* sdfRect_FragSrc =
     "#version 330 core\n"
     "in vec2 vLocalPos;\n"
-    "in vec2 vWorldPos;\n"
+    "in vec2 vScreenPos;\n"
     "in vec2 vSize;\n"
     "in vec4 vRadius;\n"
     "in vec4 vBorder;\n"
@@ -113,10 +126,10 @@ void NU_Init_SDF_Border_Rect_Shader()
     "void main()\n"
     "{\n"
     "    // ---- SCISSOR (world/screen space) ----\n"
-    "    if (vWorldPos.x < vScissor.z ||\n"
-    "        vWorldPos.y < vScissor.x ||\n"
-    "        vWorldPos.x > vScissor.w ||\n"
-    "        vWorldPos.y > vScissor.y)\n"
+    "    if (vScreenPos.x < vScissor.z ||\n"
+    "        vScreenPos.y < vScissor.x ||\n"
+    "        vScreenPos.x > vScissor.w ||\n"
+    "        vScreenPos.y > vScissor.y)\n"
     "    {\n"
     "        discard;\n"
     "    }\n"
@@ -164,7 +177,7 @@ void NU_Init_SDF_Border_Rect_Shader()
         0.0f, 1.0f
     };
 
-    // SDF ect Vao
+    // SDF rect Vao
     glGenVertexArrays(1, &sdfRectVao);
     glBindVertexArray(sdfRectVao);
 
@@ -258,7 +271,7 @@ void NU_Init_Mesh_Border_Rect_Shader()
     "uniform float uClipLeft;\n"
     "uniform float uClipRight;\n"
     "void main() {\n"
-    "    // Discard fragments outside the clip rectangle (in pixel space)\n"
+    // Discard fragments outside the clip rectangle (in pixel space)\n"
     "    if (vScreenPos.x < uClipLeft || vScreenPos.x > uClipRight ||\n"
     "        vScreenPos.y < uClipTop  || vScreenPos.y > uClipBottom) {\n"
     "        discard;\n"
@@ -319,10 +332,8 @@ void NU_Init_Image_Shader()
     "    float ndc_x = (worldPos.x / uScreenWidth) * 2.0 - 1.0;\n"
     "    float ndc_y = 1.0 - (worldPos.y / uScreenHeight) * 2.0;\n"
     "    gl_Position = vec4(ndc_x, ndc_y, iPos.z * 0.015625f, 1.0);\n"
-    "\n"
     "    vScreenPos = worldPos;\n"
     "    vScissor = iScissor;\n"
-    "\n"
     "    vUV = vec2(\n"
     "        mix(iUV.x, iUV.z, aQuad.x),\n"
     "        mix(iUV.y, iUV.w, aQuad.y)\n"
@@ -407,115 +418,250 @@ void NU_Init_Image_Shader()
 
 void NU_Init_Text_Shader()
 {
-    const char* textVertexSrc = 
-    "#version 330 core\n"
-    "layout(location = 0) in vec3 aPos;\n"
-    "layout(location = 1) in vec3 aColor;\n"
-    "layout(location = 2) in vec2 aUV;\n"
-    "out vec3 vColor;\n"
-    "out vec2 vUV;\n"
-    "out vec2 vScreenPos;\n"
-    "uniform float uScreenWidth;\n"
-    "uniform float uScreenHeight;\n"
-    "uniform float uOffsetX;\n"
-    "uniform float uOffsetY;\n"
-    "void main() {\n"
-    "    float ndc_x = ((aPos.x + uOffsetX) / uScreenWidth) * 2.0 - 1.0;\n"
-    "    float ndc_y = 1.0 - ((aPos.y + uOffsetY) / uScreenHeight) * 2.0;\n"
-    "    gl_Position = vec4(ndc_x, ndc_y, aPos.z * 0.015625f, 1.0);\n"
-    "    vColor = aColor;\n"
-    "    vUV = aUV;\n"
-    "    vScreenPos = vec2(aPos.x + uOffsetX, aPos.y + uOffsetY);\n"
-    "}\n";
+    const char* textShaderVertSrc =
+        "#version 330 core\n"
+        "layout(location = 0) in vec2 aQuad;\n"
+        "layout(location = 1) in vec3 iPos;\n"
+        "layout(location = 2) in vec2 iSize;\n"
+        "layout(location = 3) in vec4 iUV;\n"
+        "layout(location = 4) in uint iColor;\n"
+        "\n"
+        "out vec2 vUV;\n"
+        "out vec2 vScreenPos;\n"
+        "out vec4 vColor;\n"
+        "\n"
+        "uniform float uScreenWidth;\n"
+        "uniform float uScreenHeight;\n"
+        "uniform float uOffsetX;\n"
+        "uniform float uOffsetY;\n"
+        "\n"
+        "vec4 unpackRGBA(uint c)\n"
+        "{\n"
+        "    return vec4(\n"
+        "        float((c >> 0) & 255u) / 255.0,\n"
+        "        float((c >> 8) & 255u) / 255.0,\n"
+        "        float((c >> 16) & 255u) / 255.0,\n"
+        "        float((c >> 24) & 255u) / 255.0\n"
+        "    );\n"
+        "}\n"
+        "\n"
+        "void main()\n"
+        "{\n"
+        "    vec2 worldPos = (iPos.xy + vec2(uOffsetX, uOffsetY)) + aQuad * iSize;\n"
+        "    float ndc_x = (worldPos.x / uScreenWidth) * 2.0 - 1.0;\n"
+        "    float ndc_y = 1.0 - (worldPos.y / uScreenHeight) * 2.0;\n"
+        "    gl_Position = vec4(ndc_x, ndc_y, iPos.z * 0.015625, 1.0);\n"
+        "    vScreenPos = worldPos;\n"
+        "    vUV = vec2(\n"
+        "        mix(iUV.x, iUV.z, aQuad.x),\n"
+        "        mix(iUV.y, iUV.w, aQuad.y)\n"
+        "    );\n"
+        "    vColor = unpackRGBA(iColor);\n"
+        "}\n";
 
-    const char* textMonoFragmentSrc = 
-    "#version 330 core\n"
-    "in vec3 vColor;\n"
-    "in vec2 vUV;\n"
-    "in vec2 vScreenPos;\n"
-    "out vec4 FragColor;\n"
-    "uniform sampler2D uFontTexture;\n"
-    "uniform float uClipTop;\n"
-    "uniform float uClipBottom;\n"
-    "uniform float uClipLeft;\n"
-    "uniform float uClipRight;\n"
-    "void main() {\n"
-    "    // Discard fragments outside the clip rectangle (in pixel space)\n"
-    "    if (vScreenPos.x < uClipLeft || vScreenPos.x > uClipRight ||\n"
-    "        vScreenPos.y < uClipTop  || vScreenPos.y > uClipBottom) {\n"
-    "        discard;\n"
-    "    } else {\n"
-    "       float alpha = texture(uFontTexture, vUV).r;\n"
-    "       FragColor = vec4(vColor, alpha);\n"
-    "    }\n"
-    "}\n";
+    const char* textMonoShaderFragSrc =
+        "#version 330 core\n"
+        "in vec2 vUV;\n"
+        "in vec2 vScreenPos;\n"
+        "in vec4 vColor;\n"
+        "out vec4 FragColor;\n"
+        "uniform sampler2D uFontTexture;\n"
+        "void main()\n"
+        "{\n"
+        "    float alpha = texture(uFontTexture, vUV).r;\n"
+        "    FragColor = vec4(vColor.rgb, vColor.a * alpha);\n"
+        "}\n";
 
-    const char* textSubpixelFragmentSrc = 
-    "#version 330 core\n"
-    "in vec3 vColor;\n"
-    "in vec2 vUV;\n"
-    "in vec2 vScreenPos;\n"
-    "layout(location = 0) out vec4 FragColor;\n"
-    "layout(location = 1) out vec4 FragColor1;\n"
-    "uniform sampler2D uFontTexture;\n"
-    "uniform float uClipTop;\n"
-    "uniform float uClipBottom;\n"
-    "uniform float uClipLeft;\n"
-    "uniform float uClipRight;\n"
-    "void main() {\n"
-    "    // Discard fragments outside the clip rectangle (in pixel space)\n"
-    "    if (vScreenPos.x < uClipLeft || vScreenPos.x > uClipRight ||\n"
-    "        vScreenPos.y < uClipTop  || vScreenPos.y > uClipBottom) {\n"
-    "        discard;\n"
-    "    } else {\n"
-    "       vec3 lcd = texture(uFontTexture, vUV).rgb;      // subpixel coverage\n"
-    "       // Standard dual-source blending for subpixel rendering:\n"
-    "       // FragColor contains the text color\n"
-    "       // FragColor1 contains the coverage mask\n"
-    "       FragColor = vec4(vColor, 1.0);                  // Pure text color\n"
-    "       FragColor1 = vec4(lcd, 1.0);                    // Pure coverage mask\n"
-    "    }\n"
-    "}\n";
+    const char* clippedTextMonoShaderFragSrc =
+        "#version 330 core\n"
+        "in vec2 vUV;\n"
+        "in vec2 vScreenPos;\n"
+        "in vec4 vColor;\n"
+        "out vec4 FragColor;\n"
+        "uniform sampler2D uFontTexture;\n"
+        "uniform float uClipTop;\n"
+        "uniform float uClipBottom;\n"
+        "uniform float uClipLeft;\n"
+        "uniform float uClipRight;\n"
+        "void main()\n"
+        "{\n"
+        "    if (vScreenPos.x < uClipLeft || vScreenPos.x > uClipRight ||\n"
+        "        vScreenPos.y < uClipTop  || vScreenPos.y > uClipBottom)\n"
+        "    {\n"
+        "        discard;\n"
+        "    }\n"
+        "    float alpha = texture(uFontTexture, vUV).r;\n"
+        "    FragColor = vec4(vColor.rgb, vColor.a * alpha);\n"
+        "}\n";
 
-    Text_Mono_Shader_Program = Create_Shader_Program(textVertexSrc, textMonoFragmentSrc);
-    Text_Subpixel_Shader_Program = Create_Shader_Program(textVertexSrc, textSubpixelFragmentSrc);
-     
-    uMonoScreenWidthLoc      = glGetUniformLocation(Text_Mono_Shader_Program, "uScreenWidth");
-    uMonoScreenHeightLoc     = glGetUniformLocation(Text_Mono_Shader_Program, "uScreenHeight");
-    uMonoFontTextureLoc      = glGetUniformLocation(Text_Mono_Shader_Program, "uFontTexture");
-    uSubpixelScreenWidthLoc  = glGetUniformLocation(Text_Subpixel_Shader_Program, "uScreenWidth");
-    uSubpixelScreenHeightLoc = glGetUniformLocation(Text_Subpixel_Shader_Program, "uScreenHeight");
-    uSubpixelOffsetXLoc      = glGetUniformLocation(Text_Subpixel_Shader_Program, "uOffsetX");
-    uSubpixelOffsetYLoc      = glGetUniformLocation(Text_Subpixel_Shader_Program, "uOffsetY");
-    uMonoOffsetXLoc          = glGetUniformLocation(Text_Mono_Shader_Program, "uOffsetX");
-    uMonoOffsetYLoc          = glGetUniformLocation(Text_Mono_Shader_Program, "uOffsetY");
-    uSubpixelFontTextureLoc  = glGetUniformLocation(Text_Subpixel_Shader_Program, "uFontTexture");
-    uMonoClipTopLoc          = glGetUniformLocation(Text_Mono_Shader_Program, "uClipTop");
-    uMonoClipBottomLoc       = glGetUniformLocation(Text_Mono_Shader_Program, "uClipBottom");
-    uMonoClipLeftLoc         = glGetUniformLocation(Text_Mono_Shader_Program, "uClipLeft");
-    uMonoClipRightLoc        = glGetUniformLocation(Text_Mono_Shader_Program, "uClipRight");
-    uSubpixelClipTopLoc      = glGetUniformLocation(Text_Subpixel_Shader_Program, "uClipTop");
-    uSubpixelClipBottomLoc   = glGetUniformLocation(Text_Subpixel_Shader_Program, "uClipBottom");
-    uSubpixelClipLeftLoc     = glGetUniformLocation(Text_Subpixel_Shader_Program, "uClipLeft");
-    uSubpixelClipRightLoc    = glGetUniformLocation(Text_Subpixel_Shader_Program, "uClipRight");
-    
-    glGenVertexArrays(1, &text_vao);
-    glBindVertexArray(text_vao);
-    glGenBuffers(1, &text_vbo);
-    glBindBuffer(GL_ARRAY_BUFFER, text_vbo);
-    glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, sizeof(vertex_rgb_uv), (void*)0); // x,y,z
+    const char* textSubpixelShaderFragSrc =
+        "#version 330 core\n"
+        "in vec2 vUV;\n"
+        "in vec2 vScreenPos;\n"
+        "in vec4 vColor;\n"
+        "layout(location = 0) out vec4 FragColor;\n"
+        "layout(location = 1) out vec4 FragColor1;\n"
+        "uniform sampler2D uFontTexture;\n"
+        "void main()\n"
+        "{\n"
+        "    vec3 lcd = texture(uFontTexture, vUV).rgb;\n"
+        "    FragColor  = vec4(vColor.rgb, 1.0);\n"
+        "    FragColor1 = vec4(lcd, 1.0);\n"
+        "}\n";
+
+    const char* clippedTextSubpixelShaderFragSrc =
+        "#version 330 core\n"
+        "in vec2 vUV;\n"
+        "in vec2 vScreenPos;\n"
+        "in vec4 vColor;\n"
+        "layout(location = 0) out vec4 FragColor;\n"
+        "layout(location = 1) out vec4 FragColor1;\n"
+        "uniform sampler2D uFontTexture;\n"
+        "uniform float uClipTop;\n"
+        "uniform float uClipBottom;\n"
+        "uniform float uClipLeft;\n"
+        "uniform float uClipRight;\n"
+        "void main()\n"
+        "{\n"
+        "    if (vScreenPos.x < uClipLeft || vScreenPos.x > uClipRight ||\n"
+        "        vScreenPos.y < uClipTop  || vScreenPos.y > uClipBottom)\n"
+        "    {\n"
+        "        discard;\n"
+        "    }\n"
+        "    vec3 lcd = texture(uFontTexture, vUV).rgb;\n"
+        "    FragColor  = vec4(vColor.rgb, 1.0);\n"
+        "    FragColor1 = vec4(lcd, 1.0);\n"
+        "}\n";
+
+    // Create text shader programs
+    TextMonoShader            = Create_Shader_Program(textShaderVertSrc, textMonoShaderFragSrc);
+    TextSubpixelShader        = Create_Shader_Program(textShaderVertSrc, textSubpixelShaderFragSrc);
+    ClippedTextMonoShader     = Create_Shader_Program(textShaderVertSrc, clippedTextMonoShaderFragSrc);
+    ClippedTextSubpixelShader = Create_Shader_Program(textShaderVertSrc, clippedTextSubpixelShaderFragSrc);
+
+    // Uniform locations: mono
+    uTextMonoScreenWidthLoc  = glGetUniformLocation(TextMonoShader, "uScreenWidth");
+    uTextMonoScreenHeightLoc = glGetUniformLocation(TextMonoShader, "uScreenHeight");
+    uTextMonoOffsetXLoc      = glGetUniformLocation(TextMonoShader, "uOffsetX");
+    uTextMonoOffsetYLoc      = glGetUniformLocation(TextMonoShader, "uOffsetY");
+    uTextMonoFontTextureLoc  = glGetUniformLocation(TextMonoShader, "uFontTexture");
+
+    // Uniform locations: subpixel
+    uTextSubpixelScreenWidthLoc  = glGetUniformLocation(TextSubpixelShader, "uScreenWidth");
+    uTextSubpixelScreenHeightLoc = glGetUniformLocation(TextSubpixelShader, "uScreenHeight");
+    uTextSubpixelOffsetXLoc      = glGetUniformLocation(TextSubpixelShader, "uOffsetX");
+    uTextSubpixelOffsetYLoc      = glGetUniformLocation(TextSubpixelShader, "uOffsetY");
+    uTextSubpixelFontTextureLoc  = glGetUniformLocation(TextSubpixelShader, "uFontTexture");
+
+    // Uniform locations: clipped mono
+    uClippedTextMonoScreenWidthLoc   = glGetUniformLocation(ClippedTextMonoShader, "uScreenWidth");
+    uClippedTextMonoScreenHeightLoc  = glGetUniformLocation(ClippedTextMonoShader, "uScreenHeight");
+    uClippedTextMonoOffsetXLoc       = glGetUniformLocation(ClippedTextMonoShader, "uOffsetX");
+    uClippedTextMonoOffsetYLoc       = glGetUniformLocation(ClippedTextMonoShader, "uOffsetY");
+    uClippedTextMonoScissorTopLoc    = glGetUniformLocation(ClippedTextMonoShader, "uClipTop");
+    uClippedTextMonoScissorBottomLoc = glGetUniformLocation(ClippedTextMonoShader, "uClipBottom");
+    uClippedTextMonoScissorLeftLoc   = glGetUniformLocation(ClippedTextMonoShader, "uClipLeft");
+    uClippedTextMonoScissorRightLoc  = glGetUniformLocation(ClippedTextMonoShader, "uClipRight");
+    uClippedTextMonoFontTextureLoc   = glGetUniformLocation(ClippedTextMonoShader, "uFontTexture");
+
+    // Uniform locations: clipped subpixel
+    uClippedTextSubpixelScreenWidthLoc   = glGetUniformLocation(ClippedTextSubpixelShader, "uScreenWidth");
+    uClippedTextSubpixelScreenHeightLoc  = glGetUniformLocation(ClippedTextSubpixelShader, "uScreenHeight");
+    uClippedTextSubpixelOffsetXLoc       = glGetUniformLocation(ClippedTextSubpixelShader, "uOffsetX");
+    uClippedTextSubpixelOffsetYLoc       = glGetUniformLocation(ClippedTextSubpixelShader, "uOffsetY");
+    uClippedTextSubpixelScissorTopLoc    = glGetUniformLocation(ClippedTextSubpixelShader, "uClipTop");
+    uClippedTextSubpixelScissorBottomLoc = glGetUniformLocation(ClippedTextSubpixelShader, "uClipBottom");
+    uClippedTextSubpixelScissorLeftLoc   = glGetUniformLocation(ClippedTextSubpixelShader, "uClipLeft");
+    uClippedTextSubpixelScissorRightLoc  = glGetUniformLocation(ClippedTextSubpixelShader, "uClipRight");
+    uClippedTextSubpixelFontTextureLoc   = glGetUniformLocation(ClippedTextSubpixelShader, "uFontTexture");
+
+    float textQuad[] = {
+        0.0f, 0.0f,
+        1.0f, 0.0f,
+        1.0f, 1.0f,
+        0.0f, 0.0f,
+        1.0f, 1.0f,
+        0.0f, 1.0f
+    };
+
+    // Text Vao
+    glGenVertexArrays(1, &TextVao);
+    glBindVertexArray(TextVao);
+
+    // Static quad Vbo
+    GLuint quadVbo;
+    glGenBuffers(1, &quadVbo);
+    glBindBuffer(GL_ARRAY_BUFFER, quadVbo);
+    glBufferData(GL_ARRAY_BUFFER, sizeof(textQuad), textQuad, GL_STATIC_DRAW);
     glEnableVertexAttribArray(0);
-    glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, sizeof(vertex_rgb_uv), (void*)(3 * sizeof(float))); // r,g,b
+    glVertexAttribPointer(0, 2, GL_FLOAT, GL_FALSE, 2 * sizeof(float), (void*)0);
+
+    // Text instance data
+    glGenBuffers(1, &TextVbo);
+    glBindBuffer(GL_ARRAY_BUFFER, TextVbo);
+    glBufferData(GL_ARRAY_BUFFER, sizeof(GlyphRenderData) * 10000, NULL, GL_STREAM_DRAW);
+
+    // Position (x, y, z)
     glEnableVertexAttribArray(1);
-    glVertexAttribPointer(2, 2, GL_FLOAT, GL_FALSE, sizeof(vertex_rgb_uv), (void*)(6 * sizeof(float))); // u,v
+    glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, sizeof(GlyphRenderData), (void*)offsetof(GlyphRenderData, x));
+    glVertexAttribDivisor(1, 1);
+
+    // Size (w, h)
     glEnableVertexAttribArray(2);
-    glGenBuffers(1, &text_ebo);
-    glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, text_ebo);
-    glBindVertexArray(0); 
+    glVertexAttribPointer(2, 2, GL_FLOAT, GL_FALSE, sizeof(GlyphRenderData), (void*)offsetof(GlyphRenderData, w));
+    glVertexAttribDivisor(2, 1);
+
+    // UVs (u0, v0, u1, v1)
+    glEnableVertexAttribArray(3);
+    glVertexAttribPointer(3, 4, GL_FLOAT, GL_FALSE, sizeof(GlyphRenderData), (void*)offsetof(GlyphRenderData, u0));
+    glVertexAttribDivisor(3, 1);
+
+    // Color RGBA
+    glEnableVertexAttribArray(4);
+    glVertexAttribIPointer(4, 1, GL_UNSIGNED_INT, sizeof(GlyphRenderData), (void*)offsetof(GlyphRenderData, colourRGBA));
+    glVertexAttribDivisor(4, 1);
+
+    glBindVertexArray(0);
+
+    // ClippedText Vao
+    glGenVertexArrays(1, &uClippedTextVao);
+    glBindVertexArray(uClippedTextVao);
+
+    // Static quad Vbo
+    glBindBuffer(GL_ARRAY_BUFFER, quadVbo);
+    glEnableVertexAttribArray(0);
+    glVertexAttribPointer(0, 2, GL_FLOAT, GL_FALSE, 2 * sizeof(float), (void*)0);
+
+    // ClippedText instance data
+    glGenBuffers(1, &uClippedTextVbo);
+    glBindBuffer(GL_ARRAY_BUFFER, uClippedTextVbo);
+    glBufferData(GL_ARRAY_BUFFER, sizeof(GlyphRenderData) * 10000, NULL, GL_STREAM_DRAW);
+
+    // Position (x, y, z)
+    glEnableVertexAttribArray(1);
+    glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, sizeof(GlyphRenderData), (void*)offsetof(GlyphRenderData, x));
+    glVertexAttribDivisor(1, 1);
+
+    // Size (w, h)
+    glEnableVertexAttribArray(2);
+    glVertexAttribPointer(2, 2, GL_FLOAT, GL_FALSE, sizeof(GlyphRenderData), (void*)offsetof(GlyphRenderData, w));
+    glVertexAttribDivisor(2, 1);
+
+    // UVs (u0, v0, u1, v1)
+    glEnableVertexAttribArray(3);
+    glVertexAttribPointer(3, 4, GL_FLOAT, GL_FALSE, sizeof(GlyphRenderData), (void*)offsetof(GlyphRenderData, u0));
+    glVertexAttribDivisor(3, 1);
+
+    // Color RGBA
+    glEnableVertexAttribArray(4);
+    glVertexAttribIPointer(4, 1, GL_UNSIGNED_INT, sizeof(GlyphRenderData), (void*)offsetof(GlyphRenderData, colourRGBA));
+    glVertexAttribDivisor(4, 1);
+
+    glBindVertexArray(0);
 }
 
 int NU_Draw_Init()
-{   
+{
     if (FT_Init_FreeType(&nu_global_freetype)) {
         printf("Could not init FreeType.\n");
         return 0;
@@ -536,8 +682,8 @@ int NU_Draw_Init()
 // --- Draw Functions ---
 // ----------------------
 void Draw_SDF_Border_Rects(
-    Array borderRects, 
-    float screenW, 
+    Array borderRects,
+    float screenW,
     float screenH
 )
 {
@@ -555,11 +701,12 @@ void Draw_SDF_Border_Rects(
     glDrawArraysInstanced(GL_TRIANGLES, 0, 6, borderRects.size);
     glBindVertexArray(0);
 }
+
 void Draw_Vertex_RGB_List
 (
-    Vertex_RGB_List* vertices, 
-    Index_List* indices, 
-    float screen_width, 
+    Vertex_RGB_List* vertices,
+    Index_List* indices,
+    float screen_width,
     float screen_height,
     float offsetX,
     float offsetY
@@ -582,9 +729,9 @@ void Draw_Vertex_RGB_List
 
 void Draw_Clipped_Vertex_RGB_List
 (
-    Vertex_RGB_List* vertices, 
-    Index_List* indices, 
-    float screen_width, 
+    Vertex_RGB_List* vertices,
+    Index_List* indices,
+    float screen_width,
     float screen_height,
     float offsetX,
     float offsetY,
@@ -616,7 +763,7 @@ void Draw_Clipped_Vertex_RGB_List
 void NU_Draw_Images(
     Array imageRenderDatas,
     GLuint imageHandle,
-    float screenW, 
+    float screenW,
     float screenH
 )
 {
@@ -640,7 +787,7 @@ void NU_Draw_Images(
 
 void NU_Draw_Image(
     ImageRenderData* renderData,
-    float screenW, 
+    float screenW,
     float screenH,
     GLuint imageHandle
 )
@@ -663,59 +810,96 @@ void NU_Draw_Image(
     glBindVertexArray(0);
 }
 
-
-void NU_Render_Text
-(
-    Vertex_RGB_UV_List* vertices, 
-    Index_List* indices, 
-    NU_Font* font, 
-    float screen_width, 
-    float screen_height,
-    float offset_x,
-    float offset_y,
-    float clip_top,
-    float clip_bottom,
-    float clip_left,
-    float clip_right
+void NU_Draw_Text(
+    Array textRenderData,
+    NU_Font* font,
+    float screenW,
+    float screenH,
+    float offsetX,
+    float offsetY
 )
 {
-    if (font->subpixelRendering) glBlendFunc(GL_SRC1_COLOR, GL_ONE_MINUS_SRC1_COLOR);
-    else glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+    if (font->subpixelRendering) {
+        glBlendFunc(GL_SRC1_COLOR, GL_ONE_MINUS_SRC1_COLOR);
+        glUseProgram(TextSubpixelShader);
+        glUniform1f(uTextSubpixelScreenWidthLoc,  screenW);
+        glUniform1f(uTextSubpixelScreenHeightLoc, screenH);
+        glUniform1f(uTextSubpixelOffsetXLoc, offsetX);
+        glUniform1f(uTextSubpixelOffsetYLoc, offsetY);
+        glUniform1i(uTextSubpixelFontTextureLoc, 0);
+    }
+    else {
+        glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+        glUseProgram(TextMonoShader);
+        glUniform1f(uTextMonoScreenWidthLoc,  screenW);
+        glUniform1f(uTextMonoScreenHeightLoc, screenH);
+        glUniform1f(uTextMonoOffsetXLoc, offsetX);
+        glUniform1f(uTextMonoOffsetYLoc, offsetY);
+        glUniform1i(uTextMonoFontTextureLoc, 0);
+    }
 
-    // Render
-    if (font->subpixelRendering)
-    {
-        glUseProgram(Text_Subpixel_Shader_Program);
-        glUniform1i(uSubpixelFontTextureLoc, 0);
-        glUniform1f(uSubpixelScreenWidthLoc, screen_width);
-        glUniform1f(uSubpixelScreenHeightLoc, screen_height);
-        glUniform1f(uSubpixelOffsetXLoc, offset_x);
-        glUniform1f(uSubpixelOffsetYLoc, offset_y);
-        glUniform1f(uSubpixelClipTopLoc, clip_top);
-        glUniform1f(uSubpixelClipBottomLoc, clip_bottom);
-        glUniform1f(uSubpixelClipLeftLoc, clip_left);
-        glUniform1f(uSubpixelClipRightLoc, clip_right);
-    }
-    else
-    {
-        glUseProgram(Text_Mono_Shader_Program);
-        glUniform1i(uMonoFontTextureLoc, 0);
-        glUniform1f(uMonoScreenWidthLoc, screen_width);
-        glUniform1f(uMonoScreenHeightLoc, screen_height);
-        glUniform1f(uMonoOffsetXLoc, offset_x);
-        glUniform1f(uMonoOffsetYLoc, offset_y);
-        glUniform1f(uMonoClipTopLoc, clip_top);
-        glUniform1f(uMonoClipBottomLoc, clip_bottom);
-        glUniform1f(uMonoClipLeftLoc, clip_left);
-        glUniform1f(uMonoClipRightLoc, clip_right);
-    }
     glActiveTexture(GL_TEXTURE0);
     glBindTexture(GL_TEXTURE_2D, font->atlas.handle);
-    glBindBuffer(GL_ARRAY_BUFFER, text_vbo);
-    glBufferData(GL_ARRAY_BUFFER, vertices->size * sizeof(vertex_rgb_uv), vertices->array, GL_DYNAMIC_DRAW);
-    glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, text_ebo);
-    glBufferData(GL_ELEMENT_ARRAY_BUFFER, indices->size * sizeof(GLuint), indices->array, GL_DYNAMIC_DRAW);
-    glBindVertexArray(text_vao);
-    glDrawElements(GL_TRIANGLES, indices->size, GL_UNSIGNED_INT, 0);
+    glBindVertexArray(TextVao);
+    glBindBuffer(GL_ARRAY_BUFFER, TextVbo);
+    glBufferSubData(
+        GL_ARRAY_BUFFER, 0,
+        textRenderData.size * textRenderData.elementSize,
+        textRenderData.data
+    );
+    glDrawArraysInstanced(GL_TRIANGLES, 0, 6, textRenderData.size);
+    glBindVertexArray(0);
+}
+
+void NU_Draw_Clipped_Text(
+    Array textRenderData,
+    NU_Font* font,
+    float screenW,
+    float screenH,
+    float offsetX,
+    float offsetY,
+    float clipTop,
+    float clipBottom,
+    float clipLeft,
+    float clipRight
+)
+{
+    if (font->subpixelRendering) {
+        glBlendFunc(GL_SRC1_COLOR, GL_ONE_MINUS_SRC1_COLOR);
+        glUseProgram(ClippedTextSubpixelShader);
+        glUniform1f(uClippedTextSubpixelScreenWidthLoc,  screenW);
+        glUniform1f(uClippedTextSubpixelScreenHeightLoc, screenH);
+        glUniform1f(uClippedTextSubpixelOffsetXLoc, offsetX);
+        glUniform1f(uClippedTextSubpixelOffsetYLoc, offsetY);
+        glUniform1f(uClippedTextSubpixelScissorTopLoc, clipTop);
+        glUniform1f(uClippedTextSubpixelScissorBottomLoc, clipBottom);
+        glUniform1f(uClippedTextSubpixelScissorLeftLoc, clipLeft);
+        glUniform1f(uClippedTextSubpixelScissorRightLoc, clipRight);
+        glUniform1i(uClippedTextSubpixelFontTextureLoc, 0);
+    }
+    else {
+        glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+        glUseProgram(ClippedTextMonoShader);
+        glUniform1f(uClippedTextMonoScreenWidthLoc,  screenW);
+        glUniform1f(uClippedTextMonoScreenHeightLoc, screenH);
+        glUniform1f(uClippedTextMonoOffsetXLoc, offsetX);
+        glUniform1f(uClippedTextMonoOffsetYLoc, offsetY);
+        glUniform1f(uClippedTextMonoScissorTopLoc, clipTop);
+        glUniform1f(uClippedTextMonoScissorBottomLoc, clipBottom);
+        glUniform1f(uClippedTextMonoScissorLeftLoc, clipLeft);
+        glUniform1f(uClippedTextMonoScissorRightLoc, clipRight);
+        glUniform1i(uClippedTextMonoFontTextureLoc, 0);
+    }
+
+    glActiveTexture(GL_TEXTURE0);
+    glBindTexture(GL_TEXTURE_2D, font->atlas.handle);
+    glBindVertexArray(TextVao);
+    glBindBuffer(GL_ARRAY_BUFFER, TextVbo);
+    glBufferSubData(
+        GL_ARRAY_BUFFER, 0,
+        textRenderData.size * textRenderData.elementSize,
+        textRenderData.data
+    );
+    glDrawArraysInstanced(GL_TRIANGLES, 0, 6, textRenderData.size);
     glBindVertexArray(0);
 }

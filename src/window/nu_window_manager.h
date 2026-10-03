@@ -100,7 +100,7 @@ void WindowManager_Init(WindowManager* winManager)
 
     // Init glew
     glewInit();
-    glEnable(GL_MULTISAMPLE);
+    //glEnable(GL_MULTISAMPLE);
     glEnable(GL_DEPTH_TEST);
     glEnable(GL_BLEND);
     glDepthFunc(GL_GEQUAL);

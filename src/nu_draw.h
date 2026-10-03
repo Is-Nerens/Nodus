@@ -1,36 +1,8 @@
 #pragma once
+#include "rendering/nu_renderer_structures.h"
 #include <SDL3/SDL.h>
 #include <GL/glew.h>
 #include <math.h>
-
-typedef enum NodeOverlap
-{
-    NODE_OVERLAP_NONE,
-    NODE_OVERLAP_PARTIAL,
-    NODE_OVERLAP_INSIDE
-} NodeOverlap;
-
-void NU_AddTextMesh(Node* node, float z, char* textBuffer, Vertex_RGB_UV_List* vertices, Index_List* indices)
-{
-    // Compute inner dimensions (content area)
-    float inner_width  = node->public.generic.width  - node->public.generic.borderLeft - node->public.generic.borderRight - node->public.generic.padLeft - node->public.generic.padRight;
-    float inner_height = node->public.generic.height - node->public.generic.borderTop  - node->public.generic.borderBottom - node->public.generic.padTop - node->public.generic.padBottom;
-    float remaining_w = inner_width  - node->public.generic.contentWidth;
-    float remaining_h = inner_height - node->public.generic.contentHeight;
-    float x_align_offset = remaining_w * 0.5f * (float)node->horizontalTextAlignment;
-    float y_align_offset = remaining_h * 0.5f * (float)node->verticalTextAlignment;
-
-    // Top-left corner of the content area
-    float textPosX = node->public.generic.x + node->public.generic.borderLeft + node->public.generic.padLeft + x_align_offset;
-    float textPosY = node->public.generic.y + node->public.generic.borderTop  + node->public.generic.padTop + y_align_offset;
-
-    // Draw wrapped text inside inner_width
-    float r = (float)node->public.generic.textR * 0.003921568627451f;
-    float g = (float)node->public.generic.textG * 0.003921568627451f;
-    float b = (float)node->public.generic.textB * 0.003921568627451f;
-    NU_Font* node_font = Stylesheet_Get_Font(&GUI.stylesheet, node->fontId);
-    NU_Generate_Text_Mesh(vertices, indices, node_font, textBuffer, floorf(textPosX), floorf(textPosY), z, r, g, b, inner_width);
-}
 
 static NodeOverlap NodeVerticalOverlapState(Node* node, float y, float h)
 {
@@ -43,30 +15,56 @@ static NodeOverlap NodeVerticalOverlapState(Node* node, float y, float h)
     return (NodeOverlap)(overlap + inside);
 }
 
-void NU_DrawClippedNodeTextContent(Node* node, float z, float winWidth, float winHeight, NU_ClipBounds* clip)
+inline int NodeOutsideWindow(Node* node, int winW, int winH)
 {
-    Vertex_RGB_UV_List clipped_text_vertices;
-    Index_List clipped_text_indices;
-    Vertex_RGB_UV_List_Init(&clipped_text_vertices, 1000);
-    Index_List_Init(&clipped_text_indices, 600);
-    NU_Font* node_font = Stylesheet_Get_Font(&GUI.stylesheet, node->fontId);
-    NU_AddTextMesh(node, z, node->public.generic.textContent, &clipped_text_vertices, &clipped_text_indices);
-    NU_Render_Text(&clipped_text_vertices, &clipped_text_indices, node_font, winWidth, winHeight, 0, 0, clip->top, clip->bottom, clip->left, clip->right);
-    Vertex_RGB_UV_List_Free(&clipped_text_vertices);
-    Index_List_Free(&clipped_text_indices);
+    float right  = node->public.generic.x + node->public.generic.width;
+    float bottom = node->public.generic.y + node->public.generic.height;
+    return (right < 0 || bottom < 0 || node->public.generic.x > winW || node->public.generic.y > winH);
+}
+
+void NU_AddTextMesh(Node* node, float z, char* textBuffer, Array* textRenderData)
+{
+    // Compute node inner dimensions
+    float inner_width  = node->public.generic.width  - node->public.generic.borderLeft - node->public.generic.borderRight - node->public.generic.padLeft - node->public.generic.padRight;
+    float inner_height = node->public.generic.height - node->public.generic.borderTop  - node->public.generic.borderBottom - node->public.generic.padTop - node->public.generic.padBottom;
+    float remaining_w = inner_width  - node->public.generic.contentWidth;
+    float remaining_h = inner_height - node->public.generic.contentHeight;
+
+    // Compute text position
+    float x_align_offset = remaining_w * 0.5f * (float)node->horizontalTextAlignment;
+    float y_align_offset = remaining_h * 0.5f * (float)node->verticalTextAlignment;
+    float textPosX = floorf(node->public.generic.x + node->public.generic.borderLeft + node->public.generic.padLeft + x_align_offset);
+    float textPosY = floorf(node->public.generic.y + node->public.generic.borderTop  + node->public.generic.padTop + y_align_offset);
+
+    // Add glyph render data
+    NU_Font* node_font = Stylesheet_Get_Font(&GUI.stylesheet, node->fontIdx);
+    NU_Generate_Text_Renderdata(
+        textRenderData,
+        node_font,
+        textBuffer,
+        textPosX,
+        textPosY,
+        z,
+        node->public.generic.textR,
+        node->public.generic.textG,
+        node->public.generic.textB,
+        inner_width
+    );
 }
 
 void NU_DrawInputNodeContent(Node* node, float z, float winWidth, float winHeight, NU_ClipBounds* clip)
 {
-    NU_Font* node_font = Stylesheet_Get_Font(&GUI.stylesheet, node->fontId);
+    // Get font and inout text datastructure
+    NU_Font* node_font = Stylesheet_Get_Font(&GUI.stylesheet, node->fontIdx);
     InputText* inputText = Container_Get(&GUI.textInputs, node->special.input.textInputHandle);
 
+    // Recompute text offset
     if (inputText->updateOffsetsPostLayout) {
         inputText->updateOffsetsPostLayout = false;
         InputText_ComputeCursorTextOffset_PlaceEnd(inputText, node, node_font);
     }
 
-    // construct and draw highlight mesh
+    // Construct and draw text highlight
     if (GUI.focused_node != NULL && node == GUI.focused_node && InputText_IsHighlighting(inputText))
     {
         Vertex_RGB_List highlightVertices; Vertex_RGB_List_Init(&highlightVertices, 4);
@@ -74,8 +72,7 @@ void NU_DrawInputNodeContent(Node* node, float z, float winWidth, float winHeigh
         NU_ConstructInputHighlightMesh(node, z + 0.25f, inputText, &highlightVertices, &highlightIndices);
         Draw_Clipped_Vertex_RGB_List(
             &highlightVertices, &highlightIndices,
-            winWidth, winHeight,
-            0, 0,
+            winWidth, winHeight, 0, 0,
             clip->top, clip->bottom,
             clip->left, clip->right + 1
         );
@@ -83,31 +80,35 @@ void NU_DrawInputNodeContent(Node* node, float z, float winWidth, float winHeigh
         Index_List_Free(&highlightIndices);
     }
 
-    // generate and draw text
-    Vertex_RGB_UV_List clipped_text_vertices; Vertex_RGB_UV_List_Init(&clipped_text_vertices, 1000);
-    Index_List clipped_text_indices; Index_List_Init(&clipped_text_indices, 600);
-    float textPosX = node->public.generic.x + node->public.generic.borderLeft + node->public.generic.padLeft + inputText->textOffset;
-    float textPosY = node->public.generic.y + node->public.generic.borderTop  + node->public.generic.padTop;
-    float r = (float)node->public.generic.textR * 0.003921568627451f;
-    float g = (float)node->public.generic.textG * 0.003921568627451f;
-    float b = (float)node->public.generic.textB * 0.003921568627451f;
-    NU_Generate_Text_Mesh(&clipped_text_vertices, &clipped_text_indices, node_font, inputText->buffer, floorf(textPosX), floorf(textPosY), z + 0.5f, r, g, b, 10000000.0f);
-    NU_Render_Text(&clipped_text_vertices, &clipped_text_indices, node_font, winWidth, winHeight, 0, 0, clip->top, clip->bottom, clip->left, clip->right);
-    Vertex_RGB_UV_List_Free(&clipped_text_vertices);
-    Index_List_Free(&clipped_text_indices);
+    // Draw text
+    float textPosX = floorf(node->public.generic.x + node->public.generic.borderLeft + node->public.generic.padLeft + inputText->textOffset);
+    float textPosY = floorf(node->public.generic.y + node->public.generic.borderTop  + node->public.generic.padTop);
+    Array textRenderData;
+    Array_Init(&textRenderData, sizeof(GlyphRenderData), 256);
+    NU_Generate_Text_Renderdata(
+        &textRenderData,
+        node_font,
+        inputText->buffer,
+        textPosX,
+        textPosY,
+        z + 0.5f,
+        node->public.generic.textR,
+        node->public.generic.textG,
+        node->public.generic.textB,
+        -1.0f
+    );
+    NU_Draw_Clipped_Text(textRenderData, node_font, winWidth, winHeight, 0, 0, clip->top, clip->bottom, clip->left, clip->right);
+    Array_Free(&textRenderData);
 
-    // draw cursor afterwards (if input is focused)
-    if (GUI.focused_node != NULL && node == GUI.focused_node
-        && !InputText_IsHighlighting(inputText))
+    // Draw cursor (if input is focused)
+    if (node == GUI.focused_node && !InputText_IsHighlighting(inputText))
     {
-
         Vertex_RGB_List cursorVertices; Vertex_RGB_List_Init(&cursorVertices, 4);
         Index_List cursorIndices; Index_List_Init(&cursorIndices, 6);
         NU_ConstructInputCursorMesh(node, z + 0.5f, inputText, &cursorVertices, &cursorIndices);
         Draw_Clipped_Vertex_RGB_List(
             &cursorVertices, &cursorIndices,
-            winWidth, winHeight,
-            0, 0,
+            winWidth, winHeight, 0, 0,
             clip->top, clip->bottom,
             clip->left, clip->right + 1
         );
@@ -118,16 +119,19 @@ void NU_DrawInputNodeContent(Node* node, float z, float winWidth, float winHeigh
 
 void NU_DrawCanvasContent(Node* canvas_node, float winW, float winH, NU_ClipBounds* clip)
 {
+    // Get canvas ctx
     NU_Canvas_Context* ctx = Container_Get(&GUI.canvasContexts, canvas_node->special.canvas.ctxHandle);
     if (ctx == NULL) return;
 
+    // Compute offsets and clipping bounds
     float offsetX = roundf(canvas_node->public.generic.x + canvas_node->public.generic.borderLeft + canvas_node->public.generic.padLeft);
     float offsetY = roundf(canvas_node->public.generic.y + canvas_node->public.generic.borderTop + canvas_node->public.generic.padTop);
     float top    = canvas_node->public.generic.y + canvas_node->public.generic.borderTop + canvas_node->public.generic.padTop;
     float bottom = canvas_node->public.generic.y + canvas_node->public.generic.height - canvas_node->public.generic.borderBottom - canvas_node->public.generic.padBottom;
     float left   = canvas_node->public.generic.x + canvas_node->public.generic.borderLeft + canvas_node->public.generic.padLeft;
     float right  = canvas_node->public.generic.x + canvas_node->public.generic.width - canvas_node->public.generic.borderRight - canvas_node->public.generic.padRight;
-    if (clip) {
+    if (clip)
+    {
         top    = fmax_fast(top, clip->top);
         bottom = fmax_fast(bottom, clip->bottom);
         left   = fmax_fast(left, clip->left);
@@ -136,7 +140,7 @@ void NU_DrawCanvasContent(Node* canvas_node, float winW, float winH, NU_ClipBoun
     ctx->canvasWidth = canvas_node->public.generic.width;
     ctx->canvasHeight = canvas_node->public.generic.height;
 
-    // Draw canvas shape layer
+    // Draw shape layer
     Draw_Clipped_Vertex_RGB_List(
         &ctx->shapeLayer.vertices, &ctx->shapeLayer.indices,
         winW, winH,
@@ -144,25 +148,17 @@ void NU_DrawCanvasContent(Node* canvas_node, float winW, float winH, NU_ClipBoun
         top, bottom, left, right
     );
 
-    // Draw each canvas text layer
+    // Draw text layers
     for (int l=0; l<ctx->textLayerIndex+1; l++) {
         CanvasTextLayer* layer = Array_Get(&ctx->textLayers, l);
         NU_Font* font = Stylesheet_Get_Font(&GUI.stylesheet, layer->fontID);
-        NU_Render_Text(
-            &layer->vertices, &layer->indices,
-            font,
+        NU_Draw_Clipped_Text(
+            layer->textRenderData, font,
             winW, winH,
             offsetX, offsetY,
             top, bottom, left, right
         );
     }
-}
-
-inline int NodeNotVisibleInWindow(Node* node, int winW, int winH)
-{
-    float right  = node->public.generic.x + node->public.generic.width;
-    float bottom = node->public.generic.y + node->public.generic.height;
-    return (right < 0 || bottom < 0 || node->public.generic.x > winW || node->public.generic.y > winH);
 }
 
 void NU_GenerateDrawlists()
@@ -218,7 +214,7 @@ void NU_GenerateDrawlists()
         while(child != NULL)
         {
             // if parent is not visible (ad child inherets parent's visibility) OR child is not visible OR child not visible in it's window -> mark as hidded -> skip
-            if ((NodeStateHidden(node) && child->type != NU_TYPE_WINDOW) || NodeStateHidden(child) || NodeNotVisibleInWindow(child, winW, winH)) {
+            if ((NodeStateHidden(node) && child->type != NU_TYPE_WINDOW) || NodeStateHidden(child) || NodeOutsideWindow(child, winW, winH)) {
                 child->stateFlags |= STATE_FLAG_HIDDEN;
                 child = child->nextSibling; continue;
             }
@@ -289,20 +285,18 @@ void NU_Draw()
 {
     NU_GenerateDrawlists();
 
-    // Initialise text vertex and index buffers (per font)
-    Vertex_RGB_UV_List text_vertex_buffers[GUI.stylesheet.fonts.size];
-    Index_List text_index_buffers[GUI.stylesheet.fonts.size];
-    for (u32 i=0; i<GUI.stylesheet.fonts.size; i++) {
-        Vertex_RGB_UV_List_Init(&text_vertex_buffers[i], 512);
-        Index_List_Init(&text_index_buffers[i], 512);
-    }
-
     Array_Clear(&GUI.borderRectRenderDataArray);
 
-    // Upload / reupload font atlases as needed
+    // Re-upload font atlases as needed
     for (u32 t=0; t<GUI.stylesheet.fonts.size; t++) {
         NU_Font* font = Stylesheet_Get_Font(&GUI.stylesheet, t);
         NU_Font_Atlas_Upload_Or_Modify_GPU(&font->atlas);
+    }
+
+    // Clear per-font render data arrays
+    for (int i=0; i<GUI.stylesheet.fonts.size; i++) {
+        Array* glyphRenderDataArray = Array_Get(&GUI.perFontTextRenderData, i);
+        Array_Clear(glyphRenderDataArray);
     }
 
     Node* focusedInputNode = NULL;
@@ -337,9 +331,8 @@ void NU_Draw()
             }
             // Construct text mesh for node's textContent
             if (node->public.generic.textContent != NULL) {
-                Vertex_RGB_UV_List* text_vertices = &text_vertex_buffers[node->fontId];
-                Index_List* text_indices = &text_index_buffers[node->fontId];
-                NU_AddTextMesh(node, z, node->public.generic.textContent, text_vertices, text_indices);
+                Array* textRenderData = Array_Get(&GUI.perFontTextRenderData, node->fontIdx);
+                NU_AddTextMesh(node, z, node->public.generic.textContent, textRenderData);
             }
             // Draw text input content (1 draw call)
             else if (node->type == NU_TYPE_INPUT) {
@@ -375,12 +368,9 @@ void NU_Draw()
 
         // 3. Draw all unclipped text (1 draw call per font)
         for (u32 t=0; t<GUI.stylesheet.fonts.size; t++) {
-            Vertex_RGB_UV_List* text_vertices = &text_vertex_buffers[t];
-            Index_List* text_indices = &text_index_buffers[t];
             NU_Font* font = Stylesheet_Get_Font(&GUI.stylesheet, t);
-            NU_Render_Text(text_vertices, text_indices, font, winW, winH, 0, 0, -1.0f, 100000.0f, -1.0f, 100000.0f);
-            text_vertices->size = 0;
-            text_indices->size = 0;
+            Array* textRenderData = Array_Get(&GUI.perFontTextRenderData, t);
+            NU_Draw_Text(*textRenderData, font, winW, winH, 0, 0);
         }
 
         // 4. Draw clipped node border rects + images + text + text input
@@ -395,7 +385,11 @@ void NU_Draw()
 
             // Draw text content (1 draw call)
             if (node->public.generic.textContent != NULL) {
-                NU_DrawClippedNodeTextContent(node, z + 0.5f, winW, winH, clip);
+                NU_Font* font = Stylesheet_Get_Font(&GUI.stylesheet, node->fontIdx);
+                Array* textRenderData = Array_Get(&GUI.perFontTextRenderData, node->fontIdx);
+                Array_Clear(textRenderData);
+                NU_AddTextMesh(node, z + 0.5f, node->public.generic.textContent, textRenderData);
+                NU_Draw_Text(*textRenderData, font, winW, winH, 0, 0);
             }
             // Draw text input (1 draw call)
             else if (node->type == NU_TYPE_INPUT) {
@@ -434,7 +428,7 @@ void NU_Draw()
             NU_DrawCanvasContent(node, winW, winH, NULL);
         }
 
-        // 6. Draw all images (1 draw call per atlas / standalone image)
+        // 6. Draw all images (1 draw call per atlas | 1 draw call per standalone image)
         for (int i=0; i<GUI.imageResourceManager.atlases.size; i++) {
             Atlas* atlas = Array_Get(&GUI.imageResourceManager.atlases, i);
             NU_Draw_Images(atlas->renderDataArray, atlas->glImageHandle, winW, winH);
@@ -447,12 +441,5 @@ void NU_Draw()
         SDL_GL_SwapWindow(window);
     }
 
-    // -----------------------
-    // --- Free memory -------
-    // -----------------------
-    for (u32 i=0; i<GUI.stylesheet.fonts.size; i++) {
-        Vertex_RGB_UV_List_Free(&text_vertex_buffers[i]);
-        Index_List_Free(&text_index_buffers[i]);
-    }
     GUI.awaiting_redraw = false;
 }

@@ -9,6 +9,10 @@ typedef struct {
 
 typedef struct {
     float r, g, b;
+} NU_RGB_FL;
+
+typedef struct {
+    u8 r, g, b;
 } NU_RGB;
 
 typedef struct {
@@ -61,6 +65,14 @@ typedef struct BorderRectRenderData {
     float scissorTop, scissorBottom, scissorLeft, scissorRight;
 } BorderRectRenderData;
 
+typedef struct GlyphRenderData {
+    float x, y, z;
+    float w, h;
+    float u0, v0;
+    float u1, v1;
+    u32 colourRGBA;
+} GlyphRenderData;
+
 typedef struct ImageRenderData {
     float x, y, z;
     float w, h;
@@ -75,8 +87,7 @@ typedef struct {
 } CanvasShapeLayer;
 
 typedef struct {
-    Vertex_RGB_UV_List vertices;
-    Index_List indices;
+    Array textRenderData;
     int fontID;
 } CanvasTextLayer;
 

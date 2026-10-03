@@ -53,11 +53,11 @@ typedef void (*NU_Callback)(void* args);
 #include <datastructures/hashmap.h>
 #include <datastructures/linalloc.h>
 #include <errors/nu_error.h>
-#include <text/nu_font.h>
 #include <tree/nu_node.h>
 #include <tree/nu_tree.h>
 #include <tree/nu_nodelist.h>
 #include <rendering/nu_renderer_structures.h>
+#include <text/nu_font.h>
 #include <window/nu_window_manager_structs.h>
 #include <templates/stylesheet/nu_stylesheet_structs.h>
 #include <rendering/nu_renderer.h>
@@ -106,7 +106,6 @@ struct NU_GUI
     // Events
     EventSystem eventSystem;
     Set deletedNodesWithRegisteredEvents;
-    Uint32 SDL_CUSTOM_RENDER_EVENT;
 
     // Cursors
     SDL_Cursor* cursorDefault;
@@ -125,6 +124,7 @@ struct NU_GUI
     ReverseBreadthFirstSearch rbfs;
     Array layoutScrollAutoNodes;
     Array borderRectRenderDataArray;
+    Array perFontTextRenderData;
 };
 
 // ---------------------------
@@ -160,7 +160,13 @@ void NU_Internal_Quit()
     Container_Free(&GUI.textInputs);
     Container_Free(&GUI.timers);
     Container_Free(&GUI.widgets);
+    Array_Free(&GUI.layoutScrollAutoNodes);
     Array_Free(&GUI.borderRectRenderDataArray);
+    for (int i=0; i<GUI.perFontTextRenderData.size; i++) {
+        Array* renderData = Array_Get(&GUI.perFontTextRenderData, i);
+        Array_Free(renderData);
+    }
+    Array_Free(&GUI.perFontTextRenderData);
     BreadthFirstSearch_Free(&GUI.bfs);
     ReverseBreadthFirstSearch_Free(&GUI.rbfs);
     EventSystem_Free();
@@ -174,8 +180,8 @@ int NU_Internal_Create_Gui(const char* xml_filepath, const char* css_filepath)
     SDL_GL_SetAttribute(SDL_GL_CONTEXT_MAJOR_VERSION, 3);
     SDL_GL_SetAttribute(SDL_GL_CONTEXT_MINOR_VERSION, 3);
     SDL_GL_SetAttribute(SDL_GL_CONTEXT_PROFILE_MASK, SDL_GL_CONTEXT_PROFILE_CORE);
-    SDL_GL_SetAttribute(SDL_GL_MULTISAMPLEBUFFERS, 1);
-    SDL_GL_SetAttribute(SDL_GL_MULTISAMPLESAMPLES, 4);
+    //SDL_GL_SetAttribute(SDL_GL_MULTISAMPLEBUFFERS, 1);
+    //SDL_GL_SetAttribute(SDL_GL_MULTISAMPLESAMPLES, 4);
     SDL_GL_SetAttribute(SDL_GL_DEPTH_SIZE, 24);
     SDL_SetHint("SDL_MOUSE_FOCUS_CLICKTHROUGH", "1");
     SDL_SetHint(SDL_HINT_MAC_SCROLL_MOMENTUM, "1");
@@ -239,13 +245,6 @@ int NU_Internal_Create_Gui(const char* xml_filepath, const char* css_filepath)
     GUI.bfs = BreadthFirstSearch_Create(GUI.tree.root);
     GUI.rbfs = ReverseBreadthFirstSearch_Create(GUI.tree.root);
 
-    // Register custom render event type
-    GUI.SDL_CUSTOM_RENDER_EVENT = SDL_RegisterEvents(1);
-    if (GUI.SDL_CUSTOM_RENDER_EVENT == (Uint32)-1) {
-        NU_Internal_Quit();
-        return 0;
-    }
-
     // Create an image resource loader
     ImageResourceLoader imageResourceLoader;
     ImageResourceLoader_Init(&imageResourceLoader, &GUI.imageResourceManager);
@@ -264,6 +263,13 @@ int NU_Internal_Create_Gui(const char* xml_filepath, const char* css_filepath)
 
     // Upload image to the GPU and free loader memory
     ImageResourceLoader_UploadImagesAndFree(&imageResourceLoader);
+
+    // Create per font (glyph quad) vertex and index buffers
+    Array_Init(&GUI.perFontTextRenderData, sizeof(Array), GUI.stylesheet.fonts.size);
+    for (int i=0; i<GUI.stylesheet.fonts.size; i++) {
+        Array* renderData = Array_Get(&GUI.perFontTextRenderData, i);
+        Array_Init(renderData, sizeof(GlyphRenderData), 512);
+    }
 
     // Apply css
     printf("applying css\n");

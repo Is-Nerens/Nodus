@@ -5,7 +5,7 @@
 
 #define NORMALIZE(dx, dy) do { float len = sqrtf((dx)*(dx) + (dy)*(dy)); if (len > 0.0001f) { dx /= len; dy /= len; } } while(0)
 
-int NU_Internal_Get_Canvas_Context(NuNode* node)
+int NU_Internal_Get_Canvas_Context(const NuNode* node)
 {
     Node* nodeP = NODEP_OF(node);
     if (nodeP->type != NU_TYPE_CANVAS) return -1;
@@ -23,8 +23,7 @@ int NU_Internal_Get_Canvas_Context(NuNode* node)
     // Create default text layer
     CanvasTextLayer textLayer;
     textLayer.fontID = 0;
-    Vertex_RGB_UV_List_Init(&textLayer.vertices, 256);
-    Index_List_Init(&textLayer.indices, 512);
+    Array_Init(&textLayer.textRenderData, sizeof(GlyphRenderData), 256);
     Array_Push(&ctx.textLayers, &textLayer);
 
     // Create shape layer
@@ -45,8 +44,7 @@ void NU_DeleteCanvasContext(int contextID)
     // Free vertices and indices of each layer
     for (u32 i=0; i<ctx->textLayers.size; i++) {
         CanvasTextLayer* layer = Array_Get(&ctx->textLayers, i);
-        Vertex_RGB_UV_List_Free(&layer->vertices);
-        Index_List_Free(&layer->indices);
+        Array_Free(&layer->textRenderData);
     }
     Array_Free(&ctx->textLayers);
 
@@ -66,8 +64,7 @@ void NU_Internal_Clear_Canvas(int contextID)
     // Clear vertices and indices of each text layer (except layer 0)
     for (u32 i=0; i<ctx->textLayers.size; i++) {
         CanvasTextLayer* layer = Array_Get(&ctx->textLayers, i);
-        Vertex_RGB_UV_List_Clear(&layer->vertices);
-        Index_List_Clear(&layer->indices);
+        Array_Clear(&layer->textRenderData);
         layer->fontID = 0;
     }
 
@@ -86,8 +83,8 @@ void NU_Internal_Border_Rect(
     int contextID,
     float x, float y, float w, float h,
     float thickness,
-    NU_RGB border_col,
-    NU_RGB fill_col)
+    NU_RGB_FL border_col,
+    NU_RGB_FL fill_col)
 {
     NU_Canvas_Context* ctx = Container_Get(&GUI.canvasContexts, contextID);
     if (ctx == NULL) return;
@@ -208,8 +205,8 @@ void NU_Internal_Triangle(
     float x2, float y2,
     float x3, float y3,
     float thickness,
-    NU_RGB border_col,
-    NU_RGB fill_col)
+    NU_RGB_FL border_col,
+    NU_RGB_FL fill_col)
 {
     NU_Canvas_Context* ctx = Container_Get(&GUI.canvasContexts, contextID);
     if (ctx == NULL) return;
@@ -305,7 +302,7 @@ void NU_Internal_Triangle(
     indices->size += additional_indices;
 }
 
-void NU_Internal_Vline(int contextID, float x, float y, float height, float thickness, NU_RGB col)
+void NU_Internal_Vline(int contextID, float x, float y, float height, float thickness, NU_RGB_FL col)
 {
     NU_Canvas_Context* ctx = Container_Get(&GUI.canvasContexts, contextID);
     if (ctx == NULL) return;
@@ -362,7 +359,7 @@ void NU_Internal_Vline(int contextID, float x, float y, float height, float thic
     indices->size += additional_indices;
 }
 
-void NU_Internal_Hline(int contextID, float x, float y, float width, float thickness, NU_RGB col)
+void NU_Internal_Hline(int contextID, float x, float y, float width, float thickness, NU_RGB_FL col)
 {
     NU_Canvas_Context* ctx = Container_Get(&GUI.canvasContexts, contextID);
     if (ctx == NULL) return;
@@ -423,7 +420,7 @@ void NU_Internal_Line(
     int contextID,
     float x1, float y1, float x2, float y2,
     float thickness,
-    NU_RGB col
+    NU_RGB_FL col
 )
 {
     NU_Canvas_Context* ctx = Container_Get(&GUI.canvasContexts, contextID);
@@ -590,7 +587,7 @@ void NU_Internal_Dashed_Line(
     float thickness,
     uint8_t* dash_pattern,
     u32 dash_pattern_len,
-    NU_RGB col
+    NU_RGB_FL col
 )
 {
     NU_Canvas_Context* ctx = Container_Get(&GUI.canvasContexts, contextID);
@@ -865,11 +862,9 @@ void NU_Internal_Set_Canvas_Font(int contextID, const char* fontName)
 
     // Create new text layer
     if (ctx->textLayerIndex > ctx->textLayers.size-1) {
-        CanvasTextLayer textLayer;
-        textLayer.fontID = fontID;
-        Vertex_RGB_UV_List_Init(&textLayer.vertices, 512);
-        Index_List_Init(&textLayer.indices, 1024);
-        Array_Push(&ctx->textLayers, &textLayer);
+        CanvasTextLayer* textLayer = Array_PushEmpty(&ctx->textLayers);
+        textLayer->fontID = fontID;
+        Array_Init(&textLayer->textRenderData, sizeof(GlyphRenderData), 512);
     }
     // Reuse exising layer
     else {
@@ -899,14 +894,11 @@ void NU_Internal_Text(
     // Get text layer
     CanvasTextLayer* textLayer = Array_Get(&ctx->textLayers, ctx->textLayerIndex);
 
-    // Get vertex and index lists
-    Vertex_RGB_UV_List* vertices = &textLayer->vertices;
-    Index_List* indices = &textLayer->indices;
-
+    // Compute z
     float z = (float)(ctx->node->layer) + ctx->z * 0.005f;
 
-    // Generate text mesh
-    NU_Generate_Text_Mesh(vertices, indices, font, string, x, y, z, col.r, col.g, col.b, wrapWidth);
+    // Generate render data
+    NU_Generate_Text_Renderdata(&textLayer->textRenderData, font, string, x, y, z, col.r, col.g, col.b, wrapWidth);
 }
 
 float NU_Internal_Text_Height(int contextID, float wrapWidth, const char* string)
@@ -949,14 +941,11 @@ void NU_Internal_LText(
     // Get text layer
     CanvasTextLayer* textLayer = Array_Get(&ctx->textLayers, ctx->textLayerIndex);
 
-    // Get vertex and index lists
-    Vertex_RGB_UV_List* vertices = &textLayer->vertices;
-    Index_List* indices = &textLayer->indices;
-
+    // Compute z
     float z = (float)(ctx->node->layer) + ctx->z * 0.005f;
 
-    // Generate text mesh
-    NU_Generate_LText_Mesh(vertices, indices, font, string, stringLen, x, y, z, col.r, col.g, col.b, wrapWidth);
+    // Generate render data
+    NU_Generate_LText_Renderdata(&textLayer->textRenderData, font, string, stringLen, x, y, z, col.r, col.g, col.b, wrapWidth);
 }
 
 float NU_Internal_LText_Height(int contextID, float wrapWidth, const char* string, size_t stringLen)

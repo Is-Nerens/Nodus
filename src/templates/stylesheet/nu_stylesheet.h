@@ -16,11 +16,11 @@ void Stylesheet_Init(Stylesheet* ss)
     Array_Init(&ss->items, sizeof(StyleItem), 512);
     Array_Init(&ss->variables, sizeof(StylesheetVariable), 128);
     Array_Init(&ss->screenQueries, sizeof(StylesheetScreenQuery), 8);
+    Array_Init(&ss->fonts, sizeof(NU_Font), 8);
     LinearStringmap_Init(&ss->classIdMap, sizeof(int), 256, 2048);
     LinearStringmap_Init(&ss->idIdMap, sizeof(int), 256, 2048);
     LinearStringmap_Init(&ss->fontNameIndexMap, sizeof(int), 16, 256);
     Hashmap_Init(&ss->itemIndexMap, sizeof(StyleItemKey), sizeof(int), 512);
-    ss->fonts = Container_Create(sizeof(NU_Font));
 
     // Create default style item (at index 0)
     StyleItem* item = Array_PushEmpty(&ss->items);
@@ -81,7 +81,11 @@ void Stylesheet_Free(Stylesheet* ss)
     LinearStringmap_Free(&ss->idIdMap);
     Hashmap_Free(&ss->itemIndexMap);
     LinearStringmap_Free(&ss->fontNameIndexMap);
-    Container_Free(&ss->fonts);
+    for (int i=0; i<ss->fonts.size; i++) {
+        NU_Font* font = Array_Get(&ss->fonts, i);
+        NU_Font_Free(font);
+    }
+    Array_Free(&ss->fonts);
 }
 
 int Stylesheet_Create(Stylesheet* stylesheet, const char* filepath, ImageResourceLoader* imageResourceLoader)
@@ -130,7 +134,6 @@ int Stylesheet_Create(Stylesheet* stylesheet, const char* filepath, ImageResourc
     return 1; // Success
 }
 
-static inline NU_Font* Stylesheet_Get_Font(Stylesheet* ss, u8 fontID) {
-
-    return Container_Get(&ss->fonts, fontID);
+static inline NU_Font* Stylesheet_Get_Font(Stylesheet* ss, u8 fontIdx) {
+    return Array_Get(&ss->fonts, fontIdx);
 }

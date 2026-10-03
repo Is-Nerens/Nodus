@@ -217,8 +217,8 @@ typedef struct Node
     u8 type;
     u8 layer;                       // Depth of this node in the tree [0, 1, ..n]
     u8 stateFlags;                  // State bitflags (eg. "STATE_FLAG_HIDDEN")
-    u8 fontId;                      // Index of a font container datastructure
-    u8 windowID;                    // Index of a window container datastructure
+    u8 fontIdx;                     // Index of a font stored in an array
+    u8 windowID;                    // Index of a window stored in a container
     u8 horizontalAlignment;         // Left, Center, Right [0, 1, 2]
     u8 verticalAlignment;           // Top, Center, Bottom [0, 1, 2]
     u8 horizontalTextAlignment;     // Left, Center, Right [0, 1, 2]
@@ -239,6 +239,12 @@ typedef struct NU_ClipBounds
     float right;
 } NU_ClipBounds;
 
+typedef enum NodeOverlap
+{
+    NODE_OVERLAP_NONE,
+    NODE_OVERLAP_PARTIAL,
+    NODE_OVERLAP_INSIDE
+} NodeOverlap;
 
 /* Initialises node */
 void NU_ApplyNodeDefaults(Node* node, Node* parent, u8 type, u16 layer)
@@ -256,7 +262,7 @@ void NU_ApplyNodeDefaults(Node* node, Node* parent, u8 type, u16 layer)
     node->public.generic.backgroundR = node->public.generic.backgroundG = node->public.generic.backgroundB = 50;
     node->public.generic.borderR = node->public.generic.borderG = node->public.generic.borderB = 100;
     node->public.generic.textR = node->public.generic.textG = node->public.generic.textB = 255;
-    node->horizontalTextAlignment = 1;
+    node->horizontalTextAlignment = 0;
     node->verticalTextAlignment = 1;
     node->widgetID = -1;
 

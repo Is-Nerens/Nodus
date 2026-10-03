@@ -70,7 +70,7 @@ static void Stylesheet_ApplyStyleItemToNode(StyleItem* item, Node* node)
         InputText* inputText = Container_Get(&GUI.textInputs, node->special.input.textInputHandle);
         inputText->type = item->inputType;
     }
-    if (STYLE_SHOULD_APPLY_TO_NODE(PROPERTY_FLAG_FONT)) node->fontId = item->fontId;
+    if (STYLE_SHOULD_APPLY_TO_NODE(PROPERTY_FLAG_FONT)) node->fontIdx = item->fontIdx;
 }
 
 void Stylesheet_ApplyVariations(Stylesheet* ss, StyleItem* item, Node* node, int screenWidth)

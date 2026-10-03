@@ -24,7 +24,7 @@ typedef struct StyleItem
     u8 backgroundR, backgroundG, backgroundB;
     u8 borderR, borderG, borderB;
     u8 textR, textG, textB;
-    u8 fontId;
+    u8 fontIdx;
     char horizontalAlignment;
     char verticalAlignment;
     char horizontalTextAlignment;
@@ -91,11 +91,11 @@ typedef struct Stylesheet
     Array pseudoItems;
     Array variables;
     Array screenQueries;
+    Array fonts;
     LinearStringmap classIdMap;
     LinearStringmap idIdMap;
     Hashmap itemIndexMap;
     LinearStringmap fontNameIndexMap;
-    Container fonts;
     Stylesheet_Scrollbar_Style scrollbarStyle;
 } Stylesheet;
 

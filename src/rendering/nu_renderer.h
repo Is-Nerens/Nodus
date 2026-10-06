@@ -9,16 +9,21 @@
 #include <rendering/nu_renderer_structures.h>
 #include <rendering/nu_shader.h>
 
+// Quad mesh
+GLuint quadVao, quadVbo;
+
 // Border rect SDF
 GLuint sdfRectShader;
 GLuint sdfRectVao, sdfRectVbo;
 GLint uSdfRectScreenWidthLoc, uSdfRectScreenHeightLoc;
+#define SDF_RECT_RENDER_DATA_GPU_RESERVE_COUNT 8000
 
 // Image
 GLuint ImageShader;
 GLuint imageVao, imageVbo;
 GLint uImageScreenWidthLoc, uImageScreenHeightLoc;
 GLint uImageTextureLoc;
+#define IMAGE_RENDER_DATA_GPU_RESERVE_COUNT 1000
 
 // Border rects
 GLuint BorderRectShader;
@@ -53,7 +58,30 @@ GLint uClippedTextSubpixelScissorLeftLoc, uClippedTextSubpixelScissorRightLoc;
 // texture uniforms
 GLint uTextMonoFontTextureLoc, uTextSubpixelFontTextureLoc;
 GLint uClippedTextMonoFontTextureLoc, uClippedTextSubpixelFontTextureLoc;
+#define TEXT_RENDER_DATA_GPU_RESERVE_COUNT 12000
 
+void NU_Init_Quad()
+{
+    float quad[] = {
+        0.0f, 0.0f,
+        1.0f, 0.0f,
+        1.0f, 1.0f,
+        0.0f, 0.0f,
+        1.0f, 1.0f,
+        0.0f, 1.0f
+    };
+
+    // Vao
+    glGenVertexArrays(1, &quadVao);
+    glBindVertexArray(quadVao);
+
+    // Vbo
+    glGenBuffers(1, &quadVbo);
+    glBindBuffer(GL_ARRAY_BUFFER, quadVbo);
+    glBufferData(GL_ARRAY_BUFFER, sizeof(quad), quad, GL_STATIC_DRAW);
+    glEnableVertexAttribArray(0);
+    glVertexAttribPointer(0, 2, GL_FLOAT, GL_FALSE, 2 * sizeof(float), (void*)0);
+}
 
 void NU_Init_SDF_Border_Rect_Shader()
 {
@@ -168,31 +196,24 @@ void NU_Init_SDF_Border_Rect_Shader()
     uSdfRectScreenWidthLoc  = glGetUniformLocation(sdfRectShader, "uScreenWidth");
     uSdfRectScreenHeightLoc = glGetUniformLocation(sdfRectShader, "uScreenHeight");
 
-    float sdfQuad[] = {
-        0.0f, 0.0f,
-        1.0f, 0.0f,
-        1.0f, 1.0f,
-        0.0f, 0.0f,
-        1.0f, 1.0f,
-        0.0f, 1.0f
-    };
-
     // SDF rect Vao
     glGenVertexArrays(1, &sdfRectVao);
     glBindVertexArray(sdfRectVao);
 
-    // Static quad Vbo
-    GLuint quadVbo;
-    glGenBuffers(1, &quadVbo);
+    // Bind quad mesh
     glBindBuffer(GL_ARRAY_BUFFER, quadVbo);
-    glBufferData(GL_ARRAY_BUFFER, sizeof(sdfQuad), sdfQuad, GL_STATIC_DRAW);
     glEnableVertexAttribArray(0);
-    glVertexAttribPointer(0, 2, GL_FLOAT, GL_FALSE, 2 * sizeof(float), (void*)0);
+    glVertexAttribPointer(
+        0, 2,
+        GL_FLOAT, GL_FALSE,
+        2 * sizeof(float),
+        (void*)0
+    );
 
     // SDF Rect instance data
     glGenBuffers(1, &sdfRectVbo);
     glBindBuffer(GL_ARRAY_BUFFER, sdfRectVbo);
-    glBufferData(GL_ARRAY_BUFFER, sizeof(BorderRectRenderData) * 2000, NULL, GL_STREAM_DRAW);
+    glBufferData(GL_ARRAY_BUFFER, sizeof(BorderRectRenderData) * SDF_RECT_RENDER_DATA_GPU_RESERVE_COUNT, NULL, GL_STREAM_DRAW);
 
     // Position (x, y, z)
     glEnableVertexAttribArray(1);
@@ -366,32 +387,24 @@ void NU_Init_Image_Shader()
     uImageScreenHeightLoc = glGetUniformLocation(ImageShader, "uScreenHeight");
     uImageTextureLoc = glGetUniformLocation(ImageShader, "uTexture");
 
-    float imageQuad[] = {
-        0.0f, 0.0f,
-        1.0f, 0.0f,
-        1.0f, 1.0f,
-        0.0f, 0.0f,
-        1.0f, 1.0f,
-        0.0f, 1.0f
-    };
-
     // Image rect Vao
     glGenVertexArrays(1, &imageVao);
     glBindVertexArray(imageVao);
 
-    // Static quad Vbo
-    GLuint quadVbo;
-    glGenBuffers(1, &quadVbo);
+    // Bind quad mesh
     glBindBuffer(GL_ARRAY_BUFFER, quadVbo);
-    glBufferData(GL_ARRAY_BUFFER, sizeof(imageQuad), imageQuad, GL_STATIC_DRAW);
-
     glEnableVertexAttribArray(0);
-    glVertexAttribPointer(0, 2, GL_FLOAT, GL_FALSE, 2 * sizeof(float), (void*)0);
+    glVertexAttribPointer(
+        0, 2,
+        GL_FLOAT, GL_FALSE,
+        2 * sizeof(float),
+        (void*)0
+    );
 
     // Image instance data
     glGenBuffers(1, &imageVbo);
     glBindBuffer(GL_ARRAY_BUFFER, imageVbo);
-    glBufferData(GL_ARRAY_BUFFER, sizeof(ImageRenderData) * 512, NULL, GL_STREAM_DRAW);
+    glBufferData(GL_ARRAY_BUFFER, sizeof(ImageRenderData) * IMAGE_RENDER_DATA_GPU_RESERVE_COUNT, NULL, GL_STREAM_DRAW);
 
     // Position (x, y, z)
     glEnableVertexAttribArray(1);
@@ -575,31 +588,24 @@ void NU_Init_Text_Shader()
     uClippedTextSubpixelScissorRightLoc  = glGetUniformLocation(ClippedTextSubpixelShader, "uClipRight");
     uClippedTextSubpixelFontTextureLoc   = glGetUniformLocation(ClippedTextSubpixelShader, "uFontTexture");
 
-    float textQuad[] = {
-        0.0f, 0.0f,
-        1.0f, 0.0f,
-        1.0f, 1.0f,
-        0.0f, 0.0f,
-        1.0f, 1.0f,
-        0.0f, 1.0f
-    };
-
     // Text Vao
     glGenVertexArrays(1, &TextVao);
     glBindVertexArray(TextVao);
 
-    // Static quad Vbo
-    GLuint quadVbo;
-    glGenBuffers(1, &quadVbo);
+    // Bind quad mesh
     glBindBuffer(GL_ARRAY_BUFFER, quadVbo);
-    glBufferData(GL_ARRAY_BUFFER, sizeof(textQuad), textQuad, GL_STATIC_DRAW);
     glEnableVertexAttribArray(0);
-    glVertexAttribPointer(0, 2, GL_FLOAT, GL_FALSE, 2 * sizeof(float), (void*)0);
+    glVertexAttribPointer(
+        0, 2,
+        GL_FLOAT, GL_FALSE,
+        2 * sizeof(float),
+        (void*)0
+    );
 
     // Text instance data
     glGenBuffers(1, &TextVbo);
     glBindBuffer(GL_ARRAY_BUFFER, TextVbo);
-    glBufferData(GL_ARRAY_BUFFER, sizeof(GlyphRenderData) * 10000, NULL, GL_STREAM_DRAW);
+    glBufferData(GL_ARRAY_BUFFER, sizeof(GlyphRenderData) * TEXT_RENDER_DATA_GPU_RESERVE_COUNT, NULL, GL_STREAM_DRAW);
 
     // Position (x, y, z)
     glEnableVertexAttribArray(1);
@@ -667,6 +673,7 @@ int NU_Draw_Init()
         return 0;
     }
 
+    NU_Init_Quad();
     NU_Init_SDF_Border_Rect_Shader();
     NU_Init_Mesh_Border_Rect_Shader();
     NU_Init_Image_Shader();
@@ -693,12 +700,30 @@ void Draw_SDF_Border_Rects(
     glUniform1f(uSdfRectScreenHeightLoc, screenH);
     glBindVertexArray(sdfRectVao);
     glBindBuffer(GL_ARRAY_BUFFER, sdfRectVbo);
-    glBufferSubData(
-        GL_ARRAY_BUFFER,0,
-        borderRects.size * borderRects.elementSize,
-        borderRects.data
+
+    // Orphan render data
+    glBufferData(
+        GL_ARRAY_BUFFER,
+        sizeof(BorderRectRenderData) * SDF_RECT_RENDER_DATA_GPU_RESERVE_COUNT,
+        NULL,
+        GL_STREAM_DRAW
     );
-    glDrawArraysInstanced(GL_TRIANGLES, 0, 6, borderRects.size);
+
+    // Perform multiple passes until all elements are drawn
+    size_t offset = 0;
+    while (offset < borderRects.size)
+    {
+        size_t count = borderRects.size - offset;
+        if (count > SDF_RECT_RENDER_DATA_GPU_RESERVE_COUNT) count = SDF_RECT_RENDER_DATA_GPU_RESERVE_COUNT;
+        glBufferSubData(
+            GL_ARRAY_BUFFER, 0,
+            count * borderRects.elementSize,
+            (char*)borderRects.data + offset * borderRects.elementSize
+        );
+        glDrawArraysInstanced(GL_TRIANGLES, 0, 6, count);
+        offset += count;
+    }
+
     glBindVertexArray(0);
 }
 
@@ -776,12 +801,22 @@ void NU_Draw_Images(
     glActiveTexture(GL_TEXTURE0);
     glBindTexture(GL_TEXTURE_2D, imageHandle);
     glUniform1i(uImageTextureLoc, 0);
-    glBufferSubData(
-        GL_ARRAY_BUFFER, 0,
-        (GLsizeiptr)(imageRenderDatas.size * imageRenderDatas.elementSize),
-        imageRenderDatas.data
-    );
-    glDrawArraysInstanced(GL_TRIANGLES, 0, 6, imageRenderDatas.size);
+
+    // Perform multiple passes until all elements are drawn
+    size_t offset = 0;
+    while (offset < imageRenderDatas.size)
+    {
+        size_t count = imageRenderDatas.size - offset;
+        if (count > IMAGE_RENDER_DATA_GPU_RESERVE_COUNT) count = IMAGE_RENDER_DATA_GPU_RESERVE_COUNT;
+        glBufferSubData(
+            GL_ARRAY_BUFFER, 0,
+            count * imageRenderDatas.elementSize,
+            (char*)imageRenderDatas.data + offset * imageRenderDatas.elementSize
+        );
+        glDrawArraysInstanced(GL_TRIANGLES, 0, 6, count);
+        offset += count;
+    }
+
     glBindVertexArray(0);
 }
 
@@ -798,6 +833,15 @@ void NU_Draw_Image(
     glUniform1f(uImageScreenHeightLoc, screenH);
     glBindVertexArray(imageVao);
     glBindBuffer(GL_ARRAY_BUFFER, imageVbo);
+
+    // Orphan render data
+    glBufferData(
+        GL_ARRAY_BUFFER,
+        sizeof(ImageRenderData) * IMAGE_RENDER_DATA_GPU_RESERVE_COUNT,
+        NULL,
+        GL_STREAM_DRAW
+    );
+
     glActiveTexture(GL_TEXTURE0);
     glBindTexture(GL_TEXTURE_2D, imageHandle);
     glUniform1i(uImageTextureLoc, 0);
@@ -842,12 +886,32 @@ void NU_Draw_Text(
     glBindTexture(GL_TEXTURE_2D, font->atlas.handle);
     glBindVertexArray(TextVao);
     glBindBuffer(GL_ARRAY_BUFFER, TextVbo);
-    glBufferSubData(
-        GL_ARRAY_BUFFER, 0,
-        textRenderData.size * textRenderData.elementSize,
-        textRenderData.data
+
+    // Orphan render data
+    glBufferData(
+        GL_ARRAY_BUFFER,
+        sizeof(GlyphRenderData) * TEXT_RENDER_DATA_GPU_RESERVE_COUNT,
+        NULL,
+        GL_STREAM_DRAW
     );
-    glDrawArraysInstanced(GL_TRIANGLES, 0, 6, textRenderData.size);
+
+    // Perform multiple passes until all elements are drawn
+    size_t offset = 0;
+    while (offset < textRenderData.size)
+    {
+        size_t count = textRenderData.size - offset;
+        if (count > TEXT_RENDER_DATA_GPU_RESERVE_COUNT) count = TEXT_RENDER_DATA_GPU_RESERVE_COUNT;
+
+
+        glBufferSubData(
+            GL_ARRAY_BUFFER, 0,
+            count * textRenderData.elementSize,
+            (char*)textRenderData.data + offset * textRenderData.elementSize
+        );
+        glDrawArraysInstanced(GL_TRIANGLES, 0, 6, count);
+        offset += count;
+    }
+
     glBindVertexArray(0);
 }
 
@@ -895,11 +959,29 @@ void NU_Draw_Clipped_Text(
     glBindTexture(GL_TEXTURE_2D, font->atlas.handle);
     glBindVertexArray(TextVao);
     glBindBuffer(GL_ARRAY_BUFFER, TextVbo);
-    glBufferSubData(
-        GL_ARRAY_BUFFER, 0,
-        textRenderData.size * textRenderData.elementSize,
-        textRenderData.data
+
+    // Orphan render data
+    glBufferData(
+        GL_ARRAY_BUFFER,
+        sizeof(GlyphRenderData) * TEXT_RENDER_DATA_GPU_RESERVE_COUNT,
+        NULL,
+        GL_STREAM_DRAW
     );
-    glDrawArraysInstanced(GL_TRIANGLES, 0, 6, textRenderData.size);
+
+    // Perform multiple passes until all elements are drawn
+    size_t offset = 0;
+    while (offset < textRenderData.size)
+    {
+        size_t count = textRenderData.size - offset;
+        if (count > TEXT_RENDER_DATA_GPU_RESERVE_COUNT) count = TEXT_RENDER_DATA_GPU_RESERVE_COUNT;
+        glBufferSubData(
+            GL_ARRAY_BUFFER, 0,
+            count * textRenderData.elementSize,
+            (char*)textRenderData.data + offset * textRenderData.elementSize
+        );
+        glDrawArraysInstanced(GL_TRIANGLES, 0, 6, count);
+        offset += count;
+    }
+
     glBindVertexArray(0);
 }

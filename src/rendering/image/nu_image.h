@@ -1,14 +1,12 @@
 #pragma once
 
-#include <datastructures/linear_stringmap.h>
-#include <utils/nu_int.h>
 #define STB_IMAGE_IMPLEMENTATION
 #include "stb_image.h"
 
-typedef struct AtlasImage {
+typedef struct AtlasImageUVs {
     float u0, v0;
     float u1, v1;
-} AtlasImage;
+} AtlasImageUVs;
 
 typedef struct StandaloneImageRenderData {
     ImageRenderData renderData;
@@ -33,6 +31,14 @@ typedef struct AtlasBuild {
     u16 x, y, shelfHeight;
 } AtlasBuild;
 
+static inline bool NU_Image_Is_Handle_Standalone(int h) { return (h & 0xFFFF) == 0xFFFF; }
+static inline int  NU_Image_Handle_To_Standalone_Index(int h) { return (h >> 16) & 0xFFFFu; }
+static inline int  NU_Image_Handle_To_Atlas_Index(int h) { return ((h >> 16) & 0xFFFFu) - 1; }
+static inline int  NU_Image_Handle_To_Atlas_Image_Index(int h) { return (h & 0xFFFFu) - 1; }
+static inline int NU_Image_Create_Standalone_Handle(int largeIndex) { return ((largeIndex & 0xFFFFu) << 16) | 0xFFFFu; }
+static inline int NU_Image_Create_Atlas_Handle(int atlasIndex, int imageIndex) { return (((atlasIndex + 1) & 0xFFFFu) << 16) | ((imageIndex + 1) & 0xFFFFu); }
+
+
 inline void AtlasBuild_Init(AtlasBuild* a, u16 w, u16 h)
 {
     a->w = w;
@@ -46,13 +52,9 @@ inline void AtlasBuild_Init(AtlasBuild* a, u16 w, u16 h)
 
 bool AtlasBuild_CanFit(AtlasBuild* a, int w, int h)
 {
-    // new row if needed
-    if (a->x + w > a->w) {
-        if (a->y + a->shelfHeight + h > a->h) return 0;
-    } else {
-        if (a->y + h > a->h) return 0;
-    }
-    return 1;
+    if (w > a->w) return 0;
+    int y = (a->x + w > a->w) ? a->y + a->shelfHeight : a->y;
+    return y + h <= a->h;
 }
 
 static void AtlasBuild_AddImage(
@@ -124,19 +126,23 @@ void ImageResourceManager_Free(ImageResourceManager* resourceManager)
 void ImageResourceManager_AddImageRenderData(ImageResourceManager* resourceManager, int imageHandle, ImageRenderData* renderData)
 {
     // Image is standalone
-    if ((imageHandle & 0xFFFFu) == 0xFFFFu) {
-        int imageIndex = (imageHandle >> 16) & 0xFFFFu;
+    if (NU_Image_Is_Handle_Standalone(imageHandle)) {
+        int imageIndex = NU_Image_Handle_To_Standalone_Index(imageHandle);
         GLuint glHandle = *(GLuint*)Array_Get(&resourceManager->largeImageGlHandles, imageIndex);
         StandaloneImageRenderData* sRenderData = Array_PushEmpty(&resourceManager->standaloneImageRenderDatas);
+        renderData->u0 = 0;
+        renderData->v0 = 0;
+        renderData->u1 = 1;
+        renderData->v1 = 1;
         sRenderData->glImageHandle = glHandle;
         sRenderData->renderData = *renderData;
     }
     // Image is atlased
     else {
-        int atlasIndex = ((imageHandle >> 16) & 0xFFFFu) - 1;
-        int imageIndex = (imageHandle & 0xFFFFu) - 1;
+        int atlasIndex = NU_Image_Handle_To_Atlas_Index(imageHandle);
+        int imageIndex = NU_Image_Handle_To_Atlas_Image_Index(imageHandle);
         Atlas* atlas = Array_Get(&resourceManager->atlases, atlasIndex);
-        AtlasImage* img = Array_Get(&atlas->images, imageIndex);
+        AtlasImageUVs* img = Array_Get(&atlas->images, imageIndex);
         renderData->u0 = img->u0;
         renderData->v0 = img->v0;
         renderData->u1 = img->u1;
@@ -164,9 +170,7 @@ void ImageResourceLoader_Init(ImageResourceLoader* loader, ImageResourceManager*
 int ImageResourceLoader_GetLoadedImageHandle(ImageResourceLoader* loader, const char* filepath)
 {
     void* found = LinearStringmap_Get(&loader->imageFilepathToHandleMap, filepath);
-    if (found == NULL) {
-        return 0;
-    }
+    if (found == NULL) return 0;
     return *(int*)found;
 }
 
@@ -174,9 +178,7 @@ int ImageResourceLoader_LoadImage(ImageResourceLoader* loader, const char* filep
 {
     int w, h, n;
     unsigned char* buffer = stbi_load(filepath, &w, &h, &n, 4); // Force RGBA
-    if (!buffer) {
-        return 0;
-    }
+    if (!buffer) return 0;
 
     int imageHandle;
 
@@ -199,7 +201,7 @@ int ImageResourceLoader_LoadImage(ImageResourceLoader* loader, const char* filep
         int index = loader->resourceManager->largeImageGlHandles.size - 1;
 
         // Create handle
-        imageHandle = (index << 16) | 0xFFFFu;
+        imageHandle = NU_Image_Create_Standalone_Handle(index);
     }
     // Pack image into an atlas
     else
@@ -210,7 +212,9 @@ int ImageResourceLoader_LoadImage(ImageResourceLoader* loader, const char* filep
         AtlasBuild* validAtlasBuild = NULL;
         Atlas* atlas = NULL;
         int atlasIndex = 0;
-        for (int i = 0; i < min(loader->atlasBuilds.size, 4); i++) {
+        int start = loader->atlasBuilds.size - 4;
+        if (start < 0) start = 0;
+        for (int i = start; i < loader->atlasBuilds.size; i++) {
             AtlasBuild* atlasBuild = Array_Get(&loader->atlasBuilds, i);
             if (AtlasBuild_CanFit(atlasBuild, w, h)) {
                 validAtlasBuild = atlasBuild;
@@ -227,7 +231,7 @@ int ImageResourceLoader_LoadImage(ImageResourceLoader* loader, const char* filep
 
             // Create a corresponding ImageResourceManager Atlas
             atlas = Array_PushEmpty(&loader->resourceManager->atlases);
-            Array_Init(&atlas->images, sizeof(AtlasImage), 32);
+            Array_Init(&atlas->images, sizeof(AtlasImageUVs), 32);
             Array_Init(&atlas->renderDataArray, sizeof(ImageRenderData), 32);
             atlasIndex = loader->resourceManager->atlases.size - 1;
         }
@@ -238,7 +242,7 @@ int ImageResourceLoader_LoadImage(ImageResourceLoader* loader, const char* filep
         stbi_image_free(buffer);
 
         // Add image to resource manager
-        AtlasImage* newImage = Array_PushEmpty(&atlas->images);
+        AtlasImageUVs* newImage = Array_PushEmpty(&atlas->images);
         newImage->u0 = (float)x / (float)atlasSize;
         newImage->v0 = (float)y / (float)atlasSize;
         newImage->u1 = (float)(x + w) / (float)atlasSize;
@@ -246,7 +250,7 @@ int ImageResourceLoader_LoadImage(ImageResourceLoader* loader, const char* filep
         int imageIndex = atlas->images.size - 1;
 
         // Create handle
-        imageHandle = (((atlasIndex + 1) & 0xFFFFu) << 16) | ((imageIndex + 1) & 0xFFFFu);
+        imageHandle = NU_Image_Create_Atlas_Handle(atlasIndex, imageIndex);
     }
 
     LinearStringmap_Set(&loader->imageFilepathToHandleMap, filepath, &imageHandle);
@@ -276,7 +280,4 @@ void ImageResourceLoader_UploadImagesAndFree(ImageResourceLoader* loader)
         // Free atlas memory
         free(build->buffer);
     }
-
-    // Free memory
-    LinearStringmap_Free(&loader->imageFilepathToHandleMap);
 }

@@ -9,9 +9,8 @@
 
 typedef struct Tree
 {
-    Nalloc* layerAllocs;
+    Nalloc nodeAlloc;
     Node* root;
-    u32 layerAllocsCapacity;
     u32 depth;
     u32 nodeCount;
     Array deleteStack; // preallocated (reduce fragmentation)
@@ -23,13 +22,7 @@ typedef void (*TreeDeleteCallback)(Node* node);
 Node* TreeCreate(Tree* tree)
 {
     // create layer allocators
-    tree->layerAllocsCapacity = 4;
-    tree->layerAllocs = malloc(sizeof(Nalloc) * tree->layerAllocsCapacity);
-    for (int i=0; i<tree->layerAllocsCapacity; i++)
-    {
-        if (i == 0) Nalloc_Init(&tree->layerAllocs[i], 1);
-        else Nalloc_Init(&tree->layerAllocs[i], 100);
-    }
+    Nalloc_Init(&tree->nodeAlloc, 1000);
 
     Array_Init(&tree->deletedButNotFreedNodes, sizeof(Node*), 25);
     Array_Init(&tree->deleteStack, sizeof(Node*), 100);
@@ -39,7 +32,7 @@ Node* TreeCreate(Tree* tree)
     tree->nodeCount = 1;
 
     // create root node
-    Node* root = Nalloc_Alloc(&tree->layerAllocs[0]);
+    Node* root = Nalloc_Alloc(&tree->nodeAlloc);
     NU_ApplyNodeDefaults(root, NULL, NU_TYPE_WINDOW, 0);
 
     tree->root = root;
@@ -48,38 +41,21 @@ Node* TreeCreate(Tree* tree)
 
 void TreeFree(Tree* tree)
 {
-    for (int i=0; i<tree->layerAllocsCapacity; i++) {
-        Nalloc_Destroy(&tree->layerAllocs[i]);
-    }
-    free(tree->layerAllocs);
+    Nalloc_Destroy(&tree->nodeAlloc);
+    Array_Free(&tree->deletedButNotFreedNodes);
+    Array_Free(&tree->deleteStack);
     tree->depth = 0;
     tree->nodeCount = 0;
 }
 
-void TreeAddLayer(Tree* tree)
-{
-    u32 newCapacity = tree->layerAllocsCapacity * 2;
-    tree->layerAllocs = realloc(tree->layerAllocs, sizeof(Nalloc) * newCapacity);
-    for (u32 i=tree->layerAllocsCapacity; i<newCapacity; i++) {
-        Nalloc_Init(&tree->layerAllocs[i], 128);
-    }
-    tree->layerAllocsCapacity = newCapacity;
-}
-
 Node* TreeCreateNode(Tree* tree, Node* parent, u8 type)
 {
-    // add additional layer allocator if necessary
-    if (parent->layer + 1 == tree->layerAllocsCapacity) {
-        TreeAddLayer(tree);
-    }
-
     // grow tree depth if necessary
     if (parent->layer == tree->depth - 1) tree->depth++;
     tree->nodeCount++;
 
     // allocate new node
-    Nalloc* nalloc = &tree->layerAllocs[parent->layer + 1];
-    Node* newNode = Nalloc_Alloc(nalloc);
+    Node* newNode = Nalloc_Alloc(&tree->nodeAlloc);
     NU_ApplyNodeDefaults(newNode, parent, type, parent->layer + 1);
 
     // parent has no children
@@ -279,8 +255,7 @@ void TreeFreeDeleted(Tree* tree)
 {
     for (int i=0; i<tree->deletedButNotFreedNodes.size; i++) {
         Node* deletedNode = *(Node**)Array_Get(&tree->deletedButNotFreedNodes, i);
-        Nalloc* nalloc = &tree->layerAllocs[deletedNode->layer];
-        Nalloc_Free(nalloc, deletedNode);
+        Nalloc_Free(&tree->nodeAlloc, deletedNode);
     }
     Array_Clear(&tree->deletedButNotFreedNodes);
 }

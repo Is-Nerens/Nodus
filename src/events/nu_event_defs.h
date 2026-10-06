@@ -150,3 +150,5 @@ void TriggerAllOnKeyDownEvents(SDL_Keycode keycode, bool repeat);
 void TriggerAllOnKeyUpEvents(SDL_Keycode keycode, bool repeat);
 
 void TriggerAllOnTypeEvents(const char* text);
+
+void NU_Unregister_All_Iterated_Events(Node* node);

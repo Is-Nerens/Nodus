@@ -22,6 +22,35 @@ bool EventWatcher(void* data, SDL_Event* event)
         // --- Resized window -> redraw -------------------------------------------------------
         // ------------------------------------------------------------------------------------
         case SDL_EVENT_WINDOW_RESIZED: {
+
+            // Trigger timer callbacks
+            u64 currentTimeMs = SDL_GetTicks();
+            for (int i=0; i<GUI.timers.size; i++) {
+                NU_Timer* timer = Container_GetAt(&GUI.timers, i);
+                if (!timer->willBeRemoved) {
+                    u64 timeSinceLastFired = currentTimeMs - timer->lastFiredTime;
+                    if (timeSinceLastFired >= timer->intervalMs) {
+                        timer->lastFiredTime = currentTimeMs;
+                        timer->callback(timer->args);
+                    }
+                }
+            }
+
+            // Safely delete removed timers
+            for (int i=GUI.timers.size-1; i>=0; i--) {
+                NU_Timer* timer = Container_GetAt(&GUI.timers, i);
+                int id = Container_IdAt(&GUI.timers, i);
+                if (timer->willBeRemoved) Container_Remove(&GUI.timers, id);
+            }
+
+            // Safely unregister deleted nodes from iterated hashmaps and free node memory
+            for (int i=0; i<GUI.tree.deletedButNotFreedNodes.size; i++) {
+                Node* node = *(Node**)Array_Get(&GUI.tree.deletedButNotFreedNodes, i);
+                NU_Unregister_All_Iterated_Events(node);
+            }
+            TreeFreeDeleted(&GUI.tree);
+
+            // Re-render
             NU_Layout();
             CheckForResizeEvents();
             NU_Draw();

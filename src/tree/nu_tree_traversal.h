@@ -10,7 +10,6 @@ typedef struct DFSFrame {
     uint8_t visited;   // 0 = not returned yet, 1 = returned
 } DFSFrame;
 
-
 typedef struct DepthFirstSearch {
     DFSFrame* stack;
     u32 size;
@@ -90,6 +89,42 @@ void DepthFirstSearch_Free(DepthFirstSearch* dfs)
 
 
 
+// typedef struct TreePartitioner {
+//     // ideally all stack based memory ( no allocations )
+// } TreePartitioner;
+
+// void TreePartitioner_Create(TreePartitioner* partitioner, Node* root, int partitionCount)
+// {
+
+// }
+
+
+// // -----------------------------------------------
+// // Parallel Sub-branch Depth First Search iterator
+// // -----------------------------------------------
+// typedef struct ParallelDepthFirstSearch {
+
+// } ParallelDepthFirstSearch;
+
+// ParallelDepthFirstSearch ParallelDepthFirstSearch_Create() {
+
+// }
+
+// void ParallelDepthFirstSearch_Start(ParallelDepthFirstSearch* pdfs, TreePartitioner* partitioner) {
+
+// }
+
+// int ParallelDepthFirstSearch_Next(ParallelDepthFirstSearch* pdfs, int partitionIndex, Node** nodeOut) {
+
+// }
+
+// void ParallelDepthFirstSearch_Reset(ParallelDepthFirstSearch* pdfs) {
+
+// }
+
+// void ParallelDepthFirstSearch_Free(ParallelDepthFirstSearch* pdfs) {
+
+// }
 
 // -----------------------------
 // Breadth First Search iterator

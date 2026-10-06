@@ -21,6 +21,8 @@ static inline float fmin_fast(float a, float b) {
 
 typedef void (*NU_Callback)(void* args);
 
+#define NU_EVENT_TIMER 1
+
 // ----------------------
 // --- Nodus Includes ---
 // ----------------------

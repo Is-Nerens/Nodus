@@ -169,52 +169,15 @@ _EXPORT int NU_CREATE_GUI(const char* xml_filepath, const char* css_filepath)
     // Event watcher
     SDL_AddEventWatch(EventWatcher, NULL);
 
-    // Main thread block handling
-    GUI.lastMainThreadRunTime = UINT64_MAX;
-
     // Success
     return 1;
 }
 
-int SecondaryTimerThread(void* args)
+int TimerHandler(void* args)
 {
     while(GUI.running) {
 
-        SDL_Delay(50);
-
-        u64 currentTimeMs = SDL_GetTicks();
-
-        // Main thread appears blocked
-        if (currentTimeMs - GUI.lastMainThreadRunTime > GetFrametime() * 2) {
-
-            printf("main thread is blocked\n");
-        }
-    }
-
-    return 0;
-}
-
-_EXPORT void NU_RUN(void)
-{
-    if (GUI.running) return;
-    GUI.running = true;
-
-    // Create a thread that takes over operation when the
-    // OS blocks the main thread
-    SDL_Thread* secondaryTimerThread;
-    secondaryTimerThread = SDL_CreateThread(
-        SecondaryTimerThread,
-        "SecondaryTimerThread",
-        NULL
-    );
-
-    while(GUI.running) {
-
-        // Handle events
-        SDL_Event event;
-        while (SDL_PollEvent(&event)) {}
-
-        GUI.lastMainThreadRunTime = SDL_GetTicks();
+        u64 shortestTimerInterval = 20;
 
         // Trigger timer callbacks
         u64 currentTimeMs = SDL_GetTicks();
@@ -225,6 +188,17 @@ _EXPORT void NU_RUN(void)
                 if (timeSinceLastFired >= timer->intervalMs) {
                     timer->lastFiredTime = currentTimeMs;
                     timer->callback(timer->args);
+
+                    // Push timer event
+                    SDL_Event event = {0};
+                    event.type = SDL_EVENT_USER;
+                    event.user.code = NU_EVENT_TIMER;
+                    event.user.data1 = timer->callback;
+                    event.user.data2 = timer->args;
+                    SDL_PushEvent(&event);
+                }
+                if (timer->intervalMs < shortestTimerInterval) {
+                    shortestTimerInterval = timer->intervalMs;
                 }
             }
         }
@@ -235,6 +209,33 @@ _EXPORT void NU_RUN(void)
             int id = Container_IdAt(&GUI.timers, i);
             if (timer->willBeRemoved) Container_Remove(&GUI.timers, id);
         }
+
+        SDL_Delay(shortestTimerInterval);
+    }
+
+    return 0;
+}
+
+_EXPORT void NU_RUN(void)
+{
+    if (GUI.running) return;
+    GUI.running = true;
+
+    // Create timer thread
+    SDL_Thread* timerThread;
+    timerThread = SDL_CreateThread(
+        TimerHandler,
+        "TimerThread",
+        NULL
+    );
+
+    while(GUI.running) {
+
+        // Handle events
+        SDL_Event event;
+        while (SDL_PollEvent(&event)) {}
+
+        GUI.lastMainThreadRunTime = SDL_GetTicks();
 
         // Safely unregister deleted nodes from iterated hashmaps and free node memory
         for (int i=0; i<GUI.tree.deletedButNotFreedNodes.size; i++) {
@@ -257,7 +258,7 @@ _EXPORT void NU_RUN(void)
     }
 
     // Wait for the second thread to close
-    SDL_WaitThread(secondaryTimerThread, NULL);
+    SDL_WaitThread(timerThread, NULL);
 }
 
 _EXPORT int NU_ADD_TIMER(u32 intervalMs, NU_Callback callback, void* args)

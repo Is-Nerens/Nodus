@@ -126,6 +126,8 @@ int Stylesheet_Create(Stylesheet* stylesheet, const char* filepath, ImageResourc
     }
     timer_stop();
 
+    printf("generated css\n");
+
     // Free memory
     TokenArray_Free(&tokens);
     Array_Free(&textRefs);

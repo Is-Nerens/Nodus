@@ -15,7 +15,7 @@ const char* nu_xml_keywords[] = {
     "border", "border-top", "border-bottom", "border-left", "border-right",
     "border-radius", "border-radius-top-left", "border-radius-top-right", "border-radius-bottom-left", "border-radius-bottom-right",
     "padding", "padding-top", "padding-bottom", "padding-left", "padding-right",
-    "image-src",
+    "image-src", "image-repeat", "image-filter",
     "input-type",
     "src", "title",
 
@@ -46,7 +46,7 @@ typedef enum NU_XML_TOKEN
     BORDER_WIDTH_PROPERTY, BORDER_TOP_WIDTH_PROPERTY, BORDER_BOTTOM_WIDTH_PROPERTY, BORDER_LEFT_WIDTH_PROPERTY, BORDER_RIGHT_WIDTH_PROPERTY,
     BORDER_RADIUS_PROPERTY, BORDER_TOP_LEFT_RADIUS_PROPERTY, BORDER_TOP_RIGHT_RADIUS_PROPERTY, BORDER_BOTTOM_LEFT_RADIUS_PROPERTY, BORDER_BOTTOM_RIGHT_RADIUS_PROPERTY,
     PADDING_PROPERTY, PADDING_TOP_PROPERTY, PADDING_BOTTOM_PROPERTY, PADDING_LEFT_PROPERTY, PADDING_RIGHT_PROPERTY,
-    IMAGE_SOURCE_PROPERTY, INPUT_TYPE_PROPERTY, IMPORT_SRC_PROPERTY,
+    IMAGE_SOURCE_PROPERTY, IMAGE_REPEAT_PROPERTY, IMAGE_FILTER_PROPERTY, INPUT_TYPE_PROPERTY, IMPORT_SRC_PROPERTY,
     TITLE_PROPERTY,
 
     // Tags

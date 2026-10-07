@@ -57,8 +57,22 @@
 #define PROPERTY_FLAG_PAD_LEFT          (1ULL << 36)
 #define PROPERTY_FLAG_PAD_RIGHT         (1ULL << 37)
 #define PROPERTY_FLAG_IMAGE             (1ULL << 38)
-#define PROPERTY_FLAG_INPUT_TYPE        (1ULL << 39)
-#define PROPERTY_FLAG_FONT              (1ULL << 40)
+#define PROPERTY_FLAG_IMAGE_DIM         (1ULL << 39)
+#define PROPERTY_FLAG_IMAGE_REPEAT      (1ULL << 40)
+#define PROPERTY_FLAG_IMAGE_FILTER      (1ULL << 41)
+#define PROPERTY_FLAG_INPUT_TYPE        (1ULL << 42)
+#define PROPERTY_FLAG_FONT              (1ULL << 43)
+
+// Image settings
+#define IMAGE_DIM_INTRINSIC      0
+#define IMAGE_DIM_SPECIFIC       1
+#define IMAGE_DIM_ASPECT         2
+#define IMAGE_REPEAT_NONE        0
+#define IMAGE_REPEAT_HORIZONTAL  1
+#define IMAGE_REPEAT_VERTICAL    2
+#define IMAGE_REPEAT_BOTH        3
+#define IMAGE_FILTER_LINEAR      0
+#define IMAGE_FILTER_NEAREST     1
 
 // Node type
 #define NU_TYPE_WINDOW 0
@@ -178,12 +192,16 @@ typedef union PublicNodeStructUnion {
 } PublicNodeStructUnion;
 
 /* Node type-specific data */
-typedef struct NuInputData {
+typedef struct NuInputSpecial {
     int textInputHandle;
 } NuInputSpecial;
 
 typedef struct NuImageSpecial {
     int imageHandle;
+    u8 widthDimType;
+    u8 heightDimType;
+    u8 repeat;
+    u8 filter;
 } NuImageSpecial;
 
 typedef struct NuCanvasSpecial {
@@ -200,12 +218,13 @@ typedef union NodeSpecialDataUnion {
 typedef struct Node
 {
     PublicNodeStructUnion public;   // Publicly readible to library user
-    struct Node* parent;
-    struct Node* nextSibling;      // Next sibling in linked-list style array
-    struct Node* prevSibling;      // Prev sibling in linked-list style array
-    struct Node* firstChild;       // First child in linked-list style child array
-    struct Node* lastChild;        // Last child in linked-list style child array
-    struct Node* clippedAncestor;  // Optional ancestor that has render clipping -> for calculating clipping union
+    u32 index;
+    u32 parentIndex;
+    u32 nextSiblingIndex;      // Next sibling in linked-list style array
+    u32 prevSiblingIndex;      // Prev sibling in linked-list style array
+    u32 firstChildIndex;       // First child in linked-list style child array
+    u32 lastChildIndex;        // Last child in linked-list style child array
+    u32 clippedAncestorIndex;  // Optional ancestor that has render clipping -> for calculating clipping union
     char* class;
     char* id;
     u64 overrideStyleFlags;         // Bitflags determine which style properties ignore the stylesheet
@@ -224,6 +243,13 @@ typedef struct Node
     u8 horizontalTextAlignment;     // Left, Center, Right [0, 1, 2]
     u8 verticalTextAlignment;       // Top, Center, Bottom [0, 1, 2]
 } Node;
+
+#define NODE_PARENT(node)((node) - (node)->index + (node)->parentIndex)
+#define NODE_NEXT_SIBLING(node)((node) - (node)->index + (node)->nextSiblingIndex)
+#define NODE_PREV_SIBLING(node)((node) - (node)->index + (node)->prevSiblingIndex)
+#define NODE_FIRST_CHILD(node)((node) - (node)->index + (node)->firstChildIndex)
+#define NODE_LAST_CHILD(node)((node) - (node)->index + (node)->lastChildIndex)
+#define NODE_CLIPPED_ANCESTOR(node)((node) - (node)->index + (node)->clippedAncestorIndex)
 
 /* Other structs used by the layout engine */
 typedef struct NU_NodeDimensions
@@ -245,61 +271,6 @@ typedef enum NodeOverlap
     NODE_OVERLAP_PARTIAL,
     NODE_OVERLAP_INSIDE
 } NodeOverlap;
-
-/* Initialises node */
-void NU_ApplyNodeDefaults(Node* node, Node* parent, u8 type, u16 layer)
-{
-    // Zero init
-    memset(node, 0, sizeof(Node));
-
-    // Init members passed as args to this function
-    node->parent = parent;
-    node->layer = layer;
-    node->type = type;
-
-    // Set specific fields to default values
-    node->public.generic.maxWidth = node->public.generic.maxHeight = UINT16_MAX;
-    node->public.generic.backgroundR = node->public.generic.backgroundG = node->public.generic.backgroundB = 50;
-    node->public.generic.borderR = node->public.generic.borderG = node->public.generic.borderB = 100;
-    node->public.generic.textR = node->public.generic.textG = node->public.generic.textB = 255;
-    node->horizontalTextAlignment = 0;
-    node->verticalTextAlignment = 1;
-    node->widgetID = -1;
-
-    // Set defaults based on node type
-    switch (node->type)
-    {
-    case NU_TYPE_TABLE:
-        node->overrideStyleFlags |= PROPERTY_FLAG_LAYOUT_DIR;
-        node->layoutFlags |= LAYOUT_VERTICAL;
-        break;
-    case NU_TYPE_THEAD:
-        node->overrideStyleFlags |= PROPERTY_FLAG_GROW;
-        node->layoutFlags |= GROW_HORIZONTAL;
-        break;
-    case NU_TYPE_ROW:
-        node->overrideStyleFlags |= PROPERTY_FLAG_GROW;
-        node->layoutFlags |= GROW_HORIZONTAL;
-        break;
-    case NU_TYPE_INPUT:
-        node->special.input.textInputHandle = -1;
-        break;
-    case NU_TYPE_CANVAS:
-        node->special.canvas.ctxHandle = -1;
-        break;
-    case NU_TYPE_FRAME:
-        node->overrideStyleFlags |= PROPERTY_FLAG_HIDE_BACKGROUND;
-        node->layoutFlags |= HIDE_BACKGROUND;
-        break;
-    default:
-        break;
-    }
-
-    // Inherit parent's window (if node is not a window itself)
-    if (node->type != NU_TYPE_WINDOW) {
-        node->windowID = node->parent->windowID;
-    }
-}
 
 /* Useful quality of life functions for querying node state */
 inline bool NodeStateHidden(Node* node)

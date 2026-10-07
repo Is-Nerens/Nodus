@@ -10,12 +10,14 @@ freetypeInclude="src/libraries/freetype/include"
 freetypeLib="src/libraries/freetype/mac"
 
 # Compile
-clang -std=c99 -O3 \
+clang -std=c99 -O3 -g \
     "src/nodus.c" \
+    "src/memory_map/nu_memory_map.c" \
     -I"$srcInclude" \
     -I"$glewInclude" \
     -I"$sdlInclude" \
     -I"$freetypeInclude" \
+    -I"$srcInclude/memory_map" \
     "$glewLib/libGLEW.a" \
     "$freetypeLib/libfreetype.a" \
     "$sdlLib/libSDL3.a" \

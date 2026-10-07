@@ -139,6 +139,19 @@ void NU_Parse_Property(const enum NU_XML_TOKEN token, Node* currentNode, char* p
             if (String_To_Uint16(&width, ptext)) {
                 currentNode->overrideStyleFlags |= PROPERTY_FLAG_PREFERRED_WIDTH;
                 currentNode->public.generic.preferredWidth = width;
+
+                if (currentNode->type == NU_TYPE_IMAGE) {
+                    currentNode->overrideStyleFlags |= PROPERTY_FLAG_IMAGE_DIM;
+                    currentNode->special.image.widthDimType = IMAGE_DIM_SPECIFIC;
+                }
+            }
+            else if (currentNode->type == NU_TYPE_IMAGE && strcmp(ptext, "image") == 0) {
+                currentNode->overrideStyleFlags |= PROPERTY_FLAG_IMAGE_DIM;
+                currentNode->special.image.widthDimType = IMAGE_DIM_INTRINSIC;
+            }
+            else if (currentNode->type == NU_TYPE_IMAGE && strcmp(ptext, "aspect") == 0) {
+                currentNode->overrideStyleFlags |= PROPERTY_FLAG_IMAGE_DIM;
+                currentNode->special.image.widthDimType = IMAGE_DIM_ASPECT;
             }
             break;
         }
@@ -169,6 +182,18 @@ void NU_Parse_Property(const enum NU_XML_TOKEN token, Node* currentNode, char* p
             if (String_To_Uint16(&height, ptext)) {
                 currentNode->overrideStyleFlags |= PROPERTY_FLAG_PREFERRED_HEIGHT;
                 currentNode->public.generic.preferredHeight = height;
+                if (currentNode->type == NU_TYPE_IMAGE) {
+                    currentNode->overrideStyleFlags |= PROPERTY_FLAG_IMAGE_DIM;
+                    currentNode->special.image.heightDimType = IMAGE_DIM_SPECIFIC;
+                }
+            }
+            else if (currentNode->type == NU_TYPE_IMAGE && strcmp(ptext, "image") == 0) {
+                currentNode->overrideStyleFlags |= PROPERTY_FLAG_IMAGE_DIM;
+                currentNode->special.image.heightDimType = IMAGE_DIM_INTRINSIC;
+            }
+            else if (currentNode->type == NU_TYPE_IMAGE && strcmp(ptext, "aspect") == 0) {
+                currentNode->overrideStyleFlags |= PROPERTY_FLAG_IMAGE_DIM;
+                currentNode->special.image.heightDimType = IMAGE_DIM_ASPECT;
             }
             break;
         }
@@ -478,6 +503,42 @@ void NU_Parse_Property(const enum NU_XML_TOKEN token, Node* currentNode, char* p
             break;
         }
 
+        case IMAGE_REPEAT_PROPERTY: {
+            if (currentNode->type != NU_TYPE_IMAGE) break;
+            switch (c) {
+                case 'h': {
+                    currentNode->overrideStyleFlags |= PROPERTY_FLAG_IMAGE_REPEAT;
+                    currentNode->special.image.repeat = IMAGE_REPEAT_HORIZONTAL;
+                    break;
+                }
+                case 'v': {
+                    currentNode->overrideStyleFlags |= PROPERTY_FLAG_IMAGE_REPEAT;
+                    currentNode->special.image.repeat = IMAGE_REPEAT_VERTICAL;
+                    break;
+                }
+                case 'b': {
+                    currentNode->overrideStyleFlags |= PROPERTY_FLAG_IMAGE_REPEAT;
+                    currentNode->special.image.repeat = IMAGE_REPEAT_BOTH;
+                    break;
+                }
+                default: break;
+            }
+            break;
+        }
+
+        case IMAGE_FILTER_PROPERTY: {
+            if (currentNode->type != NU_TYPE_IMAGE) break;
+            if (strcmp(ptext, "linear") == 0) {
+                currentNode->overrideStyleFlags |= PROPERTY_FLAG_IMAGE_FILTER;
+                currentNode->special.image.filter = IMAGE_FILTER_LINEAR;
+            }
+            else if (strcmp(ptext, "nearest") == 0) {
+                currentNode->overrideStyleFlags |= PROPERTY_FLAG_IMAGE_FILTER;
+                currentNode->special.image.filter = IMAGE_FILTER_NEAREST;
+            }
+            break;
+        }
+
         // Input type property
         case INPUT_TYPE_PROPERTY: {
             if (currentNode->type != NU_TYPE_INPUT) break;
@@ -606,7 +667,7 @@ int NU_Parse_Component(Node* currentNode, char* src, TokenArray* tokens, struct 
                 else ctx = GENCTX_IN_CONTENT_OF_TABLE_WITHOUT_THEAD;
             }
 
-            currentNode = currentNode->parent;
+            currentNode = NODE_PARENT(currentNode);
             i+=3;            // Increment token index
             continue;
         }
@@ -624,7 +685,7 @@ int NU_Parse_Component(Node* currentNode, char* src, TokenArray* tokens, struct 
                 else ctx = GENCTX_IN_CONTENT_OF_TABLE_WITHOUT_THEAD;
             }
 
-            currentNode = currentNode->parent;
+            currentNode = NODE_PARENT(currentNode);
 
             // Continue ^
             i+=1; continue;
@@ -838,7 +899,7 @@ int NU_Generate_Tree(char* src, TokenArray* tokens, struct Array* textRefs, Imag
                 else ctx = GENCTX_IN_CONTENT_OF_TABLE_WITHOUT_THEAD;
             }
 
-            currentNode = currentNode->parent;
+            currentNode = NODE_PARENT(currentNode);
             i+=3;            // Increment token index
             continue;
         }
@@ -863,7 +924,7 @@ int NU_Generate_Tree(char* src, TokenArray* tokens, struct Array* textRefs, Imag
                 else ctx = GENCTX_IN_CONTENT_OF_TABLE_WITHOUT_THEAD;
             }
 
-            currentNode = currentNode->parent;
+            currentNode = NODE_PARENT(currentNode);
 
             // Continue ^
             i+=1; continue;

@@ -1,4 +1,3 @@
-
 #include "utils/nu_int.h"
 #include <SDL3/SDL.h>
 #include <GL/glew.h>
@@ -138,6 +137,8 @@ _EXPORT int NU_CREATE_GUI(const char* xml_filepath, const char* css_filepath)
     ImageResourceLoader imageResourceLoader;
     ImageResourceLoader_Init(&imageResourceLoader, &GUI.imageResourceManager);
 
+    printf("node size: %lu\n", sizeof(Node));
+
     // Load xml
     if (!NU_Internal_Load_XML(xml_filepath, &imageResourceLoader)) {
         NU_QUIT(); return 0;
@@ -158,16 +159,25 @@ _EXPORT int NU_CREATE_GUI(const char* xml_filepath, const char* css_filepath)
         Array_Init(renderData, sizeof(GlyphRenderData), 512);
     }
 
+    printf("created font render data buffers\n");
+
     // Apply css
     if (!NU_Internal_Apply_Stylesheet(&GUI.stylesheet)) {
         NU_QUIT(); return 0;
     }
 
+    printf("applied stylesheet\n");
+
     // Initial layout calculation
     NU_Layout();
 
+    printf("initial layout done\n");
+
     // Event watcher
     SDL_AddEventWatch(EventWatcher, NULL);
+
+    // Timer mutex
+    GUI.timerMutex = SDL_CreateMutex();
 
     // Success
     return 1;
@@ -179,6 +189,8 @@ int TimerHandler(void* args)
 
         u64 shortestTimerInterval = 20;
 
+        SDL_LockMutex(GUI.timerMutex);
+
         // Trigger timer callbacks
         u64 currentTimeMs = SDL_GetTicks();
         for (int i=0; i<GUI.timers.size; i++) {
@@ -187,7 +199,6 @@ int TimerHandler(void* args)
                 u64 timeSinceLastFired = currentTimeMs - timer->lastFiredTime;
                 if (timeSinceLastFired >= timer->intervalMs) {
                     timer->lastFiredTime = currentTimeMs;
-                    timer->callback(timer->args);
 
                     // Push timer event
                     SDL_Event event = {0};
@@ -209,6 +220,8 @@ int TimerHandler(void* args)
             int id = Container_IdAt(&GUI.timers, i);
             if (timer->willBeRemoved) Container_Remove(&GUI.timers, id);
         }
+
+        SDL_UnlockMutex(GUI.timerMutex);
 
         SDL_Delay(shortestTimerInterval);
     }
@@ -234,8 +247,6 @@ _EXPORT void NU_RUN(void)
         // Handle events
         SDL_Event event;
         while (SDL_PollEvent(&event)) {}
-
-        GUI.lastMainThreadRunTime = SDL_GetTicks();
 
         // Safely unregister deleted nodes from iterated hashmaps and free node memory
         for (int i=0; i<GUI.tree.deletedButNotFreedNodes.size; i++) {
@@ -269,15 +280,20 @@ _EXPORT int NU_ADD_TIMER(u32 intervalMs, NU_Callback callback, void* args)
     timer.callback = callback;
     timer.args = args;
     timer.willBeRemoved = false;
-    return Container_Add(&GUI.timers, &timer);
+    SDL_LockMutex(GUI.timerMutex);
+    int timerId = Container_Add(&GUI.timers, &timer);
+    SDL_UnlockMutex(GUI.timerMutex);
+    return timerId;
 }
 
 _EXPORT void NU_REMOVE_TIMER(int timer)
 {
+    SDL_LockMutex(GUI.timerMutex);
     NU_Timer* _timer = Container_Get(&GUI.timers, timer);
     if (_timer) {
         _timer->willBeRemoved = true;
     }
+    SDL_UnlockMutex(GUI.timerMutex);
 }
 
 // -----------------------
@@ -387,19 +403,19 @@ _EXPORT void NU_SET_CURSOR_NESW_RESIZE(void)
 // ---------------------
 _EXPORT NuNode* NU_PARENT(const NuNode* node) {
     Node* nodeP = (Node*)(node);
-    if (nodeP->parent == NULL) return NULL;
-    return (NuNode*)(nodeP->parent);
+    if (nodeP->parentIndex == INVALID_NODE_INDEX) return NULL;
+    return (NuNode*)(NODE_PARENT(nodeP));
 }
 
 _EXPORT NuNode* NU_CHILD(const NuNode* node, u32 childIndex) {
     Node* nodeP = (Node*)(node);
     if (nodeP == NULL || childIndex >= nodeP->childCount) return NULL;
-    Node* child = nodeP->firstChild;
+    Node* child = NODE_FIRST_CHILD(nodeP);
     u32 i = 0;
     while(child != NULL) {
         if (i == childIndex) return (NuNode*)(child);
         i++;
-        child = child->nextSibling;
+        child = NODE_NEXT_SIBLING(child);
     }
     return NULL;
 }
@@ -416,12 +432,12 @@ _EXPORT int NU_CHILD_COUNT(const NuNode* node) {
 
 _EXPORT NuNode* NU_NEXT_SIBLING(const NuNode* node) {
     Node* nodeP = (Node*)(node);
-    return (NuNode*)(nodeP->nextSibling);
+    return (NuNode*)(NODE_NEXT_SIBLING(nodeP));
 }
 
 _EXPORT NuNode* NU_PREVIOUS_SIBLING(const NuNode* node) {
     Node* nodeP = (Node*)(node);
-    return (NuNode*)(nodeP->prevSibling);
+    return (NuNode*)(NODE_PREV_SIBLING(nodeP));
 }
 
 _EXPORT NuWindow* NU_WINDOW(NuNode* parent) {
@@ -1038,10 +1054,10 @@ _EXPORT NU_Nodelist NU_CHILDREN(const NuNode* node) {
     Node* nodeP = (Node*)(node);
     NU_Nodelist_Internal result;
     NU_Nodelist_Init(&result, nodeP->childCount);
-    Node* child = nodeP->firstChild;
+    Node* child = NODE_FIRST_CHILD(nodeP);
     while(child != NULL) {
         NU_Nodelist_Push(&result, (NuNode*)(child));
-        child = child->nextSibling; // move to the next child
+        child = NODE_NEXT_SIBLING(child); // move to the next child
     }
     return result.nodelist;
 }
@@ -1078,10 +1094,10 @@ _EXPORT int NU_DOES_DESCEND(const NuNode* node, NuNode* ancestor) {
     if (node == NULL || ancestor == NULL) return 0;
     Node* nodeP = (Node*)(node);
     Node* ancestorP = (Node*)(ancestor);
-    Node* currP = nodeP->parent;
+    Node* currP = NODE_PARENT(nodeP);
     while(currP != NULL) {
         if (currP == ancestorP) return 1;
-        currP = currP->parent;
+        currP = NODE_PARENT(currP);
     }
     return 0;
 }

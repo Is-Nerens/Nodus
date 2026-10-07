@@ -21,8 +21,11 @@ bool EventWatcher(void* data, SDL_Event* event)
         // ------------------------------------------------------------------------------------
         // --- Timer event -> trigger user callback -------------------------------------------
         // ------------------------------------------------------------------------------------
-        case NU_EVENT_TIMER: {
-            ((NU_Callback)event->user.data1)(event->user.data2); break;
+
+        case SDL_EVENT_USER: {
+            if (event->user.code == NU_EVENT_TIMER) {
+                ((NU_Callback)event->user.data1)(event->user.data2);
+            }
             break;
         }
         // ------------------------------------------------------------------------------------

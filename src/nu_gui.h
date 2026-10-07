@@ -114,8 +114,8 @@ struct NU_GUI
     Array borderRectRenderDataArray;
     Array perFontTextRenderData;
 
-    // Main thread blockage detection
-    u64 lastMainThreadRunTime;
+    // Timer mutex
+    SDL_Mutex *timerMutex;
 };
 
 // ---------------------------

@@ -1,106 +1,80 @@
 #pragma once
-#include <stdlib.h>
 
-typedef union NallocChunk NallocChunk;
-union NallocChunk {
-    NallocChunk* next;
-    char buffer[184];
-};
+#include <stdint.h>
+#include "nu_memory_map.h"
 
-typedef struct ArrayStart
-{
-    NallocChunk* array;
-    struct ArrayStart* next;
-} ArrayStart;
+#define NALLOC_NODE_CAPACITY 256000
+#define INVALID_NODE_INDEX UINT32_MAX
 
-typedef struct Nalloc
-{
-    NallocChunk* freeChunk;
-    ArrayStart* arrayStart;
-    u32 chunksPerArray;
+typedef union NallocNode {
+    Node node;
+    u32 nextFree;
+} NallocNode;
+
+typedef struct Nalloc {
+    NallocNode* allocation;
+    u32 freeIndex;
+    u32 count;
 } Nalloc;
 
-int Nalloc_Init(Nalloc* pool, u32 itemsPerBlock)
+static inline Node* NodePtr(Nalloc* nalloc, u32 index)
 {
-    if (!pool) return 0;
+    return &nalloc->allocation[index].node;
+}
 
-    NallocChunk* array = (NallocChunk*)malloc(itemsPerBlock * sizeof(NallocChunk));
-    if (!array) return 0;
+static inline u32 NodeIndex(Nalloc* nalloc, Node* ptr)
+{
+    return (u32)(ptr - &nalloc->allocation[0].node);
+}
 
-    ArrayStart* node = (ArrayStart*)malloc(sizeof(ArrayStart));
-    if (!node) {
-        free(array);
-        return 0;
-    }
+int Nalloc_Init(Nalloc* nalloc)
+{
+    if (!nalloc) return 0;
 
-    for (u32 i=0; i<itemsPerBlock-1; i++) {
-        array[i].next = &array[i + 1];
-    }
-    array[itemsPerBlock-1].next = NULL;
-    pool->freeChunk       = array;
-    pool->arrayStart      = node;
-    pool->chunksPerArray  = itemsPerBlock;
-    node->array = array;
-    node->next  = NULL;
+    nalloc->allocation = (NallocNode*)NU_Memory_Map(
+        sizeof(NallocNode) * (size_t)NALLOC_NODE_CAPACITY
+    );
+
+    if (!nalloc->allocation) return 0;
+    nalloc->freeIndex = INVALID_NODE_INDEX;
+    nalloc->count = 0;
     return 1;
 }
 
-int Nalloc_Expand(Nalloc* pool, u32 extraChunks)
+
+Node* Nalloc_Alloc(Nalloc* nalloc)
 {
-    if (pool == NULL) return 0;
-
-    NallocChunk* extraArray = (NallocChunk*)malloc(extraChunks * sizeof(NallocChunk));
-    if (extraArray == NULL) return 0;
-
-    ArrayStart* arrayStart = (ArrayStart*)malloc(sizeof(ArrayStart));
-    if (arrayStart == NULL) {
-        free(extraArray);
-        return 0;
+    // Reuse a previously freed node
+    if (nalloc->freeIndex != INVALID_NODE_INDEX) {
+        u32 resultIndex = nalloc->freeIndex;
+        nalloc->freeIndex = nalloc->allocation[resultIndex].nextFree;
+        return &nalloc->allocation[resultIndex].node;
     }
 
-    for (u32 i=0; i<extraChunks-1; i++) {
-        extraArray[i].next = &extraArray[i+1];
-    }
-
-    extraArray[extraChunks-1].next = pool->freeChunk;
-    pool->freeChunk = extraArray;
-
-    arrayStart->array = extraArray;
-    arrayStart->next = pool->arrayStart;
-    pool->arrayStart = arrayStart;
-    return 1;
+    // Allocate a new node at the end of the pool
+    if (nalloc->count >= NALLOC_NODE_CAPACITY) return NULL;
+    u32 resultIndex = nalloc->count++;
+    return &nalloc->allocation[resultIndex].node;
 }
 
-void* Nalloc_Alloc(Nalloc* pool) {
-    if (pool == NULL) return NULL;
-
-    if (pool->freeChunk == NULL) {
-        if (!Nalloc_Expand(pool, pool->chunksPerArray)) return NULL;
-    }
-
-    NallocChunk* result = pool->freeChunk;
-    pool->freeChunk = pool->freeChunk->next;
-    return result;
+void Nalloc_Free(Nalloc* nalloc, Node* node)
+{
+    u32 index = (u32)(node - &nalloc->allocation[0].node);
+    nalloc->allocation[index].nextFree = nalloc->freeIndex;
+    nalloc->freeIndex = index;
 }
 
-void Nalloc_Free(Nalloc* pool, void* ptr) {
-    if (pool == NULL || ptr == NULL) return;
-    NallocChunk* freed = (NallocChunk*)ptr;
-    freed->next = pool->freeChunk;
-    pool->freeChunk = freed;
-}
+void Nalloc_Destroy(Nalloc* nalloc)
+{
+    if (!nalloc) return;
 
-void Nalloc_Destroy(Nalloc* pool) {
-    if (pool == NULL) return;
-
-    ArrayStart* arrayStart = pool->arrayStart;
-    while (arrayStart != NULL) {
-        ArrayStart* next = arrayStart->next;
-        free(arrayStart->array);
-        free(arrayStart);
-        arrayStart = next;
+    if (nalloc->allocation) {
+        NU_Memory_Unmap(
+            nalloc->allocation,
+            sizeof(NallocNode) * (size_t)NALLOC_NODE_CAPACITY
+        );
+        nalloc->allocation = NULL;
     }
-
-    pool->arrayStart = NULL;
-    pool->freeChunk = NULL;
+    nalloc->freeIndex = INVALID_NODE_INDEX;
+    nalloc->count = 0;
 }

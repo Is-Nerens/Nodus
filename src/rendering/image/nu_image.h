@@ -3,10 +3,16 @@
 #define STB_IMAGE_IMPLEMENTATION
 #include "stb_image.h"
 
-typedef struct AtlasImageUVs {
+typedef struct AtlasImageInfo {
     float u0, v0;
     float u1, v1;
-} AtlasImageUVs;
+    u16 w, h;
+} AtlasImageInfo;
+
+typedef struct StandaloneImageInfo {
+    GLuint glImageHandle;
+    u16 w, h;
+} StandaloneImageInfo;
 
 typedef struct StandaloneImageRenderData {
     ImageRenderData renderData;
@@ -20,7 +26,7 @@ typedef struct Atlas {
 } Atlas;
 
 typedef struct ImageResourceManager {
-    Array largeImageGlHandles;
+    Array standaloneImageInfos;
     Array atlases;
     Array standaloneImageRenderDatas;
 } ImageResourceManager;
@@ -97,16 +103,16 @@ typedef struct ImageResourceLoader {
 void ImageResourceManager_Init(ImageResourceManager* resourceManager)
 {
     Array_Init(&resourceManager->atlases, sizeof(Atlas), 4);
-    Array_Init(&resourceManager->largeImageGlHandles, sizeof(GLuint), 16);
+    Array_Init(&resourceManager->standaloneImageInfos, sizeof(StandaloneImageInfo), 16);
     Array_Init(&resourceManager->standaloneImageRenderDatas, sizeof(StandaloneImageRenderData), 16);
 }
 
 void ImageResourceManager_Free(ImageResourceManager* resourceManager)
 {
     // Free large image GL memory
-    for (int i=0; i<resourceManager->largeImageGlHandles.size; i++) {
-        GLuint handle = *(GLuint*)Array_Get(&resourceManager->largeImageGlHandles, i);
-        glDeleteTextures(1, &handle);
+    for (int i=0; i<resourceManager->standaloneImageInfos.size; i++) {
+        StandaloneImageInfo* info = Array_Get(&resourceManager->standaloneImageInfos, i);
+        glDeleteTextures(1, &info->glImageHandle);
     }
 
     // Free atlas memory
@@ -118,7 +124,7 @@ void ImageResourceManager_Free(ImageResourceManager* resourceManager)
     }
 
     // Free arrays
-    Array_Free(&resourceManager->largeImageGlHandles);
+    Array_Free(&resourceManager->standaloneImageInfos);
     Array_Free(&resourceManager->atlases);
     Array_Free(&resourceManager->standaloneImageRenderDatas);
 }
@@ -128,13 +134,13 @@ void ImageResourceManager_AddImageRenderData(ImageResourceManager* resourceManag
     // Image is standalone
     if (NU_Image_Is_Handle_Standalone(imageHandle)) {
         int imageIndex = NU_Image_Handle_To_Standalone_Index(imageHandle);
-        GLuint glHandle = *(GLuint*)Array_Get(&resourceManager->largeImageGlHandles, imageIndex);
+        StandaloneImageInfo* info = Array_Get(&resourceManager->standaloneImageInfos, imageIndex);
         StandaloneImageRenderData* sRenderData = Array_PushEmpty(&resourceManager->standaloneImageRenderDatas);
         renderData->u0 = 0;
         renderData->v0 = 0;
         renderData->u1 = 1;
         renderData->v1 = 1;
-        sRenderData->glImageHandle = glHandle;
+        sRenderData->glImageHandle = info->glImageHandle;
         sRenderData->renderData = *renderData;
     }
     // Image is atlased
@@ -142,7 +148,7 @@ void ImageResourceManager_AddImageRenderData(ImageResourceManager* resourceManag
         int atlasIndex = NU_Image_Handle_To_Atlas_Index(imageHandle);
         int imageIndex = NU_Image_Handle_To_Atlas_Image_Index(imageHandle);
         Atlas* atlas = Array_Get(&resourceManager->atlases, atlasIndex);
-        AtlasImageUVs* img = Array_Get(&atlas->images, imageIndex);
+        AtlasImageInfo* img = Array_Get(&atlas->images, imageIndex);
         renderData->u0 = img->u0;
         renderData->v0 = img->v0;
         renderData->u1 = img->u1;
@@ -158,6 +164,26 @@ void ImageResourceManager_ClearAllImageRenderData(ImageResourceManager* resource
         Array_Clear(&atlas->renderDataArray);
     }
     Array_Clear(&resourceManager->standaloneImageRenderDatas);
+}
+
+void ImageResourceManager_GetImageSize(ImageResourceManager* resourceManager, int imageHandle, u16* w, u16* h)
+{
+    // Image is standalone
+    if (NU_Image_Is_Handle_Standalone(imageHandle)) {
+        int imageIndex = NU_Image_Handle_To_Standalone_Index(imageHandle);
+        StandaloneImageInfo* info = Array_Get(&resourceManager->standaloneImageInfos, imageIndex);
+        *w = info->w;
+        *h = info->h;
+    }
+    // Image is atlased
+    else {
+        int atlasIndex = NU_Image_Handle_To_Atlas_Index(imageHandle);
+        int imageIndex = NU_Image_Handle_To_Atlas_Image_Index(imageHandle);
+        Atlas* atlas = Array_Get(&resourceManager->atlases, atlasIndex);
+        AtlasImageInfo* img = Array_Get(&atlas->images, imageIndex);
+        *w = img->w;
+        *h = img->h;
+    }
 }
 
 void ImageResourceLoader_Init(ImageResourceLoader* loader, ImageResourceManager* resourceManager)
@@ -197,8 +223,11 @@ int ImageResourceLoader_LoadImage(ImageResourceLoader* loader, const char* filep
         stbi_image_free(buffer); // Free CPU memory
 
         // Add handle to large image handles array
-        Array_Push(&loader->resourceManager->largeImageGlHandles, &handle);
-        int index = loader->resourceManager->largeImageGlHandles.size - 1;
+        StandaloneImageInfo* info = Array_PushEmpty(&loader->resourceManager->standaloneImageInfos);
+        info->glImageHandle = handle;
+        info->w = w;
+        info->h = h;
+        int index = loader->resourceManager->standaloneImageInfos.size - 1;
 
         // Create handle
         imageHandle = NU_Image_Create_Standalone_Handle(index);
@@ -231,7 +260,7 @@ int ImageResourceLoader_LoadImage(ImageResourceLoader* loader, const char* filep
 
             // Create a corresponding ImageResourceManager Atlas
             atlas = Array_PushEmpty(&loader->resourceManager->atlases);
-            Array_Init(&atlas->images, sizeof(AtlasImageUVs), 32);
+            Array_Init(&atlas->images, sizeof(AtlasImageInfo), 32);
             Array_Init(&atlas->renderDataArray, sizeof(ImageRenderData), 32);
             atlasIndex = loader->resourceManager->atlases.size - 1;
         }
@@ -242,11 +271,13 @@ int ImageResourceLoader_LoadImage(ImageResourceLoader* loader, const char* filep
         stbi_image_free(buffer);
 
         // Add image to resource manager
-        AtlasImageUVs* newImage = Array_PushEmpty(&atlas->images);
+        AtlasImageInfo* newImage = Array_PushEmpty(&atlas->images);
         newImage->u0 = (float)x / (float)atlasSize;
         newImage->v0 = (float)y / (float)atlasSize;
         newImage->u1 = (float)(x + w) / (float)atlasSize;
         newImage->v1 = (float)(y + h) / (float)atlasSize;
+        newImage->w = w;
+        newImage->h = h;
         int imageIndex = atlas->images.size - 1;
 
         // Create handle
@@ -267,8 +298,6 @@ void ImageResourceLoader_UploadImagesAndFree(ImageResourceLoader* loader)
         GLuint handle;
         glGenTextures(1, &handle);
         glBindTexture(GL_TEXTURE_2D, handle);
-        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
-        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
         glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
         glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
         glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA8, build->w, build->h, 0, GL_RGBA, GL_UNSIGNED_BYTE, build->buffer);

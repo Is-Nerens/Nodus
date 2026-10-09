@@ -137,8 +137,6 @@ _EXPORT int NU_CREATE_GUI(const char* xml_filepath, const char* css_filepath)
     ImageResourceLoader imageResourceLoader;
     ImageResourceLoader_Init(&imageResourceLoader, &GUI.imageResourceManager);
 
-    printf("node size: %lu\n", sizeof(Node));
-
     // Load xml
     if (!NU_Internal_Load_XML(xml_filepath, &imageResourceLoader)) {
         NU_QUIT(); return 0;
@@ -159,19 +157,13 @@ _EXPORT int NU_CREATE_GUI(const char* xml_filepath, const char* css_filepath)
         Array_Init(renderData, sizeof(GlyphRenderData), 512);
     }
 
-    printf("created font render data buffers\n");
-
     // Apply css
     if (!NU_Internal_Apply_Stylesheet(&GUI.stylesheet)) {
         NU_QUIT(); return 0;
     }
 
-    printf("applied stylesheet\n");
-
     // Initial layout calculation
     NU_Layout();
-
-    printf("initial layout done\n");
 
     // Event watcher
     SDL_AddEventWatch(EventWatcher, NULL);
@@ -403,19 +395,19 @@ _EXPORT void NU_SET_CURSOR_NESW_RESIZE(void)
 // ---------------------
 _EXPORT NuNode* NU_PARENT(const NuNode* node) {
     Node* nodeP = (Node*)(node);
-    if (nodeP->parentIndex == INVALID_NODE_INDEX) return NULL;
-    return (NuNode*)(NODE_PARENT(nodeP));
+    if (nodeP->parent) return NULL;
+    return (NuNode*)(nodeP->parent);
 }
 
 _EXPORT NuNode* NU_CHILD(const NuNode* node, u32 childIndex) {
     Node* nodeP = (Node*)(node);
     if (nodeP == NULL || childIndex >= nodeP->childCount) return NULL;
-    Node* child = NODE_FIRST_CHILD(nodeP);
+    Node* child = nodeP->firstChild;
     u32 i = 0;
-    while(child != NULL) {
+    while(child) {
         if (i == childIndex) return (NuNode*)(child);
         i++;
-        child = NODE_NEXT_SIBLING(child);
+        child = child->nextSibling;
     }
     return NULL;
 }
@@ -432,12 +424,12 @@ _EXPORT int NU_CHILD_COUNT(const NuNode* node) {
 
 _EXPORT NuNode* NU_NEXT_SIBLING(const NuNode* node) {
     Node* nodeP = (Node*)(node);
-    return (NuNode*)(NODE_NEXT_SIBLING(nodeP));
+    return (NuNode*)(nodeP->nextSibling);
 }
 
 _EXPORT NuNode* NU_PREVIOUS_SIBLING(const NuNode* node) {
     Node* nodeP = (Node*)(node);
-    return (NuNode*)(NODE_PREV_SIBLING(nodeP));
+    return (NuNode*)(nodeP->prevSibling);
 }
 
 _EXPORT NuWindow* NU_WINDOW(NuNode* parent) {
@@ -1054,10 +1046,10 @@ _EXPORT NU_Nodelist NU_CHILDREN(const NuNode* node) {
     Node* nodeP = (Node*)(node);
     NU_Nodelist_Internal result;
     NU_Nodelist_Init(&result, nodeP->childCount);
-    Node* child = NODE_FIRST_CHILD(nodeP);
-    while(child != NULL) {
+    Node* child = nodeP->firstChild;
+    while(child) {
         NU_Nodelist_Push(&result, (NuNode*)(child));
-        child = NODE_NEXT_SIBLING(child); // move to the next child
+        child = child->nextSibling; // move to the next child
     }
     return result.nodelist;
 }
@@ -1094,10 +1086,10 @@ _EXPORT int NU_DOES_DESCEND(const NuNode* node, NuNode* ancestor) {
     if (node == NULL || ancestor == NULL) return 0;
     Node* nodeP = (Node*)(node);
     Node* ancestorP = (Node*)(ancestor);
-    Node* currP = NODE_PARENT(nodeP);
+    Node* currP = nodeP->parent;
     while(currP != NULL) {
         if (currP == ancestorP) return 1;
-        currP = NODE_PARENT(currP);
+        currP = currP->parent;
     }
     return 0;
 }

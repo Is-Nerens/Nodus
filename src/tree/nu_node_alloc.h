@@ -3,7 +3,7 @@
 #include <stdint.h>
 #include "nu_memory_map.h"
 
-#define NALLOC_NODE_CAPACITY 256000
+#define NALLOC_NODE_CAPACITY 1000000
 #define INVALID_NODE_INDEX UINT32_MAX
 
 typedef union NallocNode {
@@ -16,16 +16,6 @@ typedef struct Nalloc {
     u32 freeIndex;
     u32 count;
 } Nalloc;
-
-static inline Node* NodePtr(Nalloc* nalloc, u32 index)
-{
-    return &nalloc->allocation[index].node;
-}
-
-static inline u32 NodeIndex(Nalloc* nalloc, Node* ptr)
-{
-    return (u32)(ptr - &nalloc->allocation[0].node);
-}
 
 int Nalloc_Init(Nalloc* nalloc)
 {

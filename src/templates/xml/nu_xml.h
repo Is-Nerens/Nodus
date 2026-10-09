@@ -141,16 +141,16 @@ void NU_Parse_Property(const enum NU_XML_TOKEN token, Node* currentNode, char* p
                 currentNode->public.generic.preferredWidth = width;
 
                 if (currentNode->type == NU_TYPE_IMAGE) {
-                    currentNode->overrideStyleFlags |= PROPERTY_FLAG_IMAGE_DIM;
+                    currentNode->overrideStyleFlags |= PROPERTY_FLAG_IMAGE_WIDTH_DIM;
                     currentNode->special.image.widthDimType = IMAGE_DIM_SPECIFIC;
                 }
             }
             else if (currentNode->type == NU_TYPE_IMAGE && strcmp(ptext, "image") == 0) {
-                currentNode->overrideStyleFlags |= PROPERTY_FLAG_IMAGE_DIM;
+                currentNode->overrideStyleFlags |= PROPERTY_FLAG_IMAGE_WIDTH_DIM;
                 currentNode->special.image.widthDimType = IMAGE_DIM_INTRINSIC;
             }
             else if (currentNode->type == NU_TYPE_IMAGE && strcmp(ptext, "aspect") == 0) {
-                currentNode->overrideStyleFlags |= PROPERTY_FLAG_IMAGE_DIM;
+                currentNode->overrideStyleFlags |= PROPERTY_FLAG_IMAGE_WIDTH_DIM;
                 currentNode->special.image.widthDimType = IMAGE_DIM_ASPECT;
             }
             break;
@@ -183,16 +183,16 @@ void NU_Parse_Property(const enum NU_XML_TOKEN token, Node* currentNode, char* p
                 currentNode->overrideStyleFlags |= PROPERTY_FLAG_PREFERRED_HEIGHT;
                 currentNode->public.generic.preferredHeight = height;
                 if (currentNode->type == NU_TYPE_IMAGE) {
-                    currentNode->overrideStyleFlags |= PROPERTY_FLAG_IMAGE_DIM;
+                    currentNode->overrideStyleFlags |= PROPERTY_FLAG_IMAGE_HEIGHT_DIM;
                     currentNode->special.image.heightDimType = IMAGE_DIM_SPECIFIC;
                 }
             }
             else if (currentNode->type == NU_TYPE_IMAGE && strcmp(ptext, "image") == 0) {
-                currentNode->overrideStyleFlags |= PROPERTY_FLAG_IMAGE_DIM;
+                currentNode->overrideStyleFlags |= PROPERTY_FLAG_IMAGE_HEIGHT_DIM;
                 currentNode->special.image.heightDimType = IMAGE_DIM_INTRINSIC;
             }
             else if (currentNode->type == NU_TYPE_IMAGE && strcmp(ptext, "aspect") == 0) {
-                currentNode->overrideStyleFlags |= PROPERTY_FLAG_IMAGE_DIM;
+                currentNode->overrideStyleFlags |= PROPERTY_FLAG_IMAGE_HEIGHT_DIM;
                 currentNode->special.image.heightDimType = IMAGE_DIM_ASPECT;
             }
             break;
@@ -667,7 +667,7 @@ int NU_Parse_Component(Node* currentNode, char* src, TokenArray* tokens, struct 
                 else ctx = GENCTX_IN_CONTENT_OF_TABLE_WITHOUT_THEAD;
             }
 
-            currentNode = NODE_PARENT(currentNode);
+            currentNode = currentNode->parent;
             i+=3;            // Increment token index
             continue;
         }
@@ -685,7 +685,7 @@ int NU_Parse_Component(Node* currentNode, char* src, TokenArray* tokens, struct 
                 else ctx = GENCTX_IN_CONTENT_OF_TABLE_WITHOUT_THEAD;
             }
 
-            currentNode = NODE_PARENT(currentNode);
+            currentNode = currentNode->parent;
 
             // Continue ^
             i+=1; continue;
@@ -899,7 +899,7 @@ int NU_Generate_Tree(char* src, TokenArray* tokens, struct Array* textRefs, Imag
                 else ctx = GENCTX_IN_CONTENT_OF_TABLE_WITHOUT_THEAD;
             }
 
-            currentNode = NODE_PARENT(currentNode);
+            currentNode = currentNode->parent;
             i+=3;            // Increment token index
             continue;
         }
@@ -924,7 +924,7 @@ int NU_Generate_Tree(char* src, TokenArray* tokens, struct Array* textRefs, Imag
                 else ctx = GENCTX_IN_CONTENT_OF_TABLE_WITHOUT_THEAD;
             }
 
-            currentNode = NODE_PARENT(currentNode);
+            currentNode = currentNode->parent;
 
             // Continue ^
             i+=1; continue;
@@ -1055,21 +1055,15 @@ int NU_Internal_Load_XML(const char* filepath, ImageResourceLoader* imageResourc
     struct Array textRefs; Array_Init(&textRefs, sizeof(struct Text_Ref), 2000);
 
     // Tokenise
-    printf("tokenising xml\n");
-    timer_start();
     NU_Tokenise(src, &tokens, &textRefs);
-    timer_stop();
 
     // Generate tree
-    printf("generating tree\n");
-    timer_start();
     if (!NU_Generate_Tree(StringCstr(src), &tokens, &textRefs, imageResourceLoader)) {
         TokenArray_Free(&tokens);
         Array_Free(&textRefs);
         StringFree(src);
         return 0;
     }
-    timer_stop();
 
     // Free memory
     TokenArray_Free(&tokens);

@@ -22,7 +22,9 @@ GLint uSdfRectScreenWidthLoc, uSdfRectScreenHeightLoc;
 GLuint ImageShader;
 GLuint imageVao, imageVbo;
 GLint uImageScreenWidthLoc, uImageScreenHeightLoc;
-GLint uImageTextureLoc;
+GLint uImageTextureNearestLoc;
+GLint uImageTextureLinearLoc;
+GLuint nearestSampler, linearSampler;
 #define IMAGE_RENDER_DATA_GPU_RESERVE_COUNT 1000
 
 // Border rects
@@ -339,10 +341,14 @@ void NU_Init_Image_Shader()
     "layout(location = 2) in vec2 iSize;\n"
     "layout(location = 3) in vec4 iUV;\n"
     "layout(location = 4) in vec4 iScissor;\n"
+    "layout(location = 5) in uint iFilterMode;\n"
+    "layout(location = 6) in uint iRepeatMode;\n"
     "\n"
     "out vec2 vUV;\n"
     "out vec2 vScreenPos;\n"
     "out vec4 vScissor;\n"
+    "flat out uint vFilterMode;\n"
+    "flat out uint vRepeatMode;\n"
     "\n"
     "uniform float uScreenWidth;\n"
     "uniform float uScreenHeight;\n"
@@ -359,16 +365,22 @@ void NU_Init_Image_Shader()
     "        mix(iUV.x, iUV.z, aQuad.x),\n"
     "        mix(iUV.y, iUV.w, aQuad.y)\n"
     "    );\n"
+    "    vFilterMode = iFilterMode;\n"
+    "    vRepeatMode = iRepeatMode;\n"
     "}\n";
+
 
     const char* imageFragSrc =
     "#version 330 core\n"
     "in vec2 vUV;\n"
     "in vec2 vScreenPos;\n"
     "in vec4 vScissor;\n"
+    "flat in uint vFilterMode;\n"
+    "flat in uint vRepeatMode;\n"
     "out vec4 FragColor;\n"
     "\n"
-    "uniform sampler2D uTexture;\n"
+    "uniform sampler2D uTextureNearest;\n"
+    "uniform sampler2D uTextureLinear;\n"
     "\n"
     "void main()\n"
     "{\n"
@@ -379,13 +391,34 @@ void NU_Init_Image_Shader()
     "    {\n"
     "        discard;\n"
     "    }\n"
-    "    FragColor = texture(uTexture, vUV);\n"
+    "\n"
+    "    vec2 uv = vUV;\n"
+    "    if ((vRepeatMode & 1u) != 0u) uv.x = fract(uv.x);\n"
+    "    if ((vRepeatMode & 2u) != 0u) uv.y = fract(uv.y);\n"
+    "    if (vFilterMode == 0u) FragColor = texture(uTextureLinear, uv);\n"
+    "    else FragColor = texture(uTextureNearest, uv);\n"
     "}\n";
+
 
     ImageShader = Create_Shader_Program(imageVertSrc, imageFragSrc);
     uImageScreenWidthLoc  = glGetUniformLocation(ImageShader, "uScreenWidth");
     uImageScreenHeightLoc = glGetUniformLocation(ImageShader, "uScreenHeight");
-    uImageTextureLoc = glGetUniformLocation(ImageShader, "uTexture");
+    uImageTextureNearestLoc = glGetUniformLocation(ImageShader, "uTextureNearest");
+    uImageTextureLinearLoc = glGetUniformLocation(ImageShader, "uTextureLinear");
+
+    // Image samplers
+    glUseProgram(ImageShader);
+    glUniform1i(uImageTextureNearestLoc, 0);
+    glUniform1i(uImageTextureLinearLoc, 1);
+    glUseProgram(0);
+
+    glGenSamplers(1, &nearestSampler);
+    glSamplerParameteri(nearestSampler, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+    glSamplerParameteri(nearestSampler, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+
+    glGenSamplers(1, &linearSampler);
+    glSamplerParameteri(linearSampler, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+    glSamplerParameteri(linearSampler, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
 
     // Image rect Vao
     glGenVertexArrays(1, &imageVao);
@@ -425,6 +458,17 @@ void NU_Init_Image_Shader()
     glEnableVertexAttribArray(4);
     glVertexAttribPointer(4, 4, GL_FLOAT, GL_FALSE, sizeof(ImageRenderData), (void*)offsetof(ImageRenderData, scissorTop));
     glVertexAttribDivisor(4, 1);
+
+    // Filter mode
+    glEnableVertexAttribArray(5);
+    glVertexAttribIPointer(5, 1, GL_UNSIGNED_BYTE, sizeof(ImageRenderData), (void*)offsetof(ImageRenderData, filter));
+    glVertexAttribDivisor(5, 1);
+
+    // Repeat mode
+    glEnableVertexAttribArray(6);
+    glVertexAttribIPointer(6, 1, GL_UNSIGNED_BYTE, sizeof(ImageRenderData), (void*)offsetof(ImageRenderData, repeat));
+    glVertexAttribDivisor(6, 1);
+
 
     glBindVertexArray(0);
 }
@@ -800,7 +844,10 @@ void NU_Draw_Images(
     glBindBuffer(GL_ARRAY_BUFFER, imageVbo);
     glActiveTexture(GL_TEXTURE0);
     glBindTexture(GL_TEXTURE_2D, imageHandle);
-    glUniform1i(uImageTextureLoc, 0);
+    glBindSampler(0, nearestSampler);
+    glActiveTexture(GL_TEXTURE1);
+    glBindTexture(GL_TEXTURE_2D, imageHandle);
+    glBindSampler(1, linearSampler);
 
     // Perform multiple passes until all elements are drawn
     size_t offset = 0;
@@ -844,7 +891,11 @@ void NU_Draw_Image(
 
     glActiveTexture(GL_TEXTURE0);
     glBindTexture(GL_TEXTURE_2D, imageHandle);
-    glUniform1i(uImageTextureLoc, 0);
+    glBindSampler(0, nearestSampler);
+    glActiveTexture(GL_TEXTURE1);
+    glBindTexture(GL_TEXTURE_2D, imageHandle);
+    glBindSampler(1, linearSampler);
+
     glBufferSubData(
         GL_ARRAY_BUFFER, 0,
         (GLsizeiptr)(sizeof(ImageRenderData)),

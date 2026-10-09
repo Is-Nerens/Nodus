@@ -8,60 +8,6 @@
 #include "nu_tree_traversal.h"
 
 /* Initialises node */
-void ApplyNodeDefaults(Nalloc* nalloc, Node* node, Node* parent, u8 type, u16 layer)
-{
-    // Zero init
-    memset(node, 0, sizeof(Node));
-
-    // Init members passed as args to this function
-    node->index = NodeIndex(nalloc, node);
-    node->parentIndex = NodeIndex(nalloc, parent);
-    node->layer = layer;
-    node->type = type;
-
-    // Set specific fields to default values
-    node->public.generic.maxWidth = node->public.generic.maxHeight = UINT16_MAX;
-    node->public.generic.backgroundR = node->public.generic.backgroundG = node->public.generic.backgroundB = 50;
-    node->public.generic.borderR = node->public.generic.borderG = node->public.generic.borderB = 100;
-    node->public.generic.textR = node->public.generic.textG = node->public.generic.textB = 255;
-    node->horizontalTextAlignment = 0;
-    node->verticalTextAlignment = 1;
-    node->widgetID = -1;
-
-    // Set defaults based on node type
-    switch (node->type)
-    {
-    case NU_TYPE_TABLE:
-        node->overrideStyleFlags |= PROPERTY_FLAG_LAYOUT_DIR;
-        node->layoutFlags |= LAYOUT_VERTICAL;
-        break;
-    case NU_TYPE_THEAD:
-        node->overrideStyleFlags |= PROPERTY_FLAG_GROW;
-        node->layoutFlags |= GROW_HORIZONTAL;
-        break;
-    case NU_TYPE_ROW:
-        node->overrideStyleFlags |= PROPERTY_FLAG_GROW;
-        node->layoutFlags |= GROW_HORIZONTAL;
-        break;
-    case NU_TYPE_INPUT:
-        node->special.input.textInputHandle = -1;
-        break;
-    case NU_TYPE_CANVAS:
-        node->special.canvas.ctxHandle = -1;
-        break;
-    case NU_TYPE_FRAME:
-        node->overrideStyleFlags |= PROPERTY_FLAG_HIDE_BACKGROUND;
-        node->layoutFlags |= HIDE_BACKGROUND;
-        break;
-    default:
-        break;
-    }
-
-    // Inherit parent's window (if node is not a window itself)
-    if (node->type != NU_TYPE_WINDOW) {
-        node->windowID = NODE_PARENT(node)->windowID;
-    }
-}
 
 typedef struct Tree
 {
@@ -89,7 +35,7 @@ Node* TreeCreate(Tree* tree)
 
     // create root node
     Node* root = Nalloc_Alloc(&tree->nodeAlloc);
-    ApplyNodeDefaults(&tree->nodeAlloc, root, NULL, NU_TYPE_WINDOW, 0);
+    ApplyNodeDefaults(root, NULL, NU_TYPE_WINDOW, 0);
 
     tree->root = root;
     return root;
@@ -112,18 +58,18 @@ Node* TreeCreateNode(Tree* tree, Node* parent, u8 type)
 
     // allocate new node
     Node* newNode = Nalloc_Alloc(&tree->nodeAlloc);
-    ApplyNodeDefaults(&tree->nodeAlloc, newNode, parent, type, parent->layer + 1);
+    ApplyNodeDefaults(newNode, parent, type, parent->layer + 1);
 
     // parent has no children
-    if (parent->firstChildIndex == INVALID_NODE_INDEX) {
-        parent->firstChildIndex = newNode->index;
-        parent->lastChildIndex = newNode->index;
+    if (parent->firstChild == NULL) {
+        parent->firstChild = newNode;
+        parent->lastChild = newNode;
     }
     else {
         // add new node to the sibling chain
-        newNode->prevSiblingIndex = parent->lastChildIndex;
-        NODE_PREV_SIBLING(newNode)->nextSiblingIndex = newNode->index;
-        parent->lastChildIndex = newNode->index;
+        newNode->prevSibling = parent->lastChild;
+        newNode->prevSibling->nextSibling = newNode;
+        parent->lastChild = newNode;
     }
     parent->childCount++;
 
@@ -132,8 +78,8 @@ Node* TreeCreateNode(Tree* tree, Node* parent, u8 type)
 
 void TreeShiftNodeInParent(Tree* tree, Node* node, int index)
 {
-    if (!node || node->parentIndex == INVALID_NODE_INDEX) return;
-    Node* parent = NODE_PARENT(node);
+    if (!node || !node->parent) return;
+    Node* parent = node->parent;
 
     if (parent->childCount <= 1) return;
 
@@ -143,9 +89,9 @@ void TreeShiftNodeInParent(Tree* tree, Node* node, int index)
 
     // Find current index
     int currentIndex = 0;
-    Node* it = NODE_FIRST_CHILD(parent);
+    Node* it = parent->firstChild;
     while (it && it != node) {
-        it = NODE_NEXT_SIBLING(it);
+        it = it->nextSibling;
         currentIndex++;
     }
 
@@ -153,76 +99,76 @@ void TreeShiftNodeInParent(Tree* tree, Node* node, int index)
     if (currentIndex == index) return;  // already in position
 
     // Detach from sibling chain
-    if (node->prevSiblingIndex != INVALID_NODE_INDEX) NODE_PREV_SIBLING(node)->nextSiblingIndex = node->nextSiblingIndex;
-    else parent->firstChildIndex = node->nextSiblingIndex;
+    if (node->prevSibling) node->prevSibling->nextSibling = node->nextSibling;
+    else parent->firstChild = node->nextSibling;
 
-    if (node->nextSiblingIndex != INVALID_NODE_INDEX) NODE_NEXT_SIBLING(node)->prevSiblingIndex = node->prevSiblingIndex;
-    else parent->lastChildIndex = node->prevSiblingIndex;
+    if (node->nextSibling) node->nextSibling->prevSibling = node->prevSibling;
+    else parent->lastChild = node->prevSibling;
 
-    node->prevSiblingIndex = INVALID_NODE_INDEX;
-    node->nextSiblingIndex = INVALID_NODE_INDEX;
+    node->prevSibling = NULL;
+    node->nextSibling = NULL;
 
     // Reinsert at new index
     if (index == 0) {
-        node->nextSiblingIndex = parent->firstChildIndex;
-        NODE_FIRST_CHILD(parent)->prevSiblingIndex = node->index;
-        parent->firstChildIndex = node->index;
+        node->nextSibling = parent->firstChild;
+        parent->firstChild->prevSibling = node;
+        parent->firstChild = node;
     }
     else {
-        Node* at = NODE_FIRST_CHILD(parent);
+        Node* at = parent->firstChild;
         for (int i=0; i<index; i++) {
-            at = NODE_NEXT_SIBLING(at);
+            at = at->nextSibling;
         }
-        node->prevSiblingIndex = at->prevSiblingIndex;
-        node->nextSiblingIndex = at->index;
-        NODE_PREV_SIBLING(at)->nextSiblingIndex = node->index;
-        at->prevSiblingIndex = node->index;
+        node->prevSibling = at->prevSibling;
+        node->nextSibling = at;
+        at->prevSibling->nextSibling = node;
+        at->prevSibling = node;
     }
 
-    if (index == parent->childCount - 1) parent->lastChildIndex = node->index;
+    if (index == parent->childCount - 1) parent->lastChild = node;
 }
 
 void TreeReparentNode(Tree* tree, Node* node, Node* newParent)
 {
     if (!node || !newParent) return;
-    if (node->parentIndex == newParent->index) return;
+    if (node->parent == newParent) return;
     if (node == newParent) return;
 
     // Guard: ensure newParent is not a descendant of node
-    Node* ancestor = NODE_PARENT(newParent);
+    Node* ancestor = newParent->parent;
     while (ancestor != NULL) {
         if (ancestor == node) return;
-        ancestor = NODE_PARENT(ancestor);
+        ancestor = ancestor->parent;
     }
 
-    Node* oldParent = NODE_PARENT(node);
+    Node* oldParent = node->parent;
 
     // Detach from old parent's sibling chain
-    if (node->prevSiblingIndex != INVALID_NODE_INDEX) NODE_PREV_SIBLING(node)->nextSiblingIndex = node->nextSiblingIndex;
-    else oldParent->firstChildIndex = node->nextSiblingIndex;
+    if (node->prevSibling) node->prevSibling->nextSibling = node->nextSibling;
+    else oldParent->firstChild = node->nextSibling;
 
-    if (node->nextSiblingIndex != INVALID_NODE_INDEX) NODE_NEXT_SIBLING(node)->prevSiblingIndex = node->prevSiblingIndex;
-    else oldParent->lastChildIndex = node->prevSiblingIndex;
+    if (node->nextSibling) node->nextSibling->prevSibling = node->prevSibling;
+    else oldParent->lastChild = node->prevSibling;
 
     oldParent->childCount--;
 
     // Attach to new parent as last child
-    node->parentIndex = newParent->index;
-    node->prevSiblingIndex = newParent->lastChildIndex;
-    node->nextSiblingIndex = INVALID_NODE_INDEX;
-    node->clippedAncestorIndex = INVALID_NODE_INDEX;
+    node->parent = newParent;
+    node->prevSibling = newParent->lastChild;
+    node->nextSibling = NULL;
+    node->clippedAncestor = NULL;
     node->layer = newParent->layer + 1;
     if (node->type != NU_TYPE_WINDOW) {
         node->windowID = newParent->windowID;
     }
 
-    if (newParent->firstChildIndex != INVALID_NODE_INDEX) {
-        newParent->firstChildIndex = node->index;
-        newParent->lastChildIndex = node->index;
+    if (newParent->firstChild != NULL) {
+        newParent->firstChild = node;
+        newParent->lastChild = node;
     }
     else {
-        NODE_LAST_CHILD(newParent)->nextSiblingIndex = node->index;
-        newParent->lastChildIndex = node->index;
+        newParent->lastChild->nextSibling = node;
+        newParent->lastChild = node;
     }
     newParent->childCount++;
 }
@@ -232,30 +178,30 @@ void TreeDeleteLeaf(Tree* tree, Node* leaf, TreeDeleteCallback deleteCB)
     tree->nodeCount--;
 
     // case 1: leaf node has no siblings
-    if (NODE_PARENT(leaf)->childCount == 1) {
-        NODE_PARENT(leaf)->firstChildIndex = INVALID_NODE_INDEX;
-        NODE_PARENT(leaf)->lastChildIndex = INVALID_NODE_INDEX;
-        NODE_PARENT(leaf)->childCount = 0;
+    if (leaf->parent->childCount == 1) {
+        leaf->parent->firstChild = NULL;
+        leaf->parent->lastChild = NULL;
+        leaf->parent->childCount = 0;
     }
     // case 2: leaf is last child in parent
-    else if (leaf->nextSiblingIndex == INVALID_NODE_INDEX) {
-        NODE_PARENT(leaf)->lastChildIndex = leaf->prevSiblingIndex;
-        NODE_PREV_SIBLING(leaf)->nextSiblingIndex = INVALID_NODE_INDEX;
-        NODE_PARENT(leaf)->childCount--;
+    else if (!leaf->nextSibling) {
+        leaf->parent->lastChild = leaf->prevSibling;
+        leaf->prevSibling->nextSibling = NULL;
+        leaf->parent->childCount--;
     }
     // case 3: leaf has next siblings in the chain
     else {
         // if leaf is first child
-        if (leaf->index == NODE_PARENT(leaf)->firstChildIndex) {
-            NODE_PARENT(leaf)->firstChildIndex = leaf->nextSiblingIndex;
-            NODE_NEXT_SIBLING(leaf)->prevSiblingIndex = INVALID_NODE_INDEX;
+        if (leaf == leaf->parent->firstChild) {
+            leaf->parent->firstChild = leaf->nextSibling;
+            leaf->nextSibling->prevSibling = NULL;
         }
         // leaf is in the middle
         else {
-            NODE_PREV_SIBLING(leaf)->nextSiblingIndex = leaf->nextSiblingIndex;
-            NODE_NEXT_SIBLING(leaf)->prevSiblingIndex = leaf->prevSiblingIndex;
+            leaf->prevSibling->nextSibling = leaf->nextSibling;
+            leaf->nextSibling->prevSibling = leaf->prevSibling;
         }
-        NODE_PARENT(leaf)->childCount--;
+        leaf->parent->childCount--;
     }
 
     if (deleteCB != NULL) deleteCB(leaf);
@@ -267,21 +213,21 @@ void TreeDeleteLeaf(Tree* tree, Node* leaf, TreeDeleteCallback deleteCB)
 
 void TreeDeleteNode(Tree* tree, Node* node, TreeDeleteCallback deleteCB)
 {
-    if (node->firstChildIndex == INVALID_NODE_INDEX) {
+    if (node->firstChild == NULL) {
         TreeDeleteLeaf(tree, node, deleteCB);
         return;
     }
 
     // push children only (NOT node itself)
-    Node* sib = NODE_FIRST_CHILD(node);
-    while (sib != NULL) {
+    Node* sib = node->firstChild;
+    while (sib) {
         Array_Push(&tree->deleteStack, &sib);
-        sib = NODE_NEXT_SIBLING(sib);
+        sib = sib->nextSibling;
     }
 
     // detach subtree immediately
-    node->firstChildIndex = INVALID_NODE_INDEX;
-    node->lastChildIndex = INVALID_NODE_INDEX;
+    node->firstChild = NULL;
+    node->lastChild = NULL;
     node->childCount = 0;
 
     while (tree->deleteStack.size > 0) {
@@ -290,10 +236,10 @@ void TreeDeleteNode(Tree* tree, Node* node, TreeDeleteCallback deleteCB)
         tree->deleteStack.size--;
 
         // push children
-        Node* c = NODE_FIRST_CHILD(curr);
-        while (c != NULL) {
+        Node* c = curr->firstChild;
+        while (c) {
             Array_Push(&tree->deleteStack, &c);
-            c = NODE_NEXT_SIBLING(c);
+            c = c->nextSibling;
         }
 
         if (deleteCB != NULL) deleteCB(curr);

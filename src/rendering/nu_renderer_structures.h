@@ -79,6 +79,7 @@ typedef struct ImageRenderData {
     float u0, v0;
     float u1, v1;
     float scissorTop, scissorBottom, scissorLeft, scissorRight;
+    u8 filter, repeat;
 } ImageRenderData;
 
 typedef struct {

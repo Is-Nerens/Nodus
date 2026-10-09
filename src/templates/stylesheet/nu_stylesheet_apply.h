@@ -66,6 +66,18 @@ static void Stylesheet_ApplyStyleItemToNode(StyleItem* item, Node* node)
     if (STYLE_SHOULD_APPLY_TO_NODE(PROPERTY_FLAG_IMAGE) && node->type != NU_TYPE_CANVAS && node->type != NU_TYPE_INPUT) {
         node->special.image.imageHandle = item->imageHandle;
     }
+    if (STYLE_SHOULD_APPLY_TO_NODE(PROPERTY_FLAG_IMAGE_WIDTH_DIM) && node->type == NU_TYPE_IMAGE) {
+        node->special.image.widthDimType = item->imageWidthDimType;
+    }
+    if (STYLE_SHOULD_APPLY_TO_NODE(PROPERTY_FLAG_IMAGE_HEIGHT_DIM) && node->type == NU_TYPE_IMAGE) {
+        node->special.image.heightDimType = item->imageHeightDimType;
+    }
+    if (STYLE_SHOULD_APPLY_TO_NODE(PROPERTY_FLAG_IMAGE_FILTER) && node->type == NU_TYPE_IMAGE) {
+        node->special.image.filter = item->imageFilter;
+    }
+    if (STYLE_SHOULD_APPLY_TO_NODE(PROPERTY_FLAG_IMAGE_REPEAT) && node->type == NU_TYPE_IMAGE) {
+        node->special.image.repeat = item->imageRepeat;
+    }
     if (STYLE_SHOULD_APPLY_TO_NODE(PROPERTY_FLAG_INPUT_TYPE) && node->type == NU_TYPE_INPUT) {
         InputText* inputText = Container_Get(&GUI.textInputs, node->special.input.textInputHandle);
         inputText->type = item->inputType;

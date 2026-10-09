@@ -3,24 +3,7 @@
 #include "../nu_token_array.h"
 #include "nu_stylesheet_tokens.h"
 
-enum CSS_Tokenise_Ctx
-{
-    CSS_TOKENISE_CTX_GLOBAL,
-    CSS_TOKENISE_CTX_GLOBAL_COMMENT,
-    CSS_TOKENISE_CTX_SELECTOR,
-    CSS_TOKENISE_CTX_SELECTOR_COMMENT,
-    CSS_TOKENISE_CTX_PROPERTY_VALUE,
-    CSS_TOKENISE_CTX_PROPERTY_STRING_VALUE,
-    CSS_TOKENISE_CTX_PROPERTY_VALUE_STRING_ESCAPE_CHAR,
-    CSS_TOKENISE_CTX_VARIABLE_NAME_DEFINE,
-    CSS_TOKENISE_CTX_CLASS_SELECTOR_NAME,
-    CSS_TOKENISE_CTX_ID_SELECTOR_NAME,
-    CSS_TOKENISE_CTX_PSEUDO_NAME,
-    CSS_TOKENISE_CTX_FONT_CREATION_NAME,
-    CSS_TOKENISE_CTX_SCREEN_SELECTOR_NAME, // Eg. @screen > 2000 (after @screen and before the {)
-};
-
-static void NU_Style_Tokenise(String src, TokenArray* tokens, Array* textRefs)
+static void Stylesheet_Tokenise(String src, TokenArray* tokens, Array* textRefs)
 {
     ParserWord word;
     ParserWord_Init(&word);
@@ -234,7 +217,7 @@ static void NU_Style_Tokenise(String src, TokenArray* tokens, Array* textRefs)
 
             // Any selector word completed
             else if (ctx == CSS_TOKENISE_CTX_GLOBAL && word.length > 0) {
-                enum NU_Style_Token token = NU_Word_To_Any_Selector_Token(word.buffer, word.length);
+                StylesheetToken token = NU_Word_To_Any_Selector_Token(word.buffer, word.length);
                 TokenArray_Add(tokens, token);
                 ParserWord_Clear(&word);
 

@@ -194,9 +194,9 @@ void NU_GenerateDrawlists()
 
             // Handle case where node is a table with a thead
             if (node->type == NU_TYPE_TABLE && node->childCount > 0) {
-                if (NODE_FIRST_CHILD(node)->type == NU_TYPE_THEAD) {
-                    nodeInnerY += NODE_FIRST_CHILD(node)->public.generic.height;
-                    nodeInnerHeight -= NODE_FIRST_CHILD(node)->public.generic.height;
+                if (node->firstChild->type == NU_TYPE_THEAD) {
+                    nodeInnerY += node->firstChild->public.generic.height;
+                    nodeInnerHeight -= node->firstChild->public.generic.height;
                 }
             }
         }
@@ -211,13 +211,13 @@ void NU_GenerateDrawlists()
         SDL_GetWindowSizeInPixels(window, &winW, &winH);
 
         // iterate over children
-        Node* child = NODE_FIRST_CHILD(node);
-        while(child != NULL)
+        Node* child = node->firstChild;
+        while(child)
         {
             // if parent is not visible (ad child inherets parent's visibility) OR child is not visible OR child not visible in it's window -> mark as hidded -> skip
             if ((NodeStateHidden(node) && child->type != NU_TYPE_WINDOW) || NodeStateHidden(child) || NodeOutsideWindow(child, winW, winH)) {
                 child->stateFlags |= STATE_FLAG_HIDDEN;
-                child = NODE_NEXT_SIBLING(child); continue;
+                child = child->nextSibling; continue;
             }
 
             // add child to list of root absolute nodes
@@ -232,7 +232,7 @@ void NU_GenerateDrawlists()
                 // child not inside parent -> hide in this draw pass
                 if (verticalOverlap == NODE_OVERLAP_NONE) {
                     child->stateFlags |= STATE_FLAG_HIDDEN;
-                    child = NODE_NEXT_SIBLING(child);
+                    child = child->nextSibling;
                     continue;
                 }
 
@@ -247,29 +247,29 @@ void NU_GenerateDrawlists()
                     clip.right = 1000000.0f;
 
                     // if parent is also clipped -> merge clips (stack clipping behaviour)
-                    if (node->clippedAncestorIndex != INVALID_NODE_INDEX) {
-                        NU_ClipBounds* parent_clip = Hashmap_Get(&GUI.winManager.clipMap, NODE_CLIPPED_ANCESTOR(node));
+                    if (node->clippedAncestor) {
+                        NU_ClipBounds* parent_clip = Hashmap_Get(&GUI.winManager.clipMap, node->clippedAncestor);
                         clip.top = fmaxf(clip.top, parent_clip->top);
                         clip.bottom = fminf(clip.bottom, parent_clip->bottom);
                     }
 
                     // add clipping to hashmap
                     Hashmap_Set(&GUI.winManager.clipMap, &child, &clip);
-                    child->clippedAncestorIndex = child->index; // Set clip root to self
+                    child->clippedAncestor = child; // Set clip root to self
 
                     // append node to correct window clipped node list
                     SetNodeDrawlist_Clipped(&GUI.winManager, child);
                     if (child->type == NU_TYPE_CANVAS) SetNodeDrawlist_Canvas(&GUI.winManager, child);
-                    child = NODE_NEXT_SIBLING(child); continue;
+                    child = child->nextSibling; continue;
                 }
             }
 
             // if parent is clipped -> child inherits clip from parent
-            if (node->clippedAncestorIndex != INVALID_NODE_INDEX) {
-                child->clippedAncestorIndex = node->clippedAncestorIndex;
+            if (node->clippedAncestor) {
+                child->clippedAncestor = node->clippedAncestor;
                 SetNodeDrawlist_Clipped(&GUI.winManager, child);
                 if (child->type == NU_TYPE_CANVAS) SetNodeDrawlist_Canvas(&GUI.winManager, child);
-                child = NODE_NEXT_SIBLING(child); continue;
+                child = child->nextSibling; continue;
             }
 
             // neither child nor parent is clipped -> append node to correct window node list
@@ -277,7 +277,7 @@ void NU_GenerateDrawlists()
             if (child->type == NU_TYPE_CANVAS) SetNodeDrawlist_Canvas(&GUI.winManager, child);
 
             // move to the next child
-            child = NODE_NEXT_SIBLING(child);
+            child = child->nextSibling;
         }
     }
 }
@@ -356,6 +356,8 @@ void NU_Draw()
                 renderData.scissorBottom = 1000000.0f;
                 renderData.scissorLeft = 0.0f;
                 renderData.scissorRight = 1000000.0f;
+                renderData.filter = node->special.image.filter;
+                renderData.repeat = node->special.image.repeat;
                 ImageResourceManager_AddImageRenderData(
                     &GUI.imageResourceManager,
                     node->special.image.imageHandle,
@@ -380,7 +382,7 @@ void NU_Draw()
             float z = (float)(node->layer) + 32.0f * NodeStatePosAbsolute(node);
 
             // Draw border rect (1 draw call)
-            NU_ClipBounds* clip = (NU_ClipBounds*)Hashmap_Get(&GUI.winManager.clipMap, NODE_CLIPPED_ANCESTOR(node));
+            NU_ClipBounds* clip = (NU_ClipBounds*)Hashmap_Get(&GUI.winManager.clipMap, node->clippedAncestor);
             Add_NodeRectRenderData(node, z, clip->top, clip->bottom, clip->left, clip->right, &GUI.borderRectRenderDataArray);
             Draw_SDF_Border_Rects(GUI.borderRectRenderDataArray, winW, winH); Array_Clear(&GUI.borderRectRenderDataArray);
 
@@ -414,6 +416,8 @@ void NU_Draw()
                 renderData.scissorBottom = clip->bottom;
                 renderData.scissorLeft = clip->left;
                 renderData.scissorRight = clip->right;
+                renderData.filter = node->special.image.filter;
+                renderData.repeat = node->special.image.repeat;
                 ImageResourceManager_AddImageRenderData(
                     &GUI.imageResourceManager,
                     node->special.image.imageHandle,

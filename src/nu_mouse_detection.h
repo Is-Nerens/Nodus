@@ -8,8 +8,8 @@ static bool NU_MouseIsOverNode(Node* node, float mouseX, float mouseY)
     float right_wall = node->public.generic.x + node->public.generic.width;
     float top_wall = node->public.generic.y;
     float bottom_wall = node->public.generic.y + node->public.generic.height;
-    if (node->clippedAncestorIndex != INVALID_NODE_INDEX) {
-        NU_ClipBounds* clip = Hashmap_Get(&GUI.winManager.clipMap, NODE_CLIPPED_ANCESTOR(node));
+    if (node->clippedAncestor) {
+        NU_ClipBounds* clip = Hashmap_Get(&GUI.winManager.clipMap, node->clippedAncestor);
         left_wall = max(clip->left, node->public.generic.x);
         right_wall = min(clip->right, node->public.generic.x + node->public.generic.width);
         top_wall = max(clip->top, node->public.generic.y);
@@ -167,15 +167,15 @@ void NU_Mouse_Hover()
         if (current_node->type == NU_TYPE_BUTTON) continue;
 
         // Iterate over children
-        Node* child = NODE_FIRST_CHILD(current_node);
-        while(child != NULL) {
+        Node* child = current_node->firstChild;
+        while(child) {
 
             if (NodeStateHidden(child) ||
                 child->layoutFlags & POSITION_ABSOLUTE ||
                 child->type == NU_TYPE_WINDOW ||
                 !NU_MouseIsOverNode(child, mouseX, mouseY))
             {
-                child = NODE_NEXT_SIBLING(child); continue;
+                child = child->nextSibling; continue;
             }
 
             // Check for scroll hover
@@ -186,7 +186,7 @@ void NU_Mouse_Hover()
             Array_Push(&stack, &child);
 
             // Move to the next child
-            child = NODE_NEXT_SIBLING(child);
+            child = child->nextSibling;
         }
     }
     Array_Free(&stack);

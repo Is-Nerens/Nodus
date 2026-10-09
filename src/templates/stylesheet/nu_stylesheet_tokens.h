@@ -26,7 +26,7 @@ static const char* style_keywords[] = {
     "border-radius",
     "border-radius-top-left", "border-radius-top-right", "border-radius-bottom-left", "border-radius-bottom-right",
     "padding", "padding-top", "padding-bottom", "padding-left", "padding-right",
-    "image-src",
+    "image-src", "image-repeat", "image-filter",
     "input-type",
     "font", "src", "size", "weight",
     "scrollbar-overlay", "thumb-min-size",
@@ -39,7 +39,7 @@ static const char* style_keywords[] = {
     "hover", "press", "focus",
 };
 
-enum NU_Style_Token
+typedef enum StylesheetToken
 {
     // --- Properties ---
     STYLE_LAYOUT_DIRECTION_PROPERTY,
@@ -83,6 +83,8 @@ enum NU_Style_Token
     STYLE_PADDING_LEFT_PROPERTY,
     STYLE_PADDING_RIGHT_PROPERTY,
     STYLE_IMAGE_SOURCE_PROPERTY,
+    STYLE_IMAGE_REPEAT_PROPERTY,
+    STYLE_IMAGE_FILTER_PROPERTY,
     STYLE_INPUT_TYPE_PROPERTY,
     STYLE_FONT_PROPERTY,
     STYLE_FONT_SRC,
@@ -136,11 +138,65 @@ enum NU_Style_Token
     STYLE_SCREEN_QUERY_WIDTH,
     STYLE_FONT_CREATION_PROPERTY_VALUE,
     STYLE_FONT_NAME,
-
     STYLE_UNDEFINED
+} StylesheetToken;
+
+typedef enum StylesheetVariableDtype
+{
+    STYLESHEET_VARIABLE_DTYPE_RGB,
+    STYLESHEET_VARIABLE_DTYPE_NUMBER,
+    STYLESHEET_VARIABLE_DTYPE_TOP,
+    STYLESHEET_VARIABLE_DTYPE_BOTTOM,
+    STYLESHEET_VARIABLE_DTYPE_LEFT,
+    STYLESHEET_VARIABLE_DTYPE_RIGHT,
+    STYLESHEET_VARIABLE_DTYPE_CENTER,
+    STYLESHEET_VARIABLE_DTYPE_VERTICAL,
+    STYLESHEET_VARIABLE_DTYPE_HORIZONTAL,
+    STYLESHEET_VARIABLE_DTYPE_BOTH,
+    STYLESHEET_VARIABLE_DTYPE_SCROLL,
+    STYLESHEET_VARIABLE_DTYPE_TRUE,
+    STYLESHEET_VARIABLE_DTYPE_FALSE,
+    STYLESHEET_VARIABLE_DTYPE_ABSOLUTE,
+    STYLESHEET_VARIABLE_DTYPE_RELATIVE,
+    STYLESHEET_VARIABLE_DTYPE_LINEAR,
+    STYLESHEET_VARIABLE_DTYPE_NEAREST,
+    STYLESHEET_VARIABLE_DTYPE_IMAGE,
+    STYLESHEET_VARIABLE_DTYPE_ASPECT,
+    STYLESHEET_VARIABLE_DTYPE_NONE,
+    STYLESHEET_VARIABLE_DTYPE_INPUT_NUMBER,
+    STYLESHEET_VARIABLE_DTYPE_UNKNOWN,
+} StylesheetVariableDtype;
+
+enum StylesheetTokeniseCtx
+{
+    CSS_TOKENISE_CTX_GLOBAL,
+    CSS_TOKENISE_CTX_GLOBAL_COMMENT,
+    CSS_TOKENISE_CTX_SELECTOR,
+    CSS_TOKENISE_CTX_SELECTOR_COMMENT,
+    CSS_TOKENISE_CTX_PROPERTY_VALUE,
+    CSS_TOKENISE_CTX_PROPERTY_STRING_VALUE,
+    CSS_TOKENISE_CTX_PROPERTY_VALUE_STRING_ESCAPE_CHAR,
+    CSS_TOKENISE_CTX_VARIABLE_NAME_DEFINE,
+    CSS_TOKENISE_CTX_CLASS_SELECTOR_NAME,
+    CSS_TOKENISE_CTX_ID_SELECTOR_NAME,
+    CSS_TOKENISE_CTX_PSEUDO_NAME,
+    CSS_TOKENISE_CTX_FONT_CREATION_NAME,
+    CSS_TOKENISE_CTX_SCREEN_SELECTOR_NAME, // Eg. @screen > 2000 (after @screen and before the {)
 };
 
-void PrintStyleTokenLine(enum NU_Style_Token token)
+enum StylesheetParseCtx
+{
+    STYLE_PARSE_CTX_SELECTOR,
+    STYLE_PARSE_CTX_VAR_SELECTOR,
+    STYLE_PARSE_CTX_SCREEN_SELECTOR,
+    STYLE_PARSE_CTX_FONT_SELECTOR,
+    STYLE_PARSE_CTX_DEFAULT_SELECTOR,
+    STYLE_PARSE_CTX_SCROLLBAR_SELECTOR,
+    STYLE_PARSE_CTX_SCROLL_THUMB_SELECTOR,
+    STYLE_PARSE_CTX_SCROLL_TRACK_SELECTOR,
+};
+
+void PrintStyleTokenLine(StylesheetToken token)
 {
     const char* name = NULL;
     switch (token)
@@ -234,85 +290,77 @@ void PrintStyleTokenLine(enum NU_Style_Token token)
     printf("%s\n", name);
 }
 
-typedef enum StylePseudoClass
-{
-    PSEUDO_HOVER,
-    PSEUDO_PRESS,
-    PSEUDO_FOCUS,
-    PSEUDO_UNDEFINED
-} StylePseudoClass;
-
-static inline u32 Property_Token_To_Flag(enum NU_Style_Token token)
+static inline u32 Property_Token_To_Flag(StylesheetToken token)
 {
     return (1u << token);
 }
 
-static enum NU_Style_Token NU_Word_To_Style_Token(char* word, u8 len)
+static StylesheetToken NU_Word_To_Style_Token(char* word, u8 len)
 {
     word[len] = '\0';
     for (int i = STYLE_PROPERTY_FIRST; i <= STYLE_PSEUDO_LAST; i++) {
-        if (strcmp(word, style_keywords[i]) == 0) return (enum NU_Style_Token)i;
+        if (strcmp(word, style_keywords[i]) == 0) return (StylesheetToken)i;
     }
     return STYLE_UNDEFINED;
 }
 
-static enum NU_Style_Token NU_Word_To_Style_Property_Token(char* word, u8 len)
+static StylesheetToken NU_Word_To_Style_Property_Token(char* word, u8 len)
 {
     word[len] = '\0';
     for (int i = STYLE_PROPERTY_FIRST; i <= STYLE_PROPERTY_LAST; i++) {
-        if (strcmp(word, style_keywords[i]) == 0) return (enum NU_Style_Token)i;
+        if (strcmp(word, style_keywords[i]) == 0) return (StylesheetToken)i;
     }
     return STYLE_UNDEFINED;
 }
 
-static enum NU_Style_Token NU_Word_To_Tag_Selector_Token(char* word, u8 len)
+static StylesheetToken NU_Word_To_Tag_Selector_Token(char* word, u8 len)
 {
     word[len] = '\0';
     for (int i = STYLE_TAG_SELECTOR_FIRST; i <= STYLE_TAG_SELECTOR_LAST; i++) {
-        if (strcmp(word, style_keywords[i]) == 0) return (enum NU_Style_Token)i;
+        if (strcmp(word, style_keywords[i]) == 0) return (StylesheetToken)i;
     }
     return STYLE_UNDEFINED;
 }
 
-static enum NU_Style_Token NU_Word_To_Any_Selector_Token(char* word, u8 len)
+static StylesheetToken NU_Word_To_Any_Selector_Token(char* word, u8 len)
 {
     word[len] = '\0';
     for (int i = STYLE_TAG_SELECTOR_FIRST; i <= STYLE_SPECIAL_SELECTOR_LAST; i++) {
-        if (strcmp(word, style_keywords[i]) == 0) return (enum NU_Style_Token)i;
+        if (strcmp(word, style_keywords[i]) == 0) return (StylesheetToken)i;
     }
     return STYLE_UNDEFINED;
 }
 
-static enum NU_Style_Token NU_Word_To_Pseudo_Token(char* word, u8 len)
+static StylesheetToken NU_Word_To_Pseudo_Token(char* word, u8 len)
 {
     word[len] = '\0';
     for (int i = STYLE_PSEUDO_FIRST; i <= STYLE_PSEUDO_LAST; i++) {
-        if (strcmp(word, style_keywords[i]) == 0) return (enum NU_Style_Token)i;
+        if (strcmp(word, style_keywords[i]) == 0) return (StylesheetToken)i;
     }
     return STYLE_UNDEFINED;
 }
 
-static StylePseudoClass Token_To_Pseudo_Class(enum NU_Style_Token token)
+static StylePseudoClass Token_To_Pseudo_Class(StylesheetToken token)
 {
     return token - STYLE_PSEUDO_FIRST;
 }
 
-static int NU_Token_To_Tag(enum NU_Style_Token token)
+static int NU_Token_To_Tag(StylesheetToken token)
 {
     return token - STYLE_TAG_SELECTOR_FIRST;
 }
 
-static inline int NU_Is_Property_Identifier_Token(enum NU_Style_Token token)
+static inline int Stylesheet_IsPropertyIdentifierToken(StylesheetToken token)
 {
     return token >= STYLE_PROPERTY_FIRST && token <= STYLE_PROPERTY_LAST;
 }
 
-static inline int NU_Is_Tag_Selector_Token(enum NU_Style_Token token)
+static inline int Stylesheet_IsTagSelectorToken(StylesheetToken token)
 {
     return token >= STYLE_TAG_SELECTOR_FIRST && token <= STYLE_TAG_SELECTOR_LAST;
 }
 
-static inline int NU_Is_Pseudo_Token(enum NU_Style_Token token)
+static inline int NU_Is_Pseudo_Token(StylesheetToken token)
 {
     return token >= STYLE_PSEUDO_FIRST && token <= STYLE_PSEUDO_LAST;
 }

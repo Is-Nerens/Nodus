@@ -1,4 +1,13 @@
 #pragma once
+
+typedef enum StylePseudoClass
+{
+    PSEUDO_HOVER,
+    PSEUDO_PRESS,
+    PSEUDO_FOCUS,
+    PSEUDO_UNDEFINED
+} StylePseudoClass;
+
 #include "nu_stylesheet_tokens.h"
 
 typedef struct StyleItemKey {
@@ -25,34 +34,16 @@ typedef struct StyleItem
     u8 borderR, borderG, borderB;
     u8 textR, textG, textB;
     u8 fontIdx;
+    u8 imageWidthDimType;
+    u8 imageHeightDimType;
+    u8 imageRepeat;
+    u8 imageFilter;
     char horizontalAlignment;
     char verticalAlignment;
     char horizontalTextAlignment;
     char verticalTextAlignment;
     u8 inputType;
 } StyleItem;
-
-typedef enum StylesheetVariableDtype
-{
-    STYLESHEET_VARIABLE_DTYPE_RGB,
-    STYLESHEET_VARIABLE_DTYPE_NUMBER,
-    STYLESHEET_VARIABLE_DTYPE_TOP,
-    STYLESHEET_VARIABLE_DTYPE_BOTTOM,
-    STYLESHEET_VARIABLE_DTYPE_LEFT,
-    STYLESHEET_VARIABLE_DTYPE_RIGHT,
-    STYLESHEET_VARIABLE_DTYPE_CENTER,
-    STYLESHEET_VARIABLE_DTYPE_VERTICAL,
-    STYLESHEET_VARIABLE_DTYPE_HORIZONTAL,
-    STYLESHEET_VARIABLE_DTYPE_BOTH,
-    STYLESHEET_VARIABLE_DTYPE_SCROLL,
-    STYLESHEET_VARIABLE_DTYPE_TRUE,
-    STYLESHEET_VARIABLE_DTYPE_FALSE,
-    STYLESHEET_VARIABLE_DTYPE_ABSOLUTE,
-    STYLESHEET_VARIABLE_DTYPE_RELATIVE,
-    STYLESHEET_VARIABLE_DTYPE_NONE,
-    STYLESHEET_VARIABLE_DTYPE_INPUT_NUMBER,
-    STYLESHEET_VARIABLE_DTYPE_UNKNOWN,
-} StylesheetVariableDtype;
 
 typedef struct StylesheetVariable
 {
@@ -64,7 +55,7 @@ typedef struct StylesheetVariable
 
 typedef struct StylesheetScreenQuery
 {
-    enum NU_Style_Token comparator;
+    StylesheetToken comparator;
     int screenWidth;
 } StylesheetScreenQuery;
 

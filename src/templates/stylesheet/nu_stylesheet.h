@@ -102,14 +102,9 @@ int Stylesheet_Create(Stylesheet* stylesheet, const char* filepath, ImageResourc
     LinearStringmap variableMap; LinearStringmap_Init(&variableMap, sizeof(int), 128, 4096);
 
     // Tokenise
-    printf("tokenising css\n");
-    timer_start();
-    NU_Style_Tokenise(src, &tokens, &textRefs);
-    timer_stop();
+    Stylesheet_Tokenise(src, &tokens, &textRefs);
 
     // Generate stylesheet
-    printf("generating css\n");
-    timer_start();
     if (!Stylesheet_Parse(
         StringCstr(src),
         &tokens,
@@ -124,9 +119,6 @@ int Stylesheet_Create(Stylesheet* stylesheet, const char* filepath, ImageResourc
         StringFree(src);
         return 0;
     }
-    timer_stop();
-
-    printf("generated css\n");
 
     // Free memory
     TokenArray_Free(&tokens);

@@ -22,7 +22,7 @@ DepthFirstSearch DepthFirstSearch_Create(Node* root)
     dfs.capacity = 64;
     dfs.size = 0;
     dfs.stack = malloc(sizeof(DFSFrame) * dfs.capacity);
-    if (root) dfs.stack[dfs.size++] = (DFSFrame){ .node = root, .nextChild = NODE_FIRST_CHILD(root) };
+    if (root) dfs.stack[dfs.size++] = (DFSFrame){ .node = root, .nextChild = root->firstChild };
     return dfs;
 }
 
@@ -41,7 +41,7 @@ int DepthFirstSearch_Next(DepthFirstSearch* dfs, Node** nodeOut)
         // Descend into children
         if (top->nextChild != NULL) {
             Node* child = top->nextChild;
-            top->nextChild = NODE_NEXT_SIBLING(child);
+            top->nextChild = child->nextSibling;
 
             if (dfs->size == dfs->capacity) {
                 dfs->capacity *= 2;
@@ -50,7 +50,7 @@ int DepthFirstSearch_Next(DepthFirstSearch* dfs, Node** nodeOut)
 
             dfs->stack[dfs->size++] = (DFSFrame){
                 .node = child,
-                .nextChild = NODE_FIRST_CHILD(child),
+                .nextChild = child->firstChild,
                 .visited = 0
             };
             continue;
@@ -74,7 +74,7 @@ DepthFirstSearch DepthFirstSearch_Reserve()
 
 void DepthFirstSearch_Reset(DepthFirstSearch* dfs, Node* root)
 {
-    dfs->stack[0] = (DFSFrame){ .node = root, .nextChild = NODE_FIRST_CHILD(root) };
+    dfs->stack[0] = (DFSFrame){ .node = root, .nextChild = root->firstChild };
     dfs->size = 1;
 }
 
@@ -192,10 +192,10 @@ int BreadthFirstSearch_Next(BreadthFirstSearch* bfs, Node** nodeOut) {
     }
     *nodeOut = node;
 
-    Node* child = NODE_FIRST_CHILD(node);
+    Node* child = node->firstChild;
     while (child) {
         BFSQueue_Push(&bfs->queue, child);
-        child = NODE_NEXT_SIBLING(child);
+        child = child->nextSibling;
     }
 
     return 1;
@@ -242,10 +242,10 @@ ReverseBreadthFirstSearch ReverseBreadthFirstSearch_Create(Node* root) {
             Node* node = BFSQueue_Pop(&queue);
             layerNodes[i] = node;
 
-            Node* child = NODE_FIRST_CHILD(node);
+            Node* child = node->firstChild;
             while (child) {
                 BFSQueue_Push(&queue, child);
-                child = NODE_NEXT_SIBLING(child);
+                child = child->nextSibling;
             }
         }
 

@@ -5,6 +5,7 @@
 #include "nu_node.h"
 #include "nu_node_alloc.h"
 #include "nu_nodelist.h"
+#include "nu_tree_partition.h"
 #include "nu_tree_traversal.h"
 
 /* Initialises node */
@@ -29,14 +30,13 @@ Node* TreeCreate(Tree* tree)
     Array_Init(&tree->deletedButNotFreedNodes, sizeof(Node*), 25);
     Array_Init(&tree->deleteStack, sizeof(Node*), 100);
 
-    // member variables
-    tree->depth = 1;
-    tree->nodeCount = 1;
-
     // create root node
     Node* root = Nalloc_Alloc(&tree->nodeAlloc);
     ApplyNodeDefaults(root, NULL, NU_TYPE_WINDOW, 0);
 
+    // member variables
+    tree->depth = 1;
+    tree->nodeCount = 1;
     tree->root = root;
     return root;
 }
@@ -50,6 +50,14 @@ void TreeFree(Tree* tree)
     tree->nodeCount = 0;
 }
 
+static inline void Tree_AdjustSubtreeSizes(Node* node, int32_t delta)
+{
+    while (node) {
+        node->subtreeSize += delta;
+        node = node->parent;
+    }
+}
+
 Node* TreeCreateNode(Tree* tree, Node* parent, u8 type)
 {
     // grow tree depth if necessary
@@ -59,6 +67,7 @@ Node* TreeCreateNode(Tree* tree, Node* parent, u8 type)
     // allocate new node
     Node* newNode = Nalloc_Alloc(&tree->nodeAlloc);
     ApplyNodeDefaults(newNode, parent, type, parent->layer + 1);
+    Tree_AdjustSubtreeSizes(parent, 1);
 
     // parent has no children
     if (parent->firstChild == NULL) {
@@ -72,6 +81,7 @@ Node* TreeCreateNode(Tree* tree, Node* parent, u8 type)
         parent->lastChild = newNode;
     }
     parent->childCount++;
+
 
     return newNode;
 }
@@ -151,6 +161,7 @@ void TreeReparentNode(Tree* tree, Node* node, Node* newParent)
     else oldParent->lastChild = node->prevSibling;
 
     oldParent->childCount--;
+    Tree_AdjustSubtreeSizes(oldParent, -(int)node->subtreeSize);
 
     // Attach to new parent as last child
     node->parent = newParent;
@@ -161,8 +172,7 @@ void TreeReparentNode(Tree* tree, Node* node, Node* newParent)
     if (node->type != NU_TYPE_WINDOW) {
         node->windowID = newParent->windowID;
     }
-
-    if (newParent->firstChild != NULL) {
+    if (newParent->firstChild == NULL) {
         newParent->firstChild = node;
         newParent->lastChild = node;
     }
@@ -171,6 +181,7 @@ void TreeReparentNode(Tree* tree, Node* node, Node* newParent)
         newParent->lastChild = node;
     }
     newParent->childCount++;
+    Tree_AdjustSubtreeSizes(newParent, node->subtreeSize);
 }
 
 void TreeDeleteLeaf(Tree* tree, Node* leaf, TreeDeleteCallback deleteCB)
@@ -229,6 +240,7 @@ void TreeDeleteNode(Tree* tree, Node* node, TreeDeleteCallback deleteCB)
     node->firstChild = NULL;
     node->lastChild = NULL;
     node->childCount = 0;
+    Tree_AdjustSubtreeSizes(node->parent, -(int)node->subtreeSize);
 
     while (tree->deleteStack.size > 0) {
 

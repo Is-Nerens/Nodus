@@ -1,7 +1,7 @@
-#include "utils/nu_int.h"
 #include <SDL3/SDL.h>
 #include <GL/glew.h>
 #include <math.h>
+#include <stdbool.h>
 #include <ft2build.h>
 #include <stdio.h>
 
@@ -38,6 +38,7 @@
 _EXPORT void NU_QUIT(void)
 {
     TreeFree(&GUI.tree);
+    ThreadPool_Destroy(&GUI.threadPool);
     WindowManager_Free(&GUI.winManager);
     ImageResourceManager_Free(&GUI.imageResourceManager);
     ErrorSystem_Free(&GUI.errorSystem);
@@ -57,6 +58,7 @@ _EXPORT void NU_QUIT(void)
         Array_Free(renderData);
     }
     Array_Free(&GUI.perFontTextRenderData);
+    DepthFirstSearch_Free(&GUI.dfs);
     BreadthFirstSearch_Free(&GUI.bfs);
     ReverseBreadthFirstSearch_Free(&GUI.rbfs);
     EventSystem_Free();
@@ -77,6 +79,7 @@ _EXPORT int NU_CREATE_GUI(const char* xml_filepath, const char* css_filepath)
     SDL_SetHint(SDL_HINT_MAC_SCROLL_MOMENTUM, "1");
 
     // Init Systems
+    ThreadPool_Init(&GUI.threadPool, 1.0f);
     WindowManager_Init(&GUI.winManager);
     ImageResourceManager_Init(&GUI.imageResourceManager);
     ErrorSystem_Init(&GUI.errorSystem);
@@ -130,6 +133,7 @@ _EXPORT int NU_CREATE_GUI(const char* xml_filepath, const char* css_filepath)
     GUI.recalculate_mouse_hover = true;
 
     // Traversal
+    GUI.dfs = DepthFirstSearch_Create(GUI.tree.root);
     GUI.bfs = BreadthFirstSearch_Create(GUI.tree.root);
     GUI.rbfs = ReverseBreadthFirstSearch_Create(GUI.tree.root);
 
@@ -143,7 +147,7 @@ _EXPORT int NU_CREATE_GUI(const char* xml_filepath, const char* css_filepath)
     }
 
     // Load css
-    if (!Stylesheet_Create(&GUI.stylesheet, css_filepath, &imageResourceLoader)) {
+    if (!Stylesheet_Create(&GUI.stylesheet, &GUI.threadPool, css_filepath, &imageResourceLoader)) {
         NU_QUIT(); return 0;
     }
 
@@ -158,9 +162,11 @@ _EXPORT int NU_CREATE_GUI(const char* xml_filepath, const char* css_filepath)
     }
 
     // Apply css
-    if (!NU_Internal_Apply_Stylesheet(&GUI.stylesheet)) {
+    timer_start();
+    if (!NU_Internal_Apply_Stylesheet_Parallel(&GUI.stylesheet, &GUI.threadPool)) {
         NU_QUIT(); return 0;
     }
+    timer_stop();
 
     // Initial layout calculation
     NU_Layout();
@@ -252,7 +258,10 @@ _EXPORT void NU_RUN(void)
         {
             NU_Layout();
             NU_Mouse_Hover();
+            printf("draw: ");
+            timer_start();
             NU_Draw();
+            timer_stop();
             CheckForResizeEvents();
         }
 

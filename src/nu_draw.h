@@ -1,5 +1,7 @@
 #pragma once
+#include "rendering/nu_renderer.h"
 #include "rendering/nu_renderer_structures.h"
+#include "tree/nu_node.h"
 #include "tree/nu_node_alloc.h"
 #include <SDL3/SDL.h>
 #include <GL/glew.h>
@@ -21,6 +23,14 @@ inline int NodeOutsideWindow(Node* node, int winW, int winH)
     float right  = node->public.generic.x + node->public.generic.width;
     float bottom = node->public.generic.y + node->public.generic.height;
     return (right < 0 || bottom < 0 || node->public.generic.x > winW || node->public.generic.y > winH);
+}
+
+inline int NodeOutsideBounds(Node* node, float left, float right, float top, float bottom)
+{
+    return (node->public.generic.y + node->public.generic.height < top) |
+           (node->public.generic.y > bottom) |
+           (node->public.generic.x + node->public.generic.width < left) |
+           (node->public.generic.x > right);
 }
 
 void NU_AddTextMesh(Node* node, float z, char* textBuffer, Array* textRenderData)
@@ -190,7 +200,7 @@ void NU_GenerateDrawlists()
         float nodeInnerX, nodeInnerY, nodeInnerWidth, nodeInnerHeight = 0;
         if (node->layoutFlags & OVERFLOW_VERTICAL_SCROLL) {
             nodeInnerY = node->public.generic.y + node->public.generic.borderTop + node->public.generic.padTop;
-            nodeInnerHeight = node->public.generic.height - node->public.generic.borderTop - node->public.generic.borderBottom - node->public.generic.padTop - node->public.generic.padBottom;
+            nodeInnerHeight = NODE_INNER_HEIGHT(node);
 
             // Handle case where node is a table with a thead
             if (node->type == NU_TYPE_TABLE && node->childCount > 0) {
@@ -202,7 +212,7 @@ void NU_GenerateDrawlists()
         }
         if (node->layoutFlags & OVERFLOW_HORIZONTAL_SCROLL) {
             nodeInnerX = node->public.generic.x + node->public.generic.borderLeft + node->public.generic.padLeft;
-            nodeInnerWidth = node->public.generic.width - node->public.generic.borderLeft - node->public.generic.borderRight - node->public.generic.padLeft - node->public.generic.padRight;
+            nodeInnerWidth = NODE_INNER_WIDTH(node);
         }
 
         // cache window dimensions
@@ -214,8 +224,10 @@ void NU_GenerateDrawlists()
         Node* child = node->firstChild;
         while(child)
         {
-            // if parent is not visible (ad child inherets parent's visibility) OR child is not visible OR child not visible in it's window -> mark as hidded -> skip
-            if ((NodeStateHidden(node) && child->type != NU_TYPE_WINDOW) || NodeStateHidden(child) || NodeOutsideWindow(child, winW, winH)) {
+            // Hide child if inherits parent's visibility OR should hide
+            bool inheritHiddenness = child->type != NU_TYPE_WINDOW && NodeStateHidden(node);
+            bool makeHidden = NodeStateHidden(child) || NodeOutsideWindow(child, winW, winH);
+            if (inheritHiddenness || makeHidden) {
                 child->stateFlags |= STATE_FLAG_HIDDEN;
                 child = child->nextSibling; continue;
             }
@@ -232,8 +244,6 @@ void NU_GenerateDrawlists()
                 // child not inside parent -> hide in this draw pass
                 if (verticalOverlap == NODE_OVERLAP_NONE) {
                     child->stateFlags |= STATE_FLAG_HIDDEN;
-                    child = child->nextSibling;
-                    continue;
                 }
 
                 // child overlaps parent boundary
@@ -248,33 +258,45 @@ void NU_GenerateDrawlists()
 
                     // if parent is also clipped -> merge clips (stack clipping behaviour)
                     if (node->clippedAncestor) {
-                        NU_ClipBounds* parent_clip = Hashmap_Get(&GUI.winManager.clipMap, node->clippedAncestor);
+                        NU_ClipBounds* parent_clip = Hashmap_Get(&GUI.winManager.clipMap, &node->clippedAncestor);
                         clip.top = fmaxf(clip.top, parent_clip->top);
                         clip.bottom = fminf(clip.bottom, parent_clip->bottom);
                     }
 
                     // add clipping to hashmap
-                    Hashmap_Set(&GUI.winManager.clipMap, &child, &clip);
                     child->clippedAncestor = child; // Set clip root to self
+                    Hashmap_Set(&GUI.winManager.clipMap, &child->clippedAncestor, &clip);
 
                     // append node to correct window clipped node list
                     SetNodeDrawlist_Clipped(&GUI.winManager, child);
                     if (child->type == NU_TYPE_CANVAS) SetNodeDrawlist_Canvas(&GUI.winManager, child);
-                    child = child->nextSibling; continue;
+                }
+
+                // child does not overlap parent -> child contained squarely within scroll parent
+                else {
+                    SetNodeDrawlist_Draw(&GUI.winManager, child);
+                    if (child->type == NU_TYPE_CANVAS) SetNodeDrawlist_Canvas(&GUI.winManager, child);
                 }
             }
 
-            // if parent is clipped -> child inherits clip from parent
-            if (node->clippedAncestor) {
-                child->clippedAncestor = node->clippedAncestor;
-                SetNodeDrawlist_Clipped(&GUI.winManager, child);
-                if (child->type == NU_TYPE_CANVAS) SetNodeDrawlist_Canvas(&GUI.winManager, child);
-                child = child->nextSibling; continue;
+            // Otherwise if only the parent is clipped -> child inherits clip from parent
+            else if (node->clippedAncestor) {
+                NU_ClipBounds* clip = Hashmap_Get(&GUI.winManager.clipMap, &node->clippedAncestor);
+                // Totally ignore children outside of inherited clip bounds
+                if (NodeOutsideBounds(child, clip->left, clip->right, clip->top, clip->bottom)) {
+                    child->stateFlags |= STATE_FLAG_HIDDEN;
+                }
+                else {
+                    child->clippedAncestor = node->clippedAncestor;
+                    SetNodeDrawlist_Clipped(&GUI.winManager, child);
+                    if (child->type == NU_TYPE_CANVAS) SetNodeDrawlist_Canvas(&GUI.winManager, child);
+                }
             }
-
-            // neither child nor parent is clipped -> append node to correct window node list
-            SetNodeDrawlist_Draw(&GUI.winManager, child);
-            if (child->type == NU_TYPE_CANVAS) SetNodeDrawlist_Canvas(&GUI.winManager, child);
+            // Else neither parent nor child are clipped
+            else {
+                SetNodeDrawlist_Draw(&GUI.winManager, child);
+                if (child->type == NU_TYPE_CANVAS) SetNodeDrawlist_Canvas(&GUI.winManager, child);
+            }
 
             // move to the next child
             child = child->nextSibling;
@@ -302,6 +324,8 @@ void NU_Draw()
 
     Node* focusedInputNode = NULL;
 
+    IncrementFrameIndex();
+
     // For each window
     for (u32 i=0; i<GUI.winManager.windows.size; i++)
     {
@@ -326,8 +350,8 @@ void NU_Draw()
 
             // Construct border rect data
             Add_NodeRectRenderData(node, z, 0.0f, winH, 0.0f, winW, &GUI.borderRectRenderDataArray);
-            if (node->layoutFlags & OVERFLOW_VERTICAL_SCROLL
-                && node->public.generic.contentHeight > (node->public.generic.height - node->public.generic.padTop - node->public.generic.padBottom - node->public.generic.borderTop - node->public.generic.borderBottom)) {
+            if ((node->layoutFlags & OVERFLOW_VERTICAL_SCROLL)
+                && node->public.generic.contentHeight > NODE_INNER_HEIGHT(node)) {
                 Add_ScrollbarRenderData(node, z + 0.5f, &GUI.stylesheet.scrollbarStyle, &GUI.borderRectRenderDataArray);
             }
             // Construct text mesh for node's textContent
@@ -345,13 +369,13 @@ void NU_Draw()
                 NU_DrawInputNodeContent(node, z, winW, winH, &clip);
             }
             // Construct image render data
-            if (node->special.image.imageHandle != 0 && node->type != NU_TYPE_CANVAS && node->type != NU_TYPE_INPUT) {
+            if (node->special.image.imageHandle != 0 && node->type == NU_TYPE_IMAGE) {
                 ImageRenderData renderData;
                 renderData.x = node->public.generic.x + node->public.generic.borderLeft + node->public.generic.padLeft;
                 renderData.y = node->public.generic.y + node->public.generic.borderTop + node->public.generic.padTop;
                 renderData.z = z + 0.75f;
-                renderData.w = node->public.generic.width - node->public.generic.borderLeft - node->public.generic.borderRight - node->public.generic.padLeft - node->public.generic.padRight;
-                renderData.h = node->public.generic.height - node->public.generic.borderTop - node->public.generic.borderBottom - node->public.generic.padTop - node->public.generic.padBottom;
+                renderData.w = node->public.generic.width - NODE_BORDER_PAD_WIDTH(node);
+                renderData.h = node->public.generic.height - NODE_BORDER_PAD_HEIGHT(node);
                 renderData.scissorTop = 0.0f;
                 renderData.scissorBottom = 1000000.0f;
                 renderData.scissorLeft = 0.0f;
@@ -382,9 +406,10 @@ void NU_Draw()
             float z = (float)(node->layer) + 32.0f * NodeStatePosAbsolute(node);
 
             // Draw border rect (1 draw call)
-            NU_ClipBounds* clip = (NU_ClipBounds*)Hashmap_Get(&GUI.winManager.clipMap, node->clippedAncestor);
+            NU_ClipBounds* clip = (NU_ClipBounds*)Hashmap_Get(&GUI.winManager.clipMap, &node->clippedAncestor);
             Add_NodeRectRenderData(node, z, clip->top, clip->bottom, clip->left, clip->right, &GUI.borderRectRenderDataArray);
-            Draw_SDF_Border_Rects(GUI.borderRectRenderDataArray, winW, winH); Array_Clear(&GUI.borderRectRenderDataArray);
+            Draw_SDF_Border_Rects(GUI.borderRectRenderDataArray, winW, winH);
+            Array_Clear(&GUI.borderRectRenderDataArray);
 
             // Draw text content (1 draw call)
             if (node->public.generic.textContent != NULL) {
@@ -392,7 +417,7 @@ void NU_Draw()
                 Array* textRenderData = Array_Get(&GUI.perFontTextRenderData, node->fontIdx);
                 Array_Clear(textRenderData);
                 NU_AddTextMesh(node, z + 0.5f, node->public.generic.textContent, textRenderData);
-                NU_Draw_Text(*textRenderData, font, winW, winH, 0, 0);
+                NU_Draw_Clipped_Text(*textRenderData, font, winW, winH, 0, 0, clip->top, clip->bottom, clip->left, clip->right);
             }
             // Draw text input (1 draw call)
             else if (node->type == NU_TYPE_INPUT) {
@@ -405,13 +430,13 @@ void NU_Draw()
                 }
             }
             // Construct image render data
-            if (node->special.image.imageHandle != 0 && node->type != NU_TYPE_CANVAS && node->type != NU_TYPE_INPUT) {
+            if (node->special.image.imageHandle != 0 && node->type == NU_TYPE_IMAGE) {
                 ImageRenderData renderData;
                 renderData.x = node->public.generic.x + node->public.generic.borderLeft + node->public.generic.padLeft;
                 renderData.y = node->public.generic.y + node->public.generic.borderTop + node->public.generic.padTop;
                 renderData.z = z + 0.75f;
-                renderData.w = node->public.generic.width - node->public.generic.borderLeft - node->public.generic.borderRight - node->public.generic.padLeft - node->public.generic.padRight;
-                renderData.h = node->public.generic.height - node->public.generic.borderTop - node->public.generic.borderBottom - node->public.generic.padTop - node->public.generic.padBottom;
+                renderData.w = node->public.generic.width - NODE_BORDER_PAD_WIDTH(node);
+                renderData.h = node->public.generic.height - NODE_BORDER_PAD_HEIGHT(node);
                 renderData.scissorTop = clip->top;
                 renderData.scissorBottom = clip->bottom;
                 renderData.scissorLeft = clip->left;

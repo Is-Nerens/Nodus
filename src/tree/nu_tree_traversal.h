@@ -4,6 +4,7 @@
 // ---------------------------
 // Depth First Search iterator
 // ---------------------------
+#include "nu_tree_partition.h"
 typedef struct DFSFrame {
     Node* node;
     Node* nextChild;
@@ -89,14 +90,71 @@ void DepthFirstSearch_Free(DepthFirstSearch* dfs)
 
 
 
-// typedef struct TreePartitioner {
-//     // ideally all stack based memory ( no allocations )
-// } TreePartitioner;
 
-// void TreePartitioner_Create(TreePartitioner* partitioner, Node* root, int partitionCount)
+
+
+
+
+
+// static void NU_CalculatePositions(BFS_Thread* bfs, float scrollbarThickness)
 // {
+//     while (BFS_Thread_Next(bfs, &node)) {
+//         if (NodeStateHidden(node)) continue;
+//         if (node->type == NU_TYPE_WINDOW) {
+//             node->public.generic.x = 0;
+//             node->public.generic.y = 0;
+//         }
+//         NU_PositionChildrenHorizontally(node, scrollbarThickness);
+//         NU_PositionChildrenVertically(node, scrollbarThickness);
+//     }
+// }
+
+
+
+// -----------------------------------------------
+// Parallel Sub-branch Depth First Search iterator
+// -----------------------------------------------
+// typedef struct ParallelDFS_Worker {
+//     DFSFrame* stack;
+//     u32 size;
+// } ParallelDFS_Worker;
+
+// typedef struct ParallelDepthFirstSearch {
+//     DFSFrame* sharedStack;
+//     u32 sharedStackCapacity;
+// } ParallelDepthFirstSearch;
+
+// int ParallelDepthFirstSearch_Init(ParallelDepthFirstSearch* pdfs) {
 
 // }
+
+// typedef void (*ParallelDFS_Function)(ParallelDFS_Worker worker, void* args);
+
+// void ParallelDepthFirstSearch_Start(
+//     ParallelDepthFirstSearch* pdfs,
+//     TreePartitioner* partitioner,
+//     ThreadPool* threadpool,
+//     ParallelDFS_Function callback)
+// {
+//     // 1. Grow the stack space to contain enough space
+//     // for all the tree partition nodes
+//     u32 capacityNeeded = 0;
+//     Node* partitionRoot;
+//     while((partitionRoot = TreePartitioner_GetNextPartition(
+//         partitioner,
+//         TREE_PARTITION_TRAVERSE_DIRECTION_DOWN)) != NULL)
+//     {
+//         capacityNeeded += partitionRoot->subtreeSize;
+//     }
+//     if (capacityNeeded > pdfs->sharedStackCapacity) {
+//         pdfs->sharedStackCapacity *= 2;
+//         if (capacityNeeded > pdfs->sharedStackCapacity) pdfs->sharedStackCapacity = capacityNeeded;
+//         pdfs->sharedStack = realloc(pdfs->sharedStack, sizeof(DFSFrame) * pdfs->sharedStackCapacity);
+//     }
+
+//     // 2. Init workers
+// }
+
 
 
 // // -----------------------------------------------
@@ -228,7 +286,7 @@ ReverseBreadthFirstSearch ReverseBreadthFirstSearch_Create(Node* root) {
     BFSQueue_Init(&queue, 64);
     BFSQueue_Push(&queue, root);
 
-    // temp stack for layers
+    // Temp stack for layers
     Node*** layerStack = malloc(sizeof(Node**) * 16);
     u32* layerCounts = malloc(sizeof(u32) * 16);
     u32 layerStackSize = 0;
@@ -272,16 +330,14 @@ ReverseBreadthFirstSearch ReverseBreadthFirstSearch_Create(Node* root) {
 
     // Fill rBFS array bottom-up, left-to-right per layer
     u32 pos = 0;
-    for (int l = layerStackSize - 1; l >= 0; l--) {
-        for (u32 i = 0; i < layerCounts[l]; i++) {
+    for (int l=layerStackSize-1; l>=0; l--) {
+        for (u32 i=0; i<layerCounts[l]; i++) {
             rBFS.nodes[pos++] = layerStack[l][i];
         }
         free(layerStack[l]);
     }
-
     free(layerStack);
     free(layerCounts);
-
     return rBFS;
 }
 
@@ -290,7 +346,6 @@ int ReverseBreadthFirstSearch_Next(ReverseBreadthFirstSearch* rBFS, Node** nodeO
         rBFS->index = 0; // auto-reset after traversal
         return 0;
     }
-
     *nodeOut = rBFS->nodes[rBFS->index++];
     return 1;
 }

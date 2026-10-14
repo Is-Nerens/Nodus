@@ -1,9 +1,5 @@
 #pragma once
 
-// -------------------------
-// --- External Includes ---
-// -------------------------
-
 #ifndef min
     #define min(a, b) (((a) < (b)) ? (a) : (b))
 #endif
@@ -40,6 +36,7 @@ typedef void (*NU_Callback)(void* args);
 #include <datastructures/string_arena.h>
 #include <datastructures/hashmap.h>
 #include <datastructures/linalloc.h>
+#include <datastructures/threadpool.h>
 #include <errors/nu_error.h>
 #include <tree/nu_node.h>
 #include <tree/nu_tree.h>
@@ -58,6 +55,7 @@ struct NU_GUI
 {
     ErrorSystem errorSystem;
     Tree tree;
+    ThreadPool threadPool;
     WindowManager winManager;
     ImageResourceManager imageResourceManager;
     StringArena nodeTextArena;
@@ -108,6 +106,7 @@ struct NU_GUI
     SDL_Cursor* cursorNeswResize;
 
     // Layout and draw datastructures
+    DepthFirstSearch dfs;
     BreadthFirstSearch bfs;
     ReverseBreadthFirstSearch rbfs;
     Array layoutScrollAutoNodes;

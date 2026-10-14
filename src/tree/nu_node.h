@@ -230,9 +230,11 @@ typedef struct Node
     u64 overrideStyleFlags;         // Bitflags determine which style properties ignore the stylesheet
     NodeSpecialDataUnion special;   // Node type-specific data
     int widgetID;
+    u32 subtreeSize;
     u16 childCount;
     u16 eventFlags;                 // Bit flags indicating bound events
     u16 layoutFlags;                // Bit flags controlling layout and rendering
+    bool isPartitionRoot;
     u8 type;
     u8 layer;                       // Depth of this node in the tree [0, 1, ..n]
     u8 stateFlags;                  // State bitflags (eg. "STATE_FLAG_HIDDEN")
@@ -299,6 +301,7 @@ void ApplyNodeDefaults(Node* node, Node* parent, u8 type, u16 layer)
     node->horizontalTextAlignment = 0;
     node->verticalTextAlignment = 1;
     node->widgetID = -1;
+    node->subtreeSize = 1;
 
     // Set defaults based on node type
     switch (node->type)

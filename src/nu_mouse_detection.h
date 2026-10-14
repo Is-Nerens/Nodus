@@ -1,6 +1,5 @@
 #pragma once
 
-#include "tree/nu_node_alloc.h"
 static bool NU_MouseIsOverNode(Node* node, float mouseX, float mouseY)
 {
     // get clipping info
@@ -9,7 +8,7 @@ static bool NU_MouseIsOverNode(Node* node, float mouseX, float mouseY)
     float top_wall = node->public.generic.y;
     float bottom_wall = node->public.generic.y + node->public.generic.height;
     if (node->clippedAncestor) {
-        NU_ClipBounds* clip = Hashmap_Get(&GUI.winManager.clipMap, node->clippedAncestor);
+        NU_ClipBounds* clip = Hashmap_Get(&GUI.winManager.clipMap, &node->clippedAncestor);
         left_wall = max(clip->left, node->public.generic.x);
         right_wall = min(clip->right, node->public.generic.x + node->public.generic.width);
         top_wall = max(clip->top, node->public.generic.y);
@@ -179,9 +178,8 @@ void NU_Mouse_Hover()
             }
 
             // Check for scroll hover
-            if (child->layoutFlags & OVERFLOW_V_PROPERTY) {
-                bool overflow_v = child->public.generic.contentHeight > child->public.generic.height - child->public.generic.borderTop - child->public.generic.borderBottom;
-                if (overflow_v) GUI.scroll_hovered_node = child;
+            if ((child->layoutFlags & OVERFLOW_VERTICAL_SCROLL)) {
+                if (NODE_CONTENTS_OVERFLOW_V(child)) GUI.scroll_hovered_node = child;
             }
             Array_Push(&stack, &child);
 

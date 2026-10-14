@@ -419,6 +419,7 @@ bool EventWatcher(void* data, SDL_Event* event)
         // --- Mouse scroll wheel -------------------------------------------------------------
         // ------------------------------------------------------------------------------------
         case SDL_EVENT_MOUSE_WHEEL: {
+
             // If scrolling
             Node* node = GUI.scroll_hovered_node;
             if (node != NULL)

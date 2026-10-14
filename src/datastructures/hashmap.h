@@ -49,7 +49,7 @@ void Hashmap_Init(Hashmap* hmap, uint32_t keySize, uint32_t itemSize, uint32_t c
     uint32_t occupancyRemainder = capacity & 7;
     uint32_t occupancyBytes = capacity >> 3;
     occupancyBytes += 1 * (occupancyRemainder != 0);
-    hmap->occupancy = (uint8_t*)calloc(occupancyBytes, 1); 
+    hmap->occupancy = (uint8_t*)calloc(occupancyBytes, 1);
 
     // allocate space for sparse data array
     hmap->data = malloc((keySize + itemSize) * capacity);
@@ -134,11 +134,11 @@ void HashmapResize(Hashmap* hmap)
 
         uint8_t isPresent = oldOccupancy[i >> 3] & (1u << (i & 7));
         if (isPresent) // Found item
-        { 
+        {
             char* base = (char*)oldData + i * (hmap->keySize + hmap->itemSize);
             void* key = base;
             void* value = base + hmap->keySize;
-            HashmapResizeAdd(hmap, key, value); // Re-add item 
+            HashmapResizeAdd(hmap, key, value); // Re-add item
         }
     }
 
@@ -153,7 +153,7 @@ int Hashmap_Contains(Hashmap* hmap, void* key)
     while (probes < hmap->maxProbes) {
         uint32_t i = (hash + probes) % hmap->capacity;
         if (Hashmap_IsOccupied(hmap, i)) { // Found item
-            
+
             // Check if key matches
             char* base = (char*)hmap->data + i * (hmap->keySize + hmap->itemSize);
             void* checkKey = base;
@@ -176,7 +176,7 @@ void* Hashmap_Get(Hashmap* hmap, void* key)
     while (probes < hmap->maxProbes) {
         uint32_t i = (hash + probes) % hmap->capacity;
         if (Hashmap_IsOccupied(hmap, i)) { // Found item
-            
+
             // Check if key matches
             char* base = (char*)hmap->data + i * (hmap->keySize + hmap->itemSize);
             void* checkKey = base;
@@ -195,7 +195,7 @@ void* Hashmap_Get(Hashmap* hmap, void* key)
 
 void Hashmap_Set(Hashmap* hmap, void* key, void* value)
 {
-    // Resize if surpassed max load factor 
+    // Resize if surpassed max load factor
     if ((float)hmap->itemCount / (float)hmap->capacity > 0.5f) {
         HashmapResize(hmap);
     }
@@ -211,11 +211,11 @@ void Hashmap_Set(Hashmap* hmap, void* key, void* value)
                 memcpy(base + hmap->keySize, value, hmap->itemSize);
                 return;
             }
-        } 
-        else 
+        }
+        else
         {
             Hashmap_SetOccupied(hmap, i);
-            
+
             // set key and value
             char* base = (char*)hmap->data + i * (hmap->keySize + hmap->itemSize);
             memcpy(base, key, hmap->keySize);
@@ -235,7 +235,7 @@ void Hashmap_Delete(Hashmap* hmap, void* key)
     uint32_t hash = HashGeneric(key, hmap->keySize);
 
     int holeIndex = -1;
-    while(probes < hmap->maxProbes) 
+    while(probes < hmap->maxProbes)
     {
         uint32_t i = (hash + probes) % hmap->capacity;
 
@@ -255,7 +255,7 @@ void Hashmap_Delete(Hashmap* hmap, void* key)
     if (holeIndex == -1) return; // key not found
 
     uint32_t i = (holeIndex + 1) % hmap->capacity;
-    while (Hashmap_IsOccupied(hmap, i)) 
+    while (Hashmap_IsOccupied(hmap, i))
     {
         void* candidateKey = (char*)hmap->data + i * (hmap->keySize + hmap->itemSize);
         uint32_t candidateHash = HashGeneric(candidateKey, hmap->keySize);
@@ -301,7 +301,7 @@ HashmapIterator Hashmap_CreateIterator(Hashmap* hmap)
 
 int Hashmap_IteratorNext(HashmapIterator* it, void** keyOut, void** valOut)
 {
-    Hashmap* hmap = it->hmap; 
+    Hashmap* hmap = it->hmap;
 
     // no items -> done
     if (hmap->itemCount == 0) {
@@ -311,7 +311,7 @@ int Hashmap_IteratorNext(HashmapIterator* it, void** keyOut, void** valOut)
     while (it->index < hmap->capacity) {
 
         // found item -> set key, value
-        if (Hashmap_IsOccupied(hmap, it->index)) { 
+        if (Hashmap_IsOccupied(hmap, it->index)) {
             char* base = (char*)hmap->data + it->index * (hmap->keySize + hmap->itemSize);
             it->index++;
             *keyOut = base;

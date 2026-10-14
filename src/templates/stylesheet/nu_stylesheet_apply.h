@@ -273,3 +273,48 @@ int NU_Internal_Apply_Stylesheet(Stylesheet* stylesheet)
     }
     return 1; // success
 }
+
+
+
+// -------------------------------------
+// --- Parellelised Stylesheet Apply ---
+// -------------------------------------
+struct StylesheetPartitionApplyJob {
+    Stylesheet* ss;
+    Node* node;
+};
+
+static void ApplyStylesDFS(Stylesheet* stylesheet, Node* node)
+{
+    Stylesheet_ApplyStyleToNode(stylesheet, node);
+    Node* child = node->firstChild;
+    while (child) {
+        Node* next = child->nextSibling;
+        if (child->isPartitionRoot) { child = next; continue; } // Subtree belongs to another partition
+        ApplyStylesDFS(stylesheet, child);
+        child = next;
+    }
+}
+
+static int Stylesheet_ApplyToPartition(void* args) {
+    struct StylesheetPartitionApplyJob* data = args;
+    ApplyStylesDFS(data->ss, data->node);
+    return 1;
+}
+
+int NU_Internal_Apply_Stylesheet_Parallel(Stylesheet* stylesheet, ThreadPool* threadpool)
+{
+    TreePartitioner part;
+    TreePartitioner_Partition(&part, GUI.tree.root, TREE_PARTITION_MAX);
+    struct StylesheetPartitionApplyJob jobs[TREE_PARTITION_MAX];
+    int jobCount = 0;
+    Node* node;
+    while ((node = TreePartitioner_GetNextPartition(&part, TREE_PARTITION_TRAVERSE_DIRECTION_NONE)) != NULL) {
+        jobs[jobCount].ss = stylesheet;
+        jobs[jobCount].node = node;
+        ThreadPool_Submit(threadpool, Stylesheet_ApplyToPartition, &jobs[jobCount]);
+        jobCount++;
+    }
+    ThreadPool_Wait(threadpool);
+    return 1;
+}

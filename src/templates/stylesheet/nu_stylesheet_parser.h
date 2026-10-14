@@ -22,19 +22,15 @@ typedef struct Stylesheet_FontLoaderJobBatch
 
 int Stylesheet_FontLoaderThread(void* data)
 {
-    Stylesheet_FontLoaderJobBatch* batch = (Stylesheet_FontLoaderJobBatch*)data;
+    Stylesheet_FontLoadJob* job = (Stylesheet_FontLoadJob*)data;
 
     bool subpixelRendering = true;
     #ifdef PLATFORM_MACOS
         subpixelRendering = false;
     #endif
 
-    for (int i=batch->start; i<batch->end; i++) {
-        Stylesheet_FontLoadJob* job = &batch->jobs[i];
-        NU_Font* font = Array_Get(&job->stylesheet->fonts, job->fontIdx);
-        NU_Font_Create(font, StringCstr(job->filepath), job->fontSize, job->fontWeight, subpixelRendering);
-    }
-
+    NU_Font* font = Array_Get(&job->stylesheet->fonts, job->fontIdx);
+    NU_Font_Create(font, StringCstr(job->filepath), job->fontSize, job->fontWeight, subpixelRendering);
     return 0;
 }
 
@@ -1495,7 +1491,7 @@ void Stylesheet_ParseScrollTrackProperty(Stylesheet* ss, const enum StylesheetTo
     }
 }
 
-int Stylesheet_ParseFonts(Stylesheet* ss, char* src, TokenArray* tokens, Array* textRefs)
+int Stylesheet_ParseFonts(Stylesheet* ss, ThreadPool* threadpool, char* src, TokenArray* tokens, Array* textRefs)
 {
     int inFontSelector = 0;
     int fontSize = 18;
@@ -1586,35 +1582,15 @@ int Stylesheet_ParseFonts(Stylesheet* ss, char* src, TokenArray* tokens, Array* 
         i += 1;
     }
 
-    // Create fonts in parallel
-    int threadCount = SDL_GetNumLogicalCPUCores();
-    if (threadCount <= 0) threadCount = 1;
-    if (threadCount > fontJobCount) threadCount = fontJobCount;
+    timer_start();
 
-    SDL_Thread* threads[64];
-    Stylesheet_FontLoaderJobBatch batches[64];
-
-    // Create job batches
-    int jobsPerThread = fontJobCount / threadCount;
-    int remainder = fontJobCount % threadCount;
-    int start = 0;
-    for (int t=0; t<threadCount; t++) {
-        int count = jobsPerThread + (t < remainder ? 1 : 0);
-        batches[t].jobs = fontJobs;
-        batches[t].start = start;
-        batches[t].end = start + count;
-        start += count;
+    // Load fonts in parallel
+    for (int i=0; i<fontJobCount; i++) {
+        if (!ThreadPool_Submit(threadpool, Stylesheet_FontLoaderThread, &fontJobs[i])) return 0;
     }
+    ThreadPool_Wait(threadpool);
 
-    // Dispatch work
-    for (int t=0; t<threadCount; t++) {
-        threads[t] = SDL_CreateThread(Stylesheet_FontLoaderThread, "FontLoader", &batches[t]);
-    }
-
-    // Wait for work to finish
-    for (int t=0; t<threadCount; t++) {
-        SDL_WaitThread(threads[t], NULL);
-    }
+    timer_stop();
 
     // Free filepath strings
     for (int i=0; i<fontJobCount; i++) {
@@ -1691,10 +1667,10 @@ int Stylesheet_LoadDefaultFont(Stylesheet* ss)
     return 0;
 }
 
-int Stylesheet_Parse(char* src, TokenArray* tokens, Array* textRefs, LinearStringmap* variableMap, Stylesheet* ss, ImageResourceLoader* imageResourceLoader)
+int Stylesheet_Parse(char* src, TokenArray* tokens, Array* textRefs, LinearStringmap* variableMap, Stylesheet* ss, ThreadPool* threadpool, ImageResourceLoader* imageResourceLoader)
 {
     // Parse fonts
-    if (!Stylesheet_ParseFonts(ss, src, tokens, textRefs)) return 0;
+    if (!Stylesheet_ParseFonts(ss, threadpool, src, tokens, textRefs)) return 0;
 
     // Parse variables
     if (!Stylesheet_ParseVariables(src, tokens, ss, textRefs, variableMap)) return 0;

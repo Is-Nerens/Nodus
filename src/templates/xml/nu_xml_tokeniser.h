@@ -1,6 +1,5 @@
 #pragma once
-#include <stdint.h>
-#include <datastructures/utf8_parser_word.h>
+#include <utils/nu_utf8_parser_word.h>
 #include "nu_xml_tokens.h"
 #include "nu_xml_grammar_assertions.h"
 

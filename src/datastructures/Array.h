@@ -27,13 +27,13 @@
 
 typedef struct Array
 {
-    void* data;  
+    void* data;
     size_t elementSize;
-    size_t size;     
-    size_t capacity; 
-} Array; 
+    size_t size;
+    size_t capacity;
+} Array;
 
-void Array_Init(Array* array, size_t elementSize, size_t initialCapacity) 
+void Array_Init(Array* array, size_t elementSize, size_t initialCapacity)
 {
     array->data = malloc(initialCapacity * elementSize);
     array->elementSize = elementSize;
@@ -41,7 +41,7 @@ void Array_Init(Array* array, size_t elementSize, size_t initialCapacity)
     array->capacity = initialCapacity;
 }
 
-void Array_Push(Array* array, void* value) 
+void Array_Push(Array* array, void* value)
 {
     if (array->size >= array->capacity) {
         array->capacity *= 2;
@@ -52,6 +52,11 @@ void Array_Push(Array* array, void* value)
     }
     memcpy((char*)array->data + (array->size * array->elementSize), value, array->elementSize);
     array->size++;
+}
+
+inline size_t Array_Length(Array* array)
+{
+    return array->size;
 }
 
 void* Array_PushEmpty(Array* array)
@@ -106,7 +111,7 @@ void Array_DeleteBatchBackshift(Array* array, size_t index, size_t count)
     array->size -= count;
 }
 
-inline void* Array_Get(Array* array, size_t index) 
+inline void* Array_Get(Array* array, size_t index)
 {
     return (char*)array->data + (index * array->elementSize);
 }
@@ -116,7 +121,7 @@ inline void Array_Clear(Array* array)
     array->size = 0;
 }
 
-inline void Array_Free(Array* array) 
+inline void Array_Free(Array* array)
 {
     free(array->data);
     array->size = array->capacity = 0;

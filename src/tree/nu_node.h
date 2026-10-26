@@ -1,5 +1,4 @@
 #pragma once
-#include <input_text/nu_input_text_struct.h>
 
 // Layout flags
 #define LAYOUT_VERTICAL                 (1ULL << 0)
@@ -214,6 +213,21 @@ typedef union NodeSpecialDataUnion {
     NuImageSpecial image;
     NuCanvasSpecial canvas;
 } NodeSpecialDataUnion;
+
+typedef struct InputText {
+    char* buffer;
+    float cursorOffset;
+    float highlightOffset;
+    float textOffset;
+    int decimalByteIndex;
+    u16 numBytes;
+    u16 capacity;
+    u16 cursorBytes;
+    u16 highlightBytes;
+    u8 type; // 0 -> text, 1 -> number
+    bool dragging;
+    bool updateOffsetsPostLayout;
+} InputText;
 
 /* Private node storing public and private members */
 typedef struct Node

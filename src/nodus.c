@@ -1,24 +1,4 @@
-#include <SDL3/SDL.h>
-#include <GL/glew.h>
-#include <math.h>
-#include <stdbool.h>
-#include <ft2build.h>
-#include <stdio.h>
-
-// Platform macros
-#if defined(_WIN32) || defined(_WIN64)
-    #define PLATFORM_WINDOWS
-#elif defined(__APPLE__) && defined(__MACH__)
-    #define PLATFORM_MACOS
-#elif defined(__linux__) || defined(__unix__)
-    #define PLATFORM_LINUX
-#else
-    #error "Unsupported platform"
-#endif
-
-#include <nu_gui.h>
-#include FT_FREETYPE_H
-#include FT_MULTIPLE_MASTERS_H
+#include <core/nu_includes.h>
 
 // Export macro
 #if defined(IPC_STATIC)
@@ -95,6 +75,8 @@ _EXPORT int NU_CREATE_GUI(const char* xml_filepath, const char* css_filepath)
     GUI.textInputs = Container_Create(sizeof(InputText));
     GUI.timers = Container_Create(sizeof(NU_Timer));
     GUI.widgets = Container_Create(sizeof(NU_Widget));
+
+    NU_TestVulkan();
 
     // Init Event System (allocates memory)
     EventSystem_Init();

@@ -1,7 +1,6 @@
 #pragma once
 #define MAX(a, b) ((a) > (b) ? (a) : (b))
-#include <ctype.h>
-#include <filesystem/nu_file.h>
+#include <utils/nu_file.h>
 #include <utils/nu_convert.h>
 #include "../nu_token_array.h"
 #include "nu_xml_tokens.h"

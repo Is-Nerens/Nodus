@@ -4,7 +4,7 @@
 #include <stdlib.h>
 #include <stdio.h>
 #include <utils/nu_convert.h>
-#include <filesystem/nu_file.h>
+#include <utils/nu_file.h>
 #include "nu_stylesheet_tokens.h"
 #include "nu_stylesheet_structs.h"
 #include "nu_stylesheet_tokeniser.h"

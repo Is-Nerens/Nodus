@@ -16,6 +16,14 @@ struct RGB UnpackRGB(int packed) {
     return rgb;
 }
 
+static inline u32 PackRGBA(u8 r, u8 g, u8 b, u8 a)
+{
+    return ((u32)r << 0) |
+           ((u32)g << 8) |
+           ((u32)b << 16) |
+           ((u32)a << 24);
+}
+
 static int String_To_Float(float* result, const char* str)
 {
     *result = 0.0f;

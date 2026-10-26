@@ -8,19 +8,21 @@ glewInclude="src/libraries/glew/include"
 glewLib="src/libraries/glew/mac"
 freetypeInclude="src/libraries/freetype/include"
 freetypeLib="src/libraries/freetype/mac"
+vulkanSdk="/Users/$(whoami)/VulkanSDK/1.4.363.0/macOS"
 
 # Compile
 clang -std=c99 -O3 -g \
     "src/nodus.c" \
-    "src/memory_map/nu_memory_map.c" \
+    "src/mmap/nu_memory_map.c" \
     -I"$srcInclude" \
     -I"$glewInclude" \
     -I"$sdlInclude" \
     -I"$freetypeInclude" \
-    -I"$srcInclude/memory_map" \
+    -I"$srcInclude/mmap" \
     "$glewLib/libGLEW.a" \
     "$freetypeLib/libfreetype.a" \
     "$sdlLib/libSDL3.a" \
+    "$vulkanSdk/lib/libvulkan.1.dylib" \
     -lbz2 \
     -lz \
     -framework AVFoundation \

@@ -1,0 +1,49 @@
+#version 450
+
+layout(location = 0) in vec2 aQuad;
+layout(location = 1) in vec3 iPos;
+layout(location = 2) in vec2 iSize;
+layout(location = 3) in vec4 iUV;
+layout(location = 4) in uint iColor;
+layout(location = 5) in uint iTextureIndex;   // 0..7
+
+layout(location = 0) out vec2 vUV;
+layout(location = 1) out vec2 vScreenPos;
+layout(location = 2) out vec4 vColor;
+layout(location = 3) flat out uint vTextureIndex;
+
+layout(push_constant) uniform PushConstants {
+    float uScreenWidth;
+    float uScreenHeight;
+    float uOffsetX;
+    float uOffsetY;
+} pc;
+
+vec4 unpackRGBA(uint c)
+{
+    return vec4(
+        float((c >> 0)  & 255u) / 255.0,
+        float((c >> 8)  & 255u) / 255.0,
+        float((c >> 16) & 255u) / 255.0,
+        float((c >> 24) & 255u) / 255.0
+    );
+}
+
+void main()
+{
+    vec2 worldPos = (iPos.xy + vec2(pc.uOffsetX, pc.uOffsetY)) + aQuad * iSize;
+    float ndc_x = (worldPos.x / pc.uScreenWidth) * 2.0 - 1.0;
+    float ndc_y = 1.0 - (worldPos.y / pc.uScreenHeight) * 2.0;
+
+    float z_gl = iPos.z * 0.015625;
+    float z_vk = z_gl * 0.5 + 0.5;
+    gl_Position = vec4(ndc_x, ndc_y, z_vk, 1.0);
+
+    vScreenPos = worldPos;
+    vUV = vec2(
+        mix(iUV.x, iUV.z, aQuad.x),
+        mix(iUV.y, iUV.w, aQuad.y)
+    );
+    vColor        = unpackRGBA(iColor);
+    vTextureIndex = iTextureIndex;
+}

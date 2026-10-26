@@ -1,5 +1,5 @@
 #pragma once
-#include <datastructures/utf8_parser_word.h>
+#include <utils/nu_utf8_parser_word.h>
 #include "../nu_token_array.h"
 #include "nu_stylesheet_tokens.h"
 

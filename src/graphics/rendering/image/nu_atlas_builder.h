@@ -4,6 +4,7 @@ typedef struct {
     unsigned char* buffer;
     u16 w, h;
     u16 x, y, shelfHeight;
+    int imageResourceIndex;
 } AtlasBuilder;
 
 void AtlasBuilder_Init(AtlasBuilder* a, u16 w, u16 h)
@@ -24,10 +25,11 @@ void AtlasBuilder_Free(AtlasBuilder* a)
 
 void AtlasBuilder_Clear(AtlasBuilder* a)
 {
+    a->imageResourceIndex = -1;
     a->x = 0;
     a->y = 0;
     a->shelfHeight = 0;
-    memset(a->buffer, 0, w * h * 4);
+    memset(a->buffer, 0, a->w * a->h * 4);
 }
 
 bool AtlasBuilder_CanFit(AtlasBuilder* a, int w, int h)
@@ -41,7 +43,7 @@ static void AtlasBuilder_AddImage(
     AtlasBuilder* a,
     const unsigned char* src,
     int imgW, int imgH,
-    int* outX, int* outY)
+    u16* outX, u16* outY)
 {
     // New row if needed
     if (a->x + imgW > a->w) {

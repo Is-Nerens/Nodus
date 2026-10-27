@@ -8,7 +8,7 @@ static bool NU_MouseIsOverNode(Node* node, float mouseX, float mouseY)
     float top_wall = node->public.generic.y;
     float bottom_wall = node->public.generic.y + node->public.generic.height;
     if (node->clippedAncestor) {
-        NU_ClipBounds* clip = Hashmap_Get(&GUI.winManager.clipMap, &node->clippedAncestor);
+        NU_ClipBounds* clip = Hashmap_Get(&GUI.displayManager.clipMap, &node->clippedAncestor);
         left_wall = max(clip->left, node->public.generic.x);
         right_wall = min(clip->right, node->public.generic.x + node->public.generic.width);
         top_wall = max(clip->top, node->public.generic.y);
@@ -131,25 +131,25 @@ void NU_Mouse_Hover()
     GUI.prev_hovered_node = GUI.hovered_node;
     GUI.hovered_node = NULL;
     GUI.scroll_hovered_node = NULL;
-    if (!GUI.winManager.hoveredWindowNode) return;
+    if (!GUI.displayManager.hoveredWindowNode) return;
 
     // Get local mouse coords
-    float mouseX, mouseY; GetLocalMouseCoords(&GUI.winManager, &mouseX, &mouseY);
+    float mouseX, mouseY; GetLocalMouseCoords(&GUI.displayManager, &mouseX, &mouseY);
 
     // Create a traversal stack
     struct Array stack;
     Array_Init(&stack, sizeof(Node*), 32);
 
     // Add absolute root nodes to stack
-    for (u32 i=0; i<GUI.winManager.absoluteRootNodes.size; i++) {
-        Node* absolute_node = *(Node**)Array_Get(&GUI.winManager.absoluteRootNodes, i);
-        if (absolute_node->windowID == GUI.winManager.hoveredWindowNode->windowID && NU_MouseIsOverNode(absolute_node, mouseX, mouseY)) {
+    for (u32 i=0; i<GUI.displayManager.absoluteRootNodes.size; i++) {
+        Node* absolute_node = *(Node**)Array_Get(&GUI.displayManager.absoluteRootNodes, i);
+        if (absolute_node->windowID == GUI.displayManager.hoveredWindowNode->windowID && NU_MouseIsOverNode(absolute_node, mouseX, mouseY)) {
             Array_Push(&stack, &absolute_node);
         }
     }
 
     // Add hovered window node to stack
-    Array_Push(&stack, &GUI.winManager.hoveredWindowNode);
+    Array_Push(&stack, &GUI.displayManager.hoveredWindowNode);
 
     // traverse the tree
     bool break_loop = false;

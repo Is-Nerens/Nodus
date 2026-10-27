@@ -1,14 +1,9 @@
 #pragma once
 
-typedef struct NuPipeline {
-    VkPipeline handle;
-    VkPipelineLayout layout;
-} NuPipeline;
-
 static VkBuffer quadBuffer  = VK_NULL_HANDLE;
 static VkDeviceMemory quadMemory  = VK_NULL_HANDLE;
 
-void NU_CreateQuadBuffer(VkPhysicalDevice physicalDevice, VkDevice device, bool MSAA_4X)
+void NU_CreateQuadBuffer(VkPhysicalDevice physicalDevice, VkDevice device)
 {
     static const float quadVerts[] = {
         0.0f, 0.0f,
@@ -21,7 +16,7 @@ void NU_CreateQuadBuffer(VkPhysicalDevice physicalDevice, VkDevice device, bool 
 
     VkDeviceSize size = sizeof(quadVerts);
 
-    VkBufferCreateInfo bi{};
+    VkBufferCreateInfo bi = {0};
     bi.sType       = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO;
     bi.size        = size;
     bi.usage       = VK_BUFFER_USAGE_VERTEX_BUFFER_BIT;
@@ -34,7 +29,7 @@ void NU_CreateQuadBuffer(VkPhysicalDevice physicalDevice, VkDevice device, bool 
     VkMemoryRequirements mr;
     vkGetBufferMemoryRequirements(device, quadBuffer, &mr);   // <-- device, not physicalDevice
 
-    VkMemoryAllocateInfo ai{};
+    VkMemoryAllocateInfo ai = {0};
     ai.sType           = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO;
     ai.allocationSize  = mr.size;
     ai.memoryTypeIndex = FindMemoryType(physicalDevice,
@@ -73,7 +68,7 @@ extern const unsigned int  shaders_build_border_rect_vert_spv_len;
 extern const unsigned char shaders_build_border_rect_frag_spv[];
 extern const unsigned int  shaders_build_border_rect_frag_spv_len;
 
-int NU_CreateBorderRectPipeline(NuPipeline* pipeline)
+int NU_CreateBorderRectPipeline(DisplayManager* dm, NuPipeline* pipeline, bool MSAA_4X)
 {
     // Shader module create info
     VkShaderModuleCreateInfo smci = {0};
@@ -278,7 +273,7 @@ extern const unsigned int  shaders_build_image_frag_spv_len;
 
 int NU_CreateImagePipeline(NuPipeline* pipeline)
 {
-
+    return 1;
 }
 
 extern const unsigned char shaders_build_mono_text_vert_spv[];
@@ -288,7 +283,7 @@ extern const unsigned int  shaders_build_mono_text_frag_spv_len;
 
 int NU_CreateMonoTextPipeline(NuPipeline* pipeline)
 {
-
+    return 1;
 }
 
 extern const unsigned char shaders_build_clipped_mono_text_vert_spv[];
@@ -298,7 +293,7 @@ extern const unsigned int  shaders_build_clipped_mono_text_frag_spv_len;
 
 int NU_CreateClippedMonoTextPipeline(NuPipeline* pipeline)
 {
-
+    return 1;
 }
 
 extern const unsigned char shaders_build_subpixel_text_vert_spv[];
@@ -308,7 +303,7 @@ extern const unsigned int  shaders_build_subpixel_text_frag_spv_len;
 
 int NU_CreateSubpixelTextPipeline(NuPipeline* pipeline)
 {
-
+    return 1;
 }
 
 extern const unsigned char shaders_build_clipped_subpixel_text_vert_spv[];
@@ -318,7 +313,7 @@ extern const unsigned int  shaders_build_clipped_subpixel_text_frag_spv_len;
 
 int NU_CreateClippedSubpixelTextPipeline(NuPipeline* pipeline)
 {
-
+    return 1;
 }
 
 extern const unsigned char shaders_build_vertex_rgb_vert_spv[];
@@ -492,5 +487,5 @@ int NU_CreateVertexRGBPipeline(DisplayManager* dm, NuPipeline* pipeline, bool MS
 
 int NU_DestroyPipeline(NuPipeline* pipeline)
 {
-
+    return 1;
 }

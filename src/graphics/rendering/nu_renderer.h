@@ -5,20 +5,21 @@
 // #include <rendering/nu_shader.h>
 
 void NU_DrawVertexRGB(
-    NuWindow* window,
+    Window* window,
     DisplayManager* displayManager,
     Array* vertices,
     Array* indices)
 {
+    // Skip draw if there is no data
     if (vertices->size == 0 || indices->size == 0) return;
 
-    VkCommandBuffer cmd = window->activeCommandBuffer;
+    // Get the command buffer
+    VkCommandBuffer cmd = window->commandBuffers[window->currentFrame];
 
-    // ---- Bind pipeline ----
-    vkCmdBindPipeline(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS,
-                      displayManager->vertexRGBPipeline.pipeline);
+    // Bind pipeline
+    vkCmdBindPipeline(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, displayManager->vertexRGBPipeline.handle);
 
-    // ---- Dynamic viewport / scissor ----
+    // Wiewport / scissor
     VkViewport vp = {
         0.0f, 0.0f,
         (float)window->swapchainExtent.width,
@@ -29,46 +30,40 @@ void NU_DrawVertexRGB(
     vkCmdSetViewport(cmd, 0, 1, &vp);
     vkCmdSetScissor(cmd, 0, 1, &sc);
 
-    // ---- Push constants ----
+    // Push constants
     // 4 floats: screenW, screenH, offsetX, offsetY
     float push[4] = { (float)window->screenWidth, (float)window->screenHeight, 0.0f, 0.0f };
-    vkCmdPushConstants(cmd, displayManager->vertexRGBPipeline.layout,
-                       VK_SHADER_STAGE_VERTEX_BIT, 0,
-                       sizeof(push), push);
+    vkCmdPushConstants(cmd, displayManager->vertexRGBPipeline.layout, VK_SHADER_STAGE_VERTEX_BIT, 0, sizeof(push), push);
 
-    // ---- Allocate vertex data from the arena ----
+    // Allocate vertex buffer space in the GPU arena
     VkDeviceSize vertBytes = vertices->size * vertices->elementSize;
     ArenaAllocGPU vertAlloc = ArenaAllocatorGPU_Alloc(&displayManager->gpuArenaAlloc, vertBytes, 16);
     if (vertAlloc.buffer == VK_NULL_HANDLE) {
         ErrorSystem_AddError(&GUI.errorSystem, "<Vulkan Error> vertexRGB vertex arena alloc failed");
         return;
     }
-    memcpy((char*)vertAlloc.mapped + vertAlloc.offset,
-           vertices->data,
-           (size_t)vertBytes);
+    memcpy((char*)vertAlloc.mapped + vertAlloc.offset, vertices->data, (size_t)vertBytes);
 
-    // ---- Allocate index data from the arena ----
+    // Allocate index buffer space in the GPU arean
     VkDeviceSize idxBytes = indices->size * indices->elementSize;
     ArenaAllocGPU idxAlloc = ArenaAllocatorGPU_Alloc(&displayManager->gpuArenaAlloc, idxBytes, 16);
     if (idxAlloc.buffer == VK_NULL_HANDLE) {
         ErrorSystem_AddError(&GUI.errorSystem, "<Vulkan Error> vertexRGB index arena alloc failed");
         return;
     }
-    memcpy((char*)idxAlloc.mapped + idxAlloc.offset,
-           indices->data,
-           (size_t)idxBytes);
+    memcpy((char*)idxAlloc.mapped + idxAlloc.offset, indices->data, (size_t)idxBytes);
 
-    // ---- Bind vertex + index buffers ----
+    // Bind vertex + index buffers
     VkDeviceSize zero = 0;
     vkCmdBindVertexBuffers(cmd, 0, 1, &vertAlloc.buffer, &vertAlloc.offset);
     vkCmdBindIndexBuffer(cmd, idxAlloc.buffer, idxAlloc.offset, VK_INDEX_TYPE_UINT32);
 
-    // ---- Draw ----
+    // Draw
     vkCmdDrawIndexed(cmd, (uint32_t)indices->size, 1, 0, 0, 0);
 }
 
 void NU_DrawClippedVertexRGB(
-    NU_Window* window,
+    Window* window,
     DisplayManager* displayManager,
     Array* vertices,
     Array* indices,
@@ -79,21 +74,21 @@ void NU_DrawClippedVertexRGB(
 }
 
 void NU_DrawBorderRects(
-    NuWindow* window,
+    Window* window,
     DisplayManager* displayManager,
-    Array borderRects,
+    Array* borderRects,
     float screenWidth,
     float screenHeight)
 {
-    if (borderRects.size == 0) return;
+    if (Array_Length(borderRects) == 0) return;
 
-    VkCommandBuffer cmd = window->activeCommandBuffer;
+    VkCommandBuffer cmd = window->commandBuffers[window->currentFrame];
 
-    // ---- Bind pipeline ----
-    vkCmdBindPipeline(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS,
-                      displayManager->borderRectPipeline.pipeline);
 
-    // ---- Dynamic viewport / scissor (full window) ----
+    // Bind pipeline
+    vkCmdBindPipeline(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, displayManager->borderRectPipeline.handle);
+
+    // Dynamic viewport / scissor (full window)
     VkViewport vp = {
         0.0f, 0.0f,
         (float)window->swapchainExtent.width,
@@ -106,16 +101,14 @@ void NU_DrawBorderRects(
 
     // ---- Push constants: screen width / height ----
     float push[2] = { screenWidth, screenHeight };
-    vkCmdPushConstants(cmd, displayManager->borderRectPipeline.layout,
-                       VK_SHADER_STAGE_VERTEX_BIT, 0,
-                       sizeof(push), push);
+    vkCmdPushConstants(cmd, displayManager->borderRectPipeline.layout, VK_SHADER_STAGE_VERTEX_BIT, 0, sizeof(push), push);
 
     // ---- Allocate instance data from the arena ----
     //
     // The arena gives us a (VkBuffer, VkDeviceSize offset) pair that stays
     // valid until the slot is swapped back in N frames. We write directly
     // into the mapped pointer.
-    VkDeviceSize bytes = borderRects.size * borderRects.elementSize;
+    VkDeviceSize bytes = borderRects->size * borderRects->elementSize;
 
     // Vertex attributes need 4-byte alignment at minimum, and some drivers
     // prefer 16. 16 is the safe choice and costs nothing.
@@ -139,36 +132,56 @@ void NU_DrawBorderRects(
     //
     // Option (a) is much nicer. Assuming you've added `void* mapped` to
     // ArenaAllocGPU:
-    memcpy((char*)alloc.mapped + alloc.offset, borderRects.data, (size_t)bytes);
+    memcpy((char*)alloc.mapped + alloc.offset, borderRects->data, (size_t)bytes);
 
     // ---- Bind quad + instance buffers ----
-    VkBuffer     bufs[2]    = { quadBuffer, alloc.buffer };
+    VkBuffer bufs[2] = { quadBuffer, alloc.buffer };
     VkDeviceSize offsets[2] = { 0, alloc.offset };
     vkCmdBindVertexBuffers(cmd, 0, 2, bufs, offsets);
 
     // ---- Draw ----
-    vkCmdDraw(cmd, 6, (uint32_t)borderRects.size, 0, 0);
+    vkCmdDraw(cmd, 6, (u32)Array_Length(borderRects), 0, 0);
 }
 
 void NU_DrawImage(
-    NuWindow* window,
+    Window* window,
     DisplayManager* displayManager,
-    ImageRenderData* imageRenderData)
+    ImageRenderData* imageRenderData,
+    ImageResource* imageResource)
 {
 
 }
 
 void NU_DrawImages(
-    NuWindow* window,
+    Window* window,
     DisplayManager* displayManager,
-    Array imageRenderDatas,
-    GLuint imageHandle)
+    ImageResourceManager* imageResourceManager,
+    ImageRenderGroup* imageRenderGroup)
 {
+    // if (Array_Length(imagesRenderData) == 0 || imageResources == HULL || imageResourceCount == 0) return;
 
+    // VkCommandBuffer cmd = window->activeCommandBuffer;
+
+    // // Bind pipeline
+    // vkCmdBindPipeline(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, displayManager->imagePipeline.pipeline);
+
+    // // Dynamic viewport / scissor (full window)
+    // VkViewport vp = {
+    //     0.0f, 0.0f,
+    //     (float)window->swapchainExtent.width,
+    //     (float)window->swapchainExtent.height,
+    //     0.0f, 1.0f
+    // };
+    // VkRect2D sc = {{0, 0}, window->swapchainExtent};
+    // vkCmdSetViewport(cmd, 0, 1, &vp);
+    // vkCmdSetScissor(cmd, 0, 1, &sc);
+
+    // Do some stuff to bind the images and some samplers or whatever
+    // Use this at some point to get the image resources: ImageResourceManager_GetImageResource(imageResourceManager, imageHandle)
 }
 
 void NU_DrawText(
-    NuWindow* window,
+    Window* window,
     DisplayManager* displayManager,
     Array textRenderData,
     float offsetX,
@@ -178,7 +191,7 @@ void NU_DrawText(
 }
 
 void NU_DrawClippedText(
-    NuWindow* window,
+    Window* window,
     DisplayManager* displayManager,
     Array textRenderData,
     float offsetX,
@@ -186,7 +199,7 @@ void NU_DrawClippedText(
     float clipTop,
     float clipBottom,
     float clipLeft,
-    flaot clipRight)
+    float clipRight)
 {
 
 }

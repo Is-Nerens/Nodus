@@ -88,7 +88,12 @@ void Stylesheet_Free(Stylesheet* ss)
     Array_Free(&ss->fonts);
 }
 
-int Stylesheet_Create(Stylesheet* stylesheet, ThreadPool* threadpool, const char* filepath, ImageResourceLoader* imageResourceLoader)
+int Stylesheet_Create(
+    Stylesheet* stylesheet,
+    ThreadPool* threadpool,
+    const char* filepath,
+    ImageResourceManager* imageResourceManager,
+    DisplayManager* displayManager)
 {
     Stylesheet_Init(stylesheet);
 
@@ -112,7 +117,8 @@ int Stylesheet_Create(Stylesheet* stylesheet, ThreadPool* threadpool, const char
         &variableMap,
         stylesheet,
         threadpool,
-        imageResourceLoader)
+        imageResourceManager,
+        displayManager)
     ) {
         TokenArray_Free(&tokens);
         Array_Free(&textRefs);

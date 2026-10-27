@@ -1,5 +1,4 @@
 #pragma once
-#include <GL/glew.h>
 #include <utils/nu_convert.h>
 #include <math.h>
 
@@ -79,7 +78,7 @@ typedef struct ImageRenderData {
     float u0, v0;
     float u1, v1;
     float scissorTop, scissorBottom, scissorLeft, scissorRight;
-    u8 filter, repeat;
+    u8 groupImageIndex, filter, repeat;
 } ImageRenderData;
 
 typedef struct {

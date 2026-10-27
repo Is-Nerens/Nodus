@@ -19,8 +19,8 @@ _EXPORT void NU_QUIT(void)
 {
     TreeFree(&GUI.tree);
     ThreadPool_Destroy(&GUI.threadPool);
-    WindowManager_Free(&GUI.winManager);
     ImageResourceManager_Free(&GUI.imageResourceManager);
+    DisplayManager_Free(&GUI.displayManager);
     ErrorSystem_Free(&GUI.errorSystem);
     Stringmap_Free(&GUI.id_node_map);
     Stringset_Free(&GUI.class_string_set);
@@ -32,7 +32,7 @@ _EXPORT void NU_QUIT(void)
     Container_Free(&GUI.timers);
     Container_Free(&GUI.widgets);
     Array_Free(&GUI.layoutScrollAutoNodes);
-    Array_Free(&GUI.borderRectRenderDataArray);
+    Array_Free(&GUI.borderRectsRenderData);
     for (int i=0; i<GUI.perFontTextRenderData.size; i++) {
         Array* renderData = Array_Get(&GUI.perFontTextRenderData, i);
         Array_Free(renderData);
@@ -49,26 +49,21 @@ _EXPORT int NU_CREATE_GUI(const char* xml_filepath, const char* css_filepath)
 {
     // Init SDL
     if (!SDL_Init(SDL_INIT_VIDEO)) return 0;
-    SDL_GL_SetAttribute(SDL_GL_CONTEXT_MAJOR_VERSION, 3);
-    SDL_GL_SetAttribute(SDL_GL_CONTEXT_MINOR_VERSION, 3);
-    SDL_GL_SetAttribute(SDL_GL_CONTEXT_PROFILE_MASK, SDL_GL_CONTEXT_PROFILE_CORE);
-    //SDL_GL_SetAttribute(SDL_GL_MULTISAMPLEBUFFERS, 1);
-    //SDL_GL_SetAttribute(SDL_GL_MULTISAMPLESAMPLES, 4);
-    SDL_GL_SetAttribute(SDL_GL_DEPTH_SIZE, 24);
     SDL_SetHint("SDL_MOUSE_FOCUS_CLICKTHROUGH", "1");
     SDL_SetHint(SDL_HINT_MAC_SCROLL_MOMENTUM, "1");
 
     // Init Systems
     ThreadPool_Init(&GUI.threadPool, 1.0f);
-    WindowManager_Init(&GUI.winManager);
+    DisplayManager_Init(&GUI.displayManager);
     ImageResourceManager_Init(&GUI.imageResourceManager);
     ErrorSystem_Init(&GUI.errorSystem);
 
-    // Init string data structures
+    // Init data structures
     StringArena_Init(&GUI.nodeTextArena, 1024);
     Stringset_Init(&GUI.class_string_set, 1024, 100);
     Stringset_Init(&GUI.id_string_set, 1024, 100);
     Stringmap_Init(&GUI.id_node_map, sizeof(Node*), 128, 2048);
+    Array_Init(&GUI.layoutScrollAutoNodes, sizeof(Node*), 20);
 
     // Init canvas context and text input containers
     GUI.canvasContexts = Container_Create(sizeof(NU_Canvas_Context));
@@ -76,14 +71,10 @@ _EXPORT int NU_CREATE_GUI(const char* xml_filepath, const char* css_filepath)
     GUI.timers = Container_Create(sizeof(NU_Timer));
     GUI.widgets = Container_Create(sizeof(NU_Widget));
 
-    NU_TestVulkan();
-
     // Init Event System (allocates memory)
     EventSystem_Init();
 
     // Init layout and draw datastructures
-    Array_Init(&GUI.layoutScrollAutoNodes, sizeof(Node*), 20);
-    Array_Init(&GUI.borderRectRenderDataArray, sizeof(BorderRectRenderData), 2000);
 
     // Cursors
     GUI.cursorDefault    = SDL_CreateSystemCursor(SDL_SYSTEM_CURSOR_DEFAULT);
@@ -97,19 +88,17 @@ _EXPORT int NU_CREATE_GUI(const char* xml_filepath, const char* css_filepath)
     GUI.cursorNwseResize = SDL_CreateSystemCursor(SDL_SYSTEM_CURSOR_NWSE_RESIZE);
     GUI.cursorNeswResize = SDL_CreateSystemCursor(SDL_SYSTEM_CURSOR_NESW_RESIZE);
 
-    // Pseudo nodes
+    // State nodes
     GUI.hovered_node = NULL;
     GUI.prev_hovered_node = NULL;
     GUI.mouse_down_node = NULL;
     GUI.prev_mouse_down_node = NULL;
     GUI.focused_node = NULL;
     GUI.prev_focused_node = NULL;
-
-    // Scroll nodes
     GUI.scroll_hovered_node = NULL;
     GUI.scroll_mouse_down_node = NULL;
 
-    // State
+    // App state
     GUI.running = false;
     GUI.awaiting_redraw = true;
     GUI.recalculate_mouse_hover = true;
@@ -119,22 +108,22 @@ _EXPORT int NU_CREATE_GUI(const char* xml_filepath, const char* css_filepath)
     GUI.bfs = BreadthFirstSearch_Create(GUI.tree.root);
     GUI.rbfs = ReverseBreadthFirstSearch_Create(GUI.tree.root);
 
-    // Create an image resource loader
-    ImageResourceLoader imageResourceLoader;
-    ImageResourceLoader_Init(&imageResourceLoader, &GUI.imageResourceManager);
-
     // Load xml
-    if (!NU_Internal_Load_XML(xml_filepath, &imageResourceLoader)) {
+    if (!NU_Internal_Load_XML(xml_filepath, &GUI.imageResourceManager, &GUI.displayManager)) {
         NU_QUIT(); return 0;
     }
 
     // Load css
-    if (!Stylesheet_Create(&GUI.stylesheet, &GUI.threadPool, css_filepath, &imageResourceLoader)) {
+    if (!Stylesheet_Create(&GUI.stylesheet, &GUI.threadPool, css_filepath, &GUI.imageResourceManager, &GUI.displayManager)) {
         NU_QUIT(); return 0;
     }
 
-    // Upload image to the GPU and free loader memory
-    ImageResourceLoader_UploadImagesAndFree(&imageResourceLoader);
+    // Commit partial atlas builds to images
+    ImageResourceManager_CreateImageResourcesFromPartialAtlasBuilds(&GUI.imageResourceManager, &GUI.displayManager);
+
+    // Init render data arrays
+    Array_Init(&GUI.borderRectsRenderData, sizeof(BorderRectRenderData), 2000);
+    Array_Init(&GUI.imageRenderGroups, sizeof(ImageRenderGroup), 16);
 
     // Create per font (glyph quad) vertex and index buffers
     Array_Init(&GUI.perFontTextRenderData, sizeof(Array), GUI.stylesheet.fonts.size);
@@ -151,7 +140,7 @@ _EXPORT int NU_CREATE_GUI(const char* xml_filepath, const char* css_filepath)
     timer_stop();
 
     // Initial layout calculation
-    NU_Layout();
+    //NU_Layout();
 
     // Event watcher
     SDL_AddEventWatch(EventWatcher, NULL);
@@ -238,7 +227,7 @@ _EXPORT void NU_RUN(void)
         // Re-render UI if necessary
         if (GUI.awaiting_redraw)
         {
-            NU_Layout();
+            //NU_Layout();
             NU_Mouse_Hover();
             printf("draw: ");
             timer_start();
@@ -322,7 +311,7 @@ _EXPORT NU_RGB_FL NU_HEX_TO_RGB_FL(const char* hex)
 _EXPORT void NU_GET_SCREEN_DIMENSIONS(const NuNode* node, int* screenWidthOut, int* screenHeightOut)
 {
     Node* nodeP = (Node*)(node);
-    NU_Window* win = GetNodeWindow(&GUI.winManager, nodeP);
+    Window* win = DisplayManager_GetNodeWindow(&GUI.displayManager, nodeP);
     *screenWidthOut = win->screenWidth;
     *screenHeightOut = win->screenHeight;
 }
@@ -427,8 +416,11 @@ _EXPORT NuWindow* NU_WINDOW(NuNode* parent) {
     if (parent == NULL) return NULL;
     Node* parentP = (Node*)(parent);
     Node* node = TreeCreateNode(&GUI.tree, parentP, NU_TYPE_WINDOW);
-    CreateSubwindow(&GUI.winManager, node);
     Stylesheet_ApplyStyleToNode(&GUI.stylesheet, node);
+    DisplayManager_CreateWindow(&GUI.displayManager, node, "",
+        max(node->public.generic.width, 100),
+        max(node->public.generic.height, 100)
+    );
     return (NuWindow*)(node);
 }
 
@@ -512,7 +504,7 @@ _EXPORT void NU_DELETE_NODE(NuNode* node) {
     return TreeDeleteNode(&GUI.tree, nodeP, NU_DissociateNode);
 }
 
-_EXPORT const NuWindowAccess* NU_WINDOW_GET(NuWindow* window) {
+_EXPORT const NuWindowAccess* Window_GET(NuWindow* window) {
     Node* nodeP = (Node*)window;
     return &nodeP->public.window;
 }
@@ -751,22 +743,22 @@ _EXPORT void NU_SET_TEXT_HEX(NuNode* node, const char* hex) {
     GUI.awaiting_redraw = true;
 }
 
-_EXPORT void NU_WINDOW_SET_TEXT_CONTENT(NuWindow* window, char* string)
+_EXPORT void Window_SET_TEXT_CONTENT(NuWindow* window, char* string)
 {
     Node* nodeP = (Node*)window;
     nodeP->public.window.textContent = string;
     GUI.awaiting_redraw = true;
 }
 
-_EXPORT void NU_WINDOW_SET_TITLE(NuWindow* window, const char* string) {
+_EXPORT void Window_SET_TITLE(NuWindow* window, const char* string) {
     Node* nodeP = (Node*)(window);
-    SDL_Window* SDLwindow = GetSDL_Window(&GUI.winManager, nodeP->windowID);
+    SDL_Window* SDLwindow = GetSDL_Window(&GUI.displayManager, nodeP->windowID);
     SDL_SetWindowTitle(SDLwindow, string);
 }
 
-_EXPORT void NU_WINDOW_SET_FULLSCREEN(NuWindow* window) {
+_EXPORT void Window_SET_FULLSCREEN(NuWindow* window) {
     Node* nodeP = (Node*)(window);
-    SDL_Window* SDLwindow = GetSDL_Window(&GUI.winManager, nodeP->windowID);
+    SDL_Window* SDLwindow = GetSDL_Window(&GUI.displayManager, nodeP->windowID);
     Uint32 flags = SDL_GetWindowFlags(SDLwindow);
     if (flags & SDL_WINDOW_FULLSCREEN) return;
     SDL_SetWindowFullscreen(SDLwindow, true);
@@ -781,9 +773,9 @@ _EXPORT void NU_WINDOW_SET_FULLSCREEN(NuWindow* window) {
     GUI.awaiting_redraw = true;
 }
 
-_EXPORT void NU_WINDOW_SET_WINDOWED(NuWindow* window) {
+_EXPORT void Window_SET_WINDOWED(NuWindow* window) {
     Node* nodeP = (Node*)(window);
-    SDL_Window* SDLwindow = GetSDL_Window(&GUI.winManager, nodeP->windowID);
+    SDL_Window* SDLwindow = GetSDL_Window(&GUI.displayManager, nodeP->windowID);
     Uint32 flags = SDL_GetWindowFlags(SDLwindow);
     if (!(flags & SDL_WINDOW_FULLSCREEN)) return;
     SDL_SetWindowFullscreen(SDLwindow, false);
@@ -854,7 +846,7 @@ _EXPORT void NU_INPUT_FOCUS(NuInput* input) {
         NU_Font* font = Stylesheet_Get_Font(&GUI.stylesheet, GUI.focused_node->fontIdx);
         InputText* inputText = Container_Get(&GUI.textInputs, GUI.focused_node->special.input.textInputHandle);
         InputText_MousePlaceCursor(inputText, GUI.focused_node, font, 1000000.0f);
-        SDL_StartTextInput(GetSDL_Window(&GUI.winManager, GUI.focused_node->windowID));
+        SDL_StartTextInput(GetSDL_Window(&GUI.displayManager, GUI.focused_node->windowID));
 
         // Defer offsets calculation
         inputText->updateOffsetsPostLayout = true;

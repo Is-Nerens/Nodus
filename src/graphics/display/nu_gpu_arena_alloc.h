@@ -32,6 +32,7 @@ typedef struct ArenaAllocatorGPU {
 typedef struct ArenaAllocGPU {
     VkBuffer buffer;
     VkDeviceSize offset;
+    void* mapped;
 } ArenaAllocGPU;
 
 static void ArenaChunkGPU_Destroy(ArenaChunkGPU* chunk, VkDevice device)
@@ -204,7 +205,7 @@ static ArenaAllocGPU ArenaAllocatorGPU_Alloc(ArenaAllocatorGPU* alloc, VkDeviceS
             // No more chunk slots -> fail
             if (frame->chunkCount >= ARENA_MAX_CHUNKS) {
                 frame->currentChunk--;
-                ArenaAllocGPU fail = { VK_NULL_HANDLE, 0 };
+                ArenaAllocGPU fail = { VK_NULL_HANDLE, 0, NULL };
                 return fail;
             }
 
@@ -215,7 +216,7 @@ static ArenaAllocGPU ArenaAllocatorGPU_Alloc(ArenaAllocatorGPU* alloc, VkDeviceS
             if (!ArenaChunkGPU_Create(&frame->chunks[frame->chunkCount], alloc->device, alloc->typeIndex, newSize)) {
                 // Creation failed — step back and return a null allocation
                 frame->currentChunk--;
-                ArenaAllocGPU fail = { VK_NULL_HANDLE, 0 };
+                ArenaAllocGPU fail = { VK_NULL_HANDLE, 0, NULL };
                 return fail;
             }
             frame->chunkCount++;

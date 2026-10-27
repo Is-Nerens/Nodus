@@ -19,6 +19,7 @@ clang -std=c99 -O3 -g \
     -I"$sdlInclude" \
     -I"$freetypeInclude" \
     -I"$srcInclude/mmap" \
+    src/shaders/build/*.c \
     "$glewLib/libGLEW.a" \
     "$freetypeLib/libfreetype.a" \
     "$sdlLib/libSDL3.a" \
@@ -47,6 +48,7 @@ clang -std=c99 -O3 -g \
     -framework ForceFeedback \
     -framework Carbon \
     -shared \
+    -Wl,-rpath,@loader_path \
     -o "nodus/mac/libnodus.dylib" \
     -Wno-deprecated-declarations
 

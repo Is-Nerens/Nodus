@@ -1,10 +1,12 @@
 #pragma once
 
 // Library includes
-#include <SDL3/SDL.h>
-#include <GL/glew.h>
 #include <vulkan/vulkan.h>
+#include <SDL3/SDL.h>
+#include <SDL3/SDL_vulkan.h>
+#include <GL/glew.h>
 #include <math.h>
+#include <stdlib.h>
 #include <stdbool.h>
 #include <ft2build.h>
 #include <stdio.h>
@@ -75,7 +77,9 @@ typedef void (*NU_Callback)(void* args);
 #include <datastructures/linalloc.h>
 #include <errors/nu_error.h>
 #include <tree/nu_tree.h>
+#include <graphics/rendering/nu_vulkan_utils.h>
 #include <graphics/rendering/nu_renderer_structures.h>
+#include <graphics/rendering/nu_pipeline_struct.h>
 #include <graphics/text/nu_text.h>
 #include <tree/input_text/nu_input_text.h>
 #include <tree/nu_nodelist.h>
@@ -86,13 +90,22 @@ typedef void (*NU_Callback)(void* args);
 #include <core/nu_timer.h>
 #include <core/nu_widget.h>
 
+/* Batches multiple images together
+ * to reduce image render data allocations
+ * and draw calls
+ */
+typedef struct {
+    Array imagesRenderData;
+    int groupIndex;
+} ImageRenderGroup;
+
 // Global struct struct
 struct NU_GUI
 {
     ErrorSystem errorSystem;
     Tree tree;
     ThreadPool threadPool;
-    WindowManager winManager;
+    DisplayManager displayManager;
     ImageResourceManager imageResourceManager;
     StringArena nodeTextArena;
     Stringset class_string_set;
@@ -141,13 +154,18 @@ struct NU_GUI
     SDL_Cursor* cursorNwseResize;
     SDL_Cursor* cursorNeswResize;
 
-    // Layout and draw datastructures
+    // Traversal datastructures
     DepthFirstSearch dfs;
     BreadthFirstSearch bfs;
     ReverseBreadthFirstSearch rbfs;
+
+    // Layout datastructures
     Array layoutScrollAutoNodes;
-    Array borderRectRenderDataArray;
-    Array perFontTextRenderData;
+
+    // Render data
+    Array borderRectsRenderData;
+    Array perFontTextRenderData; // Array of <Array of <GlyphRenderData>>
+    Array imageRenderGroups; // Array of <NuImageRenderGroup>
 
     // Timer mutex
     SDL_Mutex *timerMutex;
@@ -159,8 +177,8 @@ struct NU_GUI GUI;
 // --------------------------------------------------
 // --- Includes That Require Access To Global GUI ---
 // --------------------------------------------------
+#include <graphics/rendering/nu_pipeline_create.h>
 #include <graphics/rendering/nu_renderer.h>
-#include <graphics/rendering/nu_renderer_opengl.h>
 #include <graphics/display/nu_display_manager.h>
 #include <templates/stylesheet/nu_stylesheet.h>
 #include <graphics/rendering/canvas/nu_canvas_api.h>

@@ -44,9 +44,9 @@ bool EventWatcher(void* data, SDL_Event* event)
             SDL_Window* window = SDL_GetWindowFromID(event->window.windowID);
             float displayScale = SDL_GetDisplayContentScale(event->window.windowID);
 
-            // Get the window node and corresponding NU_window
-            Node* windowNode = GetWindowNodeFromSDL_Window(&GUI.winManager, window);
-            NU_Window* win = GetNodeWindow(&GUI.winManager, windowNode);
+            // Get the window node and corresponding Window
+            Node* windowNode = GetWindowNodeFromSDL_Window(&GUI.displayManager, window);
+            Window* win = DisplayManager_GetNodeWindow(&GUI.displayManager, windowNode);
 
             // Redraw window content
             GUI.awaiting_redraw = true;
@@ -57,12 +57,12 @@ bool EventWatcher(void* data, SDL_Event* event)
         // ------------------------------------------------------------------------------------
         case SDL_EVENT_WINDOW_DISPLAY_CHANGED: {
             SDL_Window* window = SDL_GetWindowFromID(event->window.windowID);
-            Node* windowNode = GetWindowNodeFromSDL_Window(&GUI.winManager, window);
-            NU_Window* win = GetNodeWindow(&GUI.winManager, windowNode);
+            Node* windowNode = GetWindowNodeFromSDL_Window(&GUI.displayManager, window);
+            Window* win = DisplayManager_GetNodeWindow(&GUI.displayManager, windowNode);
 
             int prevScreenWidth = win->screenWidth;
-            WindowManager_UpdateWindowRenderScale(&GUI.winManager, windowNode->windowID);
-            WindowManager_UpdateWindowScreenDimensions(&GUI.winManager, windowNode->windowID);
+            //WindowManager_UpdateWindowRenderScale(&GUI.displayManager, windowNode->windowID);
+            //WindowManager_UpdateWindowScreenDimensions(&GUI.displayManager, windowNode->windowID);
 
             if (prevScreenWidth != win->screenWidth) {
                 Stylesheet_ApplyToBranch(&GUI.stylesheet, windowNode);
@@ -154,8 +154,8 @@ bool EventWatcher(void* data, SDL_Event* event)
             if (event->key.key == SDLK_F11 &&
                 (stringEquals(SDL_GetPlatform(), "Windows") || stringEquals(SDL_GetPlatform(), "Linux")))
             {
-                bool fullscreen = (SDL_GetWindowFlags(GUI.winManager.lastClickedWindow) & SDL_WINDOW_FULLSCREEN) != 0;
-                SDL_SetWindowFullscreen(GUI.winManager.lastClickedWindow, !fullscreen);
+                bool fullscreen = (SDL_GetWindowFlags(GUI.displayManager.lastClickedWindow) & SDL_WINDOW_FULLSCREEN) != 0;
+                SDL_SetWindowFullscreen(GUI.displayManager.lastClickedWindow, !fullscreen);
                 GUI.awaiting_redraw = true;
             }
 
@@ -165,8 +165,8 @@ bool EventWatcher(void* data, SDL_Event* event)
                 (event->key.mod & SDL_KMOD_CTRL) &&
                 (event->key.mod & SDL_KMOD_GUI))
             {
-                bool fullscreen = (SDL_GetWindowFlags(GUI.winManager.lastClickedWindow) & SDL_WINDOW_FULLSCREEN) != 0;
-                SDL_SetWindowFullscreen(GUI.winManager.lastClickedWindow, !fullscreen);
+                bool fullscreen = (SDL_GetWindowFlags(GUI.displayManager.lastClickedWindow) & SDL_WINDOW_FULLSCREEN) != 0;
+                SDL_SetWindowFullscreen(GUI.displayManager.lastClickedWindow, !fullscreen);
                 GUI.awaiting_redraw = true;
             }
 
@@ -214,12 +214,12 @@ bool EventWatcher(void* data, SDL_Event* event)
         case SDL_EVENT_MOUSE_MOTION: {
 
             // update hovered window
-            WindowManager_SetHoveredWindow(&GUI.winManager, SDL_GetWindowFromID(event->window.windowID));
+            DisplayManager_SetHoveredWindow(&GUI.displayManager, SDL_GetWindowFromID(event->window.windowID));
 
             NU_Mouse_Hover();
 
             // get local mouse coordinates
-            float mouseX, mouseY; GetLocalMouseCoords(&GUI.winManager, &mouseX, &mouseY);
+            float mouseX, mouseY; GetLocalMouseCoords(&GUI.displayManager, &mouseX, &mouseY);
 
             // if dragging scrollbar -> update node->node.scrollV
             if (GUI.scroll_mouse_down_node != NULL)
@@ -267,7 +267,7 @@ bool EventWatcher(void* data, SDL_Event* event)
         // ------------------------------------------------------------------------------------
         case SDL_EVENT_WINDOW_FOCUS_GAINED: {
             // Update last clicked window
-            GUI.winManager.lastClickedWindow = SDL_GetWindowFromID(event->button.windowID);
+            GUI.displayManager.lastClickedWindow = SDL_GetWindowFromID(event->button.windowID);
 
             GUI.mouse_down_node = GUI.hovered_node;
             GUI.awaiting_redraw = true;
@@ -279,16 +279,16 @@ bool EventWatcher(void* data, SDL_Event* event)
         case SDL_EVENT_MOUSE_BUTTON_DOWN: {
 
             // Update last clicked window
-            GUI.winManager.lastClickedWindow = SDL_GetWindowFromID(event->button.windowID);
+            GUI.displayManager.lastClickedWindow = SDL_GetWindowFromID(event->button.windowID);
 
             // If mouse hasn't moved yet the hovered window and node will not have been set -> set both of these
-            if (!GUI.winManager.hoveredWindowNode) {
-                WindowManager_SetHoveredWindow(&GUI.winManager, SDL_GetWindowFromID(event->button.windowID));
+            if (!GUI.displayManager.hoveredWindowNode) {
+                DisplayManager_SetHoveredWindow(&GUI.displayManager, SDL_GetWindowFromID(event->button.windowID));
             }
 
             // Get mouse down coordinates
             float mouseX; float mouseY;
-            GetLocalMouseCoords(&GUI.winManager, &mouseX, &mouseY);
+            GetLocalMouseCoords(&GUI.displayManager, &mouseX, &mouseY);
 
             // Set mouse down node
             GUI.prev_mouse_down_node = GUI.mouse_down_node;
@@ -370,10 +370,10 @@ bool EventWatcher(void* data, SDL_Event* event)
             GUI.scroll_mouse_down_node = NULL;
 
             float mouseX; float mouseY;
-            GetLocalMouseCoords(&GUI.winManager, &mouseX, &mouseY);
+            GetLocalMouseCoords(&GUI.displayManager, &mouseX, &mouseY);
 
             // Trigger all mouse up events
-            if (GUI.winManager.hoveredWindowNode) {
+            if (GUI.displayManager.hoveredWindowNode) {
                 TriggerAllMouseupEvents(mouseX, mouseY, (int)event->button.button);
             }
 

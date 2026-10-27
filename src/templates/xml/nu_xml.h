@@ -26,7 +26,7 @@ typedef struct
     Array textRefs;
 } TokenTextRefsPair;
 
-void NU_Parse_Property(const enum NU_XML_TOKEN token, Node* currentNode, char* ptext, struct Text_Ref* current_text_ref, ImageResourceLoader* imageResourceLoader)
+void NU_Parse_Property(const enum NU_XML_TOKEN token, Node* currentNode, char* ptext, struct Text_Ref* current_text_ref)
 {
     char c = ptext[0];
 
@@ -487,11 +487,11 @@ void NU_Parse_Property(const enum NU_XML_TOKEN token, Node* currentNode, char* p
         case IMAGE_SOURCE_PROPERTY: {
             if (currentNode->type == NU_TYPE_CANVAS && currentNode->type == NU_TYPE_INPUT) break;
 
-            int imageHandle = ImageResourceLoader_GetLoadedImageHandle(imageResourceLoader, ptext);
+            int imageHandle = ImageResourceManager_ImageHandleFromFilepath(&GUI.imageResourceManager, ptext);
 
             // Image not loaded yet
             if (imageHandle == 0) {
-                imageHandle = ImageResourceLoader_LoadImage(imageResourceLoader, ptext);
+                imageHandle = ImageResourceManager_LoadImage(&GUI.imageResourceManager, &GUI.displayManager, ptext);
                 currentNode->special.image.imageHandle = imageHandle;
                 currentNode->overrideStyleFlags |= PROPERTY_FLAG_IMAGE;
             }
@@ -553,7 +553,7 @@ void NU_Parse_Property(const enum NU_XML_TOKEN token, Node* currentNode, char* p
 
         case TITLE_PROPERTY:
             if (currentNode->type != NU_TYPE_WINDOW) break;
-            SDL_SetWindowTitle(GetSDL_Window(&GUI.winManager, currentNode->windowID), ptext);
+            SDL_SetWindowTitle(DisplayManager_GetNodeSDLWindow(&GUI.displayManager, currentNode), ptext);
             break;
 
         default:
@@ -561,7 +561,13 @@ void NU_Parse_Property(const enum NU_XML_TOKEN token, Node* currentNode, char* p
     }
 }
 
-int NU_Parse_Component(Node* currentNode, char* src, TokenArray* tokens, struct Array* textRefs, ImageResourceLoader* ImageResourceLoader)
+int NU_Parse_Component(
+    Node* currentNode,
+    char* src,
+    TokenArray* tokens,
+    Array* textRefs,
+    ImageResourceManager* imageResourceManager,
+    DisplayManager* displayManager)
 {
     enum XMLGenCtx ctx = GENCTX_GLOBAL;
     struct Text_Ref* current_text_ref;
@@ -620,7 +626,7 @@ int NU_Parse_Component(Node* currentNode, char* src, TokenArray* tokens, struct 
                 // --- Handle scenarios for different tags
                 // ----------------------------------------
                 if (currentNode->type == NU_TYPE_WINDOW) { // If node is a window -> create SDL window
-                    CreateSubwindow(&GUI.winManager, currentNode);
+                    DisplayManager_CreateWindow(&GUI.displayManager, currentNode, "", 100, 100);
                 }
                 else if (currentNode->type == NU_TYPE_INPUT) {
                     InputText inputText; InputText_Init(&inputText);
@@ -729,7 +735,7 @@ int NU_Parse_Component(Node* currentNode, char* src, TokenArray* tokens, struct 
                 src[current_text_ref->src_index + current_text_ref->char_count] = '\0';
 
                 // Parse property
-                NU_Parse_Property(token, currentNode, ptext, current_text_ref, ImageResourceLoader);
+                NU_Parse_Property(token, currentNode, ptext, current_text_ref);
 
                 // Continue ^
                 i+=3; continue;
@@ -744,7 +750,12 @@ int NU_Parse_Component(Node* currentNode, char* src, TokenArray* tokens, struct 
     return 1;
 }
 
-int NU_Generate_Tree(char* src, TokenArray* tokens, struct Array* textRefs, ImageResourceLoader* imageResourceLoader)
+int NU_Generate_Tree(
+    char* src,
+    TokenArray* tokens,
+    Array* textRefs,
+    ImageResourceManager* imageResourceManager,
+    DisplayManager* displayManager)
 {
     // --------------------
     // Enforce root grammar
@@ -757,7 +768,7 @@ int NU_Generate_Tree(char* src, TokenArray* tokens, struct Array* textRefs, Imag
     // Create root window node
     // -----------------------
     Node* rootNode = TreeCreate(&GUI.tree);
-    AssignRootWindow(&GUI.winManager, rootNode);
+    DisplayManager_CreateWindow(&GUI.displayManager, rootNode, "", 100, 100);
 
     // ---------------------------------
     // Get first property text reference
@@ -836,7 +847,7 @@ int NU_Generate_Tree(char* src, TokenArray* tokens, struct Array* textRefs, Imag
                     // --- Handle scenarios for different tags
                     // ----------------------------------------
                     if (currentNode->type == NU_TYPE_WINDOW) { // If node is a window -> create SDL window
-                        CreateSubwindow(&GUI.winManager, currentNode);
+                        DisplayManager_CreateWindow(&GUI.displayManager, currentNode, "", 100, 100);
                     } else if (currentNode->type == NU_TYPE_INPUT) {
                         InputText inputText; InputText_Init(&inputText);
                         currentNode->special.input.textInputHandle = Container_Add(&GUI.textInputs, &inputText);
@@ -971,7 +982,7 @@ int NU_Generate_Tree(char* src, TokenArray* tokens, struct Array* textRefs, Imag
                 if (ctx != GENCTX_IN_TAG_OF_IMPORT)
                 {
                     // Parse property
-                    NU_Parse_Property(token, currentNode, ptext, current_text_ref, imageResourceLoader);
+                    NU_Parse_Property(token, currentNode, ptext, current_text_ref);
                 }
                 else
                 {
@@ -998,7 +1009,7 @@ int NU_Generate_Tree(char* src, TokenArray* tokens, struct Array* textRefs, Imag
                                 LinearStringmap_Set(&componentFilepathToTokensMap, filepath, &tokenTextRefs);
 
                                 // Parse and build component
-                                if (!NU_Parse_Component(currentNode, StringCstr(componentSrc), &tokenTextRefs.tokens, &tokenTextRefs.textRefs, imageResourceLoader)) {
+                                if (!NU_Parse_Component(currentNode, StringCstr(componentSrc), &tokenTextRefs.tokens, &tokenTextRefs.textRefs, imageResourceManager, displayManager)) {
                                     StringFree(componentSrc);
                                     goto error;
                                 }
@@ -1007,7 +1018,7 @@ int NU_Generate_Tree(char* src, TokenArray* tokens, struct Array* textRefs, Imag
                                 TokenTextRefsPair* tokenTextRefs = (TokenTextRefsPair*)found;
 
                                 // Parse and build component
-                                if (!NU_Parse_Component(currentNode, StringCstr(componentSrc), &tokenTextRefs->tokens, &tokenTextRefs->textRefs, imageResourceLoader)) {
+                                if (!NU_Parse_Component(currentNode, StringCstr(componentSrc), &tokenTextRefs->tokens, &tokenTextRefs->textRefs, imageResourceManager, displayManager)) {
                                     StringFree(componentSrc);
                                     goto error;
                                 }
@@ -1043,7 +1054,7 @@ error:
     return 0;
 }
 
-int NU_Internal_Load_XML(const char* filepath, ImageResourceLoader* imageResourceLoader)
+int NU_Internal_Load_XML(const char* filepath, ImageResourceManager* imageResourceManager, DisplayManager* displayManager)
 {
     // Open XML source file and load into buffer
     String src = FileReadUTF8(filepath);
@@ -1057,7 +1068,7 @@ int NU_Internal_Load_XML(const char* filepath, ImageResourceLoader* imageResourc
     NU_Tokenise(src, &tokens, &textRefs);
 
     // Generate tree
-    if (!NU_Generate_Tree(StringCstr(src), &tokens, &textRefs, imageResourceLoader)) {
+    if (!NU_Generate_Tree(StringCstr(src), &tokens, &textRefs, imageResourceManager, displayManager)) {
         TokenArray_Free(&tokens);
         Array_Free(&textRefs);
         StringFree(src);

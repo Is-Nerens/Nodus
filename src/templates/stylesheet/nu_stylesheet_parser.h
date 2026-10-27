@@ -110,7 +110,13 @@ void Stylesheet_OverwriteStyleItem(StyleItem* item, StyleItem* overwriter)
     item->fontIdx = item->fontIdx * !(overwriter->propertyFlags & PROPERTY_FLAG_FONT) + overwriter->fontIdx  * !!(overwriter->propertyFlags & PROPERTY_FLAG_FONT);
 }
 
-u64 Stylesheet_ParseProperty(Stylesheet* ss, StylesheetToken token, StyleItem* item, const char* text, int textLen, ImageResourceLoader* imageResourceLoader)
+u64 Stylesheet_ParseProperty(
+    Stylesheet* ss,
+    StylesheetToken token,
+    StyleItem* item,
+    const char* text, int textLen,
+    ImageResourceManager* imageResouceManager,
+    DisplayManager* displayManager)
 {
     u64 propertyFlagsSet = 0;
 
@@ -481,11 +487,11 @@ u64 Stylesheet_ParseProperty(Stylesheet* ss, StylesheetToken token, StyleItem* i
             break;
 
         case STYLE_IMAGE_SOURCE_PROPERTY: {
-            int imageHandle = ImageResourceLoader_GetLoadedImageHandle(imageResourceLoader, text);
+            int imageHandle = ImageResourceManager_ImageHandleFromFilepath(imageResouceManager, text);
 
             // Image not loaded yet
             if (imageHandle == 0) {
-                imageHandle = ImageResourceLoader_LoadImage(imageResourceLoader, text);
+                imageHandle = ImageResourceManager_LoadImage(imageResouceManager, displayManager, text);
                 item->imageHandle = imageHandle;
                 propertyFlagsSet |= PROPERTY_FLAG_IMAGE;
             }
@@ -1667,7 +1673,15 @@ int Stylesheet_LoadDefaultFont(Stylesheet* ss)
     return 0;
 }
 
-int Stylesheet_Parse(char* src, TokenArray* tokens, Array* textRefs, LinearStringmap* variableMap, Stylesheet* ss, ThreadPool* threadpool, ImageResourceLoader* imageResourceLoader)
+int Stylesheet_Parse(
+    char* src,
+    TokenArray* tokens,
+    Array* textRefs,
+    LinearStringmap* variableMap,
+    Stylesheet* ss,
+    ThreadPool* threadpool,
+    ImageResourceManager* imageResouceManager,
+    DisplayManager* displayManager)
 {
     // Parse fonts
     if (!Stylesheet_ParseFonts(ss, threadpool, src, tokens, textRefs)) return 0;
@@ -1955,7 +1969,7 @@ int Stylesheet_Parse(char* src, TokenArray* tokens, Array* textRefs, LinearStrin
                     else {
                         switch (ctx) {
                             case STYLE_PARSE_CTX_SELECTOR: {
-                                u64 propertyFlagsSet = Stylesheet_ParseProperty(ss, token, &tempItem, text, textRef->len, imageResourceLoader);
+                                u64 propertyFlagsSet = Stylesheet_ParseProperty(ss, token, &tempItem, text, textRef->len, imageResouceManager, displayManager);
 
                                 // Clear these flags from all selected variations
                                 for (int s=0; s<selectorCount; s++) {

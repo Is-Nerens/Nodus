@@ -1,7 +1,10 @@
 #pragma once
 
-#include <graphics/display/nu_gpu_arena_alloc_structs.h>
-#define RECYCLED_WINDOWS_CAPACITY 8
+
+#include "nu_gpu_arena_alloc.h"
+#define NU_RECYCLED_WINDOWS_CAPACITY 8
+#define NU_FRAMES_IN_FLIGHT 2
+#define NU_MAX_SWAPCHAIN_IMAGES 4
 
 typedef struct DisplayManager
 {
@@ -10,6 +13,7 @@ typedef struct DisplayManager
     VkPhysicalDevice physicalDevice;
     VkDevice         device;
     VkQueue          graphicsQueue;
+    VkCommandPool    commandPool;
     u32              graphicsFamily;
     VkRenderPass     sharedRenderPass;
 
@@ -19,7 +23,6 @@ typedef struct DisplayManager
     // Render pipelines
     NuPipeline borderRectPipeline;
     NuPipeline imagePipeline;
-    NuPipeline clippedImagePipeline;
     NuPipeline monoTextPipeline;
     NuPipeline clippedMonoTextPipeline;
     NuPipeline subpixelTextPipeline;
@@ -29,7 +32,7 @@ typedef struct DisplayManager
 
     // Nodus stuff
     Container windows;
-    SDL_Window* recycledSDLWindows[RECYCLED_WINDOWS_CAPACITY];
+    SDL_Window* recycledSDLWindows[NU_RECYCLED_WINDOWS_CAPACITY];
     int recycledSDLWindowCount;
     Array absoluteRootNodes;
     Hashmap clipMap;
@@ -45,8 +48,8 @@ typedef struct NuWindowDrawlist
     Array canvasNodes;
 } NuWindowDrawlist;
 
-typedef struct NuWindow
-{
+typedef struct {
+
     SDL_Window* sdlWin;
 
     // Swapchain
@@ -55,20 +58,21 @@ typedef struct NuWindow
     VkFormat       swapchainFormat;
     VkExtent2D     swapchainExtent;
     u32            imageCount;
-    VkImage        images[4];
-    VkImageView    imageViews[4];
-    VkFramebuffer  framebuffers[4];
+    VkImage        images[NU_MAX_SWAPCHAIN_IMAGES];
+    VkImageView    imageViews[NU_MAX_SWAPCHAIN_IMAGES];
+    VkFramebuffer  framebuffers[NU_MAX_SWAPCHAIN_IMAGES];
     VkRenderPass   renderPass;
 
     // Sync
     VkSemaphore imageAvailable[NU_FRAMES_IN_FLIGHT];
     VkFence     inFlightFences[NU_FRAMES_IN_FLIGHT];
-    VkSemaphore renderFinished[4];
+    VkSemaphore renderFinished[NU_MAX_SWAPCHAIN_IMAGES];
 
     // Command buffers
     VkCommandPool   commandPool;
     VkCommandBuffer commandBuffers[NU_FRAMES_IN_FLIGHT];
-    u32             currentFrame;
+    u32 currentFrame;
+    u32 imageIndex;
 
     // Draw info
     NuWindowDrawlist drawlist;
@@ -76,4 +80,4 @@ typedef struct NuWindow
     int screenWidth;
     int screenHeight;
     float renderScale;
-} NuWindow;
+} Window;

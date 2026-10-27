@@ -23,6 +23,12 @@ void ErrorSystem_Init(ErrorSystem* errorSys)
 void ErrorSystem_Free(ErrorSystem* errorSys)
 {
     free(errorSys->buffer);
+    errorSys->buffer = NULL;
+    errorSys->bufferSize = 0;
+    errorSys->errorMessageCount = 0;
+    errorSys->droppedMessageCount = 0;
+    errorSys->readHead = 0;
+    errorSys->writeHead = 0;
 }
 
 void ErrorSystem_AddError(ErrorSystem* errorSys, const char* err)
@@ -46,6 +52,7 @@ void ErrorSystem_AddError(ErrorSystem* errorSys, const char* err)
 void ErrorSystem_Clear(ErrorSystem* errorSys)
 {
     errorSys->errorMessageCount = 0;
+    errorSys->droppedMessageCount = 0;
     errorSys->readHead = 0;
     errorSys->writeHead = 0;
 }
@@ -54,26 +61,27 @@ const char* ErrorSystem_GetNextError(ErrorSystem* errorSys)
 {
     static char nMoreBuf[32];
 
-    // If there were dropped messages
+    // Return the next buffered error first
+    if (errorSys->readHead < errorSys->writeHead) {
+        u16 advance;
+        memcpy(&advance, errorSys->buffer + errorSys->readHead, sizeof(u16));
+
+        const char* err = errorSys->buffer + errorSys->readHead + sizeof(u16);
+        errorSys->readHead += advance;
+        return err;
+    }
+
+    // Report dropped messages after buffered errors
     if (errorSys->droppedMessageCount > 0) {
         u32 n = errorSys->droppedMessageCount;
-        errorSys->droppedMessageCount = 0; // Reset after reporting
-        snprintf(nMoreBuf, sizeof(nMoreBuf), "%u more", n);
+        errorSys->droppedMessageCount = 0;
+        snprintf(nMoreBuf, sizeof(nMoreBuf), "%u errors dropped", n);
         return nMoreBuf;
     }
 
-    // If there are no more messages
-    if (errorSys->readHead >= errorSys->writeHead) {
-        errorSys->readHead = 0;
-        errorSys->writeHead = 0;
-        errorSys->errorMessageCount = 0;
-        return NULL;
-    }
-
-    // Return next message
-    u16 advance;
-    memcpy(&advance, errorSys->buffer + errorSys->readHead, sizeof(u16));
-    const char* err = errorSys->buffer + errorSys->readHead + sizeof(u16);
-    errorSys->readHead += advance;
-    return err;
+    // No more errors
+    errorSys->readHead = 0;
+    errorSys->writeHead = 0;
+    errorSys->errorMessageCount = 0;
+    return NULL;
 }

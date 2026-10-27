@@ -139,7 +139,7 @@ static void NU_Prepass(BreadthFirstSearch* bfs, Array* scrollAutoNodes)
         }
         else if (node->type == NU_TYPE_WINDOW) {
             int winWidth, winHeight;
-            SDL_Window* window = GetSDL_Window(&GUI.winManager, node->windowID);
+            SDL_Window* window = DisplayManager_GetNodeSDLWindow(&GUI.displayManager, node);
             SDL_GetWindowSizeInPixels(window, &winWidth, &winHeight);
             node->public.generic.contentWidth = winWidth;
             node->public.generic.contentHeight = winHeight;
@@ -1064,7 +1064,7 @@ static void NU_Repass(BreadthFirstSearch* bfs)
             }
             else if (child->type == NU_TYPE_WINDOW) {
                 int winWidth, winHeight;
-                SDL_Window* window = GetSDL_Window(&GUI.winManager, child->windowID);
+                SDL_Window* window = DisplayManager_GetNodeSDLWindow(&GUI.displayManager, child);
                 SDL_GetWindowSizeInPixels(window, &winWidth, &winHeight);
                 child->public.generic.contentWidth = winWidth;
                 child->public.generic.contentHeight = winHeight;

@@ -189,7 +189,7 @@ void NU_DissociateNode(Node* node)
 
     switch(node->type) {
         case NU_TYPE_WINDOW:
-            WindowManager_DeleteSubwindow(&GUI.winManager, node);
+            DisplayManager_DestroyWindow(&GUI.displayManager, node);
             break;
         case NU_TYPE_CANVAS:
             NU_DeleteCanvasContext(node->special.canvas.ctxHandle);

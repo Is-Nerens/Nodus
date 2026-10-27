@@ -107,7 +107,7 @@ void Stylesheet_ApplyVariations(Stylesheet* ss, StyleItem* item, Node* node, int
 void Stylesheet_ApplyStyleToNode(Stylesheet* ss, Node* node)
 {
     // Get containing screen width
-    NU_Window* win = GetNodeWindow(&GUI.winManager, node);
+    Window* win = DisplayManager_GetNodeWindow(&GUI.displayManager, node);
     int screenWidth = win->screenWidth;
 
     // Create keys
@@ -184,7 +184,7 @@ void Stylesheet_ApplyPseudoStyleToNode(Stylesheet* ss, Node* node, StylePseudoCl
     Stylesheet_ApplyStyleToNode(ss, node);
 
     // Get containing screen width
-    NU_Window* win = GetNodeWindow(&GUI.winManager, node);
+    Window* win = DisplayManager_GetNodeWindow(&GUI.displayManager, node);
     int screenWidth = win->screenWidth;
 
     // Create keys

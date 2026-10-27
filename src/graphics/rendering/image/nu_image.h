@@ -4,20 +4,11 @@
  * This includes image data and handles, atlases, filepath -> handle mapping,
  * Image loading / unloading, atlas packing, image CPU/GPU memory management
  */
-
-#include "nu_atlas.h"
-#include <stddef.h>
+#include <stdint.h>
 #define STB_IMAGE_IMPLEMENTATION
+#include <stddef.h>
 #include "stb_image.h"
 #include "nu_atlas_builder.h"
-
-// Image Handle Functions
-static inline bool NU_Image_Is_Handle_Standalone(int h) { return (h & 0xFFFF) == 0xFFFF; }
-static inline int NU_Image_Handle_To_Standalone_Index(int h) { return (h >> 16) & 0xFFFFu; }
-static inline int NU_Image_Handle_To_Atlas_Index(int h) { return ((h >> 16) & 0xFFFFu) - 1; }
-static inline int NU_Image_Handle_To_Atlas_Image_Index(int h) { return (h & 0xFFFFu) - 1; }
-static inline int NU_Image_Create_Standalone_Handle(int resourceIndex) { return ((resourceIndex & 0xFFFFu) << 16) | 0xFFFFu; }
-static inline int NU_Image_Create_Atlas_Handle(int atlasIndex, int imageIndex) { return (((atlasIndex + 1) & 0xFFFFu) << 16) | ((imageIndex + 1) & 0xFFFFu); }
 
 // Represents and image that can exist on the GPU
 typedef struct {
@@ -25,51 +16,54 @@ typedef struct {
     VkDeviceMemory memory;
     VkImageView view;
     VkDescriptorSet descriptor;
-    VkFormat format;
+    VkImageLayout currentLayout;
     u16 width;
     u16 height;
 } ImageResource;
 
-// Represents a region of an individual image that belongs to an atlas
+/* Represents a region of an image resource
+ * An image resource may have 1 or many views (if the resource is an atlas)
+ */
 typedef struct {
-    float u0, v0;
-    float u1, v1;
-    u16 w, h;
-} AtlasRegion;
-
-// Contains "alas image regions" belonging to a shared image resource
-typedef struct {
-    AtlasBuilder builder;
-    Array atlasRegions;     // Array of <AtlasRegion>
-    int imageResourceIndex; // Index of an <ImageResource>
-} Atlas;
+    u16 x, y, w, h;
+    int imageResourceIndex;
+} ImageView;
 
 // Entire image resource manager struct
 typedef struct {
     LinearStringmap filepathToHandleMap;
-    Array atlasses;
+    AtlasBuilder builders[3]; // Builders pack small images into image resources at startup
+    int buildersCreated;
+    Array imageViews;
     Array imageResources;
 } ImageResourceManager;
 
 /* Creates an image resource that Vulkan can work with */
 int ImageResource_Create(
-    VkPhysicalDevice physicalDevice,
-    VkDevice device,
+    DisplayManager* displayManager,
     u32 width,
     u32 height,
-    ImageResource* out)
+    const unsigned char* buffer,
+    ImageResource* imageResource)
 {
     // Result
-    *out = (ImageResource){0};
+    *imageResource = (ImageResource){0};
+
+    const VkFormat format = VK_FORMAT_R8G8B8A8_SRGB;
+    const VkDeviceSize imageSize = (VkDeviceSize)width * height * 4;
+
+    VkBuffer       stagingBuffer = VK_NULL_HANDLE;
+    VkDeviceMemory stagingMemory = VK_NULL_HANDLE;
+    VkCommandBuffer cmd          = VK_NULL_HANDLE;
+    VkFence        fence        = VK_NULL_HANDLE;
 
     // Create image
-    out->width  = (u16)width;
-    out->height = (u16)height;
-    out->format = VK_FORMAT_R8G8B8A8_SRGB;
+    imageResource->width  = (u16)width;
+    imageResource->height = (u16)height;
     VkImageCreateInfo imageInfo = {
         .sType         = VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO,
         .imageType     = VK_IMAGE_TYPE_2D,
-        .format        = out->format,
+        .format        = format,
         .extent        = { width, height, 1 },
         .mipLevels     = 1,
         .arrayLayers   = 1,
@@ -79,19 +73,14 @@ int ImageResource_Create(
         .sharingMode   = VK_SHARING_MODE_EXCLUSIVE,
         .initialLayout = VK_IMAGE_LAYOUT_UNDEFINED
     };
-    if (vkCreateImage(device, &imageInfo, NULL, &out->image) != VK_SUCCESS) goto fail;
+    if (vkCreateImage(displayManager->device, &imageInfo, NULL, &imageResource->image) != VK_SUCCESS) goto fail;
 
     // Get memory requirements
     VkMemoryRequirements requirements;
-    vkGetImageMemoryRequirements(device, out->image, &requirements);
+    vkGetImageMemoryRequirements(displayManager->device, imageResource->image, &requirements);
 
-    // Implement this helper using vkGetPhysicalDeviceMemoryProperties.
-    u32 memoryTypeIndex;
-    if (!FindMemoryType(
-            physicalDevice,
-            requirements.memoryTypeBits,
-            VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT,
-            &memoryTypeIndex)) goto fail;
+    u32 memoryTypeIndex = FindMemoryType(displayManager->physicalDevice, requirements.memoryTypeBits, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
+    if (memoryTypeIndex == UINT32_MAX) goto fail;
 
     // Allocate image memory
     VkMemoryAllocateInfo allocInfo = {
@@ -99,15 +88,141 @@ int ImageResource_Create(
         .allocationSize  = requirements.size,
         .memoryTypeIndex = memoryTypeIndex
     };
-    if (vkAllocateMemory(device, &allocInfo, NULL, &out->memory) != VK_SUCCESS) goto fail;
-    if (vkBindImageMemory(device, out->image, out->memory, 0) != VK_SUCCESS) goto fail;
+    if (vkAllocateMemory(displayManager->device, &allocInfo, NULL, &imageResource->memory) != VK_SUCCESS) goto fail;
+    if (vkBindImageMemory(displayManager->device, imageResource->image, imageResource->memory, 0) != VK_SUCCESS) goto fail;
 
-    // Create a view
+    // --- Staging buffer ---------------------------------------------------
+    VkBufferCreateInfo bufferInfo = {
+        .sType       = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO,
+        .size        = imageSize,
+        .usage       = VK_BUFFER_USAGE_TRANSFER_SRC_BIT,
+        .sharingMode = VK_SHARING_MODE_EXCLUSIVE
+    };
+    if (vkCreateBuffer(displayManager->device, &bufferInfo, NULL, &stagingBuffer) != VK_SUCCESS) goto fail;
+
+    VkMemoryRequirements bufReqs;
+    vkGetBufferMemoryRequirements(displayManager->device, stagingBuffer, &bufReqs);
+
+    u32 stagingTypeIndex = FindMemoryType(
+        displayManager->physicalDevice,bufReqs.memoryTypeBits,
+        VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT
+    );
+    if (stagingTypeIndex == UINT32_MAX) goto fail_staging;
+
+    VkMemoryAllocateInfo stagingAlloc = {
+        .sType           = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO,
+        .allocationSize  = bufReqs.size,
+        .memoryTypeIndex = stagingTypeIndex
+    };
+    if (vkAllocateMemory(displayManager->device, &stagingAlloc, NULL, &stagingMemory) != VK_SUCCESS) goto fail_staging;
+    if (vkBindBufferMemory(displayManager->device, stagingBuffer, stagingMemory, 0) != VK_SUCCESS) goto fail_staging;
+
+    void* mapped = NULL;
+    if (vkMapMemory(displayManager->device, stagingMemory, 0, imageSize, 0, &mapped) != VK_SUCCESS) goto fail_staging;
+    memcpy(mapped, buffer, (size_t)imageSize);
+    vkUnmapMemory(displayManager->device, stagingMemory);
+
+    // --- Record upload commands ------------------------------------------
+    VkCommandBufferAllocateInfo cmdAlloc = {
+        .sType              = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO,
+        .commandPool        = displayManager->commandPool,
+        .level              = VK_COMMAND_BUFFER_LEVEL_PRIMARY,
+        .commandBufferCount = 1
+    };
+    if (vkAllocateCommandBuffers(displayManager->device, &cmdAlloc, &cmd) != VK_SUCCESS) goto fail_staging;
+
+    VkCommandBufferBeginInfo beginInfo = {
+        .sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO,
+        .flags = VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT
+    };
+    vkBeginCommandBuffer(cmd, &beginInfo);
+
+    // UNDEFINED -> TRANSFER_DST_OPTIMAL
+    VkImageMemoryBarrier toTransfer = {
+        .sType               = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER,
+        .srcAccessMask       = 0,
+        .dstAccessMask       = VK_ACCESS_TRANSFER_WRITE_BIT,
+        .oldLayout           = VK_IMAGE_LAYOUT_UNDEFINED,
+        .newLayout           = VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
+        .srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED,
+        .dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED,
+        .image               = imageResource->image,
+        .subresourceRange    = {
+            .aspectMask     = VK_IMAGE_ASPECT_COLOR_BIT,
+            .baseMipLevel   = 0,
+            .levelCount     = 1,
+            .baseArrayLayer = 0,
+            .layerCount     = 1
+        }
+    };
+    vkCmdPipelineBarrier(cmd,
+        VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT,
+        VK_PIPELINE_STAGE_TRANSFER_BIT,
+        0, 0, NULL, 0, NULL, 1, &toTransfer);
+
+    VkBufferImageCopy region = {
+        .bufferOffset      = 0,
+        .bufferRowLength   = 0,
+        .bufferImageHeight = 0,
+        .imageSubresource  = {
+            .aspectMask     = VK_IMAGE_ASPECT_COLOR_BIT,
+            .mipLevel       = 0,
+            .baseArrayLayer = 0,
+            .layerCount     = 1
+        },
+        .imageOffset = { 0, 0, 0 },
+        .imageExtent = { width, height, 1 }
+    };
+    vkCmdCopyBufferToImage(cmd, stagingBuffer, imageResource->image, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, 1, &region);
+
+    // TRANSFER_DST_OPTIMAL -> SHADER_READ_ONLY_OPTIMAL
+    VkImageMemoryBarrier toShader = {
+        .sType               = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER,
+        .srcAccessMask       = VK_ACCESS_TRANSFER_WRITE_BIT,
+        .dstAccessMask       = VK_ACCESS_SHADER_READ_BIT,
+        .oldLayout           = VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
+        .newLayout           = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
+        .srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED,
+        .dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED,
+        .image               = imageResource->image,
+        .subresourceRange    = {
+            .aspectMask     = VK_IMAGE_ASPECT_COLOR_BIT,
+            .baseMipLevel   = 0,
+            .levelCount     = 1,
+            .baseArrayLayer = 0,
+            .layerCount     = 1
+        }
+    };
+    vkCmdPipelineBarrier(cmd,
+        VK_PIPELINE_STAGE_TRANSFER_BIT,
+        VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT,
+        0, 0, NULL, 0, NULL, 1, &toShader);
+
+    vkEndCommandBuffer(cmd);
+
+    // --- Submit and wait --------------------------------------------------
+    VkFenceCreateInfo fenceInfo = { .sType = VK_STRUCTURE_TYPE_FENCE_CREATE_INFO };
+    if (vkCreateFence(displayManager->device, &fenceInfo, NULL, &fence) != VK_SUCCESS) goto fail_cmd;
+
+    VkSubmitInfo submit = {
+        .sType              = VK_STRUCTURE_TYPE_SUBMIT_INFO,
+        .commandBufferCount = 1,
+        .pCommandBuffers    = &cmd
+    };
+    if (vkQueueSubmit(displayManager->graphicsQueue, 1, &submit, fence) != VK_SUCCESS) goto fail_fence;
+    vkWaitForFences(displayManager->device, 1, &fence, VK_TRUE, UINT64_MAX);
+
+    vkDestroyFence(displayManager->device, fence, NULL);
+    vkFreeCommandBuffers(displayManager->device, displayManager->commandPool, 1, &cmd);
+    vkDestroyBuffer(displayManager->device, stagingBuffer, NULL);
+    vkFreeMemory(displayManager->device, stagingMemory, NULL);
+
+    // --- Create the view --------------------------------------------------
     VkImageViewCreateInfo viewInfo = {
         .sType    = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO,
-        .image    = resource->image,
+        .image    = imageResource->image,
         .viewType = VK_IMAGE_VIEW_TYPE_2D,
-        .format   = resource->format,
+        .format   = format,
         .subresourceRange = {
             .aspectMask     = VK_IMAGE_ASPECT_COLOR_BIT,
             .baseMipLevel   = 0,
@@ -116,50 +231,51 @@ int ImageResource_Create(
             .layerCount     = 1
         }
     };
-    if (vkCreateImageView(device, &viewInfo, NULL, &resource->view) != VK_SUCCESS) goto fail
+    if (vkCreateImageView(displayManager->device, &viewInfo, NULL, &imageResource->view) != VK_SUCCESS) goto fail;
 
-    // Blah blah blah
-    // on and on it goes....
+    imageResource->currentLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
 
-    // Success
     return 1;
 
+fail_fence:
+    vkDestroyFence(displayManager->device, fence, NULL);
+fail_cmd:
+    vkFreeCommandBuffers(displayManager->device, displayManager->commandPool, 1, &cmd);
+fail_staging:
+    if (stagingBuffer) vkDestroyBuffer(displayManager->device, stagingBuffer, NULL);
+    if (stagingMemory) vkFreeMemory(displayManager->device, stagingMemory, NULL);
 fail:
-    if (out->memory) vkFreeMemory(device, out->memory, NULL);
-    if (out->image) vkDestroyImage(device, out->image, NULL);
-    *out = (ImageResource){0};
+    if (imageResource->view) vkDestroyImageView(displayManager->device, imageResource->view, NULL);
+    if (imageResource->image) vkDestroyImage(displayManager->device, imageResource->image, NULL);
+    if (imageResource->memory) vkFreeMemory(displayManager->device, imageResource->memory, NULL);
+    *imageResource = (ImageResource){0};
     return 0;
 }
 
 /* Initialises an image resource manager and its underlying datastructures */
 void ImageResourceManager_Init(ImageResourceManager* resourceManager)
 {
-    Array_Init(&resourceManager->atlasses, sizeof(Atlas), 8);
+    resourceManager->buildersCreated = 0;
+    Array_Init(&resourceManager->imageViews, sizeof(ImageView), 128);
     Array_Init(&resourceManager->imageResources, sizeof(ImageResource), 64);
     LinearStringmap_Init(&resourceManager->filepathToHandleMap, sizeof(int), 20, 512);
-    resourceManager->atlasBuilderCount = 0;
 }
 
 /* Frees datastructures and image memory belonging to an image resource manager */
 void ImageResourceManager_Free(ImageResourceManager* resourceManager)
 {
-    // Free Images
-    for (size_t i=0; i<Array_Length(resourceManager->imageResources); i++) {
-        // Free image
-        ImageResource* image = Array_Get(resourceManager->imageResources, i);
+    // Free Image Resources
+    for (size_t i=0; i<Array_Length(&resourceManager->imageResources); i++) {
+        ImageResource* image = Array_Get(&resourceManager->imageResources, i);
     }
-    Array_Free(resourceManager->imageResources);
+    Array_Free(&resourceManager->imageResources);
 
-    // Free Atlases
-    for (size_t i=0; i<Array_Length(resourceManager->atlasses); i++) {
-        Atlas* atlas = Array_Get(resourceManager->atlasses, i);
-        Array_Free(&atlas->atlasImages);
-    }
-    Array_Free(&resourceManager->atlasses);
+    // Free Image Views
+    Array_Free(&resourceManager->imageViews);
 
     // Free Atlas Builders
-    for (u8 i=0; i<resourceManager->atlasBuilderCount; i++) {
-        AtlasBuilder_Free(&resourceManager->atlasBuilders[i]);
+    for (int i=0; i<resourceManager->buildersCreated; i++) {
+        AtlasBuilder_Free(&resourceManager->builders[i]);
     }
 
     // Free filepath map
@@ -167,40 +283,29 @@ void ImageResourceManager_Free(ImageResourceManager* resourceManager)
 }
 
 /* Creates image resources / atlases from any remaining "in-progress" atlas builds */
-void ImageResourceManager_CreateAtlasImageResources(ImageResourceManager* resourceManager)
+void ImageResourceManager_CreateImageResourcesFromPartialAtlasBuilds(ImageResourceManager* resourceManager, DisplayManager* displayManager)
 {
-    for (size_t i=0; i<Array_Length(&resourceManager->atlasses); i++) {
-        Atlas* atlas = Array_Get(&resourceManager->atlasses, i);
+    for (int i=0; i<resourceManager->buildersCreated; i++) {
+        AtlasBuilder* builder = &resourceManager->builders[i];
+
+        // Builder is empty -> skip
+        if (builder->imageResourceIndex == -1) continue;
 
         // Create image resource
-        ImageResource* imageResource = Array_PushEmpty(&resourceManager->imageResources);
-        int resourceIndex = Array_Length(&resourceManager->imageResources) - 1;
-        imageHandle = NU_Image_Create_Standalone_Handle(resourceIndex);
-        ImageResource_Create(physicalDevice, device, w, h, imageResource);
-        atlas->imageResourceIndex = resourceIndex;
+        ImageResource* imageResource = Array_Get(&resourceManager->imageResources, builder->imageResourceIndex);
+        ImageResource_Create(displayManager, builder->w, builder->h, builder->buffer, imageResource);
+
+        // Clear builder
+        AtlasBuilder_Clear(builder);
     }
-    resourceManager->atlasBuilderCount = 0;
 }
 
 /* Returns the width and height of an image, given an image handle */
 void ImageResourceManager_GetImageSize(ImageResourceManager* resourceManager, int imageHandle, u16* w, u16* h)
 {
-    // Image is standalone
-    if (NU_Image_Is_Handle_Standalone(imageHandle)) {
-        int imageIndex = NU_Image_Handle_To_Standalone_Index(imageHandle);
-        StandaloneImageInfo* info = Array_Get(&resourceManager->standaloneImageInfos, imageIndex);
-        *w = info->w;
-        *h = info->h;
-    }
-    // Image is atlased
-    else {
-        int atlasIndex = NU_Image_Handle_To_Atlas_Index(imageHandle);
-        int imageIndex = NU_Image_Handle_To_Atlas_Image_Index(imageHandle);
-        Atlas* atlas = Array_Get(&resourceManager->atlases, atlasIndex);
-        AtlasImageInfo* img = Array_Get(&atlas->images, imageIndex);
-        *w = img->w;
-        *h = img->h;
-    }
+    ImageView* imageView = Array_Get(&resourceManager->imageViews, imageHandle - 1);
+    *w = imageView->w;
+    *h = imageView->h;
 }
 
 /* Returns image handle of a loaded image, given its filepath */
@@ -211,8 +316,9 @@ int ImageResourceManager_ImageHandleFromFilepath(ImageResourceManager* resourceM
     return *(int*)found;
 }
 
-/* Loads an image from disk, returns image handle */
-int ImageResourceManager_LoadImage(ImageResourceManager* resourceManager, const char* filepath)
+/* Loads an image from disk, small images are packed into atlasses. returns image handle */
+
+int ImageResourceManager_LoadImage(ImageResourceManager* resourceManager, DisplayManager* displayManager, const char* filepath)
 {
     // Load from disk using STB_Image
     int w, h, n;
@@ -226,186 +332,120 @@ int ImageResourceManager_LoadImage(ImageResourceManager* resourceManager, const 
     {
         int atlasSize = 256;
 
-        // Search the last 3 atlases to find one that the image can fit into
-        int atlasIndex = -1;
-        int start = Array_Length(&resourceManager->atlasses) - 3;
-        if (start < 0) start = 0;
-        for (int i=start; u<Array_Length(&resourceManager->atlasses); i++) {
-            Atlas* candidate = Array_Get(&resourceManager->atlasses, i);
-            if (AtlasBuilder_CanFit(&candidate->builder, w, h)) {
-                atlas = candidate;
-                atlasIndex = i;
+        // Search atlas builders to find one that the image can fit into
+        AtlasBuilder* builder = NULL;
+        for (int i=0; i<resourceManager->buildersCreated; i++) {
+            AtlasBuilder* candidateBuilder = &resourceManager->builders[i];
+            if (AtlasBuilder_CanFit(candidateBuilder, w, h)) {
+                builder = candidateBuilder;
                 break;
             }
         }
 
-        // No suitable atlas was found -> create a new one and a corresponding image resource
-        if (atlasIndex == -1)
+        // Did not find a builder
+        if (!builder)
         {
-            // Create a new atlas
-            Atlas* newAtlas = Array_PushEmpty(&resourceManager->atlasses);
-            Array_Init(&newAtlas->atlasRegions, sizeof(AtlasRegion), 16);
-            AtlasBuilder_Init(&newAtlas->builder, atlasSize, atlasSize);
-            newAtlas->imageResourceIndex = ...;
-            atlasIndex = Array_Length(&resourceManager->atlasses) - 1;
+            // Less than 3 builders have been created -> create a new one lazily
+            if (resourceManager->buildersCreated < 3)
+            {
+                // Create builder
+                builder = &resourceManager->builders[resourceManager->buildersCreated];
+                AtlasBuilder_Init(builder, 256, 256);
 
-            // Create an image resource
-            ImageResource* resource = Array_Push(&resourceManager->imageResources);
-            newAtlas->imageResourceIndex = Array_Length(&resourceManager->imageResources) - 1;
+                // Create a new empty image resource struct for the new builder
+                Array_PushEmpty(&resourceManager->imageResources);
+                int imageResourceIndex = Array_Length(&resourceManager->imageResources) - 1;
+                builder->imageResourceIndex = imageResourceIndex;
+
+                // Increment
+                resourceManager->buildersCreated++;
+            }
+            // Commit the most full builder atlas, clear and reuse it
+            else
+            {
+                // Find the most full atlas builder
+                AtlasBuilder* mostFullBuilder = &resourceManager->builders[0];
+                u16 maxShelfHeight = mostFullBuilder->shelfHeight;
+                for (int i=1; i<resourceManager->buildersCreated; i++) {
+                    AtlasBuilder* candidateBuilder = &resourceManager->builders[i];
+                    if (candidateBuilder->shelfHeight > maxShelfHeight) {
+                        maxShelfHeight = candidateBuilder->shelfHeight;
+                        mostFullBuilder = candidateBuilder;
+                    }
+                }
+
+                // Create the image resource that the most full builder was working on
+                ImageResource* imageResource = Array_Get(&resourceManager->imageResources, mostFullBuilder->imageResourceIndex);
+                ImageResource_Create(displayManager, w, h, mostFullBuilder->buffer, imageResource);
+
+                // Set and clear
+                builder = mostFullBuilder;
+                AtlasBuilder_Clear(mostFullBuilder);
+
+                // Create a new empty image resource struct for the recycled builder
+                Array_PushEmpty(&resourceManager->imageResources);
+                int imageResourceIndex = Array_Length(&resourceManager->imageResources) - 1;
+                builder->imageResourceIndex = imageResourceIndex;
+            }
         }
 
-        // Get atlas
-        Atlas* atlas = Array_Get(&resourceManager->atlasses, atlasIndex);
+        // Blit image onto builder atlas and create image view
+        u16 x, y;
+        AtlasBuilder_AddImage(builder, buffer, w, h, &x, &y);
+        ImageView* imageView = Array_PushEmpty(&resourceManager->imageViews);
+        imageView->x = x;
+        imageView->y = y;
+        imageView->w = w;
+        imageView->h = y;
+        imageView->imageResourceIndex = builder->imageResourceIndex;
 
-        // Add image to atlas builder
-        int regionX; int regionY
-        AtlasBuilder_AddImage(&atlas->builder, buffer, w, h, &regionX, &regionY);
-        stbi_image_free(buffer);
-
-        // Create Atlas region
-        AtlasRegion* newRegion = Array_PushEmpty(&atlas->atlasRegions);
-        float inverseAtlasSize = 1.0f / (float)atlasSize;
-        newRegion->u0 = (float)regionX * inverseAtlasSize;
-        newRegion->v0 = (float)regionY * inverseAtlasSize;
-        newRegion->u1 = (float)(regionX + w) * inverseAtlasSize;
-        newRegion->v1 = (float)(regionY + h) * inverseAtlasSize;
-        newRegion->w = w;
-        newRegion->h = h;
-        int imageIndex = Array_Length(&atlas->atlasRegions) - 1;
-
-        // Create handle
-        imageHandle = NU_Image_Create_Atlas_Handle(atlasIndex, imageIndex);
+        // Get image handle
+        imageHandle = Array_Length(&resourceManager->imageViews);
     }
-    // Image is too large to be packed into an atlas
+    // Image is large
     else
     {
+        // Create an image resource
         ImageResource* imageResource = Array_PushEmpty(&resourceManager->imageResources);
         int resourceIndex = Array_Length(&resourceManager->imageResources) - 1;
-        imageHandle = NU_Image_Create_Standalone_Handle(resourceIndex);
-        ImageResource_Create(physicalDevice, device, w, h, imageResource);
+        ImageResource_Create(displayManager, w, h, buffer, imageResource);
+
+        // Create an image view
+        ImageView* imageView = Array_PushEmpty(&resourceManager->imageViews);
+        imageView->x = 0;
+        imageView->y = 0;
+        imageView->w = w;
+        imageView->h = h;
+        imageView->imageResourceIndex = resourceIndex;
+
+        // Get image handle
+        imageHandle = Array_Length(&resourceManager->imageViews);
     }
 
     // Add mapping from filepath to handle
-    LinearStringmap_Add(&resourceManager->filepathToHandleMap, filepath, &imageHandle);
+    LinearStringmap_Set(&resourceManager->filepathToHandleMap, filepath, &imageHandle);
 
     // Success
     return imageHandle;
 }
 
-/* Appends the appropriate ImageRenderData to an array, given an image handle */
-void ImageResourceManager_AddImageRenderData(ImageResourceManager* resourceManager, int imageHandle, ImageRenderData* renderData)
+inline int ImageResourceManager_GetImageHandle(ImageResourceManager* resourceManager, const char* filepath)
 {
-    // Image is standalone
-    if (NU_Image_Is_Handle_Standalone(imageHandle)) {
-        int imageIndex = NU_Image_Handle_To_Standalone_Index(imageHandle);
-        StandaloneImageInfo* info = Array_Get(&resourceManager->standaloneImageInfos, imageIndex);
-        StandaloneImageRenderData* sRenderData = Array_PushEmpty(&resourceManager->standaloneImageRenderDatas);
-        renderData->u0 = 0;
-        renderData->v0 = 0;
-        renderData->u1 = 1;
-        renderData->v1 = 1;
-        sRenderData->glImageHandle = info->glImageHandle;
-        sRenderData->renderData = *renderData;
-    }
-    // Image is atlased
-    else {
-        int atlasIndex = NU_Image_Handle_To_Atlas_Index(imageHandle);
-        int imageIndex = NU_Image_Handle_To_Atlas_Image_Index(imageHandle);
-        Atlas* atlas = Array_Get(&resourceManager->atlases, atlasIndex);
-        AtlasImageInfo* img = Array_Get(&atlas->images, imageIndex);
-        renderData->u0 = img->u0;
-        renderData->v0 = img->v0;
-        renderData->u1 = img->u1;
-        renderData->v1 = img->v1;
-        Array_Push(&atlas->renderDataArray, renderData);
-    }
+    void* found = LinearStringmap_Get(&resourceManager->filepathToHandleMap, filepath);
+    if (found == NULL) return 0;
+    return *(int*)found;
 }
 
-/* Loads an image from disk, small images are automatically packed into an atlas */
-int ImageResourceLoader_LoadImage(ImageResourceLoader* loader, const char* filepath)
+/*  */
+inline ImageResource* ImageResourceManager_GetImageResource(ImageResourceManager* resourceManager, int imageHandle)
 {
-    int w, h, n;
-    unsigned char* buffer = stbi_load(filepath, &w, &h, &n, 4); // Force RGBA
-    if (!buffer) return 0;
+    ImageView* imageView = Array_Get(&resourceManager->imageViews, imageHandle - 1);
+    ImageResource* imageResource = Array_Get(&resourceManager->imageResources, imageView->imageResourceIndex);
+    return imageResource;
+}
 
-    int imageHandle;
-
-    // Too large to be added to an atlas -> keep as individual image
-    if (w > 128 || h > 128)
-    {
-        // Upload to GPU
-        GLuint handle;
-        glGenTextures(1, &handle);
-        glBindTexture(GL_TEXTURE_2D, handle);
-        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
-        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
-        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
-        glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA8, w, h, 0, GL_RGBA, GL_UNSIGNED_BYTE, buffer);
-        stbi_image_free(buffer); // Free CPU memory
-
-        // Add handle to large image handles array
-        StandaloneImageInfo* info = Array_PushEmpty(&loader->resourceManager->standaloneImageInfos);
-        info->glImageHandle = handle;
-        info->w = w;
-        info->h = h;
-        int index = loader->resourceManager->standaloneImageInfos.size - 1;
-
-        // Create handle
-        imageHandle = NU_Image_Create_Standalone_Handle(index);
-    }
-    // Pack image into an atlas
-    else
-    {
-        u16 atlasSize = 512;
-
-        // Search the last 4 atlases to find one that the image can fit into
-        AtlasBuild* validAtlasBuild = NULL;
-        Atlas* atlas = NULL;
-        int atlasIndex = 0;
-        int start = loader->atlasBuilds.size - 4;
-        if (start < 0) start = 0;
-        for (int i = start; i < loader->atlasBuilds.size; i++) {
-            AtlasBuild* atlasBuild = Array_Get(&loader->atlasBuilds, i);
-            if (AtlasBuild_CanFit(atlasBuild, w, h)) {
-                validAtlasBuild = atlasBuild;
-                atlas = Array_Get(&loader->resourceManager->atlases, i);
-                atlasIndex = i;
-                break;
-            }
-        }
-
-        // Did not find a valid atlas build -> create one
-        if (!validAtlasBuild) {
-            validAtlasBuild = Array_PushEmpty(&loader->atlasBuilds);
-            AtlasBuild_Init(validAtlasBuild, atlasSize, atlasSize); // example size
-
-            // Create a corresponding ImageResourceManager Atlas
-            atlas = Array_PushEmpty(&loader->resourceManager->atlases);
-            Array_Init(&atlas->images, sizeof(AtlasImageInfo), 32);
-            Array_Init(&atlas->renderDataArray, sizeof(ImageRenderData), 32);
-            atlasIndex = loader->resourceManager->atlases.size - 1;
-        }
-
-        // Pack image into atlas build
-        int x, y;
-        AtlasBuild_AddImage(validAtlasBuild, buffer, w, h, &x, &y);
-        stbi_image_free(buffer);
-
-        // Add image to resource manager
-        AtlasImageInfo* newImage = Array_PushEmpty(&atlas->images);
-        newImage->u0 = (float)x / (float)atlasSize;
-        newImage->v0 = (float)y / (float)atlasSize;
-        newImage->u1 = (float)(x + w) / (float)atlasSize;
-        newImage->v1 = (float)(y + h) / (float)atlasSize;
-        newImage->w = w;
-        newImage->h = h;
-        int imageIndex = atlas->images.size - 1;
-
-        // Create handle
-        imageHandle = NU_Image_Create_Atlas_Handle(atlasIndex, imageIndex);
-    }
-
-    LinearStringmap_Set(&loader->imageFilepathToHandleMap, filepath, &imageHandle);
-    return imageHandle;
+inline ImageView* ImageResourceManager_GetImageView(ImageResourceManager* resourceManager, int imageHandle)
+{
+    ImageView* imageView = Array_Get(&resourceManager->imageViews, imageHandle - 1);
+    return imageView;
 }

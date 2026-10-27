@@ -16,10 +16,37 @@ int DisplayManager_CreateVulkanDevices(DisplayManager* displayManager)
     VkInstanceCreateInfo ci = {0};
     ci.sType = VK_STRUCTURE_TYPE_INSTANCE_CREATE_INFO;
     ci.pApplicationInfo = &app;
+    const char* validationLayers[] = {
+        "VK_LAYER_KHRONOS_validation"
+    };
 
-    // Create VK Instance
+    // Get instance extensions required by SDL3
+    Uint32 sdlExtensionCount = 0;
+    const char* const* sdlExtensions = SDL_Vulkan_GetInstanceExtensions(&sdlExtensionCount);
+    if (!sdlExtensions) {
+        ErrorSystem_AddError(&GUI.errorSystem, "<Vulkan Error> Failed to get SDL Vulkan extensions");
+        return 0;
+    }
+    // Allocate a list containing SDL extensions + portability enumeration
+    const char** instanceExts = malloc(sizeof(const char*) * (sdlExtensionCount + 1));
+    if (!instanceExts) {
+        ErrorSystem_AddError(&GUI.errorSystem, "<Vulkan Error> Failed to allocate instance extensions");
+        return 0;
+    }
+    for (Uint32 i=0; i<sdlExtensionCount; i++) {
+        instanceExts[i] = sdlExtensions[i];
+    }
+    instanceExts[sdlExtensionCount] = VK_KHR_PORTABILITY_ENUMERATION_EXTENSION_NAME;
+    ci.flags = VK_INSTANCE_CREATE_ENUMERATE_PORTABILITY_BIT_KHR;
+    ci.enabledLayerCount = 1;
+    ci.ppEnabledLayerNames = validationLayers;
+    ci.enabledExtensionCount = sdlExtensionCount + 1;
+    ci.ppEnabledExtensionNames = instanceExts;
+
+    // Create Vulkan instance
     VkInstance instance = VK_NULL_HANDLE;
     VkResult r = vkCreateInstance(&ci, NULL, &instance);
+    free(instanceExts);
     if (r != VK_SUCCESS) {
         ErrorSystem_AddError(&GUI.errorSystem, "<Vulkan Error> Failed to create a Vulkan instance");
         return 0;
@@ -28,7 +55,6 @@ int DisplayManager_CreateVulkanDevices(DisplayManager* displayManager)
     // Get device count
     u32 deviceCount = 0;
     vkEnumeratePhysicalDevices(instance, &deviceCount, NULL);
-
     VkPhysicalDevice devices[8];
     if (deviceCount > 8) deviceCount = 8;
     vkEnumeratePhysicalDevices(instance, &deviceCount, devices);
@@ -89,11 +115,26 @@ int DisplayManager_CreateVulkanDevices(DisplayManager* displayManager)
     // Create device
     VkDevice device = VK_NULL_HANDLE;
     if (vkCreateDevice(physicalDevice, &dci, NULL, &device) != VK_SUCCESS) {
+        printf("failed to create a device\n");
         ErrorSystem_AddError(&GUI.errorSystem, "<Vulkan Error> Failed to create a device");
         return 0;
     }
     VkQueue graphicsQueue = VK_NULL_HANDLE;
     vkGetDeviceQueue(device, graphicsFamily, 0, &graphicsQueue);
+
+    // Command pool create info
+    VkCommandPoolCreateInfo poolInfo = {
+        .sType            = VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO,
+        .flags            = VK_COMMAND_POOL_CREATE_RESET_COMMAND_BUFFER_BIT,
+        .queueFamilyIndex = graphicsFamily
+    };
+
+    // Create command pool
+    VkCommandPool commandPool;
+    if (vkCreateCommandPool(device, &poolInfo, NULL, &commandPool) != VK_SUCCESS) {
+        ErrorSystem_AddError(&GUI.errorSystem, "<Vulkan Error> Failed to create a device");
+        return 0;
+    }
 
     // Store everything inside vkState
     displayManager->instance = instance;
@@ -101,6 +142,7 @@ int DisplayManager_CreateVulkanDevices(DisplayManager* displayManager)
     displayManager->device = device;
     displayManager->graphicsQueue = graphicsQueue;
     displayManager->graphicsFamily = graphicsFamily;
+    displayManager->commandPool = commandPool;
     displayManager->sharedRenderPass = NULL; // Will be created lazily when the first window is created
 
     // Success
@@ -129,30 +171,24 @@ void DisplayManager_DestroyVulkanDevices(DisplayManager* displayManager)
 
 int DisplayManager_Init(DisplayManager* displayManager)
 {
-    // Init datastructures
-    displayManager->recycledSDLWindowCount = 0;
-    displayManager->lastClickedWindow = NULL;
-    displayManager->windows = Container_Create(sizeof(NU_Window));
-    Array_Init(&displayManager->absoluteRootNodes, sizeof(Node*), 8);
-    Hashmap_Init(&displayManager->clipMap, sizeof(Node*), sizeof(NU_ClipBounds), 16);
-
     // Create vulkan devices
-    if (!DisplayManager_CreateVulkanDevices(displayManager)) {
-        return 0;
-    }
+    if (!DisplayManager_CreateVulkanDevices(displayManager)) return 0;
 
     // Init GPU memory allocator
-    ArenaAllocatorGPU_Init(&displayManager->gpuArenaAlloc,
-        displayManager->device, displayManager->physicalDevice
-    );
+    ArenaAllocatorGPU_Init(&displayManager->gpuArenaAlloc, displayManager->device, displayManager->physicalDevice);
 
     // Create quad buffer
     NU_CreateQuadBuffer(displayManager->physicalDevice, displayManager->device);
 
     // Create render pipelines
-    NU_CreateVertexRGBPipeline(displayManager,
-        &displayManager->vertexRGBPipeline,
-        false);
+    //NU_CreateVertexRGBPipeline(displayManager, &displayManager->vertexRGBPipeline, false);
+
+    // Init datastructures
+    displayManager->recycledSDLWindowCount = 0;
+    displayManager->lastClickedWindow = NULL;
+    displayManager->windows = Container_Create(sizeof(Window));
+    Array_Init(&displayManager->absoluteRootNodes, sizeof(Node*), 8);
+    Hashmap_Init(&displayManager->clipMap, sizeof(Node*), sizeof(NU_ClipBounds), 16);
 
     // Success
     return 1;
@@ -176,9 +212,9 @@ void DisplayManager_Free(DisplayManager* displayManager)
 
     // 5. Destroy per-window Vulkan objects, then SDL window and free memory
     for (uint32_t i=0; i<displayManager->windows.size; i++) {
-        NU_Window* win = Container_GetAt(&displayManager->windows, i);
-        NuWindow_DestroyVulkanDevices(win, displayManager);
-        if (win->window) SDL_DestroyWindow(win->window);
+        Window* win = Container_GetAt(&displayManager->windows, i);
+        Window_DestroyVulkanDevices(win, displayManager);
+        if (win->sdlWin) SDL_DestroyWindow(win->sdlWin);
         Array_Free(&win->drawlist.drawNodes);
         Array_Free(&win->drawlist.clippedDrawNodes);
         Array_Free(&win->drawlist.canvasNodes);
@@ -202,18 +238,18 @@ void DisplayManager_Free(DisplayManager* displayManager)
 
 void DisplayManager_UpdateWindowRenderScale(DisplayManager* displayManager, int windowID)
 {
-    NU_Window* win = Container_Get(&displayManager->windows, windowID);
+    Window* win = Container_Get(&displayManager->windows, windowID);
     int winPtsW, winPtsH;
     int winPxW, winPxH;
-    SDL_GetWindowSize(win->window, &winPtsW, &winPtsH);
-    SDL_GetWindowSizeInPixels(win->window, &winPxW, &winPxH);
+    SDL_GetWindowSize(win->sdlWin, &winPtsW, &winPtsH);
+    SDL_GetWindowSizeInPixels(win->sdlWin, &winPxW, &winPxH);
     win->renderScale = (float)winPxW / (float)winPtsW;
 }
 
 void DisplayManager_UpdateWindowScreenDimensions(DisplayManager* displayManager, int windowID)
 {
-    NU_Window* win = Container_Get(&displayManager->windows, windowID);
-    SDL_DisplayID displayID = SDL_GetDisplayForWindow(win->window);
+    Window* win = Container_Get(&displayManager->windows, windowID);
+    SDL_DisplayID displayID = SDL_GetDisplayForWindow(win->sdlWin);
     const SDL_DisplayMode* mode = SDL_GetCurrentDisplayMode(displayID);
     if (mode != NULL) {
         win->screenWidth = mode->w * win->renderScale;
@@ -221,7 +257,7 @@ void DisplayManager_UpdateWindowScreenDimensions(DisplayManager* displayManager,
     }
 }
 
-void DisplayManager_CreateWindow(DisplayManager* displayManager, Node* node, const char* title, int width, int height)
+int DisplayManager_CreateWindow(DisplayManager* displayManager, Node* node, const char* title, int width, int height)
 {
     // Create / recycle SDL window
     SDL_Window* sdlWin = NULL;
@@ -232,15 +268,15 @@ void DisplayManager_CreateWindow(DisplayManager* displayManager, Node* node, con
         sdlWin = SDL_CreateWindow(title, width, height, SDL_WINDOW_VULKAN | SDL_WINDOW_RESIZABLE | SDL_WINDOW_HIGH_PIXEL_DENSITY);
     }
 
-    // Create a new NU_Window
-    NU_Window window;
+    // Create a new Window
+    Window window = {0};
     window.sdlWin = sdlWin;
-    window.screenWidth = -1;
-    window.screenHeight = -1;
-    window.renderScale = -1;
 
     // Create a swapchain, framebuffer and renderpass
-    NuWindow_CreateVulkanDevices(&window, displayManager);
+    if (!Window_CreateVulkanDevices(&window, displayManager)) {
+        printf("failed to create swapchain\n");
+        return 0;
+    }
 
     // Init drawlist
     Array_Init(&window.drawlist.drawNodes, sizeof(Node*), 512);
@@ -251,27 +287,31 @@ void DisplayManager_CreateWindow(DisplayManager* displayManager, Node* node, con
     node->windowID = Container_Add(&displayManager->windows, &window);
     DisplayManager_UpdateWindowRenderScale(displayManager, node->windowID);
     DisplayManager_UpdateWindowScreenDimensions(displayManager, node->windowID);
+
+    // Success
+    return 1;
 }
 
 void DisplayManager_DestroyWindow(DisplayManager* displayManager, Node* node)
 {
-    NU_Window* nuWin = Container_Get(&displayManager->windows, node->windowID);
+    Window* nuWin = Container_Get(&displayManager->windows, node->windowID);
 
     // Set last clicked window to NULL if it was destroyed
-    if (nuWin->window == displayManager->lastClickedWindow) {
+    if (nuWin->sdlWin == displayManager->lastClickedWindow) {
         displayManager->lastClickedWindow = NULL;
     }
 
     // Recycle window if possible
-    if (displayManager->recycledSDLWindows.size < RECYCLED_WINDOWS_CAPACITY) {
-        Array_Push(&displayManager->recycledSDLWindows, &nuWin->window);
+    if (displayManager->recycledSDLWindowCount < NU_RECYCLED_WINDOWS_CAPACITY) {
+        displayManager->recycledSDLWindows[displayManager->recycledSDLWindowCount] = nuWin->sdlWin;
+        displayManager->recycledSDLWindowCount++;
     }
     else {
-        SDL_DestroyWindow(nuWin->window);
+        SDL_DestroyWindow(nuWin->sdlWin);
     }
 
     // Destroy vulkan devices
-    NuWindow_DestroyVulkanDevices(nuWin, displayManager);
+    Window_DestroyVulkanDevices(nuWin, displayManager);
 
     // Free window allocations
     Array_Free(&nuWin->drawlist.drawNodes);
@@ -280,6 +320,17 @@ void DisplayManager_DestroyWindow(DisplayManager* displayManager, Node* node)
 
     // Remove window from display manager
     Container_Remove(&displayManager->windows, node->windowID);
+}
+
+inline Window* DisplayManager_GetNodeWindow(DisplayManager* displayManager, Node* node)
+{
+    return Container_Get(&displayManager->windows, node->windowID);
+}
+
+inline SDL_Window* DisplayManager_GetNodeSDLWindow(DisplayManager* displayManager, Node* node)
+{
+    Window* win = Container_Get(&displayManager->windows, node->windowID);
+    return win->sdlWin;
 }
 
 
@@ -298,35 +349,31 @@ int GetFrametime()
     return frameTimeMs;
 }
 
-inline NU_Window* GetNodeWindow(DisplayManager* displayManager, Node* node)
-{
-    return Container_Get(&displayManager->windows, node->windowID);
-}
 
 SDL_Window* GetSDL_Window(DisplayManager* displayManager, int windowID)
 {
-    NU_Window* win = Container_Get(&displayManager->windows, windowID);
-    return win->window;
+    Window* win = Container_Get(&displayManager->windows, windowID);
+    return win->sdlWin;
 }
 
 Node* GetWindowNodeFromSDL_Window(DisplayManager* displayManager, SDL_Window* window)
 {
     for (int i=0; i<displayManager->windows.size; i++) {
-        NU_Window* win = Container_GetAt(&displayManager->windows, i);
-        if (win->window == window) {
+        Window* win = Container_GetAt(&displayManager->windows, i);
+        if (win->sdlWin == window) {
             return win->windowNode;
         }
     }
     return NULL;
 }
 
-NU_WindowDrawlist* GetDrawlist(DisplayManager* displayManager, int windowID)
+NuWindowDrawlist* GetDrawlist(DisplayManager* displayManager, int windowID)
 {
-    NU_Window* win = Container_Get(&displayManager->windows, windowID);
+    Window* win = Container_Get(&displayManager->windows, windowID);
     return &win->drawlist;
 }
 
-void AssignRootWindow(DisplayManager* displayManager, Node* rootNode)
+void DisplayManager_AssignRootWindow(DisplayManager* displayManager, Node* rootNode)
 {
     SDL_Window* window = GetSDL_Window(displayManager, displayManager->rootWindowID);
     SDL_ShowWindow(window);
@@ -340,28 +387,26 @@ void AssignRootWindow(DisplayManager* displayManager, Node* rootNode)
     rootNode->public.generic.minHeight = winH;
     rootNode->public.generic.maxHeight = winH;
     rootNode->windowID = displayManager->rootWindowID;
-    NU_Window* rootWin = Container_Get(&displayManager->windows, rootNode->windowID);
+    Window* rootWin = Container_Get(&displayManager->windows, rootNode->windowID);
     rootWin->windowNode = rootNode;
 
     DisplayManager_UpdateWindowRenderScale(displayManager, rootNode->windowID);
     DisplayManager_UpdateWindowScreenDimensions(displayManager, rootNode->windowID);
 
     // Initialise drawlist
-    NU_WindowDrawlist* list = GetDrawlist(displayManager, displayManager->rootWindowID);
+    NuWindowDrawlist* list = GetDrawlist(displayManager, displayManager->rootWindowID);
     Array_Init(&list->drawNodes, sizeof(Node*), 512);
     Array_Init(&list->clippedDrawNodes, sizeof(Node*), 64);
     Array_Init(&list->canvasNodes, sizeof(Node*), 16);
-
-    NU_Draw_Init();
 }
 
 void GetLocalMouseCoords(DisplayManager* displayManager, float* outX, float* outY)
 {
-    NU_Window* win = Container_Get(&displayManager->windows, displayManager->hoveredWindowNode->windowID);
+    Window* win = Container_Get(&displayManager->windows, displayManager->hoveredWindowNode->windowID);
     float globalPtsX, globalPtsY;
     int windowPtsX, windowPtsY;
     SDL_GetGlobalMouseState(&globalPtsX, &globalPtsY);
-    SDL_GetWindowPosition(win->window, &windowPtsX, &windowPtsY);
+    SDL_GetWindowPosition(win->sdlWin, &windowPtsX, &windowPtsY);
     *outX = (globalPtsX - windowPtsX) * win->renderScale;
     *outY = (globalPtsY - windowPtsY) * win->renderScale;
 }
@@ -369,8 +414,8 @@ void GetLocalMouseCoords(DisplayManager* displayManager, float* outX, float* out
 void DisplayManager_SetHoveredWindow(DisplayManager* displayManager, SDL_Window* window)
 {
     for (int i=0; i<displayManager->windows.size; i++) {
-        NU_Window* win = Container_GetAt(&displayManager->windows, i);
-        if (win->window == window) {
+        Window* win = Container_GetAt(&displayManager->windows, i);
+        if (win->sdlWin == window) {
             displayManager->hoveredWindowNode = win->windowNode;
             return;
         }
@@ -388,18 +433,18 @@ inline void WindowBeginFrame(SDL_Window* window)
 
 inline void SetNodeDrawlist_Draw(DisplayManager* displayManager, Node* node)
 {
-    NU_WindowDrawlist* list = GetDrawlist(displayManager, node->windowID);
+    NuWindowDrawlist* list = GetDrawlist(displayManager, node->windowID);
     Array_Push(&list->drawNodes, &node);
 }
 
 inline void SetNodeDrawlist_Clipped(DisplayManager* displayManager, Node* node)
 {
-    NU_WindowDrawlist* list = GetDrawlist(displayManager, node->windowID);
+    NuWindowDrawlist* list = GetDrawlist(displayManager, node->windowID);
     Array_Push(&list->clippedDrawNodes, &node);
 }
 
 inline void SetNodeDrawlist_Canvas(DisplayManager* displayManager, Node* node)
 {
-    NU_WindowDrawlist* list = GetDrawlist(displayManager, node->windowID);
+    NuWindowDrawlist* list = GetDrawlist(displayManager, node->windowID);
     Array_Push(&list->canvasNodes, &node);
 }

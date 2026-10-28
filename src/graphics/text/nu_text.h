@@ -3,7 +3,7 @@
 #include <string.h>
 #include "nu_font.h"
 
-u32 NU_GetNextCodepoint(const char* string, int* byteIndex)
+u32 NextUTF8Codepoint(const char* string, int* byteIndex)
 {
     unsigned char* p = (unsigned char*)string + *byteIndex;
     u32 cp;
@@ -39,7 +39,7 @@ u32 NU_GetNextCodepoint(const char* string, int* byteIndex)
     return cp;
 }
 
-u32 NU_GetNextCodepointL(const char* string, int* byteIndex, size_t stringLen)
+u32 NextUTF8CodepointL(const char* string, int* byteIndex, size_t stringLen)
 {
     unsigned char* p = (unsigned char*)string + *byteIndex;
     u32 cp;
@@ -75,7 +75,7 @@ u32 NU_GetNextCodepointL(const char* string, int* byteIndex, size_t stringLen)
     return cp;
 }
 
-float NU_Calculate_Text_Min_Wrap_Width(NU_Font* font, const char* string)
+float NU_Calculate_Text_Min_Wrap_Width(Font* font, const char* string)
 {
     int byteIndex = 0;
     u32 codepoint;
@@ -87,7 +87,7 @@ float NU_Calculate_Text_Min_Wrap_Width(NU_Font* font, const char* string)
     float result = 0.0f;
     float wordWidth = 0.0f;
 
-    while ((codepoint = NU_GetNextCodepoint(string, &byteIndex)) != 0)
+    while ((codepoint = NextUTF8Codepoint(string, &byteIndex)) != 0)
     {
         if (codepoint == '\r') continue;
 
@@ -95,7 +95,7 @@ float NU_Calculate_Text_Min_Wrap_Width(NU_Font* font, const char* string)
         if (is_space)
         {
             if (wordLen > 0) {
-                NU_Glyph* last  = NU_Get_Glyph(font, wordLastCodepoint);
+                Glyph* last  = Font_GetGlyph(font, wordLastCodepoint);
 
                 // Remove space before the first glyph and after the last glyph in the word
                 wordWidth -= last->advance;
@@ -111,14 +111,14 @@ float NU_Calculate_Text_Min_Wrap_Width(NU_Font* font, const char* string)
             continue;
         }
 
-        NU_Glyph* glyph = NU_Get_Glyph(font, codepoint);
+        Glyph* glyph = Font_GetGlyph(font, codepoint);
 
         if (wordLen == 0) wordFirstCodepoint = codepoint;
 
         // Add kerning
         else {
-            NU_Glyph* prev = NU_Get_Glyph(font, lastCodepoint);
-            wordWidth += NU_Get_Kerning(font, prev->index, glyph->index);
+            Glyph* prev = Font_GetGlyph(font, lastCodepoint);
+            wordWidth += Font_GetKerning(font, prev->index, glyph->index);
         }
 
         wordWidth += glyph->advance;
@@ -130,8 +130,8 @@ float NU_Calculate_Text_Min_Wrap_Width(NU_Font* font, const char* string)
     // Measure length of final word
     if (wordLen > 0)
     {
-        NU_Glyph* first = NU_Get_Glyph(font, wordFirstCodepoint);
-        NU_Glyph* last  = NU_Get_Glyph(font, wordLastCodepoint);
+        Glyph* first = Font_GetGlyph(font, wordFirstCodepoint);
+        Glyph* last  = Font_GetGlyph(font, wordLastCodepoint);
 
         // Remove space before the first glyph and after the last glyph in the word
         wordWidth -= last->advance;
@@ -143,7 +143,7 @@ float NU_Calculate_Text_Min_Wrap_Width(NU_Font* font, const char* string)
     return result;
 }
 
-float NU_Calculate_FreeText_Height_From_Wrap_Width(NU_Font* font, const char* string, float width)
+float NU_Calculate_FreeText_Height_From_Wrap_Width(Font* font, const char* string, float width)
 {
     if (string[0] == '\0') return 0.0f;
 
@@ -154,7 +154,7 @@ float NU_Calculate_FreeText_Height_From_Wrap_Width(NU_Font* font, const char* st
     u32 codepoint;
     u32 lastCodepoint = 0;
 
-    while ((codepoint = NU_GetNextCodepoint(string, &byteIndex)) != 0)
+    while ((codepoint = NextUTF8Codepoint(string, &byteIndex)) != 0)
     {
         if (codepoint == '\r') continue;
 
@@ -162,11 +162,11 @@ float NU_Calculate_FreeText_Height_From_Wrap_Width(NU_Font* font, const char* st
         if (is_space)
         {
             // Calculate space advancement
-            NU_Glyph* spaceGlyph = NU_Get_Glyph(font, codepoint);
+            Glyph* spaceGlyph = Font_GetGlyph(font, codepoint);
             float spaceAdvance = spaceGlyph->advance;
             if (lastCodepoint != 0) {
-                NU_Glyph* preSpaceGlyph = NU_Get_Glyph(font, lastCodepoint);
-                spaceAdvance += NU_Get_Kerning(font, preSpaceGlyph->index, spaceGlyph->index);
+                Glyph* preSpaceGlyph = Font_GetGlyph(font, lastCodepoint);
+                spaceAdvance += Font_GetKerning(font, preSpaceGlyph->index, spaceGlyph->index);
             }
 
             // Calculate width of next word
@@ -174,21 +174,21 @@ float NU_Calculate_FreeText_Height_From_Wrap_Width(NU_Font* font, const char* st
             int j = byteIndex;
             u32 jCodepoint;
             u32 jPrevCodepoint = 0;
-            while ((jCodepoint = NU_GetNextCodepoint(string, &j)) != 0 && jCodepoint != ' ' && jCodepoint != '\t')
+            while ((jCodepoint = NextUTF8Codepoint(string, &j)) != 0 && jCodepoint != ' ' && jCodepoint != '\t')
             {
-                NU_Glyph* glyph = NU_Get_Glyph(font, jCodepoint);
+                Glyph* glyph = Font_GetGlyph(font, jCodepoint);
                 nextWordWidth += glyph->advance;
 
                 // Add kerning
                 if (jPrevCodepoint != 0) {
-                    NU_Glyph* prevGlyph = NU_Get_Glyph(font, jPrevCodepoint);
-                    nextWordWidth += NU_Get_Kerning(font, prevGlyph->index, glyph->index);
+                    Glyph* prevGlyph = Font_GetGlyph(font, jPrevCodepoint);
+                    nextWordWidth += Font_GetKerning(font, prevGlyph->index, glyph->index);
                 }
 
                 jPrevCodepoint = jCodepoint;
             }
             if (jPrevCodepoint != 0) { // Subtract space after last glyph in next word
-                NU_Glyph* jLastGlyph = NU_Get_Glyph(font, jPrevCodepoint);
+                Glyph* jLastGlyph = Font_GetGlyph(font, jPrevCodepoint);
                 nextWordWidth -= jLastGlyph->advance;
             }
 
@@ -212,13 +212,13 @@ float NU_Calculate_FreeText_Height_From_Wrap_Width(NU_Font* font, const char* st
         // Inside a word
         else
         {
-            NU_Glyph* glyph = NU_Get_Glyph(font, codepoint);
+            Glyph* glyph = Font_GetGlyph(font, codepoint);
             penX += glyph->advance;
 
             // Add kerning
             if (lastCodepoint != 0) {
-                NU_Glyph* prevGlyph = NU_Get_Glyph(font, lastCodepoint);
-                penX += NU_Get_Kerning(font, prevGlyph->index, glyph->index);
+                Glyph* prevGlyph = Font_GetGlyph(font, lastCodepoint);
+                penX += Font_GetKerning(font, prevGlyph->index, glyph->index);
             }
         }
 
@@ -228,7 +228,7 @@ float NU_Calculate_FreeText_Height_From_Wrap_Width(NU_Font* font, const char* st
     return (wraps + 1) * font->line_height;
 }
 
-float NU_Calculate_LText_Height_From_Wrap_Width(NU_Font* font, const char* string, size_t stringLen, float width)
+float NU_Calculate_LText_Height_From_Wrap_Width(Font* font, const char* string, size_t stringLen, float width)
 {
     if (string[0] == '\0') return 0.0f;
 
@@ -239,7 +239,7 @@ float NU_Calculate_LText_Height_From_Wrap_Width(NU_Font* font, const char* strin
     u32 codepoint;
     u32 lastCodepoint = 0;
 
-    while ((codepoint = NU_GetNextCodepointL(string, &byteIndex, stringLen)) != 0)
+    while ((codepoint = NextUTF8CodepointL(string, &byteIndex, stringLen)) != 0)
     {
         if (codepoint == '\r') continue;
 
@@ -247,11 +247,11 @@ float NU_Calculate_LText_Height_From_Wrap_Width(NU_Font* font, const char* strin
         if (is_space)
         {
             // Calculate space advancement
-            NU_Glyph* spaceGlyph = NU_Get_Glyph(font, codepoint);
+            Glyph* spaceGlyph = Font_GetGlyph(font, codepoint);
             float spaceAdvance = spaceGlyph->advance;
             if (lastCodepoint != 0) {
-                NU_Glyph* preSpaceGlyph = NU_Get_Glyph(font, lastCodepoint);
-                spaceAdvance += NU_Get_Kerning(font, preSpaceGlyph->index, spaceGlyph->index);
+                Glyph* preSpaceGlyph = Font_GetGlyph(font, lastCodepoint);
+                spaceAdvance += Font_GetKerning(font, preSpaceGlyph->index, spaceGlyph->index);
             }
 
             // Calculate width of next word
@@ -259,21 +259,21 @@ float NU_Calculate_LText_Height_From_Wrap_Width(NU_Font* font, const char* strin
             int j = byteIndex;
             u32 jCodepoint;
             u32 jPrevCodepoint = 0;
-            while ((jCodepoint = NU_GetNextCodepoint(string, &j)) != 0 && jCodepoint != ' ' && jCodepoint != '\t')
+            while ((jCodepoint = NextUTF8Codepoint(string, &j)) != 0 && jCodepoint != ' ' && jCodepoint != '\t')
             {
-                NU_Glyph* glyph = NU_Get_Glyph(font, jCodepoint);
+                Glyph* glyph = Font_GetGlyph(font, jCodepoint);
                 nextWordWidth += glyph->advance;
 
                 // Add kerning
                 if (jPrevCodepoint != 0) {
-                    NU_Glyph* prevGlyph = NU_Get_Glyph(font, jPrevCodepoint);
-                    nextWordWidth += NU_Get_Kerning(font, prevGlyph->index, glyph->index);
+                    Glyph* prevGlyph = Font_GetGlyph(font, jPrevCodepoint);
+                    nextWordWidth += Font_GetKerning(font, prevGlyph->index, glyph->index);
                 }
 
                 jPrevCodepoint = jCodepoint;
             }
             if (jPrevCodepoint != 0) { // Subtract space after last glyph in next word
-                NU_Glyph* jLastGlyph = NU_Get_Glyph(font, jPrevCodepoint);
+                Glyph* jLastGlyph = Font_GetGlyph(font, jPrevCodepoint);
                 nextWordWidth -= jLastGlyph->advance;
             }
 
@@ -297,13 +297,13 @@ float NU_Calculate_LText_Height_From_Wrap_Width(NU_Font* font, const char* strin
         // Inside a word
         else
         {
-            NU_Glyph* glyph = NU_Get_Glyph(font, codepoint);
+            Glyph* glyph = Font_GetGlyph(font, codepoint);
             penX += glyph->advance;
 
             // Add kerning
             if (lastCodepoint != 0) {
-                NU_Glyph* prevGlyph = NU_Get_Glyph(font, lastCodepoint);
-                penX += NU_Get_Kerning(font, prevGlyph->index, glyph->index);
+                Glyph* prevGlyph = Font_GetGlyph(font, lastCodepoint);
+                penX += Font_GetKerning(font, prevGlyph->index, glyph->index);
             }
         }
 
@@ -313,7 +313,7 @@ float NU_Calculate_LText_Height_From_Wrap_Width(NU_Font* font, const char* strin
     return (wraps + 1) * font->line_height;
 }
 
-float NU_Calculate_Text_Unwrapped_Width(NU_Font* font, const char* string)
+float NU_Calculate_Text_Unwrapped_Width(Font* font, const char* string)
 {
     if (!string || string[0] == '\0') return 0.0f;
 
@@ -323,15 +323,15 @@ float NU_Calculate_Text_Unwrapped_Width(NU_Font* font, const char* string)
 
     float width = 0.0f;
 
-    while ((codepoint = NU_GetNextCodepoint(string, &byteIndex)) != 0)
+    while ((codepoint = NextUTF8Codepoint(string, &byteIndex)) != 0)
     {
         if (codepoint == '\r' || codepoint == '\n') continue;
 
-        NU_Glyph* glyph = NU_Get_Glyph(font, codepoint);
+        Glyph* glyph = Font_GetGlyph(font, codepoint);
 
         if (lastCodepoint != 0) {
-            NU_Glyph* prev = NU_Get_Glyph(font, lastCodepoint);
-            width += NU_Get_Kerning(font, prev->index, glyph->index);
+            Glyph* prev = Font_GetGlyph(font, lastCodepoint);
+            width += Font_GetKerning(font, prev->index, glyph->index);
         }
 
         width += glyph->advance;
@@ -341,7 +341,7 @@ float NU_Calculate_Text_Unwrapped_Width(NU_Font* font, const char* string)
     return width;
 }
 
-float NU_Calculate_LText_Unwrapped_Width(NU_Font* font, const char* string, size_t stringLen)
+float NU_Calculate_LText_Unwrapped_Width(Font* font, const char* string, size_t stringLen)
 {
     if (!string || stringLen == 0) return 0.0f;
 
@@ -351,15 +351,15 @@ float NU_Calculate_LText_Unwrapped_Width(NU_Font* font, const char* string, size
 
     float width = 0.0f;
 
-    while ((codepoint = NU_GetNextCodepointL(string, &byteIndex, stringLen)) != 0)
+    while ((codepoint = NextUTF8CodepointL(string, &byteIndex, stringLen)) != 0)
     {
         if (codepoint == '\r' || codepoint == '\n') continue;
 
-        NU_Glyph* glyph = NU_Get_Glyph(font, codepoint);
+        Glyph* glyph = Font_GetGlyph(font, codepoint);
 
         if (lastCodepoint != 0) {
-            NU_Glyph* prev = NU_Get_Glyph(font, lastCodepoint);
-            width += NU_Get_Kerning(font, prev->index, glyph->index);
+            Glyph* prev = Font_GetGlyph(font, lastCodepoint);
+            width += Font_GetKerning(font, prev->index, glyph->index);
         }
 
         width += glyph->advance;
@@ -371,7 +371,7 @@ float NU_Calculate_LText_Unwrapped_Width(NU_Font* font, const char* string, size
 
 void NU_Generate_Text_Renderdata(
     Array* glyphRenderData,
-    NU_Font* font, const char* string,
+    Font* font, const char* string,
     float x, float y, float z,
     u8 r, u8 g, u8 b,
     float maxWidth)
@@ -388,7 +388,7 @@ void NU_Generate_Text_Renderdata(
     u32 codepoint;
     u32 lastCodepoint = 0;
 
-    while ((codepoint = NU_GetNextCodepoint(string, &byteIndex)) != 0)
+    while ((codepoint = NextUTF8Codepoint(string, &byteIndex)) != 0)
     {
         if (codepoint == '\r') continue;
 
@@ -396,11 +396,11 @@ void NU_Generate_Text_Renderdata(
         if (is_space)
         {
             // Calculate space advancement
-            NU_Glyph* spaceGlyph = NU_Get_Glyph(font, codepoint);
+            Glyph* spaceGlyph = Font_GetGlyph(font, codepoint);
             float spaceAdvance = spaceGlyph->advance;
             if (lastCodepoint != 0) {
-                NU_Glyph* preSpaceGlyph = NU_Get_Glyph(font, lastCodepoint);
-                spaceAdvance += NU_Get_Kerning(font, preSpaceGlyph->index, spaceGlyph->index);
+                Glyph* preSpaceGlyph = Font_GetGlyph(font, lastCodepoint);
+                spaceAdvance += Font_GetKerning(font, preSpaceGlyph->index, spaceGlyph->index);
             }
 
             // Calculate width of next word
@@ -408,21 +408,21 @@ void NU_Generate_Text_Renderdata(
             int j = byteIndex;
             u32 jCodepoint;
             u32 jPrevCodepoint = 0;
-            while ((jCodepoint = NU_GetNextCodepoint(string, &j)) != 0 && jCodepoint != ' ' && jCodepoint != '\t')
+            while ((jCodepoint = NextUTF8Codepoint(string, &j)) != 0 && jCodepoint != ' ' && jCodepoint != '\t')
             {
-                NU_Glyph* glyph = NU_Get_Glyph(font, jCodepoint);
+                Glyph* glyph = Font_GetGlyph(font, jCodepoint);
                 nextWordWidth += glyph->advance;
 
                 // Add kerning
                 if (jPrevCodepoint != 0) {
-                    NU_Glyph* prevGlyph = NU_Get_Glyph(font, jPrevCodepoint);
-                    nextWordWidth += NU_Get_Kerning(font, prevGlyph->index, glyph->index);
+                    Glyph* prevGlyph = Font_GetGlyph(font, jPrevCodepoint);
+                    nextWordWidth += Font_GetKerning(font, prevGlyph->index, glyph->index);
                 }
 
                 jPrevCodepoint = jCodepoint;
             }
             if (jPrevCodepoint != 0) { // Subtract space after last glyph in next word
-                NU_Glyph* jLastGlyph = NU_Get_Glyph(font, jPrevCodepoint);
+                Glyph* jLastGlyph = Font_GetGlyph(font, jPrevCodepoint);
                 nextWordWidth -= jLastGlyph->advance;
             }
 
@@ -445,10 +445,10 @@ void NU_Generate_Text_Renderdata(
         }
         else
         {
-            NU_Glyph* glyph = NU_Get_Glyph(font, codepoint);
+            Glyph* glyph = Font_GetGlyph(font, codepoint);
             if (lastCodepoint != 0) {
-                NU_Glyph* prevGlyph = NU_Get_Glyph(font, lastCodepoint);
-                penX += NU_Get_Kerning(font, prevGlyph->index, glyph->index); // Kerning
+                Glyph* prevGlyph = Font_GetGlyph(font, lastCodepoint);
+                penX += Font_GetKerning(font, prevGlyph->index, glyph->index); // Kerning
             }
 
             // Add glyph render data
@@ -473,7 +473,7 @@ void NU_Generate_Text_Renderdata(
 
 void NU_Generate_LText_Renderdata(
     Array* glyphRenderData,
-    NU_Font* font,
+    Font* font,
     const char* string,
     size_t stringLen,
     float x, float y, float z,
@@ -491,7 +491,7 @@ void NU_Generate_LText_Renderdata(
     u32 codepoint;
     u32 lastCodepoint = 0;
 
-    while ((codepoint = NU_GetNextCodepointL(string, &byteIndex, stringLen)) != 0)
+    while ((codepoint = NextUTF8CodepointL(string, &byteIndex, stringLen)) != 0)
     {
         if (codepoint == '\r') continue;
 
@@ -499,11 +499,11 @@ void NU_Generate_LText_Renderdata(
         if (is_space)
         {
             // Calculate space advancement
-            NU_Glyph* spaceGlyph = NU_Get_Glyph(font, codepoint);
+            Glyph* spaceGlyph = Font_GetGlyph(font, codepoint);
             float spaceAdvance = spaceGlyph->advance;
             if (lastCodepoint != 0) {
-                NU_Glyph* preSpaceGlyph = NU_Get_Glyph(font, lastCodepoint);
-                spaceAdvance += NU_Get_Kerning(font, preSpaceGlyph->index, spaceGlyph->index);
+                Glyph* preSpaceGlyph = Font_GetGlyph(font, lastCodepoint);
+                spaceAdvance += Font_GetKerning(font, preSpaceGlyph->index, spaceGlyph->index);
             }
 
             // Calculate width of next word
@@ -511,21 +511,21 @@ void NU_Generate_LText_Renderdata(
             int j = byteIndex;
             u32 jCodepoint;
             u32 jPrevCodepoint = 0;
-            while ((jCodepoint = NU_GetNextCodepoint(string, &j)) != 0 && jCodepoint != ' ' && jCodepoint != '\t')
+            while ((jCodepoint = NextUTF8Codepoint(string, &j)) != 0 && jCodepoint != ' ' && jCodepoint != '\t')
             {
-                NU_Glyph* glyph = NU_Get_Glyph(font, jCodepoint);
+                Glyph* glyph = Font_GetGlyph(font, jCodepoint);
                 nextWordWidth += glyph->advance;
 
                 // Add kerning
                 if (jPrevCodepoint != 0) {
-                    NU_Glyph* prevGlyph = NU_Get_Glyph(font, jPrevCodepoint);
-                    nextWordWidth += NU_Get_Kerning(font, prevGlyph->index, glyph->index);
+                    Glyph* prevGlyph = Font_GetGlyph(font, jPrevCodepoint);
+                    nextWordWidth += Font_GetKerning(font, prevGlyph->index, glyph->index);
                 }
 
                 jPrevCodepoint = jCodepoint;
             }
             if (jPrevCodepoint != 0) { // Subtract space after last glyph in next word
-                NU_Glyph* jLastGlyph = NU_Get_Glyph(font, jPrevCodepoint);
+                Glyph* jLastGlyph = Font_GetGlyph(font, jPrevCodepoint);
                 nextWordWidth -= jLastGlyph->advance;
             }
 
@@ -548,10 +548,10 @@ void NU_Generate_LText_Renderdata(
         }
         else
         {
-            NU_Glyph* glyph = NU_Get_Glyph(font, codepoint);
+            Glyph* glyph = Font_GetGlyph(font, codepoint);
             if (lastCodepoint != 0) {
-                NU_Glyph* prevGlyph = NU_Get_Glyph(font, lastCodepoint);
-                penX += NU_Get_Kerning(font, prevGlyph->index, glyph->index); // Kerning
+                Glyph* prevGlyph = Font_GetGlyph(font, lastCodepoint);
+                penX += Font_GetKerning(font, prevGlyph->index, glyph->index); // Kerning
             }
 
             // Add glyph render data
@@ -574,7 +574,7 @@ void NU_Generate_LText_Renderdata(
     }
 }
 
-u32 NU_Calculate_Unwrapped_Text_Cursorbytes(NU_Font* font, const char* string, float cursorX)
+u32 NU_Calculate_Unwrapped_Text_Cursorbytes(Font* font, const char* string, float cursorX)
 {
     if (!string || !*string) return 0;
 
@@ -586,16 +586,16 @@ u32 NU_Calculate_Unwrapped_Text_Cursorbytes(NU_Font* font, const char* string, f
     while (1)
     {
         int currentByteIndex = byteIndex;
-        u32 cp = NU_GetNextCodepoint(string, &byteIndex);
+        u32 cp = NextUTF8Codepoint(string, &byteIndex);
         if (cp == 0) break; // end of string
         if (cp == '\r') continue;
 
-        NU_Glyph* g = NU_Get_Glyph(font, cp);
+        Glyph* g = Font_GetGlyph(font, cp);
 
         // Add kerning from previous glyph
         if (prevCp) {
-            NU_Glyph* prevG = NU_Get_Glyph(font, prevCp);
-            width += NU_Get_Kerning(font, prevG->index, g->index);
+            Glyph* prevG = Font_GetGlyph(font, prevCp);
+            width += Font_GetKerning(font, prevG->index, g->index);
         }
 
         float glyphStart = width;

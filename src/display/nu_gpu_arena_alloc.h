@@ -1,7 +1,7 @@
 #pragma once
 #include <string.h>
 
-#define ARENA_GPU_SLOTS              2
+#define ARENA_GPU_SLOTS              3
 #define ARENA_MAX_CHUNKS             16
 #define ARENA_INITIAL_CHUNK          (1024 * 1024) // 1MB
 #define ARENA_CHUNK_IDLE_THRESHOLD   20
@@ -229,6 +229,7 @@ static ArenaAllocGPU ArenaAllocatorGPU_Alloc(ArenaAllocatorGPU* alloc, VkDeviceS
     ArenaAllocGPU result;
     result.buffer = chunk->buffer;
     result.offset = aligned;
+    result.mapped = chunk->mapped;
     chunk->offset = aligned + size;
     chunk->idleFrames = 0;
     return result;

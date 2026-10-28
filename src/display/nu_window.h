@@ -101,8 +101,7 @@ int Window_CreateSwapchain(Window* window, DisplayManager* displayManager)
     // The existing shared render pass uses the old format.
     if (window->swapchainFormat != VK_FORMAT_UNDEFINED &&
         chosen.format != window->swapchainFormat) {
-        ErrorSystem_AddError(&GUI.errorSystem,
-            "<Vulkan Error> Swapchain format changed; "
+        ErrorSystem_AddError(&GUI.errorSystem, "<Vulkan Error> Swapchain format changed; "
             "render pass and graphics pipelines need recreation");
         return 0;
     }
@@ -186,7 +185,12 @@ int Window_CreateSwapchain(Window* window, DisplayManager* displayManager)
     sci.imageSharingMode = VK_SHARING_MODE_EXCLUSIVE;
     sci.preTransform = caps.currentTransform;
     sci.compositeAlpha = VK_COMPOSITE_ALPHA_OPAQUE_BIT_KHR;
-    sci.presentMode = VK_PRESENT_MODE_FIFO_KHR;
+
+    // VK_PRESENT_MODE_FIFO_KHR — VSync on; guaranteed to be supported.
+    // VK_PRESENT_MODE_IMMEDIATE_KHR — VSync off; only use if supported.
+    // VK_PRESENT_MODE_MAILBOX_KHR — VSync on, but replaces queued frames with newer ones; often better for low latency. explain these?
+
+    sci.presentMode = VK_PRESENT_MODE_IMMEDIATE_KHR;
     sci.clipped = VK_TRUE;
     sci.oldSwapchain = VK_NULL_HANDLE;
     VkSwapchainKHR swapchain = VK_NULL_HANDLE;

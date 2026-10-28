@@ -38,7 +38,7 @@ void main()
 {
     vScreenPos = iPos.xy + aQuad * iSize;
     float ndc_x = (vScreenPos.x / pc.uScreenWidth) * 2.0 - 1.0;
-    float ndc_y = 1.0 - (vScreenPos.y / pc.uScreenHeight) * 2.0;
+    float ndc_y = (vScreenPos.y / pc.uScreenHeight) * 2.0 - 1.0;
 
     // Vulkan NDC depth range is [0, 1] not [-1, 1].
     // GL version wrote iPos.z * 0.015625 into clip.z with w=1, which lands in

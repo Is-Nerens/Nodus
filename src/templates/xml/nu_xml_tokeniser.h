@@ -17,15 +17,15 @@ void NU_Tokenise(String src, TokenArray* tokenVectorOut, Array* textRefsOut)
     int i = 0;
     while (i < srcLen)
     {
-        u32 c = NextUTF8Codepoint(src, &i);
+        u32 c = StringNextUTF8Codepoint(src, &i);
 
         // comment begins
         int peekI = i;
         if (ctx == 0 && i < srcLen-3
             && c == '<'
-            && NextUTF8Codepoint(src, &peekI) == '!'
-            && NextUTF8Codepoint(src, &peekI) == '-'
-            && NextUTF8Codepoint(src, &peekI) == '-') {
+            && StringNextUTF8Codepoint(src, &peekI) == '!'
+            && StringNextUTF8Codepoint(src, &peekI) == '-'
+            && StringNextUTF8Codepoint(src, &peekI) == '-') {
             i=peekI; ctx=1; continue; // ^
         }
 
@@ -33,8 +33,8 @@ void NU_Tokenise(String src, TokenArray* tokenVectorOut, Array* textRefsOut)
         peekI = i;
         if (ctx == 1 && i < srcLen-2
             && c == '-'
-            && NextUTF8Codepoint(src, &peekI) == '-'
-            && NextUTF8Codepoint(src, &peekI) == '>') {
+            && StringNextUTF8Codepoint(src, &peekI) == '-'
+            && StringNextUTF8Codepoint(src, &peekI) == '>') {
             i=peekI; ctx=0; continue; // ^
         }
 
@@ -48,7 +48,7 @@ void NU_Tokenise(String src, TokenArray* tokenVectorOut, Array* textRefsOut)
         {
             // open end tag </
             peekI = i;
-            if (i < srcLen-1 && c == '<' && NextUTF8Codepoint(src, &peekI) == '/') {
+            if (i < srcLen-1 && c == '<' && StringNextUTF8Codepoint(src, &peekI) == '/') {
 
                 // add text content token and text reference
                 if (textLen > 0) {
@@ -101,7 +101,7 @@ void NU_Tokenise(String src, TokenArray* tokenVectorOut, Array* textRefsOut)
         {
             // self closing tag end
             peekI = i;
-            if (i < srcLen-1 && c == '/' && NextUTF8Codepoint(src, &peekI) == '>')
+            if (i < srcLen-1 && c == '/' && StringNextUTF8Codepoint(src, &peekI) == '>')
             {
                 // word ends -> convert to token
                 if (word.length > 0) {

@@ -145,7 +145,7 @@ static void NU_Prepass(BreadthFirstSearch* bfs, Array* scrollAutoNodes)
             node->public.generic.contentHeight = winHeight;
         }
         else if (NODE_HAS_TEXT_CONTENT(node)) {
-            NU_Font* font = Stylesheet_Get_Font(&GUI.stylesheet, node->fontIdx);
+            Font* font = Stylesheet_Get_Font(&GUI.stylesheet, node->fontIdx);
 
             // Calculate text width -> drives content width
             float text_width = NU_Calculate_Text_Unwrapped_Width(font, node->public.generic.textContent);
@@ -783,7 +783,7 @@ static void NU_CalculateTextHeights(BreadthFirstSearch* bfs)
         }
 
         if (node->type == NU_TYPE_INPUT) {
-            NU_Font* node_font = Stylesheet_Get_Font(&GUI.stylesheet, node->fontIdx);
+            Font* node_font = Stylesheet_Get_Font(&GUI.stylesheet, node->fontIdx);
             float borderPadHeight = NODE_BORDER_PAD_HEIGHT(node);
 
             // Set input content height equal to line height
@@ -793,7 +793,7 @@ static void NU_CalculateTextHeights(BreadthFirstSearch* bfs)
             node->public.generic.height = max(node->public.generic.contentHeight + borderPadHeight, node->public.generic.preferredHeight);
         }
         else {
-            NU_Font* node_font = Stylesheet_Get_Font(&GUI.stylesheet, node->fontIdx);
+            Font* node_font = Stylesheet_Get_Font(&GUI.stylesheet, node->fontIdx);
 
             // Calculate text height -> drive content height
             float textHeight = NU_Calculate_FreeText_Height_From_Wrap_Width(node_font, node->public.generic.textContent, node->public.generic.contentWidth);
@@ -1070,7 +1070,7 @@ static void NU_Repass(BreadthFirstSearch* bfs)
                 child->public.generic.contentHeight = winHeight;
             }
             else if (hasTextContent) {
-                NU_Font* font = Stylesheet_Get_Font(&GUI.stylesheet, child->fontIdx);
+                Font* font = Stylesheet_Get_Font(&GUI.stylesheet, child->fontIdx);
 
                 // Calculate text width -> drives content width
                 float text_width = NU_Calculate_Text_Unwrapped_Width(font, child->public.generic.textContent);

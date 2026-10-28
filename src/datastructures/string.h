@@ -252,7 +252,7 @@ static inline char* StringCstr(String str)
     return (char*)str + 4;
 }
 
-uint32_t NextUTF8Codepoint(String string, int* i)
+uint32_t StringNextUTF8Codepoint(String string, int* i)
 {
     char* cStr = StringCstr(string);
     unsigned char* p = (unsigned char*)cStr + *i;
@@ -295,7 +295,7 @@ uint32_t NextUTF8Codepoint(String string, int* i)
     return cp;
 }
 
-static inline uint32_t GetUTF32Codepoint(String string, int index)
+static inline uint32_t StringGetUTF32Codepoint(String string, int index)
 {
     uint32_t codepoint;
     memcpy(&codepoint, StringCstr(string) + index * 4, 4);

@@ -48,10 +48,8 @@ int ImageResource_Create(
 {
     // Result
     *imageResource = (ImageResource){0};
-
     const VkFormat format = VK_FORMAT_R8G8B8A8_SRGB;
     const VkDeviceSize imageSize = (VkDeviceSize)width * height * 4;
-
     VkBuffer       stagingBuffer = VK_NULL_HANDLE;
     VkDeviceMemory stagingMemory = VK_NULL_HANDLE;
     VkCommandBuffer cmd          = VK_NULL_HANDLE;
@@ -91,7 +89,7 @@ int ImageResource_Create(
     if (vkAllocateMemory(displayManager->device, &allocInfo, NULL, &imageResource->memory) != VK_SUCCESS) goto fail;
     if (vkBindImageMemory(displayManager->device, imageResource->image, imageResource->memory, 0) != VK_SUCCESS) goto fail;
 
-    // --- Staging buffer ---------------------------------------------------
+    // Staging buffer
     VkBufferCreateInfo bufferInfo = {
         .sType       = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO,
         .size        = imageSize,
@@ -99,16 +97,13 @@ int ImageResource_Create(
         .sharingMode = VK_SHARING_MODE_EXCLUSIVE
     };
     if (vkCreateBuffer(displayManager->device, &bufferInfo, NULL, &stagingBuffer) != VK_SUCCESS) goto fail;
-
     VkMemoryRequirements bufReqs;
     vkGetBufferMemoryRequirements(displayManager->device, stagingBuffer, &bufReqs);
-
     u32 stagingTypeIndex = FindMemoryType(
         displayManager->physicalDevice,bufReqs.memoryTypeBits,
         VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT
     );
     if (stagingTypeIndex == UINT32_MAX) goto fail_staging;
-
     VkMemoryAllocateInfo stagingAlloc = {
         .sType           = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO,
         .allocationSize  = bufReqs.size,
@@ -116,13 +111,12 @@ int ImageResource_Create(
     };
     if (vkAllocateMemory(displayManager->device, &stagingAlloc, NULL, &stagingMemory) != VK_SUCCESS) goto fail_staging;
     if (vkBindBufferMemory(displayManager->device, stagingBuffer, stagingMemory, 0) != VK_SUCCESS) goto fail_staging;
-
     void* mapped = NULL;
     if (vkMapMemory(displayManager->device, stagingMemory, 0, imageSize, 0, &mapped) != VK_SUCCESS) goto fail_staging;
     memcpy(mapped, buffer, (size_t)imageSize);
     vkUnmapMemory(displayManager->device, stagingMemory);
 
-    // --- Record upload commands ------------------------------------------
+    // Record upload commands
     VkCommandBufferAllocateInfo cmdAlloc = {
         .sType              = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO,
         .commandPool        = displayManager->commandPool,
@@ -130,7 +124,6 @@ int ImageResource_Create(
         .commandBufferCount = 1
     };
     if (vkAllocateCommandBuffers(displayManager->device, &cmdAlloc, &cmd) != VK_SUCCESS) goto fail_staging;
-
     VkCommandBufferBeginInfo beginInfo = {
         .sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO,
         .flags = VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT
@@ -159,7 +152,6 @@ int ImageResource_Create(
         VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT,
         VK_PIPELINE_STAGE_TRANSFER_BIT,
         0, 0, NULL, 0, NULL, 1, &toTransfer);
-
     VkBufferImageCopy region = {
         .bufferOffset      = 0,
         .bufferRowLength   = 0,
@@ -197,13 +189,11 @@ int ImageResource_Create(
         VK_PIPELINE_STAGE_TRANSFER_BIT,
         VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT,
         0, 0, NULL, 0, NULL, 1, &toShader);
-
     vkEndCommandBuffer(cmd);
 
-    // --- Submit and wait --------------------------------------------------
+    // Submit and wait
     VkFenceCreateInfo fenceInfo = { .sType = VK_STRUCTURE_TYPE_FENCE_CREATE_INFO };
     if (vkCreateFence(displayManager->device, &fenceInfo, NULL, &fence) != VK_SUCCESS) goto fail_cmd;
-
     VkSubmitInfo submit = {
         .sType              = VK_STRUCTURE_TYPE_SUBMIT_INFO,
         .commandBufferCount = 1,
@@ -211,13 +201,12 @@ int ImageResource_Create(
     };
     if (vkQueueSubmit(displayManager->graphicsQueue, 1, &submit, fence) != VK_SUCCESS) goto fail_fence;
     vkWaitForFences(displayManager->device, 1, &fence, VK_TRUE, UINT64_MAX);
-
     vkDestroyFence(displayManager->device, fence, NULL);
     vkFreeCommandBuffers(displayManager->device, displayManager->commandPool, 1, &cmd);
     vkDestroyBuffer(displayManager->device, stagingBuffer, NULL);
     vkFreeMemory(displayManager->device, stagingMemory, NULL);
 
-    // --- Create the view --------------------------------------------------
+    // Create the view
     VkImageViewCreateInfo viewInfo = {
         .sType    = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO,
         .image    = imageResource->image,

@@ -52,6 +52,9 @@ _EXPORT int NU_CREATE_GUI(const char* xml_filepath, const char* css_filepath)
     SDL_SetHint("SDL_MOUSE_FOCUS_CLICKTHROUGH", "1");
     SDL_SetHint(SDL_HINT_MAC_SCROLL_MOMENTUM, "1");
 
+    // Init Freetype
+    FT_Init_FreeType(&nu_global_freetype);
+
     // Init Systems
     ThreadPool_Init(&GUI.threadPool, 1.0f);
     DisplayManager_Init(&GUI.displayManager);
@@ -140,7 +143,7 @@ _EXPORT int NU_CREATE_GUI(const char* xml_filepath, const char* css_filepath)
     timer_stop();
 
     // Initial layout calculation
-    //NU_Layout();
+    NU_Layout();
 
     // Event watcher
     SDL_AddEventWatch(EventWatcher, NULL);
@@ -227,7 +230,10 @@ _EXPORT void NU_RUN(void)
         // Re-render UI if necessary
         if (GUI.awaiting_redraw)
         {
-            //NU_Layout();
+            printf("layout: ");
+            timer_start();
+            NU_Layout();
+            timer_stop();
             NU_Mouse_Hover();
             printf("draw: ");
             timer_start();
@@ -752,13 +758,13 @@ _EXPORT void Window_SET_TEXT_CONTENT(NuWindow* window, char* string)
 
 _EXPORT void Window_SET_TITLE(NuWindow* window, const char* string) {
     Node* nodeP = (Node*)(window);
-    SDL_Window* SDLwindow = GetSDL_Window(&GUI.displayManager, nodeP->windowID);
+    SDL_Window* SDLwindow = DisplayManager_GetNodeSDLWindow(&GUI.displayManager, nodeP);
     SDL_SetWindowTitle(SDLwindow, string);
 }
 
 _EXPORT void Window_SET_FULLSCREEN(NuWindow* window) {
     Node* nodeP = (Node*)(window);
-    SDL_Window* SDLwindow = GetSDL_Window(&GUI.displayManager, nodeP->windowID);
+    SDL_Window* SDLwindow = DisplayManager_GetNodeSDLWindow(&GUI.displayManager, nodeP);
     Uint32 flags = SDL_GetWindowFlags(SDLwindow);
     if (flags & SDL_WINDOW_FULLSCREEN) return;
     SDL_SetWindowFullscreen(SDLwindow, true);
@@ -775,7 +781,7 @@ _EXPORT void Window_SET_FULLSCREEN(NuWindow* window) {
 
 _EXPORT void Window_SET_WINDOWED(NuWindow* window) {
     Node* nodeP = (Node*)(window);
-    SDL_Window* SDLwindow = GetSDL_Window(&GUI.displayManager, nodeP->windowID);
+    SDL_Window* SDLwindow = DisplayManager_GetNodeSDLWindow(&GUI.displayManager, nodeP);
     Uint32 flags = SDL_GetWindowFlags(SDLwindow);
     if (!(flags & SDL_WINDOW_FULLSCREEN)) return;
     SDL_SetWindowFullscreen(SDLwindow, false);
@@ -806,7 +812,7 @@ _EXPORT void NU_BUTTON_SET_TEXT_CONTENT(NuButton* button, char* string)
 
 _EXPORT void NU_INPUT_SET_TEXT_CONTENT(NuNode* node, const char* string) {
     Node* nodeP = (Node*)(node);
-    NU_Font* font = Stylesheet_Get_Font(&GUI.stylesheet, nodeP->fontIdx);
+    Font* font = Stylesheet_Get_Font(&GUI.stylesheet, nodeP->fontIdx);
     InputText* inputText = Container_Get(&GUI.textInputs, nodeP->special.input.textInputHandle);
     InputText_SetText(inputText, nodeP, font, string);
     TriggerOnInputChangedEvent(nodeP, "");
@@ -843,10 +849,10 @@ _EXPORT void NU_INPUT_FOCUS(NuInput* input) {
 
         // Focus on input node
         Stylesheet_ApplyPseudoStyleToNode(&GUI.stylesheet, GUI.focused_node, PSEUDO_FOCUS);
-        NU_Font* font = Stylesheet_Get_Font(&GUI.stylesheet, GUI.focused_node->fontIdx);
+        Font* font = Stylesheet_Get_Font(&GUI.stylesheet, GUI.focused_node->fontIdx);
         InputText* inputText = Container_Get(&GUI.textInputs, GUI.focused_node->special.input.textInputHandle);
         InputText_MousePlaceCursor(inputText, GUI.focused_node, font, 1000000.0f);
-        SDL_StartTextInput(GetSDL_Window(&GUI.displayManager, GUI.focused_node->windowID));
+        SDL_StartTextInput(DisplayManager_GetNodeSDLWindow(&GUI.displayManager, GUI.focused_node));
 
         // Defer offsets calculation
         inputText->updateOffsetsPostLayout = true;
@@ -1180,14 +1186,25 @@ _EXPORT void NU_WIDGET_DELETE(int widgetID, int deleteRoot)
 // -----------------------------
 // --- Canvas API functions ---
 // -----------------------------
-_EXPORT int64_t NU_CANVAS_CTX(const NuNode* canvasNode)
+_EXPORT int NU_CANVAS_CTX(const NuNode* canvasNode)
 {
-    return NU_Internal_Get_Canvas_Context(canvasNode);
+    Node* nodeP = NODEP_OF(canvasNode);
+    if (nodeP->type != NU_TYPE_CANVAS) return -1;
+
+    // Already has a context -> return id
+    if (nodeP->special.canvas.ctxHandle != -1) return nodeP->special.canvas.ctxHandle;
+
+    // Create a context and return id
+    NU_Canvas_Context ctx;
+    Canvas_InitContext(nodeP, &ctx);
+    int ctxId = Container_Add(&GUI.canvasContexts, &ctx);
+    return ctxId;
 }
 
 _EXPORT void NU_CANVAS_CLEAR(int contextID)
 {
-    NU_Internal_Clear_Canvas(contextID);
+    NU_Canvas_Context* ctx = Container_Get(&GUI.canvasContexts, contextID);
+    if (ctx) Canvas_ClearContext(ctx);
 }
 
 _EXPORT void NU_CANVAS_BORDER_RECT(
@@ -1197,7 +1214,8 @@ _EXPORT void NU_CANVAS_BORDER_RECT(
     NU_RGB_FL border_col,
     NU_RGB_FL fill_col)
 {
-    NU_Internal_Border_Rect(contextID, x, y, w, h, thickness, border_col, fill_col);
+    NU_Canvas_Context* ctx = Container_Get(&GUI.canvasContexts, contextID);
+    if (ctx) Canvas_DrawBorderRect(ctx, x, y, w, h, thickness, border_col, fill_col);
 }
 
 _EXPORT void NU_CANVAS_DRAW_TRIANGLE(
@@ -1209,7 +1227,8 @@ _EXPORT void NU_CANVAS_DRAW_TRIANGLE(
     NU_RGB_FL border_col,
     NU_RGB_FL fill_col)
 {
-    NU_Internal_Triangle(contextID, x1, y1, x2, y2, x3, y3, thickness, border_col, fill_col);
+    NU_Canvas_Context* ctx = Container_Get(&GUI.canvasContexts, contextID);
+    if (ctx) Canvas_DrawTriangle(ctx, x1, y1, x2, y2, x3, y3, thickness, border_col, fill_col);
 }
 
 _EXPORT void NU_CANVAS_DRAW_VLINE(
@@ -1218,7 +1237,8 @@ _EXPORT void NU_CANVAS_DRAW_VLINE(
     float thickness,
     NU_RGB_FL col)
 {
-    NU_Internal_Vline(contextID, x, y, height, thickness, col);
+    NU_Canvas_Context* ctx = Container_Get(&GUI.canvasContexts, contextID);
+    if (ctx) Canvas_DrawVline(ctx, x, y, height, thickness, col);
 }
 
 _EXPORT void NU_CANVAS_DRAW_HLINE(
@@ -1227,7 +1247,8 @@ _EXPORT void NU_CANVAS_DRAW_HLINE(
     float thickness,
     NU_RGB_FL col)
 {
-    NU_Internal_Hline(contextID, x, y, width, thickness, col);
+    NU_Canvas_Context* ctx = Container_Get(&GUI.canvasContexts, contextID);
+    if (ctx) Canvas_DrawHline(ctx, x, y, width, thickness, col);
 }
 
 _EXPORT void NU_CANVAS_DRAW_LINE(
@@ -1236,7 +1257,8 @@ _EXPORT void NU_CANVAS_DRAW_LINE(
     float thickness,
     NU_RGB_FL col)
 {
-    NU_Internal_Line(contextID, x1, y1, x2, y2, thickness, col);
+    NU_Canvas_Context* ctx = Container_Get(&GUI.canvasContexts, contextID);
+    if (ctx) Canvas_DrawLine(ctx, x1, y1, x2, y2, thickness, col);
 }
 
 _EXPORT void NU_CANVAS_DRAW_DASHED_LINE(
@@ -1247,20 +1269,24 @@ _EXPORT void NU_CANVAS_DRAW_DASHED_LINE(
     u32 dash_pattern_len,
     NU_RGB_FL col)
 {
-    NU_Internal_Dashed_Line(
-        contextID,
-        x1, y1, x2, y2,
-        thickness,
-        dash_pattern,
-        dash_pattern_len,
-        col);
+    NU_Canvas_Context* ctx = Container_Get(&GUI.canvasContexts, contextID);
+    if (ctx) {
+        Canvas_DrawDashedLine(
+            ctx,
+            x1, y1, x2, y2,
+            thickness,
+            dash_pattern,
+            dash_pattern_len,
+            col);
+        }
 }
 
 _EXPORT void NU_CANVAS_SET_FONT(
     int contextID,
     const char* font_name)
 {
-    NU_Internal_Set_Canvas_Font(contextID, font_name);
+    NU_Canvas_Context* ctx = Container_Get(&GUI.canvasContexts, contextID);
+    if (ctx) Canvas_SetFont(ctx, font_name);
 }
 
 _EXPORT void NU_CANVAS_DRAW_TEXT(
@@ -1268,7 +1294,11 @@ _EXPORT void NU_CANVAS_DRAW_TEXT(
     float x, float y, float wrapWidth,
     NU_RGB col, const char* string)
 {
-    NU_Internal_Text(contextID, x, y, wrapWidth, col, string);
+    NU_Canvas_Context* ctx = Container_Get(&GUI.canvasContexts, contextID);
+    if (ctx) {
+        Font* font = Stylesheet_Get_Font(&GUI.stylesheet, ctx->fontID);
+        Canvas_DrawText(ctx, font, x, y, wrapWidth, col, string);
+    }
 }
 
 _EXPORT float NU_CANVAS_TEXT_HEIGHT(
@@ -1276,14 +1306,22 @@ _EXPORT float NU_CANVAS_TEXT_HEIGHT(
     float wrapWidth,
     const char* string)
 {
-    return NU_Internal_Text_Height(contextID, wrapWidth, string);
+    NU_Canvas_Context* ctx = Container_Get(&GUI.canvasContexts, contextID);
+    if (ctx) {
+        Font* font = Stylesheet_Get_Font(&GUI.stylesheet, ctx->fontID);
+        return NU_Calculate_FreeText_Height_From_Wrap_Width(font, string, wrapWidth);
+    }
+    return 0.0f;
 }
 
-_EXPORT float NU_CANVAS_TEXT_WIDTH(
-    int contextID,
-    const char* string)
+_EXPORT float NU_CANVAS_TEXT_WIDTH(int contextID, const char* string)
 {
-    return NU_Internal_Text_Width(contextID, string);
+    NU_Canvas_Context* ctx = Container_Get(&GUI.canvasContexts, contextID);
+    if (ctx) {
+        Font* font = Stylesheet_Get_Font(&GUI.stylesheet, ctx->fontID);
+        return NU_Calculate_Text_Unwrapped_Width(font, string);
+    }
+    return 0.0f;
 }
 
 _EXPORT void NU_CANVAS_DRAW_LEN_TEXT(
@@ -1291,7 +1329,11 @@ _EXPORT void NU_CANVAS_DRAW_LEN_TEXT(
     float x, float y, float wrapWidth,
     NU_RGB col, const char* string, size_t stringLen)
 {
-    NU_Internal_LText(contextID, x, y, wrapWidth, col, string, stringLen);
+    NU_Canvas_Context* ctx = Container_Get(&GUI.canvasContexts, contextID);
+    if (ctx) {
+        Font* font = Stylesheet_Get_Font(&GUI.stylesheet, ctx->fontID);
+        Canvas_DrawLengthText(ctx, font, x, y, wrapWidth, col, string, stringLen);
+    }
 }
 
 _EXPORT float NU_CANVAS_LEN_TEXT_HEIGHT(
@@ -1300,7 +1342,12 @@ _EXPORT float NU_CANVAS_LEN_TEXT_HEIGHT(
     const char* string,
     size_t stringLen)
 {
-    return NU_Internal_LText_Height(contextID, wrapWidth, string, stringLen);
+    NU_Canvas_Context* ctx = Container_Get(&GUI.canvasContexts, contextID);
+    if (ctx) {
+        Font* font = Stylesheet_Get_Font(&GUI.stylesheet, ctx->fontID);
+        return NU_Calculate_LText_Height_From_Wrap_Width(font, string, stringLen, wrapWidth);
+    }
+    return 0.0f;
 }
 
 _EXPORT float NU_CANVAS_LEN_TEXT_WIDTH(
@@ -1308,11 +1355,20 @@ _EXPORT float NU_CANVAS_LEN_TEXT_WIDTH(
     const char* string,
     size_t stringLen)
 {
-    return NU_Internal_LText_Width(contextID, string, stringLen);
+    NU_Canvas_Context* ctx = Container_Get(&GUI.canvasContexts, contextID);
+    if (ctx) {
+        Font* font = Stylesheet_Get_Font(&GUI.stylesheet, ctx->fontID);
+        return NU_Calculate_LText_Unwrapped_Width(font, string, stringLen);
+    }
+    return 0.0f;
 }
 
-_EXPORT float NU_CANVAS_TEXT_LINE_HEIGHT(
-    int contextID)
+_EXPORT float NU_CANVAS_TEXT_LINE_HEIGHT(int contextID)
 {
-    return NU_Internal_Text_Line_Height(contextID);
+    NU_Canvas_Context* ctx = Container_Get(&GUI.canvasContexts, contextID);
+    if (ctx) {
+        Font* font = Stylesheet_Get_Font(&GUI.stylesheet, ctx->fontID);
+        return font->line_height;
+    }
+    return 0.0f;
 }

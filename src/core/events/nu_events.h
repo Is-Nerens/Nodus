@@ -1,6 +1,7 @@
 #pragma once
-#include <events/nu_event_defs.h>
-#include <events/nu_sdl_event_handler.h>
+#include <core/events/nu_event_defs.h>
+#include <core/events/nu_mouse_detection.h>
+#include <core/events/nu_sdl_event_handler.h>
 
 void EventSystem_Init()
 {
@@ -191,9 +192,14 @@ void NU_DissociateNode(Node* node)
         case NU_TYPE_WINDOW:
             DisplayManager_DestroyWindow(&GUI.displayManager, node);
             break;
-        case NU_TYPE_CANVAS:
-            NU_DeleteCanvasContext(node->special.canvas.ctxHandle);
+        case NU_TYPE_CANVAS: {
+            NU_Canvas_Context* ctx = Container_Get(&GUI.canvasContexts, node->special.canvas.ctxHandle);
+            if (ctx) {
+                Canvas_FreeContext(ctx);
+                Container_Remove(&GUI.canvasContexts, node->special.canvas.ctxHandle);
+            }
             break;
+        }
         case NU_TYPE_INPUT: {
             InputText* inputText = Container_Get(&GUI.textInputs, node->special.input.textInputHandle);
             InputText_Free(inputText);

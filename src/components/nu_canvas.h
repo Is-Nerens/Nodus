@@ -2,42 +2,30 @@
 
 #define NORMALIZE(dx, dy) do { float len = sqrtf((dx)*(dx) + (dy)*(dy)); if (len > 0.0001f) { dx /= len; dy /= len; } } while(0)
 
-int NU_Internal_Get_Canvas_Context(const NuNode* node)
-{
-    Node* nodeP = NODEP_OF(node);
-    if (nodeP->type != NU_TYPE_CANVAS) return -1;
-    if (nodeP->special.canvas.ctxHandle != -1) return nodeP->special.canvas.ctxHandle;
 
+void Canvas_InitContext(Node* node, NU_Canvas_Context* ctx)
+{
     // Create a new canvas ctx
-    NU_Canvas_Context ctx;
-    ctx.isShapeLayer = true;
-    ctx.fontID = 0;
-    ctx.z = 1;
-    ctx.textLayerIndex = 0;
-    ctx.node = nodeP;
-    Array_Init(&ctx.textLayers, sizeof(CanvasTextLayer), 4);
+    ctx->isShapeLayer = true;
+    ctx->fontID = 0;
+    ctx->z = 1;
+    ctx->textLayerIndex = 0;
+    ctx->node = node;
+    Array_Init(&ctx->textLayers, sizeof(CanvasTextLayer), 4);
 
     // Create default text layer
     CanvasTextLayer textLayer;
     textLayer.fontID = 0;
     Array_Init(&textLayer.textRenderData, sizeof(GlyphRenderData), 256);
-    Array_Push(&ctx.textLayers, &textLayer);
+    Array_Push(&ctx->textLayers, &textLayer);
 
     // Create shape layer
-    Vertex_RGB_List_Init(&ctx.shapeLayer.vertices, 1024);
-    Index_List_Init(&ctx.shapeLayer.indices, 2048);
-
-    // Add ctx
-    int ctxId = Container_Add(&GUI.canvasContexts, &ctx);
-    nodeP->special.canvas.ctxHandle = ctxId;
-    return ctxId;
+    Vertex_RGB_List_Init(&ctx->shapeLayer.vertices, 1024);
+    Index_List_Init(&ctx->shapeLayer.indices, 2048);
 }
 
-void NU_DeleteCanvasContext(int contextID)
+void Canvas_FreeContext(NU_Canvas_Context* ctx)
 {
-    NU_Canvas_Context* ctx = Container_Get(&GUI.canvasContexts, contextID);
-    if (ctx == NULL) return;
-
     // Free vertices and indices of each layer
     for (u32 i=0; i<ctx->textLayers.size; i++) {
         CanvasTextLayer* layer = Array_Get(&ctx->textLayers, i);
@@ -48,16 +36,10 @@ void NU_DeleteCanvasContext(int contextID)
     // Free vertices and indices of shape layer
     Vertex_RGB_List_Free(&ctx->shapeLayer.vertices);
     Index_List_Free(&ctx->shapeLayer.indices);
-
-    // Remove ctx
-    Container_Remove(&GUI.canvasContexts, contextID);
 }
 
-void NU_Internal_Clear_Canvas(int contextID)
+void Canvas_ClearContext(NU_Canvas_Context* ctx)
 {
-    NU_Canvas_Context* ctx = Container_Get(&GUI.canvasContexts, contextID);
-    if (ctx == NULL) return;
-
     // Clear vertices and indices of each text layer (except layer 0)
     for (u32 i=0; i<ctx->textLayers.size; i++) {
         CanvasTextLayer* layer = Array_Get(&ctx->textLayers, i);
@@ -76,16 +58,13 @@ void NU_Internal_Clear_Canvas(int contextID)
     ctx->isShapeLayer = true;
 }
 
-void NU_Internal_Border_Rect(
-    int contextID,
+void Canvas_DrawBorderRect(
+    NU_Canvas_Context* ctx,
     float x, float y, float w, float h,
     float thickness,
     NU_RGB_FL border_col,
     NU_RGB_FL fill_col)
 {
-    NU_Canvas_Context* ctx = Container_Get(&GUI.canvasContexts, contextID);
-    if (ctx == NULL) return;
-
     // Constrain dimensions based on thickness
     w = fmaxf(w, thickness * 2);
     h = fmaxf(h, thickness * 2);
@@ -196,8 +175,8 @@ void NU_Internal_Border_Rect(
     indices->size += additional_indices;
 }
 
-void NU_Internal_Triangle(
-    int contextID,
+void Canvas_DrawTriangle(
+    NU_Canvas_Context* ctx,
     float x1, float y1,
     float x2, float y2,
     float x3, float y3,
@@ -205,9 +184,6 @@ void NU_Internal_Triangle(
     NU_RGB_FL border_col,
     NU_RGB_FL fill_col)
 {
-    NU_Canvas_Context* ctx = Container_Get(&GUI.canvasContexts, contextID);
-    if (ctx == NULL) return;
-
     // Skip if triangle is offscreen
     float minX = fminf(x1, fminf(x2, x3));
     float maxX = fmaxf(x1, fmaxf(x2, x3));
@@ -299,11 +275,8 @@ void NU_Internal_Triangle(
     indices->size += additional_indices;
 }
 
-void NU_Internal_Vline(int contextID, float x, float y, float height, float thickness, NU_RGB_FL col)
+void Canvas_DrawVline(NU_Canvas_Context* ctx, float x, float y, float height, float thickness, NU_RGB_FL col)
 {
-    NU_Canvas_Context* ctx = Container_Get(&GUI.canvasContexts, contextID);
-    if (ctx == NULL) return;
-
     float canvasWidth = ctx->canvasWidth;
     float canvasHeight = ctx->canvasHeight;
 
@@ -356,11 +329,8 @@ void NU_Internal_Vline(int contextID, float x, float y, float height, float thic
     indices->size += additional_indices;
 }
 
-void NU_Internal_Hline(int contextID, float x, float y, float width, float thickness, NU_RGB_FL col)
+void Canvas_DrawHline(NU_Canvas_Context* ctx, float x, float y, float width, float thickness, NU_RGB_FL col)
 {
-    NU_Canvas_Context* ctx = Container_Get(&GUI.canvasContexts, contextID);
-    if (ctx == NULL) return;
-
     float canvasWidth = ctx->canvasWidth;
     float canvasHeight = ctx->canvasHeight;
 
@@ -413,16 +383,13 @@ void NU_Internal_Hline(int contextID, float x, float y, float width, float thick
     indices->size += additional_indices;
 }
 
-void NU_Internal_Line(
-    int contextID,
+void Canvas_DrawLine(
+    NU_Canvas_Context* ctx,
     float x1, float y1, float x2, float y2,
     float thickness,
     NU_RGB_FL col
 )
 {
-    NU_Canvas_Context* ctx = Container_Get(&GUI.canvasContexts, contextID);
-    if (ctx == NULL) return;
-
     float twoThick = thickness * 2.0f;
     float canvasWidth = ctx->canvasWidth;
     float canvasHeight = ctx->canvasHeight;
@@ -578,8 +545,8 @@ void NU_Internal_Line(
     indices->size += additional_indices;
 }
 
-void NU_Internal_Dashed_Line(
-    int contextID,
+void Canvas_DrawDashedLine(
+    NU_Canvas_Context* ctx,
     float x1, float y1, float x2, float y2,
     float thickness,
     uint8_t* dash_pattern,
@@ -587,9 +554,6 @@ void NU_Internal_Dashed_Line(
     NU_RGB_FL col
 )
 {
-    NU_Canvas_Context* ctx = Container_Get(&GUI.canvasContexts, contextID);
-    if (ctx == NULL) return;
-
     float twoThick = thickness * 2.0f;
     float canvasWidth = ctx->canvasWidth;
     float canvasHeight = ctx->canvasHeight;
@@ -841,11 +805,8 @@ void NU_Internal_Dashed_Line(
     }
 }
 
-void NU_Internal_Set_Canvas_Font(int contextID, const char* fontName)
+void Canvas_SetFont(NU_Canvas_Context* ctx, const char* fontName)
 {
-    NU_Canvas_Context* ctx = Container_Get(&GUI.canvasContexts, contextID);
-    if (ctx == NULL) return;
-
     // Get fontID
     void* found = LinearStringmap_Get(&GUI.stylesheet.fontNameIndexMap, fontName);
     int fontID = *(int*)found;
@@ -870,18 +831,15 @@ void NU_Internal_Set_Canvas_Font(int contextID, const char* fontName)
     }
 }
 
-void NU_Internal_Text(
-    int contextID,
+void Canvas_DrawText(
+    NU_Canvas_Context* ctx,
+    Font* font,
     float x,
     float y,
     float wrapWidth,
     NU_RGB col,
     const char* string)
 {
-    NU_Canvas_Context* ctx = Container_Get(&GUI.canvasContexts, contextID);
-    if (ctx == NULL) return;
-    NU_Font* font = Stylesheet_Get_Font(&GUI.stylesheet, ctx->fontID);
-
     // Switching from shape -> text, increase depth
     if (ctx->isShapeLayer) {
         ctx->isShapeLayer = false;
@@ -898,26 +856,9 @@ void NU_Internal_Text(
     NU_Generate_Text_Renderdata(&textLayer->textRenderData, font, string, x, y, z, col.r, col.g, col.b, wrapWidth);
 }
 
-float NU_Internal_Text_Height(int contextID, float wrapWidth, const char* string)
-{
-    NU_Canvas_Context* ctx = Container_Get(&GUI.canvasContexts, contextID);
-    if (ctx == NULL) return 0.0f; // node type is not valid therefore there is no context
-
-    NU_Font* font = Stylesheet_Get_Font(&GUI.stylesheet, ctx->fontID);
-    return NU_Calculate_FreeText_Height_From_Wrap_Width(font, string, wrapWidth);
-}
-
-float NU_Internal_Text_Width(int contextID, const char* string)
-{
-    NU_Canvas_Context* ctx = Container_Get(&GUI.canvasContexts, contextID);
-    if (ctx == NULL) return 0.0f; // node type is not valid therefore there is no context
-
-    NU_Font* font = Stylesheet_Get_Font(&GUI.stylesheet, ctx->fontID);
-    return NU_Calculate_Text_Unwrapped_Width(font, string);
-}
-
-void NU_Internal_LText(
-    int contextID,
+void Canvas_DrawLengthText(
+    NU_Canvas_Context* ctx,
+    Font* font,
     float x,
     float y,
     float wrapWidth,
@@ -925,10 +866,6 @@ void NU_Internal_LText(
     const char* string,
     size_t stringLen)
 {
-    NU_Canvas_Context* ctx = Container_Get(&GUI.canvasContexts, contextID);
-    if (ctx == NULL) return;
-    NU_Font* font = Stylesheet_Get_Font(&GUI.stylesheet, ctx->fontID);
-
     // Switching from shape -> text, increase depth
     if (ctx->isShapeLayer) {
         ctx->isShapeLayer = false;
@@ -945,38 +882,13 @@ void NU_Internal_LText(
     NU_Generate_LText_Renderdata(&textLayer->textRenderData, font, string, stringLen, x, y, z, col.r, col.g, col.b, wrapWidth);
 }
 
-float NU_Internal_LText_Height(int contextID, float wrapWidth, const char* string, size_t stringLen)
-{
-    NU_Canvas_Context* ctx = Container_Get(&GUI.canvasContexts, contextID);
-    if (ctx == NULL) return 0.0f; // node type is not valid therefore there is no context
-
-    NU_Font* font = Stylesheet_Get_Font(&GUI.stylesheet, ctx->fontID);
-    return NU_Calculate_LText_Height_From_Wrap_Width(font, string, stringLen, wrapWidth);
-}
-
-float NU_Internal_LText_Width(int contextID, const char* string, size_t stringLen)
-{
-    NU_Canvas_Context* ctx = Container_Get(&GUI.canvasContexts, contextID);
-    if (ctx == NULL) return 0.0f; // node type is not valid therefore there is no context
-
-    NU_Font* font = Stylesheet_Get_Font(&GUI.stylesheet, ctx->fontID);
-    return NU_Calculate_LText_Unwrapped_Width(font, string, stringLen);
-}
 
 float NU_Internal_Codepoint_Width(int contextID, u32 codepoint)
 {
     NU_Canvas_Context* ctx = Container_Get(&GUI.canvasContexts, contextID);
     if (ctx == NULL) return 0.0f; // node type is not valid therefore there is no context
 
-    NU_Font* font = Stylesheet_Get_Font(&GUI.stylesheet, ctx->fontID);
-    NU_Glyph* glyph = NU_Get_Glyph(font, codepoint);
+    Font* font = Stylesheet_Get_Font(&GUI.stylesheet, ctx->fontID);
+    Glyph* glyph = Font_GetGlyph(font, codepoint);
     return glyph->advance;
-}
-
-float NU_Internal_Text_Line_Height(int contextID)
-{
-    NU_Canvas_Context* ctx = Container_Get(&GUI.canvasContexts, contextID);
-    if (ctx == NULL) return 0.0f; // node type is not valid therefore there is no context
-    NU_Font* font = Stylesheet_Get_Font(&GUI.stylesheet, ctx->fontID);
-    return font->line_height;
 }

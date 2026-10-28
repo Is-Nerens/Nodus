@@ -63,10 +63,10 @@ void NU_DestroyQuadBuffer(VkDevice device)
     quadMemory = VK_NULL_HANDLE;
 }
 
-extern const unsigned char shaders_build_border_rect_vert_spv[];
-extern const unsigned int  shaders_build_border_rect_vert_spv_len;
-extern const unsigned char shaders_build_border_rect_frag_spv[];
-extern const unsigned int  shaders_build_border_rect_frag_spv_len;
+extern const unsigned char src_shaders_build_border_rect_vert_spv[];
+extern const unsigned int  src_shaders_build_border_rect_vert_spv_len;
+extern const unsigned char src_shaders_build_border_rect_frag_spv[];
+extern const unsigned int  src_shaders_build_border_rect_frag_spv_len;
 
 int NU_CreateBorderRectPipeline(DisplayManager* dm, NuPipeline* pipeline, bool MSAA_4X)
 {
@@ -76,8 +76,8 @@ int NU_CreateBorderRectPipeline(DisplayManager* dm, NuPipeline* pipeline, bool M
 
     // Create vertex shader module
     VkShaderModule vertModule;
-    smci.codeSize = shaders_build_border_rect_vert_spv_len;   // works because it's a real array
-    smci.pCode = (const u32*)(shaders_build_border_rect_vert_spv);
+    smci.codeSize = src_shaders_build_border_rect_vert_spv_len;   // works because it's a real array
+    smci.pCode = (const u32*)(src_shaders_build_border_rect_vert_spv);
     if (vkCreateShaderModule(dm->device, &smci, NULL, &vertModule) != VK_SUCCESS) {
         ErrorSystem_AddError(&GUI.errorSystem, "<Vulkan Error> vertex shader module failed");
         return 0;
@@ -85,8 +85,8 @@ int NU_CreateBorderRectPipeline(DisplayManager* dm, NuPipeline* pipeline, bool M
 
     // Create fragment shader module
     VkShaderModule fragModule;
-    smci.codeSize = shaders_build_border_rect_frag_spv_len;
-    smci.pCode = (const u32*)(shaders_build_border_rect_frag_spv);
+    smci.codeSize = src_shaders_build_border_rect_frag_spv_len;
+    smci.pCode = (const u32*)(src_shaders_build_border_rect_frag_spv);
     if (vkCreateShaderModule(dm->device, &smci, NULL, &fragModule) != VK_SUCCESS) {
         vkDestroyShaderModule(dm->device, vertModule, NULL);
         ErrorSystem_AddError(&GUI.errorSystem, "<Vulkan Error> fragment shader module failed");
@@ -229,8 +229,7 @@ int NU_CreateBorderRectPipeline(DisplayManager* dm, NuPipeline* pipeline, bool M
     plci.pSetLayouts            = NULL;
     plci.pushConstantRangeCount = 1;
     plci.pPushConstantRanges    = &pcr;
-    VkPipelineLayout layout;
-    if (vkCreatePipelineLayout(dm->device, &plci, NULL, &layout) != VK_SUCCESS) {
+    if (vkCreatePipelineLayout(dm->device, &plci, NULL, &pipeline->layout) != VK_SUCCESS) {
         vkDestroyShaderModule(dm->device, vertModule, NULL);
         vkDestroyShaderModule(dm->device, fragModule, NULL);
         ErrorSystem_AddError(&GUI.errorSystem, "<Vulkan Error> border rect pipeline layout failed");
@@ -255,6 +254,7 @@ int NU_CreateBorderRectPipeline(DisplayManager* dm, NuPipeline* pipeline, bool M
     gp.subpass             = 0;
     if (vkCreateGraphicsPipelines(dm->device, VK_NULL_HANDLE, 1, &gp, NULL, &pipeline->handle) != VK_SUCCESS) {
         vkDestroyPipelineLayout(dm->device, pipeline->layout, NULL);
+        pipeline->layout = VK_NULL_HANDLE;
         vkDestroyShaderModule(dm->device, vertModule, NULL);
         vkDestroyShaderModule(dm->device, fragModule, NULL);
         ErrorSystem_AddError(&GUI.errorSystem, "<Vulkan Error> border rect graphics pipeline failed");
@@ -265,61 +265,60 @@ int NU_CreateBorderRectPipeline(DisplayManager* dm, NuPipeline* pipeline, bool M
     return 1;
 }
 
-
-extern const unsigned char shaders_build_image_vert_spv[];
-extern const unsigned int  shaders_build_image_vert_spv_len;
-extern const unsigned char shaders_build_image_frag_spv[];
-extern const unsigned int  shaders_build_image_frag_spv_len;
+extern const unsigned char src_shaders_build_image_vert_spv[];
+extern const unsigned int  src_shaders_build_image_vert_spv_len;
+extern const unsigned char src_shaders_build_image_frag_spv[];
+extern const unsigned int  src_shaders_build_image_frag_spv_len;
 
 int NU_CreateImagePipeline(NuPipeline* pipeline)
 {
     return 1;
 }
 
-extern const unsigned char shaders_build_mono_text_vert_spv[];
-extern const unsigned int  shaders_build_mono_text_vert_spv_len;
-extern const unsigned char shaders_build_mono_text_frag_spv[];
-extern const unsigned int  shaders_build_mono_text_frag_spv_len;
+extern const unsigned char src_shaders_build_mono_text_vert_spv[];
+extern const unsigned int  src_shaders_build_mono_text_vert_spv_len;
+extern const unsigned char src_shaders_build_mono_text_frag_spv[];
+extern const unsigned int  src_shaders_build_mono_text_frag_spv_len;
 
 int NU_CreateMonoTextPipeline(NuPipeline* pipeline)
 {
     return 1;
 }
 
-extern const unsigned char shaders_build_clipped_mono_text_vert_spv[];
-extern const unsigned int  shaders_build_clipped_mono_text_vert_spv_len;
-extern const unsigned char shaders_build_clipped_mono_text_frag_spv[];
-extern const unsigned int  shaders_build_clipped_mono_text_frag_spv_len;
+extern const unsigned char src_shaders_build_clipped_mono_text_vert_spv[];
+extern const unsigned int  src_shaders_build_clipped_mono_text_vert_spv_len;
+extern const unsigned char src_shaders_build_clipped_mono_text_frag_spv[];
+extern const unsigned int  src_shaders_build_clipped_mono_text_frag_spv_len;
 
 int NU_CreateClippedMonoTextPipeline(NuPipeline* pipeline)
 {
     return 1;
 }
 
-extern const unsigned char shaders_build_subpixel_text_vert_spv[];
-extern const unsigned int  shaders_build_subpixel_text_vert_spv_len;
-extern const unsigned char shaders_build_subpixel_text_frag_spv[];
-extern const unsigned int  shaders_build_subpixel_text_frag_spv_len;
+extern const unsigned char src_shaders_build_subpixel_text_vert_spv[];
+extern const unsigned int  src_shaders_build_subpixel_text_vert_spv_len;
+extern const unsigned char src_shaders_build_subpixel_text_frag_spv[];
+extern const unsigned int  src_shaders_build_subpixel_text_frag_spv_len;
 
 int NU_CreateSubpixelTextPipeline(NuPipeline* pipeline)
 {
     return 1;
 }
 
-extern const unsigned char shaders_build_clipped_subpixel_text_vert_spv[];
-extern const unsigned int  shaders_build_clipped_subpixel_text_vert_spv_len;
-extern const unsigned char shaders_build_clipped_subpixel_text_frag_spv[];
-extern const unsigned int  shaders_build_clipped_subpixel_text_frag_spv_len;
+extern const unsigned char src_shaders_build_clipped_subpixel_text_vert_spv[];
+extern const unsigned int  src_shaders_build_clipped_subpixel_text_vert_spv_len;
+extern const unsigned char src_shaders_build_clipped_subpixel_text_frag_spv[];
+extern const unsigned int  src_shaders_build_clipped_subpixel_text_frag_spv_len;
 
 int NU_CreateClippedSubpixelTextPipeline(NuPipeline* pipeline)
 {
     return 1;
 }
 
-extern const unsigned char shaders_build_vertex_rgb_vert_spv[];
-extern const unsigned int  shaders_build_vertex_rgb_vert_spv_len;
-extern const unsigned char shaders_build_vertex_rgb_frag_spv[];
-extern const unsigned int  shaders_build_vertex_rgb_frag_spv_len;
+extern const unsigned char src_shaders_build_vertex_rgb_vert_spv[];
+extern const unsigned int  src_shaders_build_vertex_rgb_vert_spv_len;
+extern const unsigned char src_shaders_build_vertex_rgb_frag_spv[];
+extern const unsigned int  src_shaders_build_vertex_rgb_frag_spv_len;
 
 int NU_CreateVertexRGBPipeline(DisplayManager* dm, NuPipeline* pipeline, bool MSAA_4X)
 {
@@ -329,8 +328,8 @@ int NU_CreateVertexRGBPipeline(DisplayManager* dm, NuPipeline* pipeline, bool MS
 
     // Create vertex shader module
     VkShaderModule vertModule;
-    smci.codeSize = shaders_build_vertex_rgb_vert_spv_len;   // works because it's a real array
-    smci.pCode = (const u32*)(shaders_build_vertex_rgb_vert_spv);
+    smci.codeSize = src_shaders_build_vertex_rgb_vert_spv_len;   // works because it's a real array
+    smci.pCode = (const u32*)(src_shaders_build_vertex_rgb_vert_spv);
     if (vkCreateShaderModule(dm->device, &smci, NULL, &vertModule) != VK_SUCCESS) {
         ErrorSystem_AddError(&GUI.errorSystem, "<Vulkan Error> vertex shader module failed");
         return 0;
@@ -338,8 +337,8 @@ int NU_CreateVertexRGBPipeline(DisplayManager* dm, NuPipeline* pipeline, bool MS
 
     // Create fragment shader module
     VkShaderModule fragModule;
-    smci.codeSize = shaders_build_vertex_rgb_frag_spv_len;
-    smci.pCode = (const u32*)(shaders_build_vertex_rgb_frag_spv);
+    smci.codeSize = src_shaders_build_vertex_rgb_frag_spv_len;
+    smci.pCode = (const u32*)(src_shaders_build_vertex_rgb_frag_spv);
     if (vkCreateShaderModule(dm->device, &smci, NULL, &fragModule) != VK_SUCCESS) {
         vkDestroyShaderModule(dm->device, vertModule, NULL);
         ErrorSystem_AddError(&GUI.errorSystem, "<Vulkan Error> fragment shader module failed");

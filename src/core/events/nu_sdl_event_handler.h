@@ -1,5 +1,4 @@
 #pragma once
-#include <events/nu_events.h>
 
 bool EventWatcher(void* data, SDL_Event* event)
 {
@@ -41,6 +40,7 @@ bool EventWatcher(void* data, SDL_Event* event)
         // --- Window display scale changed -> redraw window content --------------------------
         // ------------------------------------------------------------------------------------
         case SDL_EVENT_WINDOW_DISPLAY_SCALE_CHANGED: {
+            break;
             SDL_Window* window = SDL_GetWindowFromID(event->window.windowID);
             float displayScale = SDL_GetDisplayContentScale(event->window.windowID);
 
@@ -80,7 +80,7 @@ bool EventWatcher(void* data, SDL_Event* event)
             if (GUI.focused_node != NULL)
             {
                 Node* inputNode = GUI.focused_node;
-                NU_Font* font = Stylesheet_Get_Font(&GUI.stylesheet, inputNode->fontIdx);
+                Font* font = Stylesheet_Get_Font(&GUI.stylesheet, inputNode->fontIdx);
                 InputText* inputText = Container_Get(&GUI.textInputs, inputNode->special.input.textInputHandle);
                 SDL_Keymod mods = event->key.mod;
 
@@ -185,7 +185,7 @@ bool EventWatcher(void* data, SDL_Event* event)
             TriggerAllOnTypeEvents(event->text.text);
 
             if (GUI.focused_node != NULL) {
-                NU_Font* font = Stylesheet_Get_Font(&GUI.stylesheet, GUI.focused_node->fontIdx);
+                Font* font = Stylesheet_Get_Font(&GUI.stylesheet, GUI.focused_node->fontIdx);
                 InputText* inputText = Container_Get(&GUI.textInputs, GUI.focused_node->special.input.textInputHandle);
 
                 int updated = 0;
@@ -212,6 +212,8 @@ bool EventWatcher(void* data, SDL_Event* event)
         // --- Move mouse -> redraw if node styling changes -----------------------------------
         // ------------------------------------------------------------------------------------
         case SDL_EVENT_MOUSE_MOTION: {
+            GUI.awaiting_redraw = true;
+            break;
 
             // update hovered window
             DisplayManager_SetHoveredWindow(&GUI.displayManager, SDL_GetWindowFromID(event->window.windowID));
@@ -254,7 +256,7 @@ bool EventWatcher(void* data, SDL_Event* event)
             // if focused on text input -> update highlighting
             if (GUI.focused_node != NULL) {
                 Node* node = GUI.focused_node;
-                NU_Font* font = Stylesheet_Get_Font(&GUI.stylesheet, node->fontIdx);
+                Font* font = Stylesheet_Get_Font(&GUI.stylesheet, node->fontIdx);
                 InputText* inputText = Container_Get(&GUI.textInputs, node->special.input.textInputHandle);
                 if (InputText_MouseDrag(inputText, node, font, mouseX)) {
                     GUI.awaiting_redraw = true;
@@ -266,6 +268,7 @@ bool EventWatcher(void* data, SDL_Event* event)
         // --- Focus on window -> redraw ------------------------------------------------------
         // ------------------------------------------------------------------------------------
         case SDL_EVENT_WINDOW_FOCUS_GAINED: {
+            break;
             // Update last clicked window
             GUI.displayManager.lastClickedWindow = SDL_GetWindowFromID(event->button.windowID);
 
@@ -277,6 +280,8 @@ bool EventWatcher(void* data, SDL_Event* event)
         // --- Mouse button pressed down ------------------------------------------------------
         // ------------------------------------------------------------------------------------
         case SDL_EVENT_MOUSE_BUTTON_DOWN: {
+
+            break;
 
             // Update last clicked window
             GUI.displayManager.lastClickedWindow = SDL_GetWindowFromID(event->button.windowID);
@@ -323,7 +328,7 @@ bool EventWatcher(void* data, SDL_Event* event)
             // Place cursor on input node
             if (GUI.focused_node != NULL)
             {
-                NU_Font* font = Stylesheet_Get_Font(&GUI.stylesheet, GUI.focused_node->fontIdx);
+                Font* font = Stylesheet_Get_Font(&GUI.stylesheet, GUI.focused_node->fontIdx);
                 InputText* inputText = Container_Get(&GUI.textInputs, GUI.focused_node->special.input.textInputHandle);
 
                 if (GUI.focused_node != prevFocusedNode) {
@@ -367,6 +372,8 @@ bool EventWatcher(void* data, SDL_Event* event)
         // --- Released mouse button ----------------------------------------------------------
         // ------------------------------------------------------------------------------------
         case SDL_EVENT_MOUSE_BUTTON_UP: {
+            break;
+
             GUI.scroll_mouse_down_node = NULL;
 
             float mouseX; float mouseY;
@@ -419,7 +426,7 @@ bool EventWatcher(void* data, SDL_Event* event)
         // --- Mouse scroll wheel -------------------------------------------------------------
         // ------------------------------------------------------------------------------------
         case SDL_EVENT_MOUSE_WHEEL: {
-
+            break;
             // If scrolling
             Node* node = GUI.scroll_hovered_node;
             if (node != NULL)

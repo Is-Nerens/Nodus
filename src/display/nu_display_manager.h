@@ -1,11 +1,16 @@
 #pragma once
 
-#include <graphics/display/nu_display_structs.h>
-#include <graphics/display/nu_gpu_arena_alloc.h>
-#include <graphics/display/nu_window.h>
+#include "vulkan/vulkan_core.h"
+#include <display/nu_display_structs.h>
+#include <display/nu_gpu_arena_alloc.h>
+#include <display/nu_window.h>
 
 int DisplayManager_CreateVulkanDevices(DisplayManager* displayManager)
 {
+#ifdef PLATFORM_MACOS
+    setenv("MVK_CONFIG_SYNCHRONOUS_QUEUE_SUBMITS", "0", 1);
+#endif
+
     // Application info
     VkApplicationInfo app = {0};
     app.sType = VK_STRUCTURE_TYPE_APPLICATION_INFO;
@@ -180,8 +185,8 @@ int DisplayManager_Init(DisplayManager* displayManager)
     // Create quad buffer
     NU_CreateQuadBuffer(displayManager->physicalDevice, displayManager->device);
 
-    // Create render pipelines
-    //NU_CreateVertexRGBPipeline(displayManager, &displayManager->vertexRGBPipeline, false);
+    // Init render pipelines to NULL
+    displayManager->borderRectPipeline.handle = VK_NULL_HANDLE;
 
     // Init datastructures
     displayManager->recycledSDLWindowCount = 0;
@@ -273,9 +278,12 @@ int DisplayManager_CreateWindow(DisplayManager* displayManager, Node* node, cons
     window.sdlWin = sdlWin;
 
     // Create a swapchain, framebuffer and renderpass
-    if (!Window_CreateVulkanDevices(&window, displayManager)) {
-        printf("failed to create swapchain\n");
-        return 0;
+    if (!Window_CreateVulkanDevices(&window, displayManager)) return 0;
+
+    // Create render pipelines here lazily if not created already
+    if (displayManager->borderRectPipeline.handle == VK_NULL_HANDLE) {
+        NU_CreateBorderRectPipeline(displayManager, &displayManager->borderRectPipeline, false);
+        NU_CreateVertexRGBPipeline(displayManager, &displayManager->vertexRGBPipeline, false);
     }
 
     // Init drawlist
@@ -337,6 +345,7 @@ inline SDL_Window* DisplayManager_GetNodeSDLWindow(DisplayManager* displayManage
 
 
 
+// Antiquated - to be updated / replaced:
 
 int GetFrametime()
 {
@@ -347,13 +356,6 @@ int GetFrametime()
         frameTimeMs = 1000 / mode->refresh_rate;
     }
     return frameTimeMs;
-}
-
-
-SDL_Window* GetSDL_Window(DisplayManager* displayManager, int windowID)
-{
-    Window* win = Container_Get(&displayManager->windows, windowID);
-    return win->sdlWin;
 }
 
 Node* GetWindowNodeFromSDL_Window(DisplayManager* displayManager, SDL_Window* window)
@@ -371,33 +373,6 @@ NuWindowDrawlist* GetDrawlist(DisplayManager* displayManager, int windowID)
 {
     Window* win = Container_Get(&displayManager->windows, windowID);
     return &win->drawlist;
-}
-
-void DisplayManager_AssignRootWindow(DisplayManager* displayManager, Node* rootNode)
-{
-    SDL_Window* window = GetSDL_Window(displayManager, displayManager->rootWindowID);
-    SDL_ShowWindow(window);
-
-    int winW, winH;
-    SDL_GetWindowSizeInPixels(window, &winW, &winH);
-    rootNode->public.generic.width = (float)winW;
-    rootNode->public.generic.height = (float)winH;
-    rootNode->public.generic.minWidth = winW;
-    rootNode->public.generic.maxWidth = winW;
-    rootNode->public.generic.minHeight = winH;
-    rootNode->public.generic.maxHeight = winH;
-    rootNode->windowID = displayManager->rootWindowID;
-    Window* rootWin = Container_Get(&displayManager->windows, rootNode->windowID);
-    rootWin->windowNode = rootNode;
-
-    DisplayManager_UpdateWindowRenderScale(displayManager, rootNode->windowID);
-    DisplayManager_UpdateWindowScreenDimensions(displayManager, rootNode->windowID);
-
-    // Initialise drawlist
-    NuWindowDrawlist* list = GetDrawlist(displayManager, displayManager->rootWindowID);
-    Array_Init(&list->drawNodes, sizeof(Node*), 512);
-    Array_Init(&list->clippedDrawNodes, sizeof(Node*), 64);
-    Array_Init(&list->canvasNodes, sizeof(Node*), 16);
 }
 
 void GetLocalMouseCoords(DisplayManager* displayManager, float* outX, float* outY)
@@ -421,14 +396,6 @@ void DisplayManager_SetHoveredWindow(DisplayManager* displayManager, SDL_Window*
         }
     }
     displayManager->hoveredWindowNode = NULL;
-}
-
-inline void WindowBeginFrame(SDL_Window* window)
-{
-    int w, h;
-    SDL_GetWindowSizeInPixels(window, &w, &h);
-    glViewport(0, 0, w, h); glClearColor(0.0f, 0.0f, 0.0f, 1.0f);
-    glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT | GL_STENCIL_BUFFER_BIT);
 }
 
 inline void SetNodeDrawlist_Draw(DisplayManager* displayManager, Node* node)

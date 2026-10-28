@@ -16,26 +16,26 @@ static void Stylesheet_Tokenise(String src, TokenArray* tokens, Array* textRefs)
     int i = 0;
     while (i < srcLen)
     {
-        u32 c = NextUTF8Codepoint(src, &i);
+        u32 c = StringNextUTF8Codepoint(src, &i);
 
         // Globalspace comment begins
         int peekI = i;
-        if (ctx == CSS_TOKENISE_CTX_GLOBAL && i < srcLen - 1 && c == '/' && NextUTF8Codepoint(src, &peekI) == '*') {
+        if (ctx == CSS_TOKENISE_CTX_GLOBAL && i < srcLen - 1 && c == '/' && StringNextUTF8Codepoint(src, &peekI) == '*') {
             i=peekI; ctx = CSS_TOKENISE_CTX_GLOBAL_COMMENT; continue; // ^
         }
 
         // Globalspace comment ends
-        if (ctx == CSS_TOKENISE_CTX_GLOBAL_COMMENT && i < srcLen - 1 && c == '*' && NextUTF8Codepoint(src, &peekI) == '/') {
+        if (ctx == CSS_TOKENISE_CTX_GLOBAL_COMMENT && i < srcLen - 1 && c == '*' && StringNextUTF8Codepoint(src, &peekI) == '/') {
             i=peekI; ctx = CSS_TOKENISE_CTX_GLOBAL; continue; // ^
         }
 
         // Selectorspace comment begins
-        if (ctx == CSS_TOKENISE_CTX_SELECTOR && i < srcLen - 1 && c == '/' && NextUTF8Codepoint(src, &peekI) == '*') {
+        if (ctx == CSS_TOKENISE_CTX_SELECTOR && i < srcLen - 1 && c == '/' && StringNextUTF8Codepoint(src, &peekI) == '*') {
             i=peekI; ctx = CSS_TOKENISE_CTX_SELECTOR_COMMENT; continue; // ^
         }
 
         // Selectorspace comment ends
-        if (ctx == CSS_TOKENISE_CTX_SELECTOR_COMMENT && i < srcLen - 1 && c == '*' && NextUTF8Codepoint(src, &peekI) == '/') {
+        if (ctx == CSS_TOKENISE_CTX_SELECTOR_COMMENT && i < srcLen - 1 && c == '*' && StringNextUTF8Codepoint(src, &peekI) == '/') {
             i=peekI; ctx = CSS_TOKENISE_CTX_SELECTOR; continue; // ^
         }
 
@@ -45,7 +45,7 @@ static void Stylesheet_Tokenise(String src, TokenArray* tokens, Array* textRefs)
         }
 
         // Variable name definition space
-        if (ctx == CSS_TOKENISE_CTX_SELECTOR && i < srcLen - 1 && c == '-' && NextUTF8Codepoint(src, &peekI) == '-') {
+        if (ctx == CSS_TOKENISE_CTX_SELECTOR && i < srcLen - 1 && c == '-' && StringNextUTF8Codepoint(src, &peekI) == '-') {
             ParserWord_Append(&word, '-'); ParserWord_Append(&word, '-');
             i=peekI; ctx = CSS_TOKENISE_CTX_VARIABLE_NAME_DEFINE; continue; // ^
         }

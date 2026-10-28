@@ -29,8 +29,8 @@ int Stylesheet_FontLoaderThread(void* data)
         subpixelRendering = false;
     #endif
 
-    NU_Font* font = Array_Get(&job->stylesheet->fonts, job->fontIdx);
-    NU_Font_Create(font, StringCstr(job->filepath), job->fontSize, job->fontWeight, subpixelRendering);
+    Font* font = Array_Get(&job->stylesheet->fonts, job->fontIdx);
+    Font_Create(font, StringCstr(job->filepath), job->fontSize, job->fontWeight, subpixelRendering);
     return 0;
 }
 
@@ -1559,7 +1559,7 @@ int Stylesheet_ParseFonts(Stylesheet* ss, ThreadPool* threadpool, char* src, Tok
                 if (found_font == NULL && fontJobCount < 64)
                 {
                     // Create uninitialised font
-                    NU_Font* createFont = Array_PushEmpty(&ss->fonts);
+                    Font* createFont = Array_PushEmpty(&ss->fonts);
                     u8 createFontIdx = ss->fonts.size - 1;
                     LinearStringmap_Set(&ss->fontNameIndexMap, fontName, &createFontIdx);
 
@@ -1601,12 +1601,6 @@ int Stylesheet_ParseFonts(Stylesheet* ss, ThreadPool* threadpool, char* src, Tok
     // Free filepath strings
     for (int i=0; i<fontJobCount; i++) {
         StringFree(fontJobs[i].filepath);
-    }
-
-    // Upload all font atlases to the GPU
-    for (int i=0; i<ss->fonts.size; i++) {
-        NU_Font* font = Array_Get(&ss->fonts, i);
-        NU_Font_Atlas_Upload_Or_Modify_GPU(&font->atlas);
     }
 
     return 1;
@@ -1663,9 +1657,8 @@ int Stylesheet_LoadDefaultFont(Stylesheet* ss)
         subpixelRendering = false;
     #endif
 
-    NU_Font* font = Array_PushEmpty(&ss->fonts); // FontID will be 0
-    if (NU_Font_Create_Default(font, 14, 400, subpixelRendering)) {
-        NU_Font_Atlas_Upload_Or_Modify_GPU(&font->atlas);
+    Font* font = Array_PushEmpty(&ss->fonts); // FontID will be 0
+    if (Font_CreateDefault(font, 14, 400, subpixelRendering)) {
         return 1;
     }
 

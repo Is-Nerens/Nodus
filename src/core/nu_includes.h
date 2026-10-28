@@ -43,17 +43,11 @@
 
 // Math compatability macros
 #ifndef min
-    #define min(a, b) (((a) < (b)) ? (a) : (b))
+    #define min(a, b) (a < b ? a : b)
 #endif
 #ifndef max
-    #define max(a, b) (((a) > (b)) ? (a) : (b))
+    #define max(a, b) (a > b ? a : b)
 #endif
-static inline float fmax_fast(float a, float b) {
-    return a * (a > b) + b * (1 - (a > b));
-}
-static inline float fmin_fast(float a, float b) {
-    return a * (a < b) + b * (1 - (a < b));
-}
 
 // Core definitions
 typedef void (*NU_Callback)(void* args);
@@ -75,103 +69,22 @@ typedef void (*NU_Callback)(void* args);
 #include <datastructures/string_arena.h>
 #include <datastructures/hashmap.h>
 #include <datastructures/linalloc.h>
-#include <errors/nu_error.h>
+#include <core/nu_error.h>
 #include <tree/nu_tree.h>
 #include <graphics/rendering/nu_vulkan_utils.h>
 #include <graphics/rendering/nu_renderer_structures.h>
 #include <graphics/rendering/nu_pipeline_struct.h>
 #include <graphics/text/nu_text.h>
-#include <tree/input_text/nu_input_text.h>
 #include <tree/nu_nodelist.h>
-#include <graphics/display/nu_display_structs.h>
+#include <display/nu_display_structs.h>
 #include <templates/stylesheet/nu_stylesheet_structs.h>
-#include <graphics/rendering/image/nu_image.h>
-#include <events/nu_event_defs.h>
+#include <graphics/image/nu_image.h>
+#include <core/events/nu_event_defs.h>
 #include <core/nu_timer.h>
 #include <core/nu_widget.h>
 
-/* Batches multiple images together
- * to reduce image render data allocations
- * and draw calls
- */
-typedef struct {
-    Array imagesRenderData;
-    int groupIndex;
-} ImageRenderGroup;
-
-// Global struct struct
-struct NU_GUI
-{
-    ErrorSystem errorSystem;
-    Tree tree;
-    ThreadPool threadPool;
-    DisplayManager displayManager;
-    ImageResourceManager imageResourceManager;
-    StringArena nodeTextArena;
-    Stringset class_string_set;
-    Stringset id_string_set;
-    Stringmap id_node_map;
-    Container canvasContexts;
-    Container textInputs;
-    Container timers;
-    Container widgets;
-
-    // Pseudo nodes
-    Node* hovered_node;
-    Node* prev_hovered_node;
-    Node* mouse_down_node;
-    Node* prev_mouse_down_node;
-    Node* focused_node;
-    Node* prev_focused_node;
-
-    // Scroll state
-    Node* scroll_hovered_node;
-    Node* scroll_mouse_down_node;
-    float v_scroll_thumb_grab_offset;
-
-    // States
-    bool running;
-    bool awaiting_redraw;
-    bool recalculate_mouse_hover;
-
-    // styles
-    Stylesheet stylesheet;
-    SDL_GLContext gl_ctx;
-
-    // Events
-    EventSystem eventSystem;
-    Set deletedNodesWithRegisteredEvents;
-
-    // Cursors
-    SDL_Cursor* cursorDefault;
-    SDL_Cursor* cursorPointer;
-    SDL_Cursor* cursorText;
-    SDL_Cursor* cursorWait;
-    SDL_Cursor* cursorCrosshair;
-    SDL_Cursor* cursorMove;
-    SDL_Cursor* cursorNsResize;
-    SDL_Cursor* cursorEwResize;
-    SDL_Cursor* cursorNwseResize;
-    SDL_Cursor* cursorNeswResize;
-
-    // Traversal datastructures
-    DepthFirstSearch dfs;
-    BreadthFirstSearch bfs;
-    ReverseBreadthFirstSearch rbfs;
-
-    // Layout datastructures
-    Array layoutScrollAutoNodes;
-
-    // Render data
-    Array borderRectsRenderData;
-    Array perFontTextRenderData; // Array of <Array of <GlyphRenderData>>
-    Array imageRenderGroups; // Array of <NuImageRenderGroup>
-
-    // Timer mutex
-    SDL_Mutex *timerMutex;
-};
-
-// Global gui instance
+// Global struct
+#include <core/nu_gui.h>
 struct NU_GUI GUI;
 
 // --------------------------------------------------
@@ -179,12 +92,11 @@ struct NU_GUI GUI;
 // --------------------------------------------------
 #include <graphics/rendering/nu_pipeline_create.h>
 #include <graphics/rendering/nu_renderer.h>
-#include <graphics/display/nu_display_manager.h>
+#include <display/nu_display_manager.h>
 #include <templates/stylesheet/nu_stylesheet.h>
-#include <graphics/rendering/canvas/nu_canvas_api.h>
+#include <components/nu_canvas.h>
+#include <components/text input/nu_text_input.h>
 #include <templates/xml/nu_xml.h>
 #include <core/nu_layout.h>
-#include <tree/input_text/nu_input_text.h>
 #include <core/nu_draw.h>
-#include <core/nu_mouse_detection.h>
-#include <events/nu_events.h>
+#include <core/events/nu_events.h>

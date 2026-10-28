@@ -3,10 +3,18 @@
 #include FT_FREETYPE_H
 #include FT_MULTIPLE_MASTERS_H
 #include "nu_default_font.h"
+#include "nu_font_gpu_image.h"
 
 FT_Library nu_global_freetype;
 
-typedef struct NU_Glyph {
+enum FontAtlasState {
+    FONT_ATLAS_STATE_MUST_UPLOAD,
+    FONT_ATLAS_STATE_UPDATED,
+    FONT_ATLAS_STATE_MUST_PATCH,
+    FONT_ATLAS_STATE_MUST_RESIZE,
+};
+
+typedef struct {
     FT_UInt index;
     u16 width;
     u16 height;
@@ -14,9 +22,9 @@ typedef struct NU_Glyph {
     float bearingY;
     float advance;
     float u, v;    // top-left UV (not normalised)
-} NU_Glyph;
+} Glyph;
 
-typedef struct NU_Font_Atlas {
+typedef struct {
     unsigned char* buffer;
     int width;
     int height;
@@ -24,16 +32,16 @@ typedef struct NU_Font_Atlas {
     float invHeight;
     int penX;           // For construction only
     int penY;           // For construction only
-    int tallestInRow;   // For construction only
-    int channels;
-    GLuint handle;
-    bool modifiedOnCPU;
-    bool resizedOnCPU;
-} NU_Font_Atlas;
+    int tallestInRow;   // For construction only;
+    FontImageGPU fontImageGPU;
+    enum FontAtlasState updateState;
+    bool subpixelRendering;
+} FontAtlas;
 
-typedef struct NU_Font
+typedef struct
 {
     FT_Face face;
+    FontAtlas atlas;
     Array Ascii_Glyphs;
     Hashmap UTF8_Glyphs;
     int heightPixels;
@@ -45,12 +53,12 @@ typedef struct NU_Font
     float line_height;
     FT_Int32 loadFlags;
     FT_Int32 renderFlags;
-    NU_Font_Atlas atlas;
     bool subpixelRendering;
-} NU_Font;
+} Font;
 
-void NU_Font_Atlas_Create(NU_Font_Atlas* atlas, int width, int height, int channels)
+void FontAtlas_Create(FontAtlas* atlas, int width, int height, bool subpixelRendering)
 {
+    int channels = 1; if (subpixelRendering) channels = 4;
     atlas->buffer = calloc(width * height, channels);
     atlas->width = width;
     atlas->height = height;
@@ -59,11 +67,11 @@ void NU_Font_Atlas_Create(NU_Font_Atlas* atlas, int width, int height, int chann
     atlas->penX = 0;
     atlas->penY = 0;
     atlas->tallestInRow = 0;
-    atlas->channels = channels;
-    atlas->handle = 0;
+    atlas->subpixelRendering = subpixelRendering;
+    atlas->updateState = FONT_ATLAS_STATE_MUST_UPLOAD;
 }
 
-void NU_Font_Atlas_Add_Glyph(NU_Font_Atlas* atlas, NU_Glyph* glyph, FT_Bitmap* bmp)
+void FontAtlas_AddGlyph(FontAtlas* atlas, Glyph* glyph, FT_Bitmap* bmp)
 {
     // Wrap onto new row if necessary
     int width_remaining = atlas->width - atlas->penX;
@@ -78,74 +86,73 @@ void NU_Font_Atlas_Add_Glyph(NU_Font_Atlas* atlas, NU_Glyph* glyph, FT_Bitmap* b
     glyph->u = (float)atlas->penX;
     glyph->v = (float)atlas->penY;
 
+    int channels = 1; if (atlas->subpixelRendering) channels = 4;
+
     // Resize atlas if needed
     if (atlas->penY + glyph->height >= atlas->height) {
-        size_t old_size = atlas->channels * atlas->width * atlas->height;
-        atlas->height += MAX(atlas->height / 2, glyph->height);
-        size_t new_size = atlas->channels * atlas->width * atlas->height;
+        size_t old_size = channels * atlas->width * atlas->height;
+        atlas->height += max(atlas->height / 2, glyph->height);
+        size_t new_size = channels * atlas->width * atlas->height;
         unsigned char* new_buffer = realloc(atlas->buffer, new_size);
         memset(new_buffer + old_size, 0, new_size - old_size);
         atlas->invWidth = 1.0f / (float)(atlas->width);
         atlas->invHeight = 1.0f / (float)(atlas->height);
         atlas->buffer = new_buffer;
-        atlas->resizedOnCPU = true;
+        atlas->updateState = FONT_ATLAS_STATE_MUST_RESIZE;
+    }
+    else {
+        atlas->updateState = FONT_ATLAS_STATE_MUST_PATCH;
     }
 
     // Copy row by row
     for (int row = 0; row < glyph->height; row++) {
         unsigned char* src = bmp->buffer + row * bmp->pitch;
-        unsigned char* dst = atlas->buffer + ((atlas->penY + row) * atlas->width + atlas->penX) * atlas->channels;
-        memcpy(dst, src, glyph->width * atlas->channels); // copy full row in memory
+        unsigned char* dst = atlas->buffer + ((atlas->penY + row) * atlas->width + atlas->penX) * channels;
+
+        if (atlas->subpixelRendering) {
+            // FreeType LCD bitmap is 3 bytes/px; atlas is 4 bytes/px (RGBA)
+            for (int x = 0; x < glyph->width; x++) {
+                dst[x * 4 + 0] = src[x * 3 + 0];
+                dst[x * 4 + 1] = src[x * 3 + 1];
+                dst[x * 4 + 2] = src[x * 3 + 2];
+                dst[x * 4 + 3] = 255;
+            }
+        }
+        else {
+            memcpy(dst, src, glyph->width);
+        }
     }
 
     atlas->penX += glyph->width;
-    atlas->modifiedOnCPU = true;
 }
 
-void NU_Font_Atlas_Upload_Or_Modify_GPU(NU_Font_Atlas* atlas)
+void FontAtlas_UpdateGPU(
+    FontAtlas* atlas,
+    VkDevice device,
+    VkPhysicalDevice physicalDevice,
+    VkCommandPool commandPool,
+    VkQueue graphicsQueue)
 {
     if (!atlas || !atlas->buffer) return;
 
-    GLenum format;
-    if (atlas->channels == 1) format = GL_RED;
-    else if (atlas->channels == 3) format = GL_RGB;
-    else return;
-
     // First upload
-    if (atlas->handle == 0) {
-
-        // Generate a texture handle
-        glGenTextures(1, &atlas->handle);
-        glBindTexture(GL_TEXTURE_2D, atlas->handle);
-
-        // Set texture parameters (wrap and filter)
-        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
-        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
-        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
-        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-
-        // Upload the texture to the GPU
-        glTexImage2D(GL_TEXTURE_2D, 0, format, atlas->width, atlas->height, 0, format, GL_UNSIGNED_BYTE, atlas->buffer);
+    if (atlas->updateState == FONT_ATLAS_STATE_MUST_UPLOAD) {
+        FontImageGPU_Create(&atlas->fontImageGPU, device, physicalDevice, commandPool, graphicsQueue, atlas->width, atlas->height, atlas->buffer, !atlas->subpixelRendering);
     }
     // Patch update
-    else if (atlas->modifiedOnCPU && !atlas->resizedOnCPU) {
-        glBindTexture(GL_TEXTURE_2D, atlas->handle);
-        glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, atlas->width, atlas->height, format, GL_UNSIGNED_BYTE, atlas->buffer);
-        atlas->modifiedOnCPU = false;
+    else if (atlas->updateState == FONT_ATLAS_STATE_MUST_PATCH) {
+        FontImageGPU_Patch(&atlas->fontImageGPU, device, physicalDevice, commandPool, graphicsQueue, 0, 0, atlas->width, atlas->height, atlas->buffer);
     }
     // Resize update
-    else if (atlas->resizedOnCPU) {
-        glBindTexture(GL_TEXTURE_2D, atlas->handle);
-        glTexImage2D(GL_TEXTURE_2D, 0, format, atlas->width, atlas->height, 0, format, GL_UNSIGNED_BYTE, atlas->buffer);
-        atlas->modifiedOnCPU = false;
-        atlas->resizedOnCPU = false;
+    else if (atlas->updateState == FONT_ATLAS_STATE_MUST_RESIZE) {
+        FontImageGPU_Resize(&atlas->fontImageGPU, device, physicalDevice, commandPool, graphicsQueue, atlas->width, atlas->height, atlas->buffer);
     }
 
-    // Unbind texture
-    glBindTexture(GL_TEXTURE_2D, 0);
+    // Set update state
+    atlas->updateState = FONT_ATLAS_STATE_UPDATED;
 }
 
-int NU_Create_Font_From_Face(NU_Font* font, FT_Face face, int heightPixels, int fontWeight, bool subpixelRendering)
+int Font_CreateFromFace(Font* font, FT_Face face, int heightPixels, int fontWeight, bool subpixelRendering)
 {
     heightPixels = min(heightPixels, 256);
     font->subpixelRendering = subpixelRendering;
@@ -154,7 +161,7 @@ int NU_Create_Font_From_Face(NU_Font* font, FT_Face face, int heightPixels, int 
     font->loadFlags = FT_LOAD_DEFAULT | FT_LOAD_FORCE_AUTOHINT | FT_LOAD_TARGET_LIGHT;
     font->renderFlags = FT_RENDER_MODE_NORMAL;
     if (font->subpixelRendering) {
-        channels = 3;
+        channels = 4;
         font->loadFlags |= FT_LOAD_TARGET_LCD;
         font->renderFlags = FT_RENDER_MODE_LCD;
     }
@@ -197,9 +204,9 @@ int NU_Create_Font_From_Face(NU_Font* font, FT_Face face, int heightPixels, int 
     font->line_height   = (float)(face->size->metrics.height >> 6);
 
     // Init font storage and datastructures
-    Array_Init(&font->Ascii_Glyphs, sizeof(NU_Glyph), 128);
-    Hashmap_Init(&font->UTF8_Glyphs, sizeof(u32), sizeof(NU_Glyph), 256);
-    NU_Font_Atlas_Create(&font->atlas, 512, 512, channels);
+    Array_Init(&font->Ascii_Glyphs, sizeof(Glyph), 128);
+    Hashmap_Init(&font->UTF8_Glyphs, sizeof(u32), sizeof(Glyph), 256);
+    FontAtlas_Create(&font->atlas, 512, 512, subpixelRendering);
 
     // Render and save each ASCII glyph 32..126
     for (char glyph_char = 32; glyph_char < 127; glyph_char++)
@@ -211,25 +218,25 @@ int NU_Create_Font_From_Face(NU_Font* font, FT_Face face, int heightPixels, int 
         FT_Bitmap* bmp = &face->glyph->bitmap;
 
         // Store glyph metrics
-        NU_Glyph glyph;
+        Glyph glyph;
         glyph.index    = glyph_index;
-        glyph.width    = (u16)bmp->width / channels;
+        glyph.width    = (u16)bmp->width;
         glyph.height   = (u16)bmp->rows;
         glyph.bearingX = face->glyph->bitmap_left;
         glyph.bearingY = face->glyph->bitmap_top;
         glyph.advance  = (float)(face->glyph->advance.x >> 6);
         Array_Push(&font->Ascii_Glyphs, &glyph);
-        NU_Glyph* stored_glyph = Array_Get(&font->Ascii_Glyphs, glyph_char - 32);
+        Glyph* stored_glyph = Array_Get(&font->Ascii_Glyphs, glyph_char - 32);
 
         // Store bitmap in font atlas
-        NU_Font_Atlas_Add_Glyph(&font->atlas, stored_glyph, bmp);
+        FontAtlas_AddGlyph(&font->atlas, stored_glyph, bmp);
     }
 
     font->face = face;
     return 1; // Success
 }
 
-NU_Glyph* NU_Add_Uncached_Glyph(NU_Font* font, u32 codepoint)
+Glyph* Font_AddUncachedGlyph(Font* font, u32 codepoint)
 {
     // Render glyph
     FT_UInt glyph_index = FT_Get_Char_Index(font->face, codepoint);
@@ -238,36 +245,34 @@ NU_Glyph* NU_Add_Uncached_Glyph(NU_Font* font, u32 codepoint)
     FT_Bitmap* bmp = &font->face->glyph->bitmap;
 
     int channels = 1;
-    if (font->subpixelRendering) channels = 3;
+    if (font->subpixelRendering) channels = 4;
 
     // Store glyph metrics
-    NU_Glyph glyph;
+    Glyph glyph;
     glyph.index    = glyph_index;
-    glyph.width    = (u16)bmp->width / channels;
+    glyph.width    = (u16)bmp->width;
     glyph.height   = (u16)bmp->rows;
     glyph.bearingX = font->face->glyph->bitmap_left;
     glyph.bearingY = font->face->glyph->bitmap_top;
     glyph.advance  = (float)(font->face->glyph->advance.x >> 6);
     Hashmap_Set(&font->UTF8_Glyphs, &codepoint, &glyph);
-    NU_Glyph* stored_glyph = Hashmap_Get(&font->UTF8_Glyphs, &codepoint);
+    Glyph* stored_glyph = Hashmap_Get(&font->UTF8_Glyphs, &codepoint);
 
     // Store bitmap in font atlas
-    NU_Font_Atlas_Add_Glyph(&font->atlas, stored_glyph, bmp);
+    FontAtlas_AddGlyph(&font->atlas, stored_glyph, bmp);
     return stored_glyph;
 }
 
-int NU_Font_Create(NU_Font* font, const char* filepath, int heightPixels, int fontWeight, bool subpixelRendering)
+int Font_Create(Font* font, const char* filepath, int heightPixels, int fontWeight, bool subpixelRendering)
 {
     FT_Face face;
     FT_Error error = FT_New_Face(nu_global_freetype, filepath, 0, &face);
-    if (error) {
-        return 0;
-    }
+    if (error) return 0;
 
-    return NU_Create_Font_From_Face(font, face, heightPixels, fontWeight, subpixelRendering);
+    return Font_CreateFromFace(font, face, heightPixels, fontWeight, subpixelRendering);
 }
 
-int NU_Font_Create_Default(NU_Font* font, int heightPixels, int fontWeight, bool subpixelRendering)
+int Font_CreateDefault(Font* font, int heightPixels, int fontWeight, bool subpixelRendering)
 {
     FT_Face face;
     FT_Error error = FT_New_Memory_Face(nu_global_freetype, (unsigned char*)nu_default_ttf, nu_default_ttf_len, 0, &face);
@@ -275,10 +280,10 @@ int NU_Font_Create_Default(NU_Font* font, int heightPixels, int fontWeight, bool
         return 0;
     }
 
-    return NU_Create_Font_From_Face(font, face, heightPixels, fontWeight, subpixelRendering);
+    return Font_CreateFromFace(font, face, heightPixels, fontWeight, subpixelRendering);
 }
 
-void NU_Font_Free(NU_Font* font)
+void Font_Free(Font* font)
 {
     FT_Done_Face(font->face);
     Array_Free(&font->Ascii_Glyphs);
@@ -286,26 +291,24 @@ void NU_Font_Free(NU_Font* font)
     free(font->atlas.buffer);
 }
 
-NU_Glyph* NU_Get_Glyph(NU_Font* font, u32 codepoint)
+Glyph* Font_GetGlyph(Font* font, u32 codepoint)
 {
     // Ascii hot path
     if (codepoint < 128) {
         // Fallback to '?' for ascii control characters
-        if ((unsigned)(codepoint - 32) < 95) {
-            return Array_Get(&font->Ascii_Glyphs, codepoint - 32);
-        }
+        if ((unsigned)(codepoint - 32) < 95) return Array_Get(&font->Ascii_Glyphs, codepoint - 32);
         return Array_Get(&font->Ascii_Glyphs, '?' - 32);
     }
 
     // Slower non-ascii lookup
-    NU_Glyph* glyph = (NU_Glyph*)Hashmap_Get(&font->UTF8_Glyphs, &codepoint);
+    Glyph* glyph = (Glyph*)Hashmap_Get(&font->UTF8_Glyphs, &codepoint);
     if (glyph) return glyph;
 
     // Really slow non-ascii non-cached glyph
-    return NU_Add_Uncached_Glyph(font, codepoint);
+    return Font_AddUncachedGlyph(font, codepoint);
 }
 
-inline float NU_Get_Kerning(NU_Font* font, FT_UInt leftIndex, FT_UInt rightIndex)
+inline float Font_GetKerning(Font* font, FT_UInt leftIndex, FT_UInt rightIndex)
 {
     FT_Vector kern; kern.x = 0.0f;
     FT_Get_Kerning(font->face, leftIndex, rightIndex, FT_KERNING_UNSCALED, &kern);

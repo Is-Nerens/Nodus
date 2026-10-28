@@ -41,7 +41,7 @@ void NU_AddNodeTextToRenderDataArray(Node* node, float z, Array* textRenderData)
     float textPosY = floorf(node->public.generic.y + node->public.generic.borderTop  + node->public.generic.padTop + y_align_offset);
 
     // Add glyph render data
-    NU_Font* node_font = Stylesheet_Get_Font(&GUI.stylesheet, node->fontIdx);
+    Font* node_font = Stylesheet_Get_Font(&GUI.stylesheet, node->fontIdx);
     NU_Generate_Text_Renderdata(
         textRenderData,
         node_font,
@@ -59,7 +59,7 @@ void NU_AddNodeTextToRenderDataArray(Node* node, float z, Array* textRenderData)
 void NU_DrawInputNodeContent(Node* node, float z, float winWidth, float winHeight, NU_ClipBounds* clip)
 {
     // Get font and inout text datastructure
-    NU_Font* node_font = Stylesheet_Get_Font(&GUI.stylesheet, node->fontIdx);
+    Font* node_font = Stylesheet_Get_Font(&GUI.stylesheet, node->fontIdx);
     InputText* inputText = Container_Get(&GUI.textInputs, node->special.input.textInputHandle);
 
     // Recompute text offset
@@ -136,10 +136,10 @@ void NU_DrawCanvasContent(Node* canvas_node, float winW, float winH, NU_ClipBoun
     float right  = canvas_node->public.generic.x + canvas_node->public.generic.width - canvas_node->public.generic.borderRight - canvas_node->public.generic.padRight;
     if (clip)
     {
-        top    = fmax_fast(top, clip->top);
-        bottom = fmax_fast(bottom, clip->bottom);
-        left   = fmax_fast(left, clip->left);
-        right  = fmax_fast(right, clip->right);
+        top    = max(top, clip->top);
+        bottom = max(bottom, clip->bottom);
+        left   = max(left, clip->left);
+        right  = max(right, clip->right);
     }
     ctx->canvasWidth = canvas_node->public.generic.width;
     ctx->canvasHeight = canvas_node->public.generic.height;
@@ -155,7 +155,7 @@ void NU_DrawCanvasContent(Node* canvas_node, float winW, float winH, NU_ClipBoun
     // Draw text layers
     for (int l=0; l<ctx->textLayerIndex+1; l++) {
         CanvasTextLayer* layer = Array_Get(&ctx->textLayers, l);
-        NU_Font* font = Stylesheet_Get_Font(&GUI.stylesheet, layer->fontID);
+        Font* font = Stylesheet_Get_Font(&GUI.stylesheet, layer->fontID);
         // NU_Draw_Clipped_Text(
         //     layer->textRenderData, font,
         //     winW, winH,
@@ -163,6 +163,64 @@ void NU_DrawCanvasContent(Node* canvas_node, float winW, float winH, NU_ClipBoun
         //     top, bottom, left, right
         // );
     }
+}
+
+void Add_NodeRectRenderData(
+    Node* node, float z,
+    float scissorTop, float scissorBottom, float scissorLeft, float scissorRight,
+    Array* borderRects
+)
+{
+    NuNodeGenericAccess* n = &node->public.generic;
+
+    u8 alpha = 255;
+    if (node->layoutFlags & HIDE_BACKGROUND) alpha = 0;
+
+    BorderRectRenderData* renderData = Array_PushEmpty(borderRects);
+    renderData->x = floorf(n->x);
+    renderData->y = floorf(n->y);
+    renderData->z = z;
+    renderData->w = floorf(n->x + n->width)  - renderData->x;
+    renderData->h = floorf(n->y + n->height) - renderData->y;
+
+    // Constrain border radii against floored dimensions
+    float borderRadiusTl = n->borderRadiusTl;
+    float borderRadiusTr = n->borderRadiusTr;
+    float borderRadiusBl = n->borderRadiusBl;
+    float borderRadiusBr = n->borderRadiusBr;
+    float topRadiiSum    = borderRadiusTl + borderRadiusTr;
+    float bottomRadiiSum = borderRadiusBl + borderRadiusBr;
+    float leftRadiiSum   = borderRadiusTl + borderRadiusBl;
+    float rightRadiiSum  = borderRadiusTr + borderRadiusBr;
+    if (topRadiiSum    > renderData->w) { float scale = renderData->w / topRadiiSum;    borderRadiusTl *= scale; borderRadiusTr *= scale; }
+    if (bottomRadiiSum > renderData->w) { float scale = renderData->w / bottomRadiiSum; borderRadiusBl *= scale; borderRadiusBr *= scale; }
+    if (leftRadiiSum   > renderData->h) { float scale = renderData->h / leftRadiiSum;   borderRadiusTl *= scale; borderRadiusBl *= scale; }
+    if (rightRadiiSum  > renderData->h) { float scale = renderData->h / rightRadiiSum;  borderRadiusTr *= scale; borderRadiusBr *= scale; }
+
+    renderData->backgroundRGBA = PackRGBA(
+        n->backgroundR,
+        n->backgroundG,
+        n->backgroundB,
+        alpha
+    );
+    renderData->borderRGBA = PackRGBA(
+        n->borderR,
+        n->borderG,
+        n->borderB,
+        255
+    );
+    renderData->radiusTl = borderRadiusTl;
+    renderData->radiusTr = borderRadiusTr;
+    renderData->radiusBl = borderRadiusBl;
+    renderData->radiusBr = borderRadiusBr;
+    renderData->borderTop = n->borderTop;
+    renderData->borderBottom = n->borderBottom;
+    renderData->borderLeft = n->borderLeft;
+    renderData->borderRight = n->borderRight;
+    renderData->scissorTop = scissorTop;
+    renderData->scissorBottom = scissorBottom;
+    renderData->scissorLeft = scissorLeft;
+    renderData->scissorRight = scissorRight;
 }
 
 void NU_GenerateDrawlists()
@@ -301,15 +359,25 @@ void NU_Draw()
 {
     NU_GenerateDrawlists();
 
-    // Array_Clear(&GUI.borderRectsRenderData);
+    // Swap arena GPU allocator buffers
+    ArenaAllocatorGPU_SwapBuffers(&GUI.displayManager.gpuArenaAlloc);
 
-    // // Re-upload font atlases as needed
-    // for (u32 t=0; t<GUI.stylesheet.fonts.size; t++) {
-    //     NU_Font* font = Stylesheet_Get_Font(&GUI.stylesheet, t);
-    //     NU_Font_Atlas_Upload_Or_Modify_GPU(&font->atlas);
-    // }
+    // Free idle arena chunks
+    ArenaAllocatorGPU_FreeIdleChunks(&GUI.displayManager.gpuArenaAlloc);
 
-    // Node* focusedInputNode = NULL;
+    // Re-upload font atlases as needed
+    for (u32 t=0; t<GUI.stylesheet.fonts.size; t++) {
+        Font* font = Stylesheet_Get_Font(&GUI.stylesheet, t);
+        FontAtlas_UpdateGPU(
+            &font->atlas,
+            GUI.displayManager.device,
+            GUI.displayManager.physicalDevice,
+            GUI.displayManager.commandPool,
+            GUI.displayManager.graphicsQueue
+        );
+    }
+
+    Node* focusedInputNode = NULL;
 
     // For each window
     for (u32 i=0; i<GUI.displayManager.windows.size; i++)
@@ -318,106 +386,109 @@ void NU_Draw()
         Window* win = Container_GetAt(&GUI.displayManager.windows, i);
 
         // Prepare the frame
-        if (!Window_PrepareFrame(win, &GUI.displayManager)) {
-            // Failure -> skip frame (should not happen)
+        if (!Window_PrepareFrame(win, &GUI.displayManager)) { // Failure -> skip frame (should not happen)
             continue;
         }
 
-    //     // Clear border rect render data array
-    //     Array_Clear(&GUI.borderRectsRenderData);
+        // Clear border rect render data array
+        Array_Clear(&GUI.borderRectsRenderData);
 
-    //     // Clear glyph render data arrays
-    //     for (int j=0; j<GUI.stylesheet.fonts.size; j++) {
-    //         Array* renderData = Array_Get(&GUI.perFontTextRenderData, j);
-    //         Array_Clear(renderData);
-    //     }
+        // Clear glyph render data arrays
+        for (int j=0; j<GUI.stylesheet.fonts.size; j++) {
+            Array* renderData = Array_Get(&GUI.perFontTextRenderData, j);
+            Array_Clear(renderData);
+        }
 
-    //     // Lazily append new image render groups
-    //     int renderGroupImageCapacity = Array_Length(&GUI.imageRenderGroups) * 8;
-    //     int numGroupsToAdd = 0;
-    //     if (renderGroupImageCapacity < Array_Length(&GUI.imageResourceManager.imageResources)) {
-    //         int imageCapacityShortfall = Array_Length(&GUI.imageResourceManager.imageResources) - renderGroupImageCapacity;
-    //         numGroupsToAdd = (imageCapacityShortfall + 7) / 8;
-    //         for (int j=0; j<numGroupsToAdd; j++) {
-    //             ImageRenderGroup* newGroup = Array_PushEmpty(&GUI.imageRenderGroups);
-    //             Array_Init(&newGroup->imagesRenderData, sizeof(ImageRenderData), 16);
-    //         }
-    //     }
+        // Lazily append new image render groups
+        int renderGroupImageCapacity = Array_Length(&GUI.imageRenderGroups) * 8;
+        int numGroupsToAdd = 0;
+        if (renderGroupImageCapacity < Array_Length(&GUI.imageResourceManager.imageResources)) {
+            int imageCapacityShortfall = Array_Length(&GUI.imageResourceManager.imageResources) - renderGroupImageCapacity;
+            numGroupsToAdd = (imageCapacityShortfall + 7) / 8;
+            for (int j=0; j<numGroupsToAdd; j++) {
+                ImageRenderGroup* newGroup = Array_PushEmpty(&GUI.imageRenderGroups);
+                Array_Init(&newGroup->imagesRenderData, sizeof(ImageRenderData), 16);
+            }
+        }
 
-    //     // Clear image group render data arrays <[Performance]> does not clear groups that were just added
-    //     for (int j=0; j<Array_Length(&GUI.imageRenderGroups) - numGroupsToAdd; j++) {
-    //         ImageRenderGroup* imageRenderGroup = Array_Get(&GUI.imageRenderGroups, j);
-    //         Array_Clear(&imageRenderGroup->imagesRenderData);
-    //     }
+        // Clear image group render data arrays <[Performance]> does not clear groups that were just added
+        for (int j=0; j<Array_Length(&GUI.imageRenderGroups) - numGroupsToAdd; j++) {
+            ImageRenderGroup* imageRenderGroup = Array_Get(&GUI.imageRenderGroups, j);
+            Array_Clear(&imageRenderGroup->imagesRenderData);
+        }
 
-    //     // Get window dimensions
-    //     SDL_Window* window = win->sdlWin;
-    //     WindowBeginFrame(window);
-    //     NuWindowDrawlist* drawList = &win->drawlist;
-    //     int winW_int, winH_int;
-    //     SDL_GetWindowSizeInPixels(window, &winW_int, &winH_int);
-    //     float winW = (float)winW_int;
-    //     float winH = (float)winH_int;
+        // Get window dimensions
+        SDL_Window* window = win->sdlWin;
+        NuWindowDrawlist* drawList = &win->drawlist;
+        int winW_int, winH_int;
+        SDL_GetWindowSizeInPixels(window, &winW_int, &winH_int);
+        float winW = (float)winW_int;
+        float winH = (float)winH_int;
 
-    //     // 1. Generate border rect data for unclipped nodes
-    //     for (u32 n=0; n<drawList->drawNodes.size; n++)
-    //     {
-    //         Node* node = *(Node**)Array_Get(&drawList->drawNodes, n);
-    //         float z = (float)(node->layer) + 32.0f * NodeStatePosAbsolute(node);
+        // 1. Generate border rect data for unclipped nodes
+        for (u32 n=0; n<drawList->drawNodes.size; n++)
+        {
+            Node* node = *(Node**)Array_Get(&drawList->drawNodes, n);
+            float z = (float)(node->layer) + 32.0f * NodeStatePosAbsolute(node);
 
-    //         // Construct border rect data
-    //         //Add_NodeRectRenderData(node, z, 0.0f, winH, 0.0f, winW, &GUI.borderRectsRenderData);
-    //         if ((node->layoutFlags & OVERFLOW_VERTICAL_SCROLL)
-    //             && node->public.generic.contentHeight > NODE_INNER_HEIGHT(node)) {
-    //             //Add_ScrollbarRenderData(node, z + 0.5f, &GUI.stylesheet.scrollbarStyle, &GUI.borderRectsRenderData);
-    //         }
-    //         // Construct text mesh for node's textContent
-    //         if (node->public.generic.textContent != NULL) {
-    //             Array* textRenderData = Array_Get(&GUI.perFontTextRenderData, node->fontIdx);
-    //             //NU_AddNodeTextToRenderDataArray(node, z, textRenderData);
-    //         }
-    //         // Draw text input content (1 draw call)
-    //         else if (node->type == NU_TYPE_INPUT) {
-    //             NU_ClipBounds clip = {0};
-    //             clip.top = node->public.generic.y;
-    //             clip.left = node->public.generic.x + node->public.generic.borderLeft + node->public.generic.padLeft;
-    //             clip.right = node->public.generic.x + node->public.generic.width - node->public.generic.borderRight - node->public.generic.padRight;
-    //             clip.bottom = node->public.generic.y + node->public.generic.height + 1000;
-    //             //NU_DrawInputNodeContent(node, z, winW, winH, &clip);
-    //         }
-    //         // Construct image render data
-    //         if (node->special.image.imageHandle != 0 && node->type == NU_TYPE_IMAGE)
-    //         {
-    //             // Get image render group
-    //             int imageHandle = node->special.image.imageHandle;
-    //             ImageView* imageView = ImageResourceManager_GetImageView(&GUI.imageResourceManager, imageHandle);
-    //             int groupIndex = imageView->imageResourceIndex / 8;
-    //             u8 groupImageIndex = imageView->imageResourceIndex % 8;
-    //             ImageRenderGroup* imageRenderGroup = Array_Get(&GUI.imageRenderGroups, groupIndex);
+            // Construct border rect data
+            Add_NodeRectRenderData(node, z, 0.0f, winH, 0.0f, winW, &GUI.borderRectsRenderData);
+            if ((node->layoutFlags & OVERFLOW_VERTICAL_SCROLL)
+                && node->public.generic.contentHeight > NODE_INNER_HEIGHT(node)) {
+                //Add_ScrollbarRenderData(node, z + 0.5f, &GUI.stylesheet.scrollbarStyle, &GUI.borderRectsRenderData);
+            }
+            // Construct text mesh for node's textContent
+            if (node->public.generic.textContent != NULL) {
+                Array* textRenderData = Array_Get(&GUI.perFontTextRenderData, node->fontIdx);
+                //NU_AddNodeTextToRenderDataArray(node, z, textRenderData);
+            }
+            // Draw text input content (1 draw call)
+            else if (node->type == NU_TYPE_INPUT) {
+                NU_ClipBounds clip = {0};
+                clip.top = node->public.generic.y;
+                clip.left = node->public.generic.x + node->public.generic.borderLeft + node->public.generic.padLeft;
+                clip.right = node->public.generic.x + node->public.generic.width - node->public.generic.borderRight - node->public.generic.padRight;
+                clip.bottom = node->public.generic.y + node->public.generic.height + 1000;
+                //NU_DrawInputNodeContent(node, z, winW, winH, &clip);
+            }
+            // Construct image render data
+            if (node->special.image.imageHandle != 0 && node->type == NU_TYPE_IMAGE)
+            {
+                // Get image render group
+                int imageHandle = node->special.image.imageHandle;
+                ImageView* imageView = ImageResourceManager_GetImageView(&GUI.imageResourceManager, imageHandle);
+                int groupIndex = imageView->imageResourceIndex / 8;
+                u8 groupImageIndex = imageView->imageResourceIndex % 8;
+                ImageRenderGroup* imageRenderGroup = Array_Get(&GUI.imageRenderGroups, groupIndex);
 
-    //             // Create image render data in group
-    //             ImageRenderData* renderData = Array_PushEmpty(&imageRenderGroup->imagesRenderData);
-    //             renderData->x = node->public.generic.x + node->public.generic.borderLeft + node->public.generic.padLeft;
-    //             renderData->y = node->public.generic.y + node->public.generic.borderTop + node->public.generic.padTop;
-    //             renderData->z = z + 0.75f;
-    //             renderData->w = node->public.generic.width - NODE_BORDER_PAD_WIDTH(node);
-    //             renderData->h = node->public.generic.height - NODE_BORDER_PAD_HEIGHT(node);
-    //             renderData->scissorTop = 0.0f;
-    //             renderData->scissorBottom = 1000000.0f;
-    //             renderData->scissorLeft = 0.0f;
-    //             renderData->scissorRight = 1000000.0f;
-    //             renderData->groupImageIndex = groupImageIndex;
-    //             renderData->filter = node->special.image.filter;
-    //             renderData->repeat = node->special.image.repeat;
-    //         }
-    //     }
+                // Create image render data in group
+                ImageRenderData* renderData = Array_PushEmpty(&imageRenderGroup->imagesRenderData);
+                renderData->x = node->public.generic.x + node->public.generic.borderLeft + node->public.generic.padLeft;
+                renderData->y = node->public.generic.y + node->public.generic.borderTop + node->public.generic.padTop;
+                renderData->z = z + 0.75f;
+                renderData->w = node->public.generic.width - NODE_BORDER_PAD_WIDTH(node);
+                renderData->h = node->public.generic.height - NODE_BORDER_PAD_HEIGHT(node);
+                renderData->scissorTop = 0.0f;
+                renderData->scissorBottom = 1000000.0f;
+                renderData->scissorLeft = 0.0f;
+                renderData->scissorRight = 1000000.0f;
+                renderData->groupImageIndex = groupImageIndex;
+                renderData->filter = node->special.image.filter;
+                renderData->repeat = node->special.image.repeat;
+            }
+        }
 
-    //     // 2. Draw all unclipped border rects (1 draw call)
-    //     //Draw_SDF_Border_Rects(GUI.borderRectsRenderData, winW, winH); Array_Clear(&GUI.borderRectsRenderData);
+        // 2. Draw all unclipped border rects (1 draw call)
+        NU_DrawBorderRects(
+            win,
+            &GUI.displayManager,
+            &GUI.borderRectsRenderData,
+            winW, winH);
+        Array_Clear(&GUI.borderRectsRenderData);
 
     //     // 3. Draw all unclipped text (1 draw call per font)
     //     for (u32 t=0; t<GUI.stylesheet.fonts.size; t++) {
-    //         NU_Font* font = Stylesheet_Get_Font(&GUI.stylesheet, t);
+    //         Font* font = Stylesheet_Get_Font(&GUI.stylesheet, t);
     //         Array* textRenderData = Array_Get(&GUI.perFontTextRenderData, t);
     //         //NU_Draw_Text(*textRenderData, font, winW, winH, 0, 0);
     //     }
@@ -435,7 +506,7 @@ void NU_Draw()
 
     //         // Draw text content (1 draw call)
     //         if (node->public.generic.textContent != NULL) {
-    //             NU_Font* font = Stylesheet_Get_Font(&GUI.stylesheet, node->fontIdx);
+    //             Font* font = Stylesheet_Get_Font(&GUI.stylesheet, node->fontIdx);
     //             Array* textRenderData = Array_Get(&GUI.perFontTextRenderData, node->fontIdx);
     //             Array_Clear(textRenderData);
     //             //NU_AddNodeTextToRenderDataArray(node, z + 0.5f, textRenderData);

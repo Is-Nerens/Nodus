@@ -183,11 +183,60 @@ void NU_DrawImages(
 void NU_DrawText(
     Window* window,
     DisplayManager* displayManager,
-    Array textRenderData,
+    Font* font,
+    Array* textRenderData,
     float offsetX,
     float offsetY)
 {
+    if (Array_Length(textRenderData) == 0) return;
+    VkCommandBuffer cmd = window->commandBuffers[window->currentFrame];
 
+    // Bind pipeline
+    vkCmdBindPipeline(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, displayManager->monoTextPipeline.handle);
+
+    // Dynamic viewport / scissor (full window)
+    VkViewport vp = {
+        0.0f, 0.0f,
+        (float)window->swapchainExtent.width,
+        (float)window->swapchainExtent.height,
+        0.0f, 1.0f
+    };
+    VkRect2D sc = {{0, 0}, window->swapchainExtent};
+    vkCmdSetViewport(cmd, 0, 1, &vp);
+    vkCmdSetScissor(cmd, 0, 1, &sc);
+
+    // Push constants: screen W/H + text offset
+    float push[4] = {
+        (float)window->swapchainExtent.width,
+        (float)window->swapchainExtent.height,
+        offsetX,
+        offsetY
+    };
+    vkCmdPushConstants(cmd, displayManager->monoTextPipeline.layout,VK_SHADER_STAGE_VERTEX_BIT, 0, sizeof(push), push);
+
+    // ---- Bind the font atlas descriptor set (set 0) ----
+    // For now the font atlas is expected to already have a descriptor set
+    // written with its image+sampler in binding 0, slot 0.
+    VkDescriptorSet sets[1] = { font->atlas.fontImageGPU.descriptorSet };
+    vkCmdBindDescriptorSets(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, displayManager->monoTextPipeline.layout, 0, 1, sets, 0, NULL);
+
+    // Upload instance data
+    VkDeviceSize bytes = textRenderData->size * textRenderData->elementSize;
+    ArenaAllocGPU alloc = ArenaAllocatorGPU_Alloc(&displayManager->gpuArenaAlloc, bytes, 16);
+    if (alloc.buffer == VK_NULL_HANDLE) {
+        ErrorSystem_AddError(&GUI.errorSystem, "<Vulkan Error> text arena alloc failed");
+        return;
+    }
+
+    memcpy((char*)alloc.mapped + alloc.offset, textRenderData->data, (size_t)bytes);
+
+    // Bind quad + instance buffers
+    VkBuffer     bufs[2]    = { quadBuffer, alloc.buffer };
+    VkDeviceSize offsets[2] = { 0, alloc.offset };
+    vkCmdBindVertexBuffers(cmd, 0, 2, bufs, offsets);
+
+    // Draw
+    vkCmdDraw(cmd, 6, (u32)Array_Length(textRenderData), 0, 0);
 }
 
 void NU_DrawClippedText(

@@ -359,11 +359,8 @@ void NU_Draw()
 {
     NU_GenerateDrawlists();
 
-    // Swap arena GPU allocator buffers
-    ArenaAllocatorGPU_SwapBuffers(&GUI.displayManager.gpuArenaAlloc);
-
-    // Free idle arena chunks
-    ArenaAllocatorGPU_FreeIdleChunks(&GUI.displayManager.gpuArenaAlloc);
+    // Clear GPU arena allocator
+    ArenaAllocatorGPU_Clear(&GUI.displayManager.gpuArenaAlloc);
 
     // Re-upload font atlases as needed
     for (u32 t=0; t<GUI.stylesheet.fonts.size; t++) {
@@ -440,7 +437,7 @@ void NU_Draw()
             // Construct text mesh for node's textContent
             if (node->public.generic.textContent != NULL) {
                 Array* textRenderData = Array_Get(&GUI.perFontTextRenderData, node->fontIdx);
-                //NU_AddNodeTextToRenderDataArray(node, z, textRenderData);
+                NU_AddNodeTextToRenderDataArray(node, z, textRenderData);
             }
             // Draw text input content (1 draw call)
             else if (node->type == NU_TYPE_INPUT) {
@@ -478,7 +475,7 @@ void NU_Draw()
             }
         }
 
-        // 2. Draw all unclipped border rects (1 draw call)
+        // // 2. Draw all unclipped border rects (1 draw call)
         NU_DrawBorderRects(
             win,
             &GUI.displayManager,
@@ -486,12 +483,12 @@ void NU_Draw()
             winW, winH);
         Array_Clear(&GUI.borderRectsRenderData);
 
-    //     // 3. Draw all unclipped text (1 draw call per font)
-    //     for (u32 t=0; t<GUI.stylesheet.fonts.size; t++) {
-    //         Font* font = Stylesheet_Get_Font(&GUI.stylesheet, t);
-    //         Array* textRenderData = Array_Get(&GUI.perFontTextRenderData, t);
-    //         //NU_Draw_Text(*textRenderData, font, winW, winH, 0, 0);
-    //     }
+        // 3. Draw all unclipped text (1 draw call per font)
+        for (u32 t=0; t<GUI.stylesheet.fonts.size; t++) {
+            Font* font = Stylesheet_Get_Font(&GUI.stylesheet, t);
+            Array* textRenderData = Array_Get(&GUI.perFontTextRenderData, t);
+            NU_DrawText(win, &GUI.displayManager, font, textRenderData, 0, 0);
+        }
 
     //     // 4. Draw clipped node border rects + images + text + text input
     //     for (u32 n=0; n<drawList->clippedDrawNodes.size; n++) {

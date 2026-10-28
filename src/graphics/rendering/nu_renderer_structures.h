@@ -70,6 +70,7 @@ typedef struct GlyphRenderData {
     float u0, v0;
     float u1, v1;
     u32 colourRGBA;
+    u32 textureIndex;
 } GlyphRenderData;
 
 typedef struct ImageRenderData {

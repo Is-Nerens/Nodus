@@ -20,13 +20,13 @@ _EXPORT void NU_QUIT(void)
     TreeFree(&GUI.tree);
     ThreadPool_Destroy(&GUI.threadPool);
     ImageResourceManager_Free(&GUI.imageResourceManager);
-    DisplayManager_Free(&GUI.displayManager);
     ErrorSystem_Free(&GUI.errorSystem);
     Stringmap_Free(&GUI.id_node_map);
     Stringset_Free(&GUI.class_string_set);
     Stringset_Free(&GUI.id_string_set);
     StringArena_Free(&GUI.nodeTextArena);
-    Stylesheet_Free(&GUI.stylesheet);
+    Stylesheet_Free(&GUI.stylesheet, GUI.displayManager.device);
+    DisplayManager_Free(&GUI.displayManager);
     Container_Free(&GUI.canvasContexts);
     Container_Free(&GUI.textInputs);
     Container_Free(&GUI.timers);

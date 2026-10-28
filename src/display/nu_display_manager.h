@@ -120,7 +120,6 @@ int DisplayManager_CreateVulkanDevices(DisplayManager* displayManager)
     // Create device
     VkDevice device = VK_NULL_HANDLE;
     if (vkCreateDevice(physicalDevice, &dci, NULL, &device) != VK_SUCCESS) {
-        printf("failed to create a device\n");
         ErrorSystem_AddError(&GUI.errorSystem, "<Vulkan Error> Failed to create a device");
         return 0;
     }
@@ -284,6 +283,7 @@ int DisplayManager_CreateWindow(DisplayManager* displayManager, Node* node, cons
     if (displayManager->borderRectPipeline.handle == VK_NULL_HANDLE) {
         NU_CreateBorderRectPipeline(displayManager, &displayManager->borderRectPipeline, false);
         NU_CreateVertexRGBPipeline(displayManager, &displayManager->vertexRGBPipeline, false);
+        NU_CreateMonoTextPipeline(displayManager, &displayManager->monoTextPipeline);
     }
 
     // Init drawlist

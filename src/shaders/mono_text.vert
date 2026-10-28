@@ -33,7 +33,7 @@ void main()
 {
     vec2 worldPos = (iPos.xy + vec2(pc.uOffsetX, pc.uOffsetY)) + aQuad * iSize;
     float ndc_x = (worldPos.x / pc.uScreenWidth) * 2.0 - 1.0;
-    float ndc_y = 1.0 - (worldPos.y / pc.uScreenHeight) * 2.0;
+    float ndc_y = (worldPos.y / pc.uScreenHeight) * 2.0 - 1.0;
 
     float z_gl = iPos.z * 0.015625;
     float z_vk = z_gl * 0.5 + 0.5;

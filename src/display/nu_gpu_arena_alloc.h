@@ -1,7 +1,6 @@
 #pragma once
 #include <string.h>
 
-#define ARENA_GPU_SLOTS              3
 #define ARENA_MAX_CHUNKS             16
 #define ARENA_INITIAL_CHUNK          (1024 * 1024) // 1MB
 #define ARENA_CHUNK_IDLE_THRESHOLD   20
@@ -15,18 +14,13 @@ typedef struct ArenaChunkGPU {
     u32 idleFrames;
 } ArenaChunkGPU;
 
-typedef struct ArenaFrameGPU {
-    ArenaChunkGPU chunks[ARENA_MAX_CHUNKS];
-    u32 chunkCount;
-    u32 currentChunk;
-} ArenaFrameGPU;
-
 typedef struct ArenaAllocatorGPU {
     VkPhysicalDeviceMemoryProperties memoryProperties;
     VkDevice device;
     u32 typeIndex;
-    u32 currentSlot;
-    ArenaFrameGPU slots[ARENA_GPU_SLOTS];
+    ArenaChunkGPU chunks[ARENA_MAX_CHUNKS];
+    u32 chunkCount;
+    u32 currentChunk;
 } ArenaAllocatorGPU;
 
 typedef struct ArenaAllocGPU {
@@ -89,7 +83,7 @@ static int ArenaChunkGPU_Create(ArenaChunkGPU* chunk, VkDevice device, u32 typeI
         return 0;
     }
 
-    // Map memory
+    // Bind and map memory
     if (vkBindBufferMemory(device, chunk->buffer, chunk->memory, 0) != VK_SUCCESS) {
         vkFreeMemory(device, chunk->memory, NULL);
         vkDestroyBuffer(device, chunk->buffer, NULL);
@@ -111,14 +105,11 @@ static int ArenaChunkGPU_Create(ArenaChunkGPU* chunk, VkDevice device, u32 typeI
 
 static void ArenaAllocatorGPU_Destroy(ArenaAllocatorGPU* alloc)
 {
-    for (u32 i=0; i<ARENA_GPU_SLOTS; i++) {
-        ArenaFrameGPU* frame = &alloc->slots[i];
-        for (u32 c=0; c<frame->chunkCount; c++) {
-            ArenaChunkGPU_Destroy(&frame->chunks[c], alloc->device);
-        }
-        frame->chunkCount = 0;
-        frame->currentChunk = 0;
+    for (u32 c=0; c<alloc->chunkCount; c++) {
+        ArenaChunkGPU_Destroy(&alloc->chunks[c], alloc->device);
     }
+    alloc->chunkCount = 0;
+    alloc->currentChunk = 0;
 }
 
 static int ArenaAllocatorGPU_Init(ArenaAllocatorGPU* alloc, VkDevice device, VkPhysicalDevice physicalDevice)
@@ -126,7 +117,9 @@ static int ArenaAllocatorGPU_Init(ArenaAllocatorGPU* alloc, VkDevice device, VkP
     alloc->device = device;
 
     // Zero init chunk slots
-    memset(alloc->slots, 0, sizeof(alloc->slots));
+    memset(alloc->chunks, 0, sizeof(alloc->chunks));
+    alloc->chunkCount = 0;
+    alloc->currentChunk = 0;
 
     // Get memory type index
     vkGetPhysicalDeviceMemoryProperties(physicalDevice, &alloc->memoryProperties);
@@ -140,88 +133,83 @@ static int ArenaAllocatorGPU_Init(ArenaAllocatorGPU* alloc, VkDevice device, VkP
     }
     if (alloc->typeIndex == UINT32_MAX) return 0;
 
-    // Allocate first swappable chunks
-    alloc->currentSlot = 0;
-    for (u32 i=0; i<ARENA_GPU_SLOTS; i++) {
-        ArenaFrameGPU* frame = &alloc->slots[i];
-        if (!ArenaChunkGPU_Create(&frame->chunks[0], device, alloc->typeIndex, ARENA_INITIAL_CHUNK)) {
-            ArenaAllocatorGPU_Destroy(alloc);
-            return 0;
-        }
-        frame->chunkCount = 1;
+    // Allocate the first chunk
+    if (!ArenaChunkGPU_Create(&alloc->chunks[0], device, alloc->typeIndex, ARENA_INITIAL_CHUNK)) {
+        ArenaAllocatorGPU_Destroy(alloc);
+        return 0;
     }
+    alloc->chunkCount = 1;
     return 1;
 }
 
-static void ArenaAllocatorGPU_FreeIdleChunks(ArenaAllocatorGPU* alloc)
+static void ArenaAllocatorGPU_Clear(ArenaAllocatorGPU* alloc)
 {
-    for (u32 s=0; s<ARENA_GPU_SLOTS; s++) {
-        ArenaFrameGPU* frame = &alloc->slots[s];
-        for (u32 i=1; i<frame->chunkCount; ) {
-            if (frame->chunks[i].idleFrames >= ARENA_CHUNK_IDLE_THRESHOLD) {
-                ArenaChunkGPU_Destroy(&frame->chunks[i], alloc->device);
-                if (frame->currentChunk > i) frame->currentChunk--;
-                for (u32 j=i; j<frame->chunkCount-1; j++) {
-                    frame->chunks[j] = frame->chunks[j + 1];
-                }
-                frame->chunkCount--;
-            } else {
-                i++;
+    // Wait for all previous GPU work to finish. This single wait is what
+    // makes the arena safe to reset every frame without any per-slot or
+    // per-chunk tracking. Everything after this call is free to overwrite
+    // existing chunks, append new ones, or destroy idle ones.
+    vkDeviceWaitIdle(alloc->device);
+
+    // Increment idle counters for every chunk. Chunks that were used this
+    // frame (i.e. touched by Alloc before this Clear ran) get reset to 0 in
+    // Alloc, so this only counts chunks that went untouched
+    for (u32 i=0; i<alloc->chunkCount; i++) {
+        alloc->chunks[i].idleFrames++;
+    }
+
+    // Destroy chunks that have been idle for too long. Skip index 0 (the
+    // primary chunk) because Alloc always starts there. Compact the array
+    // so all live chunks are contiguous
+    u32 write = 1;
+    for (u32 read=1; read<alloc->chunkCount; read++) {
+        if (alloc->chunks[read].idleFrames >= ARENA_CHUNK_IDLE_THRESHOLD) {
+            ArenaChunkGPU_Destroy(&alloc->chunks[read], alloc->device);
+        } else {
+            if (write != read) {
+                alloc->chunks[write] = alloc->chunks[read];
             }
+            write++;
         }
     }
-}
+    alloc->chunkCount = write;
 
-static void ArenaAllocatorGPU_SwapBuffers(ArenaAllocatorGPU* alloc)
-{
-    // Increment idle counters for the slot we're leaving
-    ArenaFrameGPU* leaving = &alloc->slots[alloc->currentSlot];
-    for (u32 i=0; i<leaving->chunkCount; i++) {
-        leaving->chunks[i].idleFrames++;
-    }
-
-    // Advance
-    alloc->currentSlot = (alloc->currentSlot + 1) % ARENA_GPU_SLOTS;
-
-    // Reset the new current slot's bump pointers
-    ArenaFrameGPU* entering = &alloc->slots[alloc->currentSlot];
-    entering->currentChunk = 0;
-    for (u32 i = 0; i < entering->chunkCount; i++) {
-        entering->chunks[i].offset = 0;
+    // Reset bump pointers
+    alloc->currentChunk = 0;
+    for (u32 i=0; i<alloc->chunkCount; i++) {
+        alloc->chunks[i].offset = 0;
     }
 }
 
 static ArenaAllocGPU ArenaAllocatorGPU_Alloc(ArenaAllocatorGPU* alloc, VkDeviceSize size, VkDeviceSize align)
 {
-    ArenaFrameGPU* frame = &alloc->slots[alloc->currentSlot];
-    ArenaChunkGPU* chunk = &frame->chunks[frame->currentChunk];
+    ArenaChunkGPU* chunk = &alloc->chunks[alloc->currentChunk];
     VkDeviceSize aligned = (chunk->offset + align - 1) & ~(align - 1);
 
     if (aligned + size > chunk->capacity) {
         // Advance to next chunk; create one if needed
-        frame->currentChunk++;
-        if (frame->currentChunk >= frame->chunkCount) {
+        alloc->currentChunk++;
+        if (alloc->currentChunk >= alloc->chunkCount) {
 
             // No more chunk slots -> fail
-            if (frame->chunkCount >= ARENA_MAX_CHUNKS) {
-                frame->currentChunk--;
+            if (alloc->chunkCount >= ARENA_MAX_CHUNKS) {
+                alloc->currentChunk--;
                 ArenaAllocGPU fail = { VK_NULL_HANDLE, 0, NULL };
                 return fail;
             }
 
             // New chunks grow geometrically from the last one
-            VkDeviceSize lastCap = frame->chunks[frame->chunkCount - 1].capacity;
+            VkDeviceSize lastCap = alloc->chunks[alloc->chunkCount - 1].capacity;
             VkDeviceSize newSize = lastCap * 2;
             if (newSize < size) newSize = size * 2;
-            if (!ArenaChunkGPU_Create(&frame->chunks[frame->chunkCount], alloc->device, alloc->typeIndex, newSize)) {
+            if (!ArenaChunkGPU_Create(&alloc->chunks[alloc->chunkCount], alloc->device, alloc->typeIndex, newSize)) {
                 // Creation failed — step back and return a null allocation
-                frame->currentChunk--;
+                alloc->currentChunk--;
                 ArenaAllocGPU fail = { VK_NULL_HANDLE, 0, NULL };
                 return fail;
             }
-            frame->chunkCount++;
+            alloc->chunkCount++;
         }
-        chunk = &frame->chunks[frame->currentChunk];
+        chunk = &alloc->chunks[alloc->currentChunk];
         chunk->offset = 0;
         aligned = 0;
     }

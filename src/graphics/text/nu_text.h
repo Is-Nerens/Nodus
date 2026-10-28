@@ -463,6 +463,7 @@ void NU_Generate_Text_Renderdata(
             renderData->u1 = (glyph->u + glyph->width) * font->atlas.invWidth;
             renderData->v1 = (glyph->v + glyph->height) * font->atlas.invHeight;
             renderData->colourRGBA = PackRGBA(r, g, b, 255);
+            renderData->textureIndex = 0;
 
             penX += glyph->advance;
         }

@@ -7,6 +7,7 @@ typedef struct {
     VkSampler sampler;
     VkDescriptorSet descriptorSet;
     VkDescriptorPool descriptorPool;
+    VkDescriptorSetLayout setLayout;
     VkImageLayout layout;
     u32 width;
     u32 height;
@@ -32,6 +33,24 @@ void FontImageGPU_Create(
 
     VkDeviceSize imageSize = (VkDeviceSize)width * height * channels;
 
+    // Track which handles we've created so a failure midway through this
+    // function can tear down exactly what it made and leave nothing behind
+    VkImage        localImage  = VK_NULL_HANDLE;
+    VkDeviceMemory localMemory = VK_NULL_HANDLE;
+    VkImageView    localView   = VK_NULL_HANDLE;
+    VkSampler      localSampler = VK_NULL_HANDLE;
+    VkDescriptorPool localPool = VK_NULL_HANDLE;
+    VkDescriptorSet  localSet  = VK_NULL_HANDLE;
+    VkDescriptorSetLayout localSetLayout = VK_NULL_HANDLE;
+
+    // Staging upload resources. Tracked at function scope so a failure
+    // anywhere in the upload path (or later in this function) is torn down
+    // by the same cleanup label that destroys the image/view/etc.
+    VkBuffer       localStagingBuffer = VK_NULL_HANDLE;
+    VkDeviceMemory localStagingMemory = VK_NULL_HANDLE;
+    VkCommandBuffer localCmd          = VK_NULL_HANDLE;
+    void*          localStagingMapped = NULL;
+
     // 2. Create VkImage
     VkImageCreateInfo imageInfo = {0};
     imageInfo.sType = VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO;
@@ -47,27 +66,29 @@ void FontImageGPU_Create(
     imageInfo.usage = VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_SAMPLED_BIT;
     imageInfo.samples = VK_SAMPLE_COUNT_1_BIT;
     imageInfo.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
-    vkCreateImage(device, &imageInfo, NULL, &image->image);
+    if (vkCreateImage(device, &imageInfo, NULL, &localImage) != VK_SUCCESS) goto cleanup;
+    image->image = localImage;
 
     // 3. Query memory requirements
     VkMemoryRequirements memReqs;
-    vkGetImageMemoryRequirements(device, image->image, &memReqs);
+    vkGetImageMemoryRequirements(device, localImage, &memReqs);
 
     // 4. Allocate suitable device-local memory
     VkMemoryAllocateInfo allocInfo = {0};
     allocInfo.sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO;
     allocInfo.allocationSize = memReqs.size;
     allocInfo.memoryTypeIndex = FindMemoryType(physicalDevice, memReqs.memoryTypeBits, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
-    if (allocInfo.memoryTypeIndex == UINT32_MAX) return;
-    vkAllocateMemory(device, &allocInfo, NULL, &image->memory);
+    if (allocInfo.memoryTypeIndex == UINT32_MAX) goto cleanup;
+    if (vkAllocateMemory(device, &allocInfo, NULL, &localMemory) != VK_SUCCESS) goto cleanup;
+    image->memory = localMemory;
 
     // 5. Bind memory
-    vkBindImageMemory(device, image->image, image->memory, 0);
+    if (vkBindImageMemory(device, localImage, localMemory, 0) != VK_SUCCESS) goto cleanup;
 
     // 6. Create VkImageView
     VkImageViewCreateInfo viewInfo = {0};
     viewInfo.sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO;
-    viewInfo.image = image->image;
+    viewInfo.image = localImage;
     viewInfo.viewType = VK_IMAGE_VIEW_TYPE_2D;
     viewInfo.format = format;
     viewInfo.subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
@@ -75,40 +96,44 @@ void FontImageGPU_Create(
     viewInfo.subresourceRange.levelCount = 1;
     viewInfo.subresourceRange.baseArrayLayer = 0;
     viewInfo.subresourceRange.layerCount = 1;
-    vkCreateImageView(device, &viewInfo, NULL, &image->view);
+    if (vkCreateImageView(device, &viewInfo, NULL, &localView) != VK_SUCCESS) goto cleanup;
+    image->view = localView;
 
     // 7. Upload pixels using a staging buffer
-    VkBuffer stagingBuffer;
-    VkDeviceMemory stagingBufferMemory;
     VkBufferCreateInfo stagingBufferInfo = {0};
     stagingBufferInfo.sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO;
     stagingBufferInfo.size = imageSize;
     stagingBufferInfo.usage = VK_BUFFER_USAGE_TRANSFER_SRC_BIT;
     stagingBufferInfo.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
-    vkCreateBuffer(device, &stagingBufferInfo, NULL, &stagingBuffer);
+    if (vkCreateBuffer(device, &stagingBufferInfo, NULL, &localStagingBuffer) != VK_SUCCESS) goto cleanup;
+
     VkMemoryRequirements stagingMemReqs;
-    vkGetBufferMemoryRequirements(device, stagingBuffer, &stagingMemReqs);
+    vkGetBufferMemoryRequirements(device, localStagingBuffer, &stagingMemReqs);
+
     VkMemoryAllocateInfo stagingAllocInfo = {0};
     stagingAllocInfo.sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO;
     stagingAllocInfo.allocationSize = stagingMemReqs.size;
     stagingAllocInfo.memoryTypeIndex = FindMemoryType(physicalDevice, stagingMemReqs.memoryTypeBits, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT);
-    vkAllocateMemory(device, &stagingAllocInfo, NULL, &stagingBufferMemory);
-    vkBindBufferMemory(device, stagingBuffer, stagingBufferMemory, 0);
-    void* data;
-    vkMapMemory(device, stagingBufferMemory, 0, imageSize, 0, &data);
-    memcpy(data, buffer, (size_t)imageSize);
-    vkUnmapMemory(device, stagingBufferMemory);
-    VkCommandBuffer cmd;
+    if (stagingAllocInfo.memoryTypeIndex == UINT32_MAX) goto cleanup;
+    if (vkAllocateMemory(device, &stagingAllocInfo, NULL, &localStagingMemory) != VK_SUCCESS) goto cleanup;
+    if (vkBindBufferMemory(device, localStagingBuffer, localStagingMemory, 0) != VK_SUCCESS) goto cleanup;
+
+    if (vkMapMemory(device, localStagingMemory, 0, imageSize, 0, &localStagingMapped) != VK_SUCCESS) goto cleanup;
+    memcpy(localStagingMapped, buffer, (size_t)imageSize);
+    vkUnmapMemory(device, localStagingMemory);
+    localStagingMapped = NULL;
+
     VkCommandBufferAllocateInfo cmdAllocInfo = {0};
     cmdAllocInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO;
     cmdAllocInfo.commandPool = commandPool;
     cmdAllocInfo.level = VK_COMMAND_BUFFER_LEVEL_PRIMARY;
     cmdAllocInfo.commandBufferCount = 1;
-    vkAllocateCommandBuffers(device, &cmdAllocInfo, &cmd);
+    if (vkAllocateCommandBuffers(device, &cmdAllocInfo, &localCmd) != VK_SUCCESS) goto cleanup;
+
     VkCommandBufferBeginInfo beginInfo = {0};
     beginInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
     beginInfo.flags = VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT;
-    vkBeginCommandBuffer(cmd, &beginInfo);
+    if (vkBeginCommandBuffer(localCmd, &beginInfo) != VK_SUCCESS) goto cleanup;
 
     // UNDEFINED -> TRANSFER_DST_OPTIMAL
     VkImageMemoryBarrier barrier = {0};
@@ -117,11 +142,11 @@ void FontImageGPU_Create(
     barrier.newLayout = VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL;
     barrier.srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
     barrier.dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
-    barrier.image = image->image;
+    barrier.image = localImage;
     barrier.subresourceRange = viewInfo.subresourceRange;
     barrier.srcAccessMask = 0;
     barrier.dstAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT;
-    vkCmdPipelineBarrier(cmd, VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT, VK_PIPELINE_STAGE_TRANSFER_BIT, 0, 0, NULL, 0, NULL, 1, &barrier);
+    vkCmdPipelineBarrier(localCmd, VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT, VK_PIPELINE_STAGE_TRANSFER_BIT, 0, 0, NULL, 0, NULL, 1, &barrier);
 
     // Copy buffer to image. bufferRowLength == 0 means "tightly packed at
     // width * channels bytes per row", which matches our staging data
@@ -135,45 +160,143 @@ void FontImageGPU_Create(
     region.imageSubresource.layerCount = 1;
     region.imageOffset = (VkOffset3D){0, 0, 0};
     region.imageExtent = (VkExtent3D){width, height, 1};
-    vkCmdCopyBufferToImage(cmd, stagingBuffer, image->image, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, 1, &region);
+    vkCmdCopyBufferToImage(localCmd, localStagingBuffer, localImage, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, 1, &region);
 
     // TRANSFER_DST_OPTIMAL -> SHADER_READ_ONLY_OPTIMAL
     barrier.oldLayout = VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL;
     barrier.newLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
     barrier.srcAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT;
     barrier.dstAccessMask = VK_ACCESS_SHADER_READ_BIT;
-    vkCmdPipelineBarrier(cmd, VK_PIPELINE_STAGE_TRANSFER_BIT, VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT, 0, 0, NULL, 0, NULL, 1, &barrier);
-    vkEndCommandBuffer(cmd);
+    vkCmdPipelineBarrier(localCmd, VK_PIPELINE_STAGE_TRANSFER_BIT, VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT, 0, 0, NULL, 0, NULL, 1, &barrier);
+    if (vkEndCommandBuffer(localCmd) != VK_SUCCESS) goto cleanup;
+
     VkSubmitInfo submitInfo = {0};
     submitInfo.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
     submitInfo.commandBufferCount = 1;
-    submitInfo.pCommandBuffers = &cmd;
-    vkQueueSubmit(graphicsQueue, 1, &submitInfo, VK_NULL_HANDLE);
-    vkQueueWaitIdle(graphicsQueue);
-    vkFreeCommandBuffers(device, commandPool, 1, &cmd);
-    vkDestroyBuffer(device, stagingBuffer, NULL);
-    vkFreeMemory(device, stagingBufferMemory, NULL);
+    submitInfo.pCommandBuffers = &localCmd;
+    if (vkQueueSubmit(graphicsQueue, 1, &submitInfo, VK_NULL_HANDLE) != VK_SUCCESS) goto cleanup;
+    if (vkQueueWaitIdle(graphicsQueue) != VK_SUCCESS) goto cleanup;
 
-    // 9. Update the descriptor set
-    VkDescriptorImageInfo imageInfoDesk = {0};
-    imageInfoDesk.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
-    imageInfoDesk.imageView = image->view;
-    imageInfoDesk.sampler = image->sampler;
+    vkFreeCommandBuffers(device, commandPool, 1, &localCmd);
+    localCmd = VK_NULL_HANDLE;
+    vkDestroyBuffer(device, localStagingBuffer, NULL);
+    localStagingBuffer = VK_NULL_HANDLE;
+    vkFreeMemory(device, localStagingMemory, NULL);
+    localStagingMemory = VK_NULL_HANDLE;
+
+    // 8. Create the sampler.
+    // Linear filtering + CLAMP_TO_EDGE is the right default for a font
+    // atlas. If neighbouring glyphs bleed into each other, switch to
+    // VK_FILTER_NEAREST or add padding between glyphs in the atlas builder
+    VkSamplerCreateInfo samplerInfo = {0};
+    samplerInfo.sType        = VK_STRUCTURE_TYPE_SAMPLER_CREATE_INFO;
+    samplerInfo.magFilter    = VK_FILTER_LINEAR;
+    samplerInfo.minFilter    = VK_FILTER_LINEAR;
+    samplerInfo.mipmapMode   = VK_SAMPLER_MIPMAP_MODE_NEAREST;
+    samplerInfo.addressModeU = VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE;
+    samplerInfo.addressModeV = VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE;
+    samplerInfo.addressModeW = VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE;
+    samplerInfo.anisotropyEnable = VK_FALSE;
+    samplerInfo.maxLod       = 0.0f;
+    samplerInfo.borderColor  = VK_BORDER_COLOR_INT_OPAQUE_BLACK;
+    samplerInfo.unnormalizedCoordinates = VK_FALSE;
+    if (vkCreateSampler(device, &samplerInfo, NULL, &localSampler) != VK_SUCCESS) goto cleanup;
+    image->sampler = localSampler;
+
+    // 9. Create the descriptor set layout inline. This is the "no helper,
+    // no parameter" choice: every FontImageGPU owns its own layout, and
+    // NU_CreateMonoTextPipeline creates its own layout with the SAME
+    // binding description. Per Vulkan spec, layouts with identical
+    // (binding, type, count, stageFlags) are compatible, so a set
+    // allocated from this layout is valid for a pipeline built with the
+    // other one. The two descriptions MUST be kept in sync — see the
+    // matching block in NU_CreateMonoTextPipeline
+    VkDescriptorSetLayoutBinding layoutBinding = {0};
+    layoutBinding.binding         = 0;
+    layoutBinding.descriptorType  = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
+    layoutBinding.descriptorCount = 8;
+    layoutBinding.stageFlags      = VK_SHADER_STAGE_FRAGMENT_BIT;
+    layoutBinding.pImmutableSamplers = NULL;
+
+    VkDescriptorSetLayoutCreateInfo layoutInfo = {0};
+    layoutInfo.sType        = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO;
+    layoutInfo.bindingCount = 1;
+    layoutInfo.pBindings    = &layoutBinding;
+    if (vkCreateDescriptorSetLayout(device, &layoutInfo, NULL, &localSetLayout) != VK_SUCCESS) goto cleanup;
+    image->setLayout = localSetLayout;
+
+    // 10. Create a per-atlas descriptor pool and allocate the font set.
+    VkDescriptorPoolSize poolSize = {0};
+    poolSize.type            = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
+    poolSize.descriptorCount = 8;
+    VkDescriptorPoolCreateInfo poolInfo = {0};
+    poolInfo.sType         = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO;
+    poolInfo.maxSets       = 1;
+    poolInfo.poolSizeCount = 1;
+    poolInfo.pPoolSizes    = &poolSize;
+    if (vkCreateDescriptorPool(device, &poolInfo, NULL, &localPool) != VK_SUCCESS) goto cleanup;
+    image->descriptorPool = localPool;
+
+    VkDescriptorSetAllocateInfo setAllocInfo = {0};
+    setAllocInfo.sType              = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO;
+    setAllocInfo.descriptorPool     = localPool;
+    setAllocInfo.descriptorSetCount = 1;
+    setAllocInfo.pSetLayouts        = &localSetLayout;
+    if (vkAllocateDescriptorSets(device, &setAllocInfo, &localSet) != VK_SUCCESS || localSet == VK_NULL_HANDLE) goto cleanup;
+    image->descriptorSet = localSet;
+
+    // 11. Write the descriptor set.
+    // The shader declares sampler2D uFontTextures[8]; every element of the
+    // array must be a valid descriptor at draw time per the Vulkan spec.
+    // For now we only have one atlas, so point all 8 slots at it. When
+    // multiple atlases exist, write distinct views per slot and set
+    // GlyphRenderData.textureIndex accordingly
+    VkDescriptorImageInfo imageInfoDesk[8];
+    for (int i = 0; i < 8; i++) {
+        imageInfoDesk[i].imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+        imageInfoDesk[i].imageView   = localView;
+        imageInfoDesk[i].sampler     = localSampler;
+    }
     VkWriteDescriptorSet descriptorWrite = {0};
     descriptorWrite.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
-    descriptorWrite.dstSet = image->descriptorSet;
+    descriptorWrite.dstSet = localSet;
     descriptorWrite.dstBinding = 0;
     descriptorWrite.dstArrayElement = 0;
     descriptorWrite.descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
-    descriptorWrite.descriptorCount = 1;
-    descriptorWrite.pImageInfo = &imageInfoDesk;
+    descriptorWrite.descriptorCount = 8;
+    descriptorWrite.pImageInfo = imageInfoDesk;
     vkUpdateDescriptorSets(device, 1, &descriptorWrite, 0, NULL);
 
-    // 10. Store dimensions and final layout
+    // 12. Store dimensions and final layout
     image->mono = mono;
     image->width  = width;
     image->height = height;
     image->layout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+    return;
+
+cleanup:
+    // Tear down whatever we managed to create, in reverse order of creation.
+    // The handles on `image` have already been assigned for the ones that
+    // succeeded, so a subsequent FontImageGPU_Destroy would also be safe.
+    // Staging resources are destroyed first because they were created last
+    if (localStagingMapped != NULL)    vkUnmapMemory(device, localStagingMemory);
+    if (localCmd != VK_NULL_HANDLE)    vkFreeCommandBuffers(device, commandPool, 1, &localCmd);
+    if (localStagingBuffer != VK_NULL_HANDLE) vkDestroyBuffer(device, localStagingBuffer, NULL);
+    if (localStagingMemory != VK_NULL_HANDLE) vkFreeMemory(device, localStagingMemory, NULL);
+    if (localPool != VK_NULL_HANDLE)      vkDestroyDescriptorPool(device, localPool, NULL);
+    if (localSetLayout != VK_NULL_HANDLE) vkDestroyDescriptorSetLayout(device, localSetLayout, NULL);
+    if (localSampler != VK_NULL_HANDLE)   vkDestroySampler(device, localSampler, NULL);
+    if (localView != VK_NULL_HANDLE)      vkDestroyImageView(device, localView, NULL);
+    if (localImage != VK_NULL_HANDLE)     vkDestroyImage(device, localImage, NULL);
+    if (localMemory != VK_NULL_HANDLE)    vkFreeMemory(device, localMemory, NULL);
+
+    image->image          = VK_NULL_HANDLE;
+    image->memory         = VK_NULL_HANDLE;
+    image->view           = VK_NULL_HANDLE;
+    image->sampler        = VK_NULL_HANDLE;
+    image->descriptorPool = VK_NULL_HANDLE;
+    image->descriptorSet  = VK_NULL_HANDLE;
+    image->setLayout      = VK_NULL_HANDLE;
 }
 
 void FontImageGPU_Patch(
@@ -190,6 +313,7 @@ void FontImageGPU_Patch(
     if (width == 0 || height == 0) return;
     if (x >= image->width || y >= image->height) return;
     if (x + width  > image->width  || y + height > image->height) return;
+    if (image->descriptorSet == VK_NULL_HANDLE) return;
     const VkDeviceSize bytesPerPixel = image->mono ? 1 : 4; // R8_UNORM or VK_FORMAT_R8G8B8A8_UNORM
     const VkDeviceSize patchSize = (VkDeviceSize)width * height * bytesPerPixel;
 
@@ -320,6 +444,7 @@ void FontImageGPU_Resize(
     // 1. Validate the image, dimensions and pixel buffer
     if (!image || !buffer) return;
     if (width == 0 || height == 0) return;
+    if (image->sampler == VK_NULL_HANDLE || image->descriptorSet == VK_NULL_HANDLE) return;
 
     // A no-op resize is common (caller rebuilt at the same size) — short-circuit.
     // If you also want to refresh contents at the same size, use FontImageGPU_Patch
@@ -515,11 +640,13 @@ void FontImageGPU_Destroy(FontImageGPU* image, VkDevice device)
     if (!image) return;
 
     // Nothing to do if the object was already destroyed or never created
-    // (Handles are invalidated to VK_NULL_HANDLE in step 7, so a double-call
-    // is harmless.)
+    // (Handles are invalidated to VK_NULL_HANDLE by the memset at the end,
+    // so a double-call is harmless.)
     if (image->image == VK_NULL_HANDLE &&
         image->view  == VK_NULL_HANDLE &&
         image->memory == VK_NULL_HANDLE &&
+        image->sampler == VK_NULL_HANDLE &&
+        image->descriptorPool == VK_NULL_HANDLE &&
         image->descriptorSet == VK_NULL_HANDLE)
     {
         return;
@@ -533,43 +660,52 @@ void FontImageGPU_Destroy(FontImageGPU* image, VkDevice device)
     // have sampled this image (e.g. the current frame's fence)
     vkDeviceWaitIdle(device);
 
-    // 3. Free the descriptor set if individually allocated and permitted by its pool
-    // Only valid if the set was allocated with VK_DESCRIPTOR_POOL_CREATE_FREE_
-    // DESCRIPTOR_SET_BIT and is not still referenced by a pending
-    // vkUpdateDescriptorSets or a bound command buffer. After the waitIdle
-    // above there is no pending work, so the free is safe. If your pool was
-    // created without the FREE flag, this call is a validation error — in
-    // that case skip it and let the pool reclaim the set when it is reset/
-    // destroyed. Make this conditional on how the set was allocated:
-#if FONTIMAGE_DESCRIPTOR_SETS_ARE_FREEABLE
-    if (image->descriptorSet != VK_NULL_HANDLE && image->descriptorPool != VK_NULL_HANDLE) {
-        vkFreeDescriptorSets(device, image->descriptorPool, 1, &image->descriptorSet);
+    // 3. Destroy the descriptor pool. This implicitly frees every set that
+    // was allocated from it, so there is no need to call vkFreeDescriptorSets
+    // (which would only be legal if the pool had been created with
+    // VK_DESCRIPTOR_POOL_CREATE_FREE_DESCRIPTOR_SET_BIT and the set were not
+    // still bound in a pending command buffer — neither of which we rely on).
+    // Do this before tearing down the sampler/view/image so the set stops
+    // referencing them first
+    if (image->descriptorPool != VK_NULL_HANDLE) {
+        vkDestroyDescriptorPool(device, image->descriptorPool, NULL);
     }
-#endif
-    // If the set is not individually freeable, just drop the handle; the pool
-    // owns its lifetime. Do NOT call vkFreeDescriptorSets in that case
+    image->descriptorSet = VK_NULL_HANDLE;
 
-    // 4. Destroy the image view.
+    // 3b. Destroy the set layout owned by this atlas. It is no longer
+    // referenced now that the pool and set are gone. Other atlases have
+    // their own compatible layouts, and the pipeline layout was built
+    // from a separate compatible layout, so this is safe
+    if (image->setLayout != VK_NULL_HANDLE) {
+        vkDestroyDescriptorSetLayout(device, image->setLayout, NULL);
+    }
+
+    // 4. Destroy the sampler. It is owned by this struct (created in
+    // FontImageGPU_Create) and is not referenced by anything else once the
+    // pool above has been destroyed
+    if (image->sampler != VK_NULL_HANDLE) {
+        vkDestroySampler(device, image->sampler, NULL);
+    }
+
+    // 5. Destroy the image view.
     if (image->view != VK_NULL_HANDLE) {
         vkDestroyImageView(device, image->view, NULL);
     }
 
-    // 5. Destroy the image.
+    // 6. Destroy the image.
     if (image->image != VK_NULL_HANDLE) {
         vkDestroyImage(device, image->image, NULL);
     }
 
-    // 6. Free the image's device memory
+    // 7. Free the image's device memory
     // Order matters: the memory must outlive the image bound to it, so this
     // comes strictly after vkDestroyImage
     if (image->memory != VK_NULL_HANDLE) {
         vkFreeMemory(device, image->memory, NULL);
     }
 
-    // 7. Reset the structure to zero and invalidate its handles.
-    // The sampler (if owned by this struct) is intentionally *not* destroyed
-    // here — see the note below. Zeroing the whole struct invalidates every
-    // handle and scalar in one shot, which also makes a second call a no-op
-    // via the guard in step 1
+    // 8. Reset the structure to zero and invalidate its handles.
+    // Zeroing the whole struct invalidates every handle and scalar in one
+    // shot, which also makes a second call a no-op via the guard in step 1
     memset(image, 0, sizeof(*image));
 }

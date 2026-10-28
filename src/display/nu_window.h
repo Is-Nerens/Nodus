@@ -27,14 +27,6 @@ int Window_CreateSwapchain(Window* window, DisplayManager* displayManager)
         }
     }
 
-    // Destroy image-indexed presentation semaphores.
-    for (u32 i = 0; i < window->imageCount; i++) {
-        if (window->renderFinished[i] != VK_NULL_HANDLE) {
-            vkDestroySemaphore(device, window->renderFinished[i], NULL);
-            window->renderFinished[i] = VK_NULL_HANDLE;
-        }
-    }
-
     // Destroy the old swapchain.
     if (window->swapchain != VK_NULL_HANDLE) {
         vkDestroySwapchainKHR(device, window->swapchain, NULL);
@@ -185,11 +177,6 @@ int Window_CreateSwapchain(Window* window, DisplayManager* displayManager)
     sci.imageSharingMode = VK_SHARING_MODE_EXCLUSIVE;
     sci.preTransform = caps.currentTransform;
     sci.compositeAlpha = VK_COMPOSITE_ALPHA_OPAQUE_BIT_KHR;
-
-    // VK_PRESENT_MODE_FIFO_KHR — VSync on; guaranteed to be supported.
-    // VK_PRESENT_MODE_IMMEDIATE_KHR — VSync off; only use if supported.
-    // VK_PRESENT_MODE_MAILBOX_KHR — VSync on, but replaces queued frames with newer ones; often better for low latency. explain these?
-
     sci.presentMode = VK_PRESENT_MODE_IMMEDIATE_KHR;
     sci.clipped = VK_TRUE;
     sci.oldSwapchain = VK_NULL_HANDLE;
@@ -246,15 +233,6 @@ int Window_CreateSwapchain(Window* window, DisplayManager* displayManager)
         }
     }
 
-    // Create per-swapchain-image presentation semaphores
-    VkSemaphoreCreateInfo semci = {0};
-    semci.sType = VK_STRUCTURE_TYPE_SEMAPHORE_CREATE_INFO;
-    for (u32 i=0; i<window->imageCount; i++) {
-        if (vkCreateSemaphore(device, &semci, NULL, &window->renderFinished[i]) != VK_SUCCESS) {
-            return 0;
-        }
-    }
-
     // Reset frame tracking
     window->currentFrame = 0;
 
@@ -275,10 +253,10 @@ int Window_CreateVulkanDevices(Window* window, DisplayManager* displayManager)
         window->images[i] = VK_NULL_HANDLE;
         window->imageViews[i] = VK_NULL_HANDLE;
         window->framebuffers[i] = VK_NULL_HANDLE;
-        window->renderFinished[i] = VK_NULL_HANDLE;
     }
     for (u32 i=0; i<NU_FRAMES_IN_FLIGHT; i++) {
         window->imageAvailable[i] = VK_NULL_HANDLE;
+        window->renderFinished[i] = VK_NULL_HANDLE;
         window->inFlightFences[i] = VK_NULL_HANDLE;
     }
     for (u32 i=0; i<NU_FRAMES_IN_FLIGHT; i++) {
@@ -325,6 +303,7 @@ int Window_CreateVulkanDevices(Window* window, DisplayManager* displayManager)
     fci.flags = VK_FENCE_CREATE_SIGNALED_BIT;
     for (u32 i = 0; i < NU_FRAMES_IN_FLIGHT; i++) {
         if (vkCreateSemaphore(device, &semci, NULL, &window->imageAvailable[i]) != VK_SUCCESS ||
+            vkCreateSemaphore(device, &semci, NULL, &window->renderFinished[i]) != VK_SUCCESS ||
             vkCreateFence(device, &fci, NULL, &window->inFlightFences[i]) != VK_SUCCESS)
         {
             ErrorSystem_AddError(&GUI.errorSystem,"<Vulkan Error> Failed to create frame sync objects");
@@ -381,8 +360,6 @@ void Window_DestroyVulkanDevices(Window* window, DisplayManager* displayManager)
             vkDestroySemaphore(device, window->imageAvailable[i], NULL);
             window->imageAvailable[i] = VK_NULL_HANDLE;
         }
-    }
-    for (u32 i=0; i<window->imageCount; i++) {
         if (window->renderFinished[i] != VK_NULL_HANDLE) {
             vkDestroySemaphore(device, window->renderFinished[i], NULL);
             window->renderFinished[i] = VK_NULL_HANDLE;
@@ -486,7 +463,7 @@ int Window_Present(Window* window, DisplayManager* displayManager)
     VkSemaphore waitSemaphore = window->imageAvailable[window->currentFrame];
 
     // Signal when rendering to this swapchain image is finished.
-    VkSemaphore signalSemaphore = window->renderFinished[window->imageIndex];
+    VkSemaphore signalSemaphore = window->renderFinished[window->currentFrame];
     VkPipelineStageFlags waitStage = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
 
     // Reset fence
@@ -513,7 +490,7 @@ int Window_Present(Window* window, DisplayManager* displayManager)
     VkPresentInfoKHR presentInfo = {0};
     presentInfo.sType = VK_STRUCTURE_TYPE_PRESENT_INFO_KHR;
     presentInfo.waitSemaphoreCount = 1;
-    presentInfo.pWaitSemaphores = &window->renderFinished[window->imageIndex];
+    presentInfo.pWaitSemaphores = &window->renderFinished[window->currentFrame];
     presentInfo.swapchainCount = 1;
     presentInfo.pSwapchains = &window->swapchain;
     presentInfo.pImageIndices = &window->imageIndex;

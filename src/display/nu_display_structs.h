@@ -66,7 +66,7 @@ typedef struct {
     // Sync
     VkSemaphore imageAvailable[NU_FRAMES_IN_FLIGHT];
     VkFence     inFlightFences[NU_FRAMES_IN_FLIGHT];
-    VkSemaphore renderFinished[NU_MAX_SWAPCHAIN_IMAGES];
+    VkSemaphore renderFinished[NU_FRAMES_IN_FLIGHT];
 
     // Command buffers
     VkCommandPool   commandPool;

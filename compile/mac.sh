@@ -11,7 +11,7 @@ freetypeLib="src/libraries/freetype/mac"
 vulkanSdk="/Users/$(whoami)/VulkanSDK/1.4.363.0/macOS"
 
 # Compile
-clang -std=c99 -O3 -g \
+clang -std=c99 -O3 -g -ftrivial-auto-var-init=zero\
     "src/nodus.c" \
     "src/mmap/nu_memory_map.c" \
     -I"$srcInclude" \

@@ -1,4 +1,5 @@
 #pragma once
+#include "vulkan/vulkan_core.h"
 #include <ft2build.h>
 #include FT_FREETYPE_H
 #include FT_MULTIPLE_MASTERS_H
@@ -98,10 +99,10 @@ void FontAtlas_AddGlyph(FontAtlas* atlas, Glyph* glyph, FT_Bitmap* bmp)
         atlas->invWidth = 1.0f / (float)(atlas->width);
         atlas->invHeight = 1.0f / (float)(atlas->height);
         atlas->buffer = new_buffer;
-        atlas->updateState = FONT_ATLAS_STATE_MUST_RESIZE;
+        if (atlas->updateState != FONT_ATLAS_STATE_MUST_UPLOAD) atlas->updateState = FONT_ATLAS_STATE_MUST_RESIZE;
     }
     else {
-        atlas->updateState = FONT_ATLAS_STATE_MUST_PATCH;
+        if (atlas->updateState != FONT_ATLAS_STATE_MUST_UPLOAD) atlas->updateState = FONT_ATLAS_STATE_MUST_PATCH;
     }
 
     // Copy row by row
@@ -283,12 +284,13 @@ int Font_CreateDefault(Font* font, int heightPixels, int fontWeight, bool subpix
     return Font_CreateFromFace(font, face, heightPixels, fontWeight, subpixelRendering);
 }
 
-void Font_Free(Font* font)
+void Font_Free(Font* font, VkDevice device)
 {
     FT_Done_Face(font->face);
     Array_Free(&font->Ascii_Glyphs);
     Hashmap_Free(&font->UTF8_Glyphs);
     free(font->atlas.buffer);
+    FontImageGPU_Destroy(&font->atlas.fontImageGPU, device);
 }
 
 Glyph* Font_GetGlyph(Font* font, u32 codepoint)

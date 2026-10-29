@@ -10,34 +10,6 @@
 #include "stb_image.h"
 #include "nu_atlas_builder.h"
 
-// Represents and image that can exist on the GPU
-typedef struct {
-    VkImage image;
-    VkDeviceMemory memory;
-    VkImageView view;
-    VkDescriptorSet descriptor;
-    VkImageLayout currentLayout;
-    u16 width;
-    u16 height;
-} ImageResource;
-
-/* Represents a region of an image resource
- * An image resource may have 1 or many views (if the resource is an atlas)
- */
-typedef struct {
-    u16 x, y, w, h;
-    int imageResourceIndex;
-} ImageView;
-
-// Entire image resource manager struct
-typedef struct {
-    LinearStringmap filepathToHandleMap;
-    AtlasBuilder builders[3]; // Builders pack small images into image resources at startup
-    int buildersCreated;
-    Array imageViews;
-    Array imageResources;
-} ImageResourceManager;
-
 /* Creates an image resource that Vulkan can work with */
 int ImageResource_Create(
     DisplayManager* displayManager,
@@ -241,18 +213,286 @@ fail:
     return 0;
 }
 
+
+/* Creates the shared Vulkan infrastructure for image group descriptor sets:
+ * layout, pool, sampler, and a 1x1 white dummy image used to fill unused
+ * slots in a partial last group. Call once, after DisplayManager has a
+ * valid device, and before ImageResourceManager_BuildGroupDescriptorSets. */
+int ImageResourceManager_CreateVulkanDevices(ImageResourceManager* resourceManager, DisplayManager* displayManager, u32 maxGroups)
+{
+    VkDevice device = displayManager->device;
+    VkPhysicalDevice physicalDevice = displayManager->physicalDevice;
+
+    // 1. Descriptor set layout: binding 0 = sampler2D uTextures[8], fragment stage
+    VkDescriptorSetLayoutBinding texBinding = {0};
+    texBinding.binding            = 0;
+    texBinding.descriptorType     = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
+    texBinding.descriptorCount    = 8;
+    texBinding.stageFlags         = VK_SHADER_STAGE_FRAGMENT_BIT;
+    texBinding.pImmutableSamplers = NULL;
+
+    VkDescriptorSetLayoutCreateInfo lci = {0};
+    lci.sType        = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO;
+    lci.bindingCount = 1;
+    lci.pBindings    = &texBinding;
+    if (vkCreateDescriptorSetLayout(device, &lci, NULL, &resourceManager->setLayout) != VK_SUCCESS) {
+        ErrorSystem_AddError(&GUI.errorSystem, "<Vulkan Error> image descriptor set layout failed");
+        return 0;
+    }
+
+    // 2. Descriptor pool: maxGroups sets × 8 combined-image-samplers each
+    VkDescriptorPoolSize poolSize = {0};
+    poolSize.type            = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
+    poolSize.descriptorCount = maxGroups * 8;
+
+    VkDescriptorPoolCreateInfo pci = {0};
+    pci.sType         = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO;
+    pci.maxSets       = maxGroups;
+    pci.poolSizeCount = 1;
+    pci.pPoolSizes    = &poolSize;
+    if (vkCreateDescriptorPool(device, &pci, NULL, &resourceManager->pool) != VK_SUCCESS) {
+        vkDestroyDescriptorSetLayout(device, resourceManager->setLayout, NULL);
+        resourceManager->setLayout = VK_NULL_HANDLE;
+        ErrorSystem_AddError(&GUI.errorSystem, "<Vulkan Error> image descriptor pool failed");
+        return 0;
+    }
+
+    // 3. Shared sampler: linear + clamp-to-edge
+    VkSamplerCreateInfo samplerInfo = {0};
+    samplerInfo.sType        = VK_STRUCTURE_TYPE_SAMPLER_CREATE_INFO;
+    samplerInfo.magFilter    = VK_FILTER_LINEAR;
+    samplerInfo.minFilter    = VK_FILTER_LINEAR;
+    samplerInfo.mipmapMode   = VK_SAMPLER_MIPMAP_MODE_NEAREST;
+    samplerInfo.addressModeU = VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE;
+    samplerInfo.addressModeV = VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE;
+    samplerInfo.addressModeW = VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE;
+    samplerInfo.anisotropyEnable = VK_FALSE;
+    samplerInfo.maxLod       = 0.0f;
+    samplerInfo.borderColor  = VK_BORDER_COLOR_INT_OPAQUE_BLACK;
+    samplerInfo.unnormalizedCoordinates = VK_FALSE;
+    if (vkCreateSampler(device, &samplerInfo, NULL, &resourceManager->sampler) != VK_SUCCESS) {
+        vkDestroyDescriptorPool(device, resourceManager->pool, NULL);
+        vkDestroyDescriptorSetLayout(device, resourceManager->setLayout, NULL);
+        resourceManager->pool = VK_NULL_HANDLE;
+        resourceManager->setLayout = VK_NULL_HANDLE;
+        ErrorSystem_AddError(&GUI.errorSystem, "<Vulkan Error> image sampler failed");
+        return 0;
+    }
+
+    // 4. 1x1 white dummy image (fills unused slots in a partial last group)
+    const u32 dw = 1, dh = 1;
+    const unsigned char whitePixel[4] = { 255, 255, 255, 255 };
+
+    VkImageCreateInfo ici = {0};
+    ici.sType         = VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO;
+    ici.imageType     = VK_IMAGE_TYPE_2D;
+    ici.format        = VK_FORMAT_R8G8B8A8_UNORM;
+    ici.extent.width  = dw;
+    ici.extent.height = dh;
+    ici.extent.depth  = 1;
+    ici.mipLevels     = 1;
+    ici.arrayLayers   = 1;
+    ici.samples       = VK_SAMPLE_COUNT_1_BIT;
+    ici.tiling        = VK_IMAGE_TILING_OPTIMAL;
+    ici.usage         = VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_SAMPLED_BIT;
+    ici.sharingMode   = VK_SHARING_MODE_EXCLUSIVE;
+    ici.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
+    if (vkCreateImage(device, &ici, NULL, &resourceManager->dummyImage) != VK_SUCCESS) {
+        vkDestroySampler(device, resourceManager->sampler, NULL);
+        vkDestroyDescriptorPool(device, resourceManager->pool, NULL);
+        vkDestroyDescriptorSetLayout(device, resourceManager->setLayout, NULL);
+        resourceManager->sampler = VK_NULL_HANDLE;
+        resourceManager->pool = VK_NULL_HANDLE;
+        resourceManager->setLayout = VK_NULL_HANDLE;
+        ErrorSystem_AddError(&GUI.errorSystem, "<Vulkan Error> image dummy image failed");
+        return 0;
+    }
+
+    VkMemoryRequirements memReqs;
+    vkGetImageMemoryRequirements(device, resourceManager->dummyImage, &memReqs);
+
+    VkMemoryAllocateInfo mai = {0};
+    mai.sType           = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO;
+    mai.allocationSize  = memReqs.size;
+    mai.memoryTypeIndex = FindMemoryType(physicalDevice, memReqs.memoryTypeBits, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
+    if (mai.memoryTypeIndex == UINT32_MAX ||
+        vkAllocateMemory(device, &mai, NULL, &resourceManager->dummyMemory) != VK_SUCCESS) {
+        vkDestroyImage(device, resourceManager->dummyImage, NULL);
+        vkDestroySampler(device, resourceManager->sampler, NULL);
+        vkDestroyDescriptorPool(device, resourceManager->pool, NULL);
+        vkDestroyDescriptorSetLayout(device, resourceManager->setLayout, NULL);
+        resourceManager->dummyImage = VK_NULL_HANDLE;
+        resourceManager->sampler = VK_NULL_HANDLE;
+        resourceManager->pool = VK_NULL_HANDLE;
+        resourceManager->setLayout = VK_NULL_HANDLE;
+        ErrorSystem_AddError(&GUI.errorSystem, "<Vulkan Error> image dummy memory failed");
+        return 0;
+    }
+    vkBindImageMemory(device, resourceManager->dummyImage, resourceManager->dummyMemory, 0);
+
+    // Upload the white pixel via staging + one-time command buffer
+    VkBuffer       stagingBuffer = VK_NULL_HANDLE;
+    VkDeviceMemory stagingMemory = VK_NULL_HANDLE;
+    VkBufferCreateInfo bci = {0};
+    bci.sType       = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO;
+    bci.size        = 4;
+    bci.usage       = VK_BUFFER_USAGE_TRANSFER_SRC_BIT;
+    bci.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
+    vkCreateBuffer(device, &bci, NULL, &stagingBuffer);
+
+    VkMemoryRequirements bufReqs;
+    vkGetBufferMemoryRequirements(device, stagingBuffer, &bufReqs);
+    VkMemoryAllocateInfo smai = {0};
+    smai.sType           = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO;
+    smai.allocationSize  = bufReqs.size;
+    smai.memoryTypeIndex = FindMemoryType(physicalDevice, bufReqs.memoryTypeBits,
+        VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT);
+    vkAllocateMemory(device, &smai, NULL, &stagingMemory);
+    vkBindBufferMemory(device, stagingBuffer, stagingMemory, 0);
+
+    void* mapped = NULL;
+    vkMapMemory(device, stagingMemory, 0, 4, 0, &mapped);
+    memcpy(mapped, whitePixel, 4);
+    vkUnmapMemory(device, stagingMemory);
+
+    VkCommandBuffer cmd = VK_NULL_HANDLE;
+    VkCommandBufferAllocateInfo cbai = {0};
+    cbai.sType              = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO;
+    cbai.commandPool        = displayManager->commandPool;
+    cbai.level              = VK_COMMAND_BUFFER_LEVEL_PRIMARY;
+    cbai.commandBufferCount = 1;
+    vkAllocateCommandBuffers(device, &cbai, &cmd);
+
+    VkCommandBufferBeginInfo cbbi = {0};
+    cbbi.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
+    cbbi.flags = VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT;
+    vkBeginCommandBuffer(cmd, &cbbi);
+
+    VkImageMemoryBarrier b = {0};
+    b.sType               = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER;
+    b.oldLayout           = VK_IMAGE_LAYOUT_UNDEFINED;
+    b.newLayout           = VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL;
+    b.srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+    b.dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+    b.image               = resourceManager->dummyImage;
+    b.subresourceRange.aspectMask     = VK_IMAGE_ASPECT_COLOR_BIT;
+    b.subresourceRange.baseMipLevel   = 0;
+    b.subresourceRange.levelCount     = 1;
+    b.subresourceRange.baseArrayLayer = 0;
+    b.subresourceRange.layerCount     = 1;
+    b.srcAccessMask = 0;
+    b.dstAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT;
+    vkCmdPipelineBarrier(cmd, VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT, VK_PIPELINE_STAGE_TRANSFER_BIT,
+                         0, 0, NULL, 0, NULL, 1, &b);
+
+    VkBufferImageCopy region = {0};
+    region.imageSubresource.aspectMask     = VK_IMAGE_ASPECT_COLOR_BIT;
+    region.imageSubresource.mipLevel       = 0;
+    region.imageSubresource.baseArrayLayer = 0;
+    region.imageSubresource.layerCount     = 1;
+    region.imageExtent = (VkExtent3D){ dw, dh, 1 };
+    vkCmdCopyBufferToImage(cmd, stagingBuffer, resourceManager->dummyImage,
+                           VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, 1, &region);
+
+    b.oldLayout     = VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL;
+    b.newLayout     = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+    b.srcAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT;
+    b.dstAccessMask = VK_ACCESS_SHADER_READ_BIT;
+    vkCmdPipelineBarrier(cmd, VK_PIPELINE_STAGE_TRANSFER_BIT, VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT,
+                         0, 0, NULL, 0, NULL, 1, &b);
+
+    vkEndCommandBuffer(cmd);
+    VkSubmitInfo si = {0};
+    si.sType              = VK_STRUCTURE_TYPE_SUBMIT_INFO;
+    si.commandBufferCount = 1;
+    si.pCommandBuffers    = &cmd;
+    vkQueueSubmit(displayManager->graphicsQueue, 1, &si, VK_NULL_HANDLE);
+    vkQueueWaitIdle(displayManager->graphicsQueue);
+    vkFreeCommandBuffers(device, displayManager->commandPool, 1, &cmd);
+    vkDestroyBuffer(device, stagingBuffer, NULL);
+    vkFreeMemory(device, stagingMemory, NULL);
+
+    // Image view for the dummy
+    VkImageViewCreateInfo vci = {0};
+    vci.sType    = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO;
+    vci.image    = resourceManager->dummyImage;
+    vci.viewType = VK_IMAGE_VIEW_TYPE_2D;
+    vci.format   = VK_FORMAT_R8G8B8A8_UNORM;
+    vci.subresourceRange.aspectMask     = VK_IMAGE_ASPECT_COLOR_BIT;
+    vci.subresourceRange.baseMipLevel   = 0;
+    vci.subresourceRange.levelCount     = 1;
+    vci.subresourceRange.baseArrayLayer = 0;
+    vci.subresourceRange.layerCount     = 1;
+    if (vkCreateImageView(device, &vci, NULL, &resourceManager->dummyView) != VK_SUCCESS) {
+        vkDestroyImage(device, resourceManager->dummyImage, NULL);
+        vkFreeMemory(device, resourceManager->dummyMemory, NULL);
+        vkDestroySampler(device, resourceManager->sampler, NULL);
+        vkDestroyDescriptorPool(device, resourceManager->pool, NULL);
+        vkDestroyDescriptorSetLayout(device, resourceManager->setLayout, NULL);
+        resourceManager->dummyImage = VK_NULL_HANDLE;
+        resourceManager->dummyMemory = VK_NULL_HANDLE;
+        resourceManager->sampler = VK_NULL_HANDLE;
+        resourceManager->pool = VK_NULL_HANDLE;
+        resourceManager->setLayout = VK_NULL_HANDLE;
+        ErrorSystem_AddError(&GUI.errorSystem, "<Vulkan Error> image dummy view failed");
+        return 0;
+    }
+
+    return 1;
+}
+
 /* Initialises an image resource manager and its underlying datastructures */
-void ImageResourceManager_Init(ImageResourceManager* resourceManager)
+void ImageResourceManager_Init(ImageResourceManager* resourceManager, DisplayManager* displayManager)
 {
     resourceManager->buildersCreated = 0;
+    Array_Init(&resourceManager->groupDescriptorSets, sizeof(VkDescriptorSet), 8);
     Array_Init(&resourceManager->imageViews, sizeof(ImageView), 128);
     Array_Init(&resourceManager->imageResources, sizeof(ImageResource), 64);
     LinearStringmap_Init(&resourceManager->filepathToHandleMap, sizeof(int), 20, 512);
+    ImageResourceManager_CreateVulkanDevices(resourceManager, displayManager, 8);
 }
 
 /* Frees datastructures and image memory belonging to an image resource manager */
-void ImageResourceManager_Free(ImageResourceManager* resourceManager)
+void ImageResourceManager_Free(ImageResourceManager* resourceManager, DisplayManager* displayManager)
 {
+    VkDevice device = displayManager->device;
+
+    // Destroy descriptor pool
+    if (resourceManager->pool != VK_NULL_HANDLE) {
+        vkDestroyDescriptorPool(device, resourceManager->pool, NULL);
+        resourceManager->pool = VK_NULL_HANDLE;
+    }
+
+    // Free group descriptor set array
+    Array_Free(&resourceManager->groupDescriptorSets);
+
+    // Destroy set layout
+    if (resourceManager->setLayout != VK_NULL_HANDLE) {
+        vkDestroyDescriptorSetLayout(device, resourceManager->setLayout, NULL);
+        resourceManager->setLayout = VK_NULL_HANDLE;
+    }
+
+    // The sampler is no longer referenced once the descriptor sets are gone.
+    if (resourceManager->sampler != VK_NULL_HANDLE) {
+        vkDestroySampler(device, resourceManager->sampler, NULL);
+        resourceManager->sampler = VK_NULL_HANDLE;
+    }
+
+    // The 1x1 white dummy image: view, then image, then memory (in that
+    // order — memory must outlive the image bound to it).
+    if (resourceManager->dummyView != VK_NULL_HANDLE) {
+        vkDestroyImageView(device, resourceManager->dummyView, NULL);
+        resourceManager->dummyView = VK_NULL_HANDLE;
+    }
+    if (resourceManager->dummyImage != VK_NULL_HANDLE) {
+        vkDestroyImage(device, resourceManager->dummyImage, NULL);
+        resourceManager->dummyImage = VK_NULL_HANDLE;
+    }
+    if (resourceManager->dummyMemory != VK_NULL_HANDLE) {
+        vkFreeMemory(device, resourceManager->dummyMemory, NULL);
+        resourceManager->dummyMemory = VK_NULL_HANDLE;
+    }
+
     // Free Image Resources
     for (size_t i=0; i<Array_Length(&resourceManager->imageResources); i++) {
         ImageResource* image = Array_Get(&resourceManager->imageResources, i);
@@ -286,6 +526,57 @@ void ImageResourceManager_CreateImageResourcesFromPartialAtlasBuilds(ImageResour
 
         // Clear builder
         AtlasBuilder_Clear(builder);
+    }
+}
+
+void ImageResourceManager_BuildGroupDescriptorSets(ImageResourceManager* resourceManager, DisplayManager* displayManager)
+{
+    u32 total = (u32)Array_Length(&resourceManager->imageResources);
+    if (total == 0) return;
+
+    VkDevice device = displayManager->device;
+
+    for (u32 i=0; i<total; i+= 8) {
+
+        // Create a descriptor set for this group
+        VkDescriptorSetAllocateInfo allocInfo = {0};
+        allocInfo.sType              = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO;
+        allocInfo.descriptorPool     = resourceManager->pool;
+        allocInfo.descriptorSetCount = 1;
+        allocInfo.pSetLayouts        = &resourceManager->setLayout;
+        VkDescriptorSet descriptorSet = VK_NULL_HANDLE;
+        if (vkAllocateDescriptorSets(device, &allocInfo, &descriptorSet) != VK_SUCCESS) {
+            return;
+        }
+
+        // Fill 8 slots. Slots past the real image count use the dummy view,
+        // so every element of sampler2D uTextures[8] is valid at draw time.
+        VkDescriptorImageInfo info[8];
+        for (u32 slot=0; slot<8; slot++) {
+            info[slot].imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+            info[slot].sampler = resourceManager->sampler;
+            u32 imageIndex = i + slot;
+            if (imageIndex < total) {
+                ImageResource* resource = Array_Get(&resourceManager->imageResources, imageIndex);
+                info[slot].imageView = resource->view;
+            } else {
+                info[slot].imageView = resourceManager->dummyView;
+            }
+        }
+
+        // Write descriptor sets
+        VkWriteDescriptorSet write = {0};
+        write.sType           = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+        write.dstSet          = descriptorSet;
+        write.dstBinding      = 0;
+        write.dstArrayElement = 0;
+        write.descriptorType  = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
+        write.descriptorCount = 8;
+        write.pImageInfo      = info;
+        vkUpdateDescriptorSets(device, 1, &write, 0, NULL);
+
+        // Add group descripto set
+        Array_Push(&resourceManager->groupDescriptorSets, &descriptorSet);
     }
 }
 
@@ -365,7 +656,7 @@ int ImageResourceManager_LoadImage(ImageResourceManager* resourceManager, Displa
 
                 // Create the image resource that the most full builder was working on
                 ImageResource* imageResource = Array_Get(&resourceManager->imageResources, mostFullBuilder->imageResourceIndex);
-                ImageResource_Create(displayManager, w, h, mostFullBuilder->buffer, imageResource);
+                ImageResource_Create(displayManager, mostFullBuilder->w, mostFullBuilder->h, mostFullBuilder->buffer, imageResource);
 
                 // Set and clear
                 builder = mostFullBuilder;
@@ -378,14 +669,18 @@ int ImageResourceManager_LoadImage(ImageResourceManager* resourceManager, Displa
             }
         }
 
-        // Blit image onto builder atlas and create image view
+        // Blit image onto builder atlas and compute UVs
         u16 x, y;
         AtlasBuilder_AddImage(builder, buffer, w, h, &x, &y);
         ImageView* imageView = Array_PushEmpty(&resourceManager->imageViews);
-        imageView->x = x;
-        imageView->y = y;
+        float atlasW = (float)builder->w;
+        float atlasH = (float)builder->h;
+        imageView->u0 = (float)x / atlasW;
+        imageView->v0 = (float)y / atlasH;
+        imageView->u1 = (float)(x + w) / atlasW;
+        imageView->v1 = (float)(y + h) / atlasH;
         imageView->w = w;
-        imageView->h = y;
+        imageView->h = h;
         imageView->imageResourceIndex = builder->imageResourceIndex;
 
         // Get image handle
@@ -401,8 +696,10 @@ int ImageResourceManager_LoadImage(ImageResourceManager* resourceManager, Displa
 
         // Create an image view
         ImageView* imageView = Array_PushEmpty(&resourceManager->imageViews);
-        imageView->x = 0;
-        imageView->y = 0;
+        imageView->u0 = 0.0f;
+        imageView->v0 = 0.0f;
+        imageView->u1 = 1.0f;
+        imageView->v1 = 1.0f;
         imageView->w = w;
         imageView->h = h;
         imageView->imageResourceIndex = resourceIndex;

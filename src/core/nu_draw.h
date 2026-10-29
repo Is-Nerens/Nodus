@@ -26,7 +26,7 @@ inline int NodeOutsideBounds(Node* node, float left, float right, float top, flo
            (node->public.generic.x > right);
 }
 
-void NU_AddNodeTextToRenderDataArray(Node* node, float z, Array* textRenderData)
+void NU_AddNodeTextToRenderDataArray(Node* node, NU_ClipBounds* clip, float z, Array* textRenderData)
 {
     // Compute node inner dimensions
     float inner_width  = node->public.generic.width  - node->public.generic.borderLeft - node->public.generic.borderRight - node->public.generic.padLeft - node->public.generic.padRight;
@@ -45,6 +45,7 @@ void NU_AddNodeTextToRenderDataArray(Node* node, float z, Array* textRenderData)
     NU_Generate_Text_Renderdata(
         textRenderData,
         node_font,
+        clip,
         node->public.generic.textContent,
         textPosX,
         textPosY,
@@ -92,6 +93,7 @@ void NU_DrawInputNodeContent(Node* node, float z, float winWidth, float winHeigh
     NU_Generate_Text_Renderdata(
         &textRenderData,
         node_font,
+        NULL,
         inputText->buffer,
         textPosX,
         textPosY,
@@ -221,6 +223,155 @@ void Add_NodeRectRenderData(
     renderData->scissorBottom = scissorBottom;
     renderData->scissorLeft = scissorLeft;
     renderData->scissorRight = scissorRight;
+}
+
+void Add_ScrollbarRenderData(
+    Node* node, float z,
+    Stylesheet_Scrollbar_Style* scrollbarStyle,
+    Array* borderRects
+)
+{
+    NuNodeGenericAccess* n = &node->public.generic;
+
+    // --------------------------------------
+    // --- Compute constrained dimensions ---
+    // --------------------------------------
+    float thumbWidth = (float)scrollbarStyle->width - (float)scrollbarStyle->trackPadLeft - (float)scrollbarStyle->trackPadRight;
+
+    // Constrain thumb width by thumb border
+    if (thumbWidth < scrollbarStyle->thumbBorderLeft + scrollbarStyle->thumbBorderRight) {
+        thumbWidth = scrollbarStyle->thumbBorderLeft + scrollbarStyle->thumbBorderRight;
+    }
+
+    // Ensure absolute minimum thumb width of 2px
+    if (thumbWidth < 2) thumbWidth = 2;
+
+    // Compute thumb-constrained track width
+    float trackWidth = thumbWidth + (float)scrollbarStyle->trackPadLeft + (float)scrollbarStyle->trackPadRight;
+
+    // Compute track height
+    float trackHeight = n->height - n->borderTop - n->borderBottom;
+    float usableTrackHeight = trackHeight - scrollbarStyle->trackPadTop - scrollbarStyle->trackPadBottom;
+
+    // Compute track pos
+    float trackX = n->x + n->width - n->borderRight - trackWidth;
+    float trackY = n->y + n->borderTop;
+
+    // Compute scroll transform values
+    float scrollContentHeight = n->contentHeight;
+    float scrollViewHeight = usableTrackHeight - n->padTop - n->padBottom;
+    float scrollScaleFactor = scrollViewHeight / scrollContentHeight;
+
+    // Compute thumb pos and constrained height
+    float thumbHeight = fmaxf(scrollViewHeight / n->contentHeight * usableTrackHeight, scrollbarStyle->thumbMinSize);
+    float scrollTravel = usableTrackHeight - thumbHeight;
+    float thumbY = trackY + scrollbarStyle->trackPadTop + n->scrollV * scrollTravel;
+    float thumbX = trackX + scrollbarStyle->trackPadLeft;
+
+    // Constrain thumb border radii based on thumb width and height
+    float thumbBorderTop = scrollbarStyle->thumbBorderTop;
+    float thumbBorderBottom = scrollbarStyle->thumbBorderBottom;
+    float thumbBorderLeft = scrollbarStyle->thumbBorderLeft;
+    float thumbBorderRight = scrollbarStyle->thumbBorderRight;
+    float thumbRadiusTl = scrollbarStyle->thumbBorderRadiusTl;
+    float thumbRadiusTr = scrollbarStyle->thumbBorderRadiusTr;
+    float thumbRadiusBl = scrollbarStyle->thumbBorderRadiusBl;
+    float thumbRadiusBr = scrollbarStyle->thumbBorderRadiusBr;
+    float thumbLeftRadiiSum   = thumbRadiusTl + thumbRadiusBl;
+    float thumbRightRadiiSum  = thumbRadiusTr + thumbRadiusBr;
+    float thumbTopRadiiSum    = thumbRadiusTl + thumbRadiusTr;
+    float thumbBottomRadiiSum = thumbRadiusBl + thumbRadiusBr;
+    if (thumbLeftRadiiSum   > thumbHeight) { float scale = thumbHeight / thumbLeftRadiiSum;   thumbRadiusTl *= scale; thumbRadiusBl *= scale; }
+    if (thumbRightRadiiSum  > thumbHeight) { float scale = thumbHeight / thumbRightRadiiSum;  thumbRadiusTr *= scale; thumbRadiusBr *= scale; }
+    if (thumbTopRadiiSum    > thumbWidth ) { float scale = thumbWidth  / thumbTopRadiiSum;    thumbRadiusTl *= scale; thumbRadiusTr *= scale; }
+    if (thumbBottomRadiiSum > thumbWidth ) { float scale = thumbWidth  / thumbBottomRadiiSum; thumbRadiusBl *= scale; thumbRadiusBr *= scale; }
+
+    // Constrain track border radii based on track width and height
+    float trackBorderTop    = scrollbarStyle->trackBorderTop;
+    float trackBorderBottom = scrollbarStyle->trackBorderBottom;
+    float trackBorderLeft   = scrollbarStyle->trackBorderLeft;
+    float trackBorderRight  = scrollbarStyle->trackBorderRight;
+    float trackRadiusTl = scrollbarStyle->trackBorderRadiusTl;
+    float trackRadiusTr = scrollbarStyle->trackBorderRadiusTr;
+    float trackRadiusBl = scrollbarStyle->trackBorderRadiusBl;
+    float trackRadiusBr = scrollbarStyle->trackBorderRadiusBr;
+    float trackLeftRadiiSum   = trackRadiusTl + trackRadiusBl;
+    float trackRightRadiiSum  = trackRadiusTr + trackRadiusBr;
+    float trackTopRadiiSum    = trackRadiusTl + trackRadiusTr;
+    float trackBottomRadiiSum = trackRadiusBl + trackRadiusBr;
+    if (trackLeftRadiiSum   > trackHeight) { float scale = trackHeight / trackLeftRadiiSum;   trackRadiusTl *= scale; trackRadiusBl *= scale; }
+    if (trackRightRadiiSum  > trackHeight) { float scale = trackHeight / trackRightRadiiSum;  trackRadiusTr *= scale; trackRadiusBr *= scale; }
+    if (trackTopRadiiSum    > trackWidth ) { float scale = trackWidth  / trackTopRadiiSum;    trackRadiusTl *= scale; trackRadiusTr *= scale; }
+    if (trackBottomRadiiSum > trackWidth ) { float scale = trackWidth  / trackBottomRadiiSum; trackRadiusBl *= scale; trackRadiusBr *= scale; }
+
+
+    // --------------------------
+    // --- Construct geometry ---
+    // --------------------------
+
+    // Track
+    BorderRectRenderData* trackRData = Array_PushEmpty(borderRects);
+    trackRData->x = floorf(trackX);
+    trackRData->y = floorf(trackY);
+    trackRData->z = z;
+    trackRData->w = floorf(trackX + trackWidth) - trackRData->x;
+    trackRData->h = floorf(trackY + trackHeight) - trackRData->y;
+    trackRData->radiusTl = trackRadiusTl;
+    trackRData->radiusTr = trackRadiusTr;
+    trackRData->radiusBl = trackRadiusBl;
+    trackRData->radiusBr = trackRadiusBr;
+    trackRData->backgroundRGBA = PackRGBA(
+        scrollbarStyle->trackBackgroundR,
+        scrollbarStyle->trackBackgroundG,
+        scrollbarStyle->trackBackgroundB,
+        255
+    );
+    trackRData->borderRGBA = PackRGBA(
+        scrollbarStyle->trackBorderR,
+        scrollbarStyle->trackBorderG,
+        scrollbarStyle->trackBorderB,
+        255
+    );
+    trackRData->borderTop = scrollbarStyle->trackBorderTop;
+    trackRData->borderBottom = scrollbarStyle->trackBorderBottom;
+    trackRData->borderLeft = scrollbarStyle->trackBorderLeft;
+    trackRData->borderRight = scrollbarStyle->trackBorderRight;
+    trackRData->scissorTop = 0.0f;
+    trackRData->scissorBottom = 10000000.0f;
+    trackRData->scissorLeft = 0.0f;
+    trackRData->scissorRight = 10000000.0f;
+
+    // Thumb
+    BorderRectRenderData* thumbRData = Array_PushEmpty(borderRects);
+    thumbRData->x = floorf(thumbX);
+    thumbRData->y = floorf(thumbY);
+    thumbRData->z = z;
+    thumbRData->w = floorf(thumbX + thumbWidth) - thumbRData->x;
+    thumbRData->h = floorf(thumbY + thumbHeight) - thumbRData->y;
+    thumbRData->radiusTl = thumbRadiusTl;
+    thumbRData->radiusTr = thumbRadiusTr;
+    thumbRData->radiusBl = thumbRadiusBl;
+    thumbRData->radiusBr = thumbRadiusBr;
+    thumbRData->backgroundRGBA = PackRGBA(
+        scrollbarStyle->thumbBackgroundR,
+        scrollbarStyle->thumbBackgroundG,
+        scrollbarStyle->thumbBackgroundB,
+        255
+    );
+    thumbRData->borderRGBA = PackRGBA(
+        scrollbarStyle->thumbBorderR,
+        scrollbarStyle->thumbBorderG,
+        scrollbarStyle->thumbBorderB,
+        255
+    );
+    thumbRData->borderTop = scrollbarStyle->thumbBorderTop;
+    thumbRData->borderBottom = scrollbarStyle->thumbBorderBottom;
+    thumbRData->borderLeft = scrollbarStyle->thumbBorderLeft;
+    thumbRData->borderRight = scrollbarStyle->thumbBorderRight;
+    thumbRData->scissorTop = 0.0f;
+    thumbRData->scissorBottom = 10000000.0f;
+    thumbRData->scissorLeft = 0.0f;
+    thumbRData->scissorRight = 10000000.0f;
 }
 
 void NU_GenerateDrawlists()
@@ -357,7 +508,10 @@ void NU_GenerateDrawlists()
 
 void NU_Draw()
 {
+    printf("generate draw lists: ");
+    timer_start();
     NU_GenerateDrawlists();
+    timer_stop();
 
     // Clear GPU arena allocator
     ArenaAllocatorGPU_Clear(&GUI.displayManager.gpuArenaAlloc);
@@ -365,16 +519,22 @@ void NU_Draw()
     // Re-upload font atlases as needed
     for (u32 t=0; t<GUI.stylesheet.fonts.size; t++) {
         Font* font = Stylesheet_Get_Font(&GUI.stylesheet, t);
-        FontAtlas_UpdateGPU(
-            &font->atlas,
+        Font_UpdateGPU(
+            font,
             GUI.displayManager.device,
             GUI.displayManager.physicalDevice,
             GUI.displayManager.commandPool,
-            GUI.displayManager.graphicsQueue
+            GUI.displayManager.graphicsQueue,
+            GUI.displayManager.fontPool,
+            GUI.displayManager.fontSetLayout
         );
     }
 
     Node* focusedInputNode = NULL;
+
+
+    printf("prepare the draw calls: ");
+    timer_start();
 
     // For each window
     for (u32 i=0; i<GUI.displayManager.windows.size; i++)
@@ -432,12 +592,12 @@ void NU_Draw()
             Add_NodeRectRenderData(node, z, 0.0f, winH, 0.0f, winW, &GUI.borderRectsRenderData);
             if ((node->layoutFlags & OVERFLOW_VERTICAL_SCROLL)
                 && node->public.generic.contentHeight > NODE_INNER_HEIGHT(node)) {
-                //Add_ScrollbarRenderData(node, z + 0.5f, &GUI.stylesheet.scrollbarStyle, &GUI.borderRectsRenderData);
+                Add_ScrollbarRenderData(node, z + 0.5f, &GUI.stylesheet.scrollbarStyle, &GUI.borderRectsRenderData);
             }
             // Construct text mesh for node's textContent
             if (node->public.generic.textContent != NULL) {
                 Array* textRenderData = Array_Get(&GUI.perFontTextRenderData, node->fontIdx);
-                NU_AddNodeTextToRenderDataArray(node, z, textRenderData);
+                NU_AddNodeTextToRenderDataArray(node, NULL, z, textRenderData);
             }
             // Draw text input content (1 draw call)
             else if (node->type == NU_TYPE_INPUT) {
@@ -465,17 +625,25 @@ void NU_Draw()
                 renderData->z = z + 0.75f;
                 renderData->w = node->public.generic.width - NODE_BORDER_PAD_WIDTH(node);
                 renderData->h = node->public.generic.height - NODE_BORDER_PAD_HEIGHT(node);
-                renderData->scissorTop = 0.0f;
-                renderData->scissorBottom = 1000000.0f;
-                renderData->scissorLeft = 0.0f;
-                renderData->scissorRight = 1000000.0f;
-                renderData->groupImageIndex = groupImageIndex;
+                renderData->u0 = imageView->u0;
+                renderData->v0 = imageView->v0;
+                renderData->u1 = imageView->u1;
+                renderData->v1 = imageView->v1;
+                renderData->clipTop = 0;
+                renderData->clipBottom = 60000;
+                renderData->clipLeft = 0;
+                renderData->clipRight = 60000;
+                renderData->clipRadiusTopLeft = 0;
+                renderData->clipRadiusTopRight = 0;
+                renderData->clipRadiusBottomLeft = 0;
+                renderData->clipRadiusBottomRight = 0;
+                renderData->textureIndex = groupImageIndex;
                 renderData->filter = node->special.image.filter;
                 renderData->repeat = node->special.image.repeat;
             }
         }
 
-        // // 2. Draw all unclipped border rects (1 draw call)
+        // 2. Draw all unclipped border rects (1 draw call)
         NU_DrawBorderRects(
             win,
             &GUI.displayManager,
@@ -490,61 +658,73 @@ void NU_Draw()
             NU_DrawText(win, &GUI.displayManager, font, textRenderData, 0, 0);
         }
 
-    //     // 4. Draw clipped node border rects + images + text + text input
-    //     for (u32 n=0; n<drawList->clippedDrawNodes.size; n++) {
-    //         Node* node = *(Node**)Array_Get(&drawList->clippedDrawNodes, n);
-    //         float z = (float)(node->layer) + 32.0f * NodeStatePosAbsolute(node);
+        // 4. Draw clipped node border rects + images + text + text input
+        for (u32 n=0; n<drawList->clippedDrawNodes.size; n++) {
+            Node* node = *(Node**)Array_Get(&drawList->clippedDrawNodes, n);
+            float z = (float)(node->layer) + 32.0f * NodeStatePosAbsolute(node);
 
-    //         // Draw border rect (1 draw call)
-    //         NU_ClipBounds* clip = (NU_ClipBounds*)Hashmap_Get(&GUI.displayManager.clipMap, &node->clippedAncestor);
-    //         //Add_NodeRectRenderData(node, z, clip->top, clip->bottom, clip->left, clip->right, &GUI.borderRectsRenderData);
-    //         //Draw_SDF_Border_Rects(GUI.borderRectsRenderData, winW, winH);
-    //         Array_Clear(&GUI.borderRectsRenderData);
+            // Draw border rect (1 draw call)
+            NU_ClipBounds* clip = (NU_ClipBounds*)Hashmap_Get(&GUI.displayManager.clipMap, &node->clippedAncestor);
+            Add_NodeRectRenderData(node, z, clip->top, clip->bottom, clip->left, clip->right, &GUI.borderRectsRenderData);
+            NU_DrawBorderRects(
+                win,
+                &GUI.displayManager,
+                &GUI.borderRectsRenderData,
+                winW, winH);
+            Array_Clear(&GUI.borderRectsRenderData);
 
-    //         // Draw text content (1 draw call)
-    //         if (node->public.generic.textContent != NULL) {
-    //             Font* font = Stylesheet_Get_Font(&GUI.stylesheet, node->fontIdx);
-    //             Array* textRenderData = Array_Get(&GUI.perFontTextRenderData, node->fontIdx);
-    //             Array_Clear(textRenderData);
-    //             //NU_AddNodeTextToRenderDataArray(node, z + 0.5f, textRenderData);
-    //             //NU_Draw_Clipped_Text(*textRenderData, font, winW, winH, 0, 0, clip->top, clip->bottom, clip->left, clip->right);
-    //         }
-    //         // Draw text input (1 draw call)
-    //         else if (node->type == NU_TYPE_INPUT) {
-    //             InputText* inputText = Container_Get(&GUI.textInputs, node->special.input.textInputHandle);
-    //             if (inputText->numBytes > 0) {
-    //                 NU_ClipBounds innerClip = *clip;
-    //                 innerClip.left += node->public.generic.borderLeft + node->public.generic.padLeft;
-    //                 innerClip.right -= node->public.generic.borderRight + node->public.generic.padRight;
-    //                 //NU_DrawInputNodeContent(node, z, winW, winH, &innerClip);
-    //             }
-    //         }
-    //         // Add image render data
-    //         if (node->special.image.imageHandle != 0 && node->type == NU_TYPE_IMAGE)
-    //         {
-    //             // Get image render group
-    //             int imageHandle = node->special.image.imageHandle;
-    //             ImageView* imageView = ImageResourceManager_GetImageView(&GUI.imageResourceManager, imageHandle);
-    //             int groupIndex = imageView->imageResourceIndex / 8;
-    //             u8 groupImageIndex = imageView->imageResourceIndex % 8;
-    //             ImageRenderGroup* imageRenderGroup = Array_Get(&GUI.imageRenderGroups, groupIndex);
+            // Draw text content (1 draw call)
+            if (node->public.generic.textContent != NULL) {
+                Font* font = Stylesheet_Get_Font(&GUI.stylesheet, node->fontIdx);
+                Array* textRenderData = Array_Get(&GUI.perFontClippedTextRenderData, node->fontIdx);
+                Array_Clear(textRenderData);
+                NU_AddNodeTextToRenderDataArray(node, clip, z + 0.5f, textRenderData);
+                NU_DrawText(win, &GUI.displayManager, font, textRenderData, 0, 0);
+            }
+            // Draw text input (1 draw call)
+            else if (node->type == NU_TYPE_INPUT) {
+                InputText* inputText = Container_Get(&GUI.textInputs, node->special.input.textInputHandle);
+                if (inputText->numBytes > 0) {
+                    NU_ClipBounds innerClip = *clip;
+                    innerClip.left += node->public.generic.borderLeft + node->public.generic.padLeft;
+                    innerClip.right -= node->public.generic.borderRight + node->public.generic.padRight;
+                    //NU_DrawInputNodeContent(node, z, winW, winH, &innerClip);
+                }
+            }
+            // Add image render data
+            if (node->special.image.imageHandle != 0 && node->type == NU_TYPE_IMAGE)
+            {
+                // Get image render group
+                int imageHandle = node->special.image.imageHandle;
+                ImageView* imageView = ImageResourceManager_GetImageView(&GUI.imageResourceManager, imageHandle);
+                int groupIndex = imageView->imageResourceIndex / 8;
+                u8 groupImageIndex = imageView->imageResourceIndex % 8;
+                ImageRenderGroup* imageRenderGroup = Array_Get(&GUI.imageRenderGroups, groupIndex);
 
-    //             // Create image render data in group
-    //             ImageRenderData* renderData = Array_PushEmpty(&imageRenderGroup->imagesRenderData);
-    //             renderData->x = node->public.generic.x + node->public.generic.borderLeft + node->public.generic.padLeft;
-    //             renderData->y = node->public.generic.y + node->public.generic.borderTop + node->public.generic.padTop;
-    //             renderData->z = z + 0.75f;
-    //             renderData->w = node->public.generic.width - NODE_BORDER_PAD_WIDTH(node);
-    //             renderData->h = node->public.generic.height - NODE_BORDER_PAD_HEIGHT(node);
-    //             renderData->scissorTop = clip->top;
-    //             renderData->scissorBottom = clip->bottom;
-    //             renderData->scissorLeft = clip->left;
-    //             renderData->scissorRight = clip->right;
-    //             renderData->groupImageIndex = groupImageIndex;
-    //             renderData->filter = node->special.image.filter;
-    //             renderData->repeat = node->special.image.repeat;
-    //         }
-    //     }
+                // Create image render data in group
+                ImageRenderData* renderData = Array_PushEmpty(&imageRenderGroup->imagesRenderData);
+                renderData->x = node->public.generic.x + node->public.generic.borderLeft + node->public.generic.padLeft;
+                renderData->y = node->public.generic.y + node->public.generic.borderTop + node->public.generic.padTop;
+                renderData->z = z + 0.75f;
+                renderData->w = node->public.generic.width - NODE_BORDER_PAD_WIDTH(node);
+                renderData->h = node->public.generic.height - NODE_BORDER_PAD_HEIGHT(node);
+                renderData->u0 = imageView->u0;
+                renderData->v0 = imageView->v0;
+                renderData->u1 = imageView->u1;
+                renderData->v1 = imageView->v1;
+                renderData->clipTop = 0;
+                renderData->clipBottom = 60000;
+                renderData->clipLeft = 0;
+                renderData->clipRight = 60000;
+                renderData->clipRadiusTopLeft = 0;
+                renderData->clipRadiusTopRight = 0;
+                renderData->clipRadiusBottomLeft = 0;
+                renderData->clipRadiusBottomRight = 0;
+                renderData->textureIndex = groupImageIndex;
+                renderData->filter = node->special.image.filter;
+                renderData->repeat = node->special.image.repeat;
+            }
+        }
 
     //     // 5. Draw all canvas content
     //     for (u32 n=0; n<drawList->canvasNodes.size; n++) {
@@ -553,16 +733,18 @@ void NU_Draw()
     //         //NU_DrawCanvasContent(node, winW, winH, NULL);
     //     }
 
-    //     // 6. Draw images (1 draw call per image render group)
-    //     for (int i=0; i<Array_Length(&GUI.imageRenderGroups); i++) {
-    //         ImageRenderGroup* imageRenderGroup = Array_Get(&GUI.imageRenderGroups, i);
-    //         // NU_DrawImages(
-    //         //     win,
-    //         //     &GUI.displayManager,
-    //         //     &GUI.imageResourceManager,
-    //         //     imageRenderGroup,
-    //         // );
-    //     }
+        // 6. Draw images (1 draw call per image render group)
+        for (int i=0; i<Array_Length(&GUI.imageRenderGroups); i++) {
+            ImageRenderGroup* imageRenderGroup = Array_Get(&GUI.imageRenderGroups, i);
+            NU_DrawImages(
+                win,
+                &GUI.displayManager,
+                &GUI.imageResourceManager,
+                imageRenderGroup
+            );
+        }
+    //
+        timer_stop();
 
         // Display
         Window_Present(win, &GUI.displayManager);

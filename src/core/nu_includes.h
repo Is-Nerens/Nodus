@@ -78,7 +78,7 @@ typedef void (*NU_Callback)(void* args);
 #include <tree/nu_nodelist.h>
 #include <display/nu_display_structs.h>
 #include <templates/stylesheet/nu_stylesheet_structs.h>
-#include <graphics/image/nu_image.h>
+#include <graphics/image/nu_image_structs.h>
 #include <core/events/nu_event_defs.h>
 #include <core/nu_timer.h>
 #include <core/nu_widget.h>
@@ -90,6 +90,7 @@ struct NU_GUI GUI;
 // --------------------------------------------------
 // --- Includes That Require Access To Global GUI ---
 // --------------------------------------------------
+#include <graphics/image/nu_image.h>
 #include <graphics/rendering/nu_pipeline_create.h>
 #include <graphics/rendering/nu_renderer.h>
 #include <display/nu_display_manager.h>

@@ -73,13 +73,29 @@ typedef struct GlyphRenderData {
     u32 textureIndex;
 } GlyphRenderData;
 
+typedef struct ClippedGlyphRenderData {
+    float x, y, z;
+    float w, h;
+    float u0, v0;
+    float u1, v1;
+    u16 clipTop, clipBottom;
+    u16 clipLeft, clipRight;
+    u8 clipRadiusTopLeft, clipRadiusTopRight;
+    u8 clipRadiusBottomLeft, clipRadiusBottomRight;
+    u32 colourRGBA;
+    u32 textureIndex;
+} ClippedGlyphRenderData;
+
 typedef struct ImageRenderData {
     float x, y, z;
     float w, h;
     float u0, v0;
     float u1, v1;
-    float scissorTop, scissorBottom, scissorLeft, scissorRight;
-    u8 groupImageIndex, filter, repeat;
+    u16 clipTop, clipBottom;
+    u16 clipLeft, clipRight;
+    u8 clipRadiusTopLeft, clipRadiusTopRight;
+    u8 clipRadiusBottomLeft, clipRadiusBottomRight;
+    u8 textureIndex, filter, repeat;
 } ImageRenderData;
 
 typedef struct {

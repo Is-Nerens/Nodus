@@ -158,26 +158,71 @@ void NU_DrawImages(
     ImageResourceManager* imageResourceManager,
     ImageRenderGroup* imageRenderGroup)
 {
-    // if (Array_Length(imagesRenderData) == 0 || imageResources == HULL || imageResourceCount == 0) return;
+    Array* imagesRenderData = &imageRenderGroup->imagesRenderData;
+    if (Array_Length(imagesRenderData) == 0) return;
 
-    // VkCommandBuffer cmd = window->activeCommandBuffer;
+    // Bounds-check the group index against the descriptor set array
+    if (imageRenderGroup->groupIndex < 0 ||
+        (u32)imageRenderGroup->groupIndex >= Array_Length(&imageResourceManager->groupDescriptorSets)) {
+        ErrorSystem_AddError(&GUI.errorSystem, "<Vulkan Error> image group index out of range");
+        return;
+    }
 
-    // // Bind pipeline
-    // vkCmdBindPipeline(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, displayManager->imagePipeline.pipeline);
+    // Get command buffer
+    VkCommandBuffer cmd = window->commandBuffers[window->currentFrame];
 
-    // // Dynamic viewport / scissor (full window)
-    // VkViewport vp = {
-    //     0.0f, 0.0f,
-    //     (float)window->swapchainExtent.width,
-    //     (float)window->swapchainExtent.height,
-    //     0.0f, 1.0f
-    // };
-    // VkRect2D sc = {{0, 0}, window->swapchainExtent};
-    // vkCmdSetViewport(cmd, 0, 1, &vp);
-    // vkCmdSetScissor(cmd, 0, 1, &sc);
+    // Image pipeline (no subpixel variant)
+    NuPipeline pipeline = displayManager->imagePipeline;
 
-    // Do some stuff to bind the images and some samplers or whatever
-    // Use this at some point to get the image resources: ImageResourceManager_GetImageResource(imageResourceManager, imageHandle)
+    printf("drawing: %d images\n", (int)(Array_Length(imagesRenderData)));
+
+    // Bind pipeline
+    vkCmdBindPipeline(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, pipeline.handle);
+
+    // Dynamic viewport / scissor (full window)
+    VkViewport vp = {
+        0.0f, 0.0f,
+        (float)window->swapchainExtent.width,
+        (float)window->swapchainExtent.height,
+        0.0f, 1.0f
+    };
+    VkRect2D sc = {{0, 0}, window->swapchainExtent};
+    vkCmdSetViewport(cmd, 0, 1, &vp);
+    vkCmdSetScissor(cmd, 0, 1, &sc);
+
+    // Push constants: screen W/H + image offset
+    float push[4] = {
+        (float)window->swapchainExtent.width,
+        (float)window->swapchainExtent.height,
+        0.0f,
+        0.0f
+    };
+    vkCmdPushConstants(cmd, pipeline.layout, VK_SHADER_STAGE_VERTEX_BIT, 0, sizeof(push), push);
+
+    // Bind this group's descriptor set (set 0: uTextures[8])
+    VkDescriptorSet sets[1] = {
+        ((VkDescriptorSet*)imageResourceManager->groupDescriptorSets.data)[imageRenderGroup->groupIndex]
+    };
+    vkCmdBindDescriptorSets(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, pipeline.layout, 0, 1, sets, 0, NULL);
+
+    // Upload instance data
+    VkDeviceSize bytes = imagesRenderData->size * imagesRenderData->elementSize;
+    ArenaAllocGPU alloc = ArenaAllocatorGPU_Alloc(&displayManager->gpuArenaAlloc, bytes, 16);
+    if (alloc.buffer == VK_NULL_HANDLE) {
+        ErrorSystem_AddError(&GUI.errorSystem, "<Vulkan Error> image arena alloc failed");
+        return;
+    }
+
+    // Copy instance data
+    memcpy((char*)alloc.mapped + alloc.offset, imagesRenderData->data, (size_t)bytes);
+
+    // Bind quad buffer + instance buffer
+    VkBuffer bufs[2] = { quadBuffer, alloc.buffer };
+    VkDeviceSize offsets[2] = { 0, alloc.offset };
+    vkCmdBindVertexBuffers(cmd, 0, 2, bufs, offsets);
+
+    // Draw
+    vkCmdDraw(cmd, 6, (u32)Array_Length(imagesRenderData), 0, 0);
 }
 
 void NU_DrawText(
@@ -189,10 +234,16 @@ void NU_DrawText(
     float offsetY)
 {
     if (Array_Length(textRenderData) == 0) return;
+
+    // Get command buffer
     VkCommandBuffer cmd = window->commandBuffers[window->currentFrame];
 
+    // Select pipeline
+    NuPipeline pipeline = displayManager->monoTextPipeline;
+    if (font->subpixelRendering) pipeline = displayManager->subpixelTextPipeline;
+
     // Bind pipeline
-    vkCmdBindPipeline(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, displayManager->monoTextPipeline.handle);
+    vkCmdBindPipeline(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, pipeline.handle);
 
     // Dynamic viewport / scissor (full window)
     VkViewport vp = {
@@ -212,13 +263,11 @@ void NU_DrawText(
         offsetX,
         offsetY
     };
-    vkCmdPushConstants(cmd, displayManager->monoTextPipeline.layout,VK_SHADER_STAGE_VERTEX_BIT, 0, sizeof(push), push);
+    vkCmdPushConstants(cmd, pipeline.layout,VK_SHADER_STAGE_VERTEX_BIT, 0, sizeof(push), push);
 
-    // ---- Bind the font atlas descriptor set (set 0) ----
-    // For now the font atlas is expected to already have a descriptor set
-    // written with its image+sampler in binding 0, slot 0.
+    // Bind the font atlas descriptor set (set 0)
     VkDescriptorSet sets[1] = { font->atlas.fontImageGPU.descriptorSet };
-    vkCmdBindDescriptorSets(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, displayManager->monoTextPipeline.layout, 0, 1, sets, 0, NULL);
+    vkCmdBindDescriptorSets(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, pipeline.layout, 0, 1, sets, 0, NULL);
 
     // Upload instance data
     VkDeviceSize bytes = textRenderData->size * textRenderData->elementSize;
@@ -228,10 +277,11 @@ void NU_DrawText(
         return;
     }
 
+    // Copy instance data
     memcpy((char*)alloc.mapped + alloc.offset, textRenderData->data, (size_t)bytes);
 
-    // Bind quad + instance buffers
-    VkBuffer     bufs[2]    = { quadBuffer, alloc.buffer };
+    // Bind quad buffer
+    VkBuffer bufs[2] = { quadBuffer, alloc.buffer };
     VkDeviceSize offsets[2] = { 0, alloc.offset };
     vkCmdBindVertexBuffers(cmd, 0, 2, bufs, offsets);
 
@@ -242,13 +292,63 @@ void NU_DrawText(
 void NU_DrawClippedText(
     Window* window,
     DisplayManager* displayManager,
-    Array textRenderData,
+    Font* font,
+    Array* textRenderData,
     float offsetX,
-    float offsetY,
-    float clipTop,
-    float clipBottom,
-    float clipLeft,
-    float clipRight)
+    float offsetY)
 {
+    if (Array_Length(textRenderData) == 0) return;
 
+    // Get command buffer
+    VkCommandBuffer cmd = window->commandBuffers[window->currentFrame];
+
+    // Select pipeline
+    NuPipeline pipeline = displayManager->clippedMonoTextPipeline;
+    if (font->subpixelRendering) pipeline = displayManager->clippedSubpixelTextPipeline;
+
+    // Bind pipeline
+    vkCmdBindPipeline(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, pipeline.handle);
+
+    // Dynamic viewport / scissor (full window)
+    VkViewport vp = {
+        0.0f, 0.0f,
+        (float)window->swapchainExtent.width,
+        (float)window->swapchainExtent.height,
+        0.0f, 1.0f
+    };
+    VkRect2D sc = {{0, 0}, window->swapchainExtent};
+    vkCmdSetViewport(cmd, 0, 1, &vp);
+    vkCmdSetScissor(cmd, 0, 1, &sc);
+
+    // Push constants: screen W/H + text offset
+    float push[4] = {
+        (float)window->swapchainExtent.width,
+        (float)window->swapchainExtent.height,
+        offsetX,
+        offsetY
+    };
+    vkCmdPushConstants(cmd, pipeline.layout, VK_SHADER_STAGE_VERTEX_BIT, 0, sizeof(push), push);
+
+    // Bind the font atlas descriptor set (set 0)
+    VkDescriptorSet sets[1] = { font->atlas.fontImageGPU.descriptorSet };
+    vkCmdBindDescriptorSets(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, pipeline.layout, 0, 1, sets, 0, NULL);
+
+    // Upload instance data
+    VkDeviceSize bytes = textRenderData->size * textRenderData->elementSize;
+    ArenaAllocGPU alloc = ArenaAllocatorGPU_Alloc(&displayManager->gpuArenaAlloc, bytes, 16);
+    if (alloc.buffer == VK_NULL_HANDLE) {
+        ErrorSystem_AddError(&GUI.errorSystem, "<Vulkan Error> clipped text arena alloc failed");
+        return;
+    }
+
+    // Copy instance data
+    memcpy((char*)alloc.mapped + alloc.offset, textRenderData->data, (size_t)bytes);
+
+    // Bind quad buffer
+    VkBuffer bufs[2] = { quadBuffer, alloc.buffer };
+    VkDeviceSize offsets[2] = { 0, alloc.offset };
+    vkCmdBindVertexBuffers(cmd, 0, 2, bufs, offsets);
+
+    // Draw
+    vkCmdDraw(cmd, 6, (u32)Array_Length(textRenderData), 0, 0);
 }

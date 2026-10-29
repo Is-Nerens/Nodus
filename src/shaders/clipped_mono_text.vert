@@ -6,11 +6,15 @@ layout(location = 2) in vec2 iSize;
 layout(location = 3) in vec4 iUV;
 layout(location = 4) in uint iColor;
 layout(location = 5) in uint iTextureIndex;   // 0..7
-
+layout(location = 6) in uint iClipTopBottom;
+layout(location = 7) in uint iClipLeftRight;
+layout(location = 8) in uint iClipRadii;
 layout(location = 0) out vec2 vUV;
 layout(location = 1) out vec2 vScreenPos;
 layout(location = 2) out vec4 vColor;
-layout(location = 3) flat out uint vTextureIndex;
+
+layout(location = 4) flat out vec4 vClipRect;   // x=left, y=top, z=right, w=bottom
+layout(location = 5) flat out vec4 vClipRadii;  // x=TL, y=TR, z=BL, w=BR
 
 layout(push_constant) uniform PushConstants {
     float uScreenWidth;
@@ -33,7 +37,7 @@ void main()
 {
     vec2 worldPos = (iPos.xy + vec2(pc.uOffsetX, pc.uOffsetY)) + aQuad * iSize;
     float ndc_x = (worldPos.x / pc.uScreenWidth) * 2.0 - 1.0;
-    float ndc_y = 1.0 - (worldPos.y / pc.uScreenHeight) * 2.0;
+    float ndc_y = (worldPos.y / pc.uScreenHeight) * 2.0 - 1.0;
 
     float z_gl = iPos.z * 0.015625;
     float z_vk = z_gl * 0.5 + 0.5;
@@ -45,5 +49,17 @@ void main()
         mix(iUV.y, iUV.w, aQuad.y)
     );
     vColor        = unpackRGBA(iColor);
-    vTextureIndex = iTextureIndex;
+
+    // Unpack clip data (little-endian)
+    float cTop    = float( iClipTopBottom        & 0xFFFFu);
+    float cBottom = float((iClipTopBottom >> 16) & 0xFFFFu);
+    // clipLeft at 40 (low), clipRight at 42 (high).
+    float cLeft   = float( iClipLeftRight        & 0xFFFFu);
+    float cRight  = float((iClipLeftRight >> 16) & 0xFFFFu);
+    vClipRect = vec4(cLeft, cTop, cRight, cBottom);
+    float rTL = float( iClipRadii        & 0xFFu);
+    float rTR = float((iClipRadii >>  8) & 0xFFu);
+    float rBL = float((iClipRadii >> 16) & 0xFFu);
+    float rBR = float((iClipRadii >> 24) & 0xFFu);
+    vClipRadii = vec4(rTL, rTR, rBL, rBR);
 }

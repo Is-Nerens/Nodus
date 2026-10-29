@@ -134,7 +134,7 @@ void NU_Mouse_Hover()
     if (!GUI.displayManager.hoveredWindowNode) return;
 
     // Get local mouse coords
-    float mouseX, mouseY; GetLocalMouseCoords(&GUI.displayManager, &mouseX, &mouseY);
+    float mouseX, mouseY; DisplayManager_GetLocalMouseCoords(&GUI.displayManager, &mouseX, &mouseY);
 
     // Create a traversal stack
     struct Array stack;

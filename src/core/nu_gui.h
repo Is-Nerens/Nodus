@@ -38,6 +38,7 @@ struct NU_GUI
     // Render data
     Array borderRectsRenderData;
     Array perFontTextRenderData; // Array of <Array of <GlyphRenderData>>
+    Array perFontClippedTextRenderData; // Array of <Array of <ClippedGlyphRenderData>>
     Array imageRenderGroups; // Array of <NuImageRenderGroup>
 
     // Node tracking state

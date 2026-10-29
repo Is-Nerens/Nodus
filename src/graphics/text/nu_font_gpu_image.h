@@ -6,8 +6,6 @@ typedef struct {
     VkImageView view;
     VkSampler sampler;
     VkDescriptorSet descriptorSet;
-    VkDescriptorPool descriptorPool;
-    VkDescriptorSetLayout setLayout;
     VkImageLayout layout;
     u32 width;
     u32 height;
@@ -20,6 +18,8 @@ void FontImageGPU_Create(
     VkPhysicalDevice physicalDevice,
     VkCommandPool commandPool,
     VkQueue graphicsQueue,
+    VkDescriptorPool fontPool,
+    VkDescriptorSetLayout fontSetLayout,
     u32 width, u32 height,
     const unsigned char* buffer,
     bool mono)
@@ -39,9 +39,7 @@ void FontImageGPU_Create(
     VkDeviceMemory localMemory = VK_NULL_HANDLE;
     VkImageView    localView   = VK_NULL_HANDLE;
     VkSampler      localSampler = VK_NULL_HANDLE;
-    VkDescriptorPool localPool = VK_NULL_HANDLE;
-    VkDescriptorSet  localSet  = VK_NULL_HANDLE;
-    VkDescriptorSetLayout localSetLayout = VK_NULL_HANDLE;
+    VkDescriptorSet localSet   = VK_NULL_HANDLE;
 
     // Staging upload resources. Tracked at function scope so a failure
     // anywhere in the upload path (or later in this function) is torn down
@@ -203,71 +201,32 @@ void FontImageGPU_Create(
     if (vkCreateSampler(device, &samplerInfo, NULL, &localSampler) != VK_SUCCESS) goto cleanup;
     image->sampler = localSampler;
 
-    // 9. Create the descriptor set layout inline. This is the "no helper,
-    // no parameter" choice: every FontImageGPU owns its own layout, and
-    // NU_CreateMonoTextPipeline creates its own layout with the SAME
-    // binding description. Per Vulkan spec, layouts with identical
-    // (binding, type, count, stageFlags) are compatible, so a set
-    // allocated from this layout is valid for a pipeline built with the
-    // other one. The two descriptions MUST be kept in sync — see the
-    // matching block in NU_CreateMonoTextPipeline
-    VkDescriptorSetLayoutBinding layoutBinding = {0};
-    layoutBinding.binding         = 0;
-    layoutBinding.descriptorType  = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
-    layoutBinding.descriptorCount = 8;
-    layoutBinding.stageFlags      = VK_SHADER_STAGE_FRAGMENT_BIT;
-    layoutBinding.pImmutableSamplers = NULL;
-
-    VkDescriptorSetLayoutCreateInfo layoutInfo = {0};
-    layoutInfo.sType        = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO;
-    layoutInfo.bindingCount = 1;
-    layoutInfo.pBindings    = &layoutBinding;
-    if (vkCreateDescriptorSetLayout(device, &layoutInfo, NULL, &localSetLayout) != VK_SUCCESS) goto cleanup;
-    image->setLayout = localSetLayout;
-
-    // 10. Create a per-atlas descriptor pool and allocate the font set.
-    VkDescriptorPoolSize poolSize = {0};
-    poolSize.type            = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
-    poolSize.descriptorCount = 8;
-    VkDescriptorPoolCreateInfo poolInfo = {0};
-    poolInfo.sType         = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO;
-    poolInfo.maxSets       = 1;
-    poolInfo.poolSizeCount = 1;
-    poolInfo.pPoolSizes    = &poolSize;
-    if (vkCreateDescriptorPool(device, &poolInfo, NULL, &localPool) != VK_SUCCESS) goto cleanup;
-    image->descriptorPool = localPool;
-
+    // 9. Create the descriptor set from the shared font pool and write the
+    // atlas view/sampler into binding 0.
     VkDescriptorSetAllocateInfo setAllocInfo = {0};
     setAllocInfo.sType              = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO;
-    setAllocInfo.descriptorPool     = localPool;
+    setAllocInfo.descriptorPool     = fontPool;
     setAllocInfo.descriptorSetCount = 1;
-    setAllocInfo.pSetLayouts        = &localSetLayout;
-    if (vkAllocateDescriptorSets(device, &setAllocInfo, &localSet) != VK_SUCCESS || localSet == VK_NULL_HANDLE) goto cleanup;
+    setAllocInfo.pSetLayouts        = &fontSetLayout;
+    if (vkAllocateDescriptorSets(device, &setAllocInfo, &localSet) != VK_SUCCESS) goto cleanup;
     image->descriptorSet = localSet;
 
-    // 11. Write the descriptor set.
-    // The shader declares sampler2D uFontTextures[8]; every element of the
-    // array must be a valid descriptor at draw time per the Vulkan spec.
-    // For now we only have one atlas, so point all 8 slots at it. When
-    // multiple atlases exist, write distinct views per slot and set
-    // GlyphRenderData.textureIndex accordingly
-    VkDescriptorImageInfo imageInfoDesk[8];
-    for (int i = 0; i < 8; i++) {
-        imageInfoDesk[i].imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
-        imageInfoDesk[i].imageView   = localView;
-        imageInfoDesk[i].sampler     = localSampler;
-    }
+    VkDescriptorImageInfo descriptorImageInfo = {0};
+    descriptorImageInfo.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+    descriptorImageInfo.imageView   = localView;
+    descriptorImageInfo.sampler     = localSampler;
+
     VkWriteDescriptorSet descriptorWrite = {0};
-    descriptorWrite.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
-    descriptorWrite.dstSet = localSet;
-    descriptorWrite.dstBinding = 0;
+    descriptorWrite.sType           = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+    descriptorWrite.dstSet          = localSet;
+    descriptorWrite.dstBinding      = 0;
     descriptorWrite.dstArrayElement = 0;
-    descriptorWrite.descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
-    descriptorWrite.descriptorCount = 8;
-    descriptorWrite.pImageInfo = imageInfoDesk;
+    descriptorWrite.descriptorType  = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
+    descriptorWrite.descriptorCount = 1;
+    descriptorWrite.pImageInfo      = &descriptorImageInfo;
     vkUpdateDescriptorSets(device, 1, &descriptorWrite, 0, NULL);
 
-    // 12. Store dimensions and final layout
+    // 10. Store dimensions and final layout
     image->mono = mono;
     image->width  = width;
     image->height = height;
@@ -283,8 +242,6 @@ cleanup:
     if (localCmd != VK_NULL_HANDLE)    vkFreeCommandBuffers(device, commandPool, 1, &localCmd);
     if (localStagingBuffer != VK_NULL_HANDLE) vkDestroyBuffer(device, localStagingBuffer, NULL);
     if (localStagingMemory != VK_NULL_HANDLE) vkFreeMemory(device, localStagingMemory, NULL);
-    if (localPool != VK_NULL_HANDLE)      vkDestroyDescriptorPool(device, localPool, NULL);
-    if (localSetLayout != VK_NULL_HANDLE) vkDestroyDescriptorSetLayout(device, localSetLayout, NULL);
     if (localSampler != VK_NULL_HANDLE)   vkDestroySampler(device, localSampler, NULL);
     if (localView != VK_NULL_HANDLE)      vkDestroyImageView(device, localView, NULL);
     if (localImage != VK_NULL_HANDLE)     vkDestroyImage(device, localImage, NULL);
@@ -294,9 +251,7 @@ cleanup:
     image->memory         = VK_NULL_HANDLE;
     image->view           = VK_NULL_HANDLE;
     image->sampler        = VK_NULL_HANDLE;
-    image->descriptorPool = VK_NULL_HANDLE;
     image->descriptorSet  = VK_NULL_HANDLE;
-    image->setLayout      = VK_NULL_HANDLE;
 }
 
 void FontImageGPU_Patch(
@@ -313,7 +268,6 @@ void FontImageGPU_Patch(
     if (width == 0 || height == 0) return;
     if (x >= image->width || y >= image->height) return;
     if (x + width  > image->width  || y + height > image->height) return;
-    if (image->descriptorSet == VK_NULL_HANDLE) return;
     const VkDeviceSize bytesPerPixel = image->mono ? 1 : 4; // R8_UNORM or VK_FORMAT_R8G8B8A8_UNORM
     const VkDeviceSize patchSize = (VkDeviceSize)width * height * bytesPerPixel;
 
@@ -444,7 +398,7 @@ void FontImageGPU_Resize(
     // 1. Validate the image, dimensions and pixel buffer
     if (!image || !buffer) return;
     if (width == 0 || height == 0) return;
-    if (image->sampler == VK_NULL_HANDLE || image->descriptorSet == VK_NULL_HANDLE) return;
+    if (image->sampler == VK_NULL_HANDLE) return;
 
     // A no-op resize is common (caller rebuilt at the same size) — short-circuit.
     // If you also want to refresh contents at the same size, use FontImageGPU_Patch
@@ -596,23 +550,7 @@ void FontImageGPU_Resize(
     vkDestroyBuffer(device, stagingBuffer, NULL);
     vkFreeMemory(device, stagingBufferMemory, NULL);
 
-    // 7. Update the descriptor to reference the replacement image view.
-    // Sampler is unchanged; only the view (and thus the image) changes
-    VkDescriptorImageInfo descriptorImageInfo = {0};
-    descriptorImageInfo.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
-    descriptorImageInfo.imageView = newView;
-    descriptorImageInfo.sampler = image->sampler;
-    VkWriteDescriptorSet descriptorWrite = {0};
-    descriptorWrite.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
-    descriptorWrite.dstSet = image->descriptorSet;
-    descriptorWrite.dstBinding = 0;
-    descriptorWrite.dstArrayElement = 0;
-    descriptorWrite.descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
-    descriptorWrite.descriptorCount = 1;
-    descriptorWrite.pImageInfo = &descriptorImageInfo;
-    vkUpdateDescriptorSets(device, 1, &descriptorWrite, 0, NULL);
-
-    // 8. Ensure no pending GPU work still references the old resources.
+    // 7. Ensure no pending GPU work still references the old resources.
     // endSingleTimeCommands already synchronized the upload, but the *old*
     // image may still be referenced by draws recorded in in-flight command
     // buffers from previous frames. vkDeviceWaitIdle is the blunt but safe
@@ -620,21 +558,41 @@ void FontImageGPU_Resize(
     // the atlas) is cheaper if you have one
     vkDeviceWaitIdle(device);
 
-    // 9. Destroy the old image view and image, then free its memory
+    // 8. Destroy the old image view and image, then free its memory
     if (image->view != VK_NULL_HANDLE) vkDestroyImageView(device, image->view, NULL);
     if (image->image != VK_NULL_HANDLE) vkDestroyImage(device, image->image, NULL);
     if (image->memory != VK_NULL_HANDLE) vkFreeMemory(device, image->memory, NULL);
 
-    // 10. Store the new image handles, dimensions and layout
+    // 9. Store the new image handles, dimensions and layout
     image->image  = newImage;
     image->memory = newMemory;
     image->view   = newView;
     image->width  = width;
     image->height = height;
     image->layout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+
+    // 10. Re-point the descriptor set at the replacement view. The set
+    // itself was allocated in FontImageGPU_Create from the shared font
+    // pool, so this is a write, not an allocate.
+    if (image->descriptorSet != VK_NULL_HANDLE) {
+        VkDescriptorImageInfo descriptorImageInfo = {0};
+        descriptorImageInfo.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+        descriptorImageInfo.imageView   = newView;
+        descriptorImageInfo.sampler     = image->sampler;
+
+        VkWriteDescriptorSet descriptorWrite = {0};
+        descriptorWrite.sType           = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+        descriptorWrite.dstSet          = image->descriptorSet;
+        descriptorWrite.dstBinding      = 0;
+        descriptorWrite.dstArrayElement = 0;
+        descriptorWrite.descriptorType  = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
+        descriptorWrite.descriptorCount = 1;
+        descriptorWrite.pImageInfo      = &descriptorImageInfo;
+        vkUpdateDescriptorSets(device, 1, &descriptorWrite, 0, NULL);
+    }
 }
 
-void FontImageGPU_Destroy(FontImageGPU* image, VkDevice device)
+void FontImageGPU_Destroy(FontImageGPU* image, VkDevice device, VkDescriptorPool fontPool)
 {
     // 1. Validate the image pointer
     if (!image) return;
@@ -646,7 +604,6 @@ void FontImageGPU_Destroy(FontImageGPU* image, VkDevice device)
         image->view  == VK_NULL_HANDLE &&
         image->memory == VK_NULL_HANDLE &&
         image->sampler == VK_NULL_HANDLE &&
-        image->descriptorPool == VK_NULL_HANDLE &&
         image->descriptorSet == VK_NULL_HANDLE)
     {
         return;
@@ -660,24 +617,11 @@ void FontImageGPU_Destroy(FontImageGPU* image, VkDevice device)
     // have sampled this image (e.g. the current frame's fence)
     vkDeviceWaitIdle(device);
 
-    // 3. Destroy the descriptor pool. This implicitly frees every set that
-    // was allocated from it, so there is no need to call vkFreeDescriptorSets
-    // (which would only be legal if the pool had been created with
-    // VK_DESCRIPTOR_POOL_CREATE_FREE_DESCRIPTOR_SET_BIT and the set were not
-    // still bound in a pending command buffer — neither of which we rely on).
-    // Do this before tearing down the sampler/view/image so the set stops
-    // referencing them first
-    if (image->descriptorPool != VK_NULL_HANDLE) {
-        vkDestroyDescriptorPool(device, image->descriptorPool, NULL);
-    }
-    image->descriptorSet = VK_NULL_HANDLE;
-
-    // 3b. Destroy the set layout owned by this atlas. It is no longer
-    // referenced now that the pool and set are gone. Other atlases have
-    // their own compatible layouts, and the pipeline layout was built
-    // from a separate compatible layout, so this is safe
-    if (image->setLayout != VK_NULL_HANDLE) {
-        vkDestroyDescriptorSetLayout(device, image->setLayout, NULL);
+    // 3. Free the descriptor set. It lives in the shared font pool, and
+    // references the sampler and view below, so it must go first. The pool
+    // must have been created with VK_DESCRIPTOR_POOL_CREATE_FREE_DESCRIPTOR_SET_BIT
+    if (image->descriptorSet != VK_NULL_HANDLE && fontPool != VK_NULL_HANDLE) {
+        vkFreeDescriptorSets(device, fontPool, 1, &image->descriptorSet);
     }
 
     // 4. Destroy the sampler. It is owned by this struct (created in

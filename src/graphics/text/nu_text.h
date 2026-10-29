@@ -371,7 +371,7 @@ float NU_Calculate_LText_Unwrapped_Width(Font* font, const char* string, size_t 
 
 void NU_Generate_Text_Renderdata(
     Array* glyphRenderData,
-    Font* font, const char* string,
+    Font* font, NU_ClipBounds* clip, const char* string,
     float x, float y, float z,
     u8 r, u8 g, u8 b,
     float maxWidth)
@@ -452,18 +452,42 @@ void NU_Generate_Text_Renderdata(
             }
 
             // Add glyph render data
-            GlyphRenderData* renderData = Array_PushEmpty(glyphRenderData);
-            renderData->x = penX + glyph->bearingX;
-            renderData->y = penY - glyph->bearingY;
-            renderData->z = z;
-            renderData->w = (float)glyph->width;
-            renderData->h = (float)glyph->height;
-            renderData->u0 = glyph->u * font->atlas.invWidth;
-            renderData->v0 = glyph->v * font->atlas.invHeight;
-            renderData->u1 = (glyph->u + glyph->width) * font->atlas.invWidth;
-            renderData->v1 = (glyph->v + glyph->height) * font->atlas.invHeight;
-            renderData->colourRGBA = PackRGBA(r, g, b, 255);
-            renderData->textureIndex = 0;
+            if (clip) {
+                ClippedGlyphRenderData* renderData = Array_PushEmpty(glyphRenderData);
+                renderData->x = penX + glyph->bearingX;
+                renderData->y = penY - glyph->bearingY;
+                renderData->z = z;
+                renderData->w = (float)glyph->width;
+                renderData->h = (float)glyph->height;
+                renderData->u0 = glyph->u * font->atlas.invWidth;
+                renderData->v0 = glyph->v * font->atlas.invHeight;
+                renderData->u1 = (glyph->u + glyph->width) * font->atlas.invWidth;
+                renderData->v1 = (glyph->v + glyph->height) * font->atlas.invHeight;
+                renderData->clipTop = (u16)(clip->top);
+                renderData->clipBottom = (u16)(clip->bottom);
+                renderData->clipLeft = (u16)(clip->left);
+                renderData->clipRight = (u16)(clip->right);
+                renderData->clipRadiusTopLeft = 0;
+                renderData->clipRadiusTopRight = 0;
+                renderData->clipRadiusBottomLeft = 0;
+                renderData->clipRadiusBottomRight = 0;
+                renderData->colourRGBA = PackRGBA(r, g, b, 255);
+                renderData->textureIndex = 0;
+            }
+            else {
+                GlyphRenderData* renderData = Array_PushEmpty(glyphRenderData);
+                renderData->x = penX + glyph->bearingX;
+                renderData->y = penY - glyph->bearingY;
+                renderData->z = z;
+                renderData->w = (float)glyph->width;
+                renderData->h = (float)glyph->height;
+                renderData->u0 = glyph->u * font->atlas.invWidth;
+                renderData->v0 = glyph->v * font->atlas.invHeight;
+                renderData->u1 = (glyph->u + glyph->width) * font->atlas.invWidth;
+                renderData->v1 = (glyph->v + glyph->height) * font->atlas.invHeight;
+                renderData->colourRGBA = PackRGBA(r, g, b, 255);
+                renderData->textureIndex = 0;
+            }
 
             penX += glyph->advance;
         }

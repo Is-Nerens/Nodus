@@ -107,6 +107,7 @@ int DisplayManager_CreateVulkanDevices(DisplayManager* displayManager)
     #endif
 
     VkPhysicalDeviceFeatures features = {0};
+    features.dualSrcBlend = VK_TRUE;
 
     // Device create info
     VkDeviceCreateInfo dci = {0};
@@ -140,6 +141,40 @@ int DisplayManager_CreateVulkanDevices(DisplayManager* displayManager)
         return 0;
     }
 
+    // Font descriptor set layout (binding 0: sampler2D, fragment stage)
+    VkDescriptorSetLayoutBinding fontBinding = {0};
+    fontBinding.binding         = 0;
+    fontBinding.descriptorType  = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
+    fontBinding.descriptorCount = 1;
+    fontBinding.stageFlags      = VK_SHADER_STAGE_FRAGMENT_BIT;
+    fontBinding.pImmutableSamplers = NULL;
+
+    VkDescriptorSetLayoutCreateInfo fontLayoutInfo = {0};
+    fontLayoutInfo.sType        = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO;
+    fontLayoutInfo.bindingCount = 1;
+    fontLayoutInfo.pBindings    = &fontBinding;
+    if (vkCreateDescriptorSetLayout(device, &fontLayoutInfo, NULL, &displayManager->fontSetLayout) != VK_SUCCESS) {
+        ErrorSystem_AddError(&GUI.errorSystem, "<Vulkan Error> font descriptor set layout failed");
+        return 0;
+    }
+
+    // Font descriptor pool (one set per font)
+    const u32 maxFonts = 32;
+    VkDescriptorPoolSize fontPoolSize = {0};
+    fontPoolSize.type            = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
+    fontPoolSize.descriptorCount = maxFonts;
+    VkDescriptorPoolCreateInfo fontPoolInfo = {0};
+    fontPoolInfo.sType         = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO;
+    fontPoolInfo.maxSets       = maxFonts;
+    fontPoolInfo.poolSizeCount = 1;
+    fontPoolInfo.pPoolSizes    = &fontPoolSize;
+    if (vkCreateDescriptorPool(device, &fontPoolInfo, NULL, &displayManager->fontPool) != VK_SUCCESS) {
+        vkDestroyDescriptorSetLayout(device, displayManager->fontSetLayout, NULL);
+        displayManager->fontSetLayout = VK_NULL_HANDLE;
+        ErrorSystem_AddError(&GUI.errorSystem, "<Vulkan Error> font descriptor pool failed");
+        return 0;
+    }
+
     // Store everything inside vkState
     displayManager->instance = instance;
     displayManager->physicalDevice = physicalDevice;
@@ -156,6 +191,14 @@ int DisplayManager_CreateVulkanDevices(DisplayManager* displayManager)
 void DisplayManager_DestroyVulkanDevices(DisplayManager* displayManager)
 {
     if (displayManager->device != VK_NULL_HANDLE) {
+        if (displayManager->fontPool != VK_NULL_HANDLE) {
+            vkDestroyDescriptorPool(displayManager->device, displayManager->fontPool, NULL);
+            displayManager->fontPool = VK_NULL_HANDLE;
+        }
+        if (displayManager->fontSetLayout != VK_NULL_HANDLE) {
+            vkDestroyDescriptorSetLayout(displayManager->device, displayManager->fontSetLayout, NULL);
+            displayManager->fontSetLayout = VK_NULL_HANDLE;
+        }
         vkDeviceWaitIdle(displayManager->device);
         vkDestroyDevice(displayManager->device, NULL);
         displayManager->device = VK_NULL_HANDLE;
@@ -209,7 +252,13 @@ void DisplayManager_Free(DisplayManager* displayManager)
     ArenaAllocatorGPU_Destroy(&displayManager->gpuArenaAlloc);
 
     // 3. Destroy render pipelines
-    NU_DestroyPipeline(&displayManager->vertexRGBPipeline);
+    NU_DestroyPipeline(displayManager, &displayManager->borderRectPipeline);
+    NU_DestroyPipeline(displayManager, &displayManager->imagePipeline);
+    NU_DestroyPipeline(displayManager, &displayManager->monoTextPipeline);
+    NU_DestroyPipeline(displayManager, &displayManager->clippedMonoTextPipeline);
+    NU_DestroyPipeline(displayManager, &displayManager->subpixelTextPipeline);
+    NU_DestroyPipeline(displayManager, &displayManager->clippedSubpixelTextPipeline);
+    NU_DestroyPipeline(displayManager, &displayManager->vertexRGBPipeline);
 
     // 4. Destroy quad buffer
     NU_DestroyQuadBuffer(displayManager->device);
@@ -283,7 +332,11 @@ int DisplayManager_CreateWindow(DisplayManager* displayManager, Node* node, cons
     if (displayManager->borderRectPipeline.handle == VK_NULL_HANDLE) {
         NU_CreateBorderRectPipeline(displayManager, &displayManager->borderRectPipeline, false);
         NU_CreateVertexRGBPipeline(displayManager, &displayManager->vertexRGBPipeline, false);
+        NU_CreateImagePipeline(displayManager, &displayManager->imagePipeline);
         NU_CreateMonoTextPipeline(displayManager, &displayManager->monoTextPipeline);
+        NU_CreateSubpixelTextPipeline(displayManager, &displayManager->subpixelTextPipeline);
+        NU_CreateClippedMonoTextPipeline(displayManager, &displayManager->clippedMonoTextPipeline);
+        NU_CreateClippedSubpixelTextPipeline(displayManager, &displayManager->clippedSubpixelTextPipeline);
     }
 
     // Init drawlist
@@ -291,10 +344,14 @@ int DisplayManager_CreateWindow(DisplayManager* displayManager, Node* node, cons
     Array_Init(&window.drawlist.clippedDrawNodes, sizeof(Node*), 64);
     Array_Init(&window.drawlist.canvasNodes, sizeof(Node*), 16);
 
+    // Set window node
+    window.windowNode = node;
+
     // Add window do display manager
     node->windowID = Container_Add(&displayManager->windows, &window);
     DisplayManager_UpdateWindowRenderScale(displayManager, node->windowID);
     DisplayManager_UpdateWindowScreenDimensions(displayManager, node->windowID);
+
 
     // Success
     return 1;
@@ -341,7 +398,33 @@ inline SDL_Window* DisplayManager_GetNodeSDLWindow(DisplayManager* displayManage
     return win->sdlWin;
 }
 
+void DisplayManager_GetLocalMouseCoords(DisplayManager* displayManager, float* outX, float* outY)
+{
+    if (displayManager->hoveredWindowNode == NULL) {
+        *outX = 0;
+        *outY = 0;
+        return;
+    }
+    Window* win = Container_Get(&displayManager->windows, displayManager->hoveredWindowNode->windowID);
+    float globalPtsX, globalPtsY;
+    int windowPtsX, windowPtsY;
+    SDL_GetGlobalMouseState(&globalPtsX, &globalPtsY);
+    SDL_GetWindowPosition(win->sdlWin, &windowPtsX, &windowPtsY);
+    *outX = (globalPtsX - windowPtsX) * win->renderScale;
+    *outY = (globalPtsY - windowPtsY) * win->renderScale;
+}
 
+void DisplayManager_SetHoveredWindow(DisplayManager* displayManager, SDL_Window* window)
+{
+    for (int i=0; i<displayManager->windows.size; i++) {
+        Window* win = Container_GetAt(&displayManager->windows, i);
+        if (win->sdlWin == window) {
+            displayManager->hoveredWindowNode = win->windowNode;
+            return;
+        }
+    }
+    displayManager->hoveredWindowNode = NULL;
+}
 
 
 
@@ -375,28 +458,6 @@ NuWindowDrawlist* GetDrawlist(DisplayManager* displayManager, int windowID)
     return &win->drawlist;
 }
 
-void GetLocalMouseCoords(DisplayManager* displayManager, float* outX, float* outY)
-{
-    Window* win = Container_Get(&displayManager->windows, displayManager->hoveredWindowNode->windowID);
-    float globalPtsX, globalPtsY;
-    int windowPtsX, windowPtsY;
-    SDL_GetGlobalMouseState(&globalPtsX, &globalPtsY);
-    SDL_GetWindowPosition(win->sdlWin, &windowPtsX, &windowPtsY);
-    *outX = (globalPtsX - windowPtsX) * win->renderScale;
-    *outY = (globalPtsY - windowPtsY) * win->renderScale;
-}
-
-void DisplayManager_SetHoveredWindow(DisplayManager* displayManager, SDL_Window* window)
-{
-    for (int i=0; i<displayManager->windows.size; i++) {
-        Window* win = Container_GetAt(&displayManager->windows, i);
-        if (win->sdlWin == window) {
-            displayManager->hoveredWindowNode = win->windowNode;
-            return;
-        }
-    }
-    displayManager->hoveredWindowNode = NULL;
-}
 
 inline void SetNodeDrawlist_Draw(DisplayManager* displayManager, Node* node)
 {

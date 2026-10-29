@@ -19,13 +19,13 @@ _EXPORT void NU_QUIT(void)
 {
     TreeFree(&GUI.tree);
     ThreadPool_Destroy(&GUI.threadPool);
-    ImageResourceManager_Free(&GUI.imageResourceManager);
+    ImageResourceManager_Free(&GUI.imageResourceManager, &GUI.displayManager);
     ErrorSystem_Free(&GUI.errorSystem);
     Stringmap_Free(&GUI.id_node_map);
     Stringset_Free(&GUI.class_string_set);
     Stringset_Free(&GUI.id_string_set);
     StringArena_Free(&GUI.nodeTextArena);
-    Stylesheet_Free(&GUI.stylesheet, GUI.displayManager.device);
+    Stylesheet_Free(&GUI.stylesheet, GUI.displayManager.device, GUI.displayManager.fontPool);
     DisplayManager_Free(&GUI.displayManager);
     Container_Free(&GUI.canvasContexts);
     Container_Free(&GUI.textInputs);
@@ -37,7 +37,12 @@ _EXPORT void NU_QUIT(void)
         Array* renderData = Array_Get(&GUI.perFontTextRenderData, i);
         Array_Free(renderData);
     }
+    for (int i=0; i<GUI.perFontClippedTextRenderData.size; i++) {
+        Array* renderData = Array_Get(&GUI.perFontClippedTextRenderData, i);
+        Array_Free(renderData);
+    }
     Array_Free(&GUI.perFontTextRenderData);
+    Array_Free(&GUI.perFontClippedTextRenderData);
     DepthFirstSearch_Free(&GUI.dfs);
     BreadthFirstSearch_Free(&GUI.bfs);
     ReverseBreadthFirstSearch_Free(&GUI.rbfs);
@@ -56,10 +61,10 @@ _EXPORT int NU_CREATE_GUI(const char* xml_filepath, const char* css_filepath)
     FT_Init_FreeType(&nu_global_freetype);
 
     // Init Systems
+    ErrorSystem_Init(&GUI.errorSystem);
     ThreadPool_Init(&GUI.threadPool, 1.0f);
     DisplayManager_Init(&GUI.displayManager);
-    ImageResourceManager_Init(&GUI.imageResourceManager);
-    ErrorSystem_Init(&GUI.errorSystem);
+    ImageResourceManager_Init(&GUI.imageResourceManager, &GUI.displayManager);
 
     // Init data structures
     StringArena_Init(&GUI.nodeTextArena, 1024);
@@ -124,15 +129,21 @@ _EXPORT int NU_CREATE_GUI(const char* xml_filepath, const char* css_filepath)
     // Commit partial atlas builds to images
     ImageResourceManager_CreateImageResourcesFromPartialAtlasBuilds(&GUI.imageResourceManager, &GUI.displayManager);
 
+    // Build image group descriptor sets
+    ImageResourceManager_BuildGroupDescriptorSets(&GUI.imageResourceManager, &GUI.displayManager);
+
     // Init render data arrays
     Array_Init(&GUI.borderRectsRenderData, sizeof(BorderRectRenderData), 2000);
     Array_Init(&GUI.imageRenderGroups, sizeof(ImageRenderGroup), 16);
 
     // Create per font (glyph quad) vertex and index buffers
     Array_Init(&GUI.perFontTextRenderData, sizeof(Array), GUI.stylesheet.fonts.size);
+    Array_Init(&GUI.perFontClippedTextRenderData, sizeof(Array), GUI.stylesheet.fonts.size);
     for (int i=0; i<GUI.stylesheet.fonts.size; i++) {
         Array* renderData = Array_Get(&GUI.perFontTextRenderData, i);
         Array_Init(renderData, sizeof(GlyphRenderData), 512);
+        renderData = Array_Get(&GUI.perFontClippedTextRenderData, i);
+        Array_Init(renderData, sizeof(ClippedGlyphRenderData), 512);
     }
 
     // Apply css
@@ -236,9 +247,7 @@ _EXPORT void NU_RUN(void)
             timer_stop();
             NU_Mouse_Hover();
             printf("draw: ");
-            timer_start();
             NU_Draw();
-            timer_stop();
             CheckForResizeEvents();
         }
 

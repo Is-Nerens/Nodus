@@ -127,18 +127,22 @@ void FontAtlas_AddGlyph(FontAtlas* atlas, Glyph* glyph, FT_Bitmap* bmp)
     atlas->penX += glyph->width;
 }
 
-void FontAtlas_UpdateGPU(
-    FontAtlas* atlas,
+int Font_UpdateGPU(
+    Font* font,
     VkDevice device,
     VkPhysicalDevice physicalDevice,
     VkCommandPool commandPool,
-    VkQueue graphicsQueue)
+    VkQueue graphicsQueue,
+    VkDescriptorPool fontPool,
+    VkDescriptorSetLayout fontSetLayout)
 {
-    if (!atlas || !atlas->buffer) return;
+    if (!font) return 0;
+    FontAtlas* atlas = &font->atlas;
+    if (!atlas->buffer) return 0;
 
     // First upload
     if (atlas->updateState == FONT_ATLAS_STATE_MUST_UPLOAD) {
-        FontImageGPU_Create(&atlas->fontImageGPU, device, physicalDevice, commandPool, graphicsQueue, atlas->width, atlas->height, atlas->buffer, !atlas->subpixelRendering);
+        FontImageGPU_Create(&atlas->fontImageGPU, device, physicalDevice, commandPool, graphicsQueue, fontPool, fontSetLayout, atlas->width, atlas->height, atlas->buffer, !atlas->subpixelRendering);
     }
     // Patch update
     else if (atlas->updateState == FONT_ATLAS_STATE_MUST_PATCH) {
@@ -151,6 +155,9 @@ void FontAtlas_UpdateGPU(
 
     // Set update state
     atlas->updateState = FONT_ATLAS_STATE_UPDATED;
+
+    // Success
+    return 1;
 }
 
 int Font_CreateFromFace(Font* font, FT_Face face, int heightPixels, int fontWeight, bool subpixelRendering)
@@ -284,13 +291,13 @@ int Font_CreateDefault(Font* font, int heightPixels, int fontWeight, bool subpix
     return Font_CreateFromFace(font, face, heightPixels, fontWeight, subpixelRendering);
 }
 
-void Font_Free(Font* font, VkDevice device)
+void Font_Free(Font* font, VkDevice device, VkDescriptorPool fontPool)
 {
     FT_Done_Face(font->face);
     Array_Free(&font->Ascii_Glyphs);
     Hashmap_Free(&font->UTF8_Glyphs);
     free(font->atlas.buffer);
-    FontImageGPU_Destroy(&font->atlas.fontImageGPU, device);
+    FontImageGPU_Destroy(&font->atlas.fontImageGPU, device, fontPool);
 }
 
 Glyph* Font_GetGlyph(Font* font, u32 codepoint)

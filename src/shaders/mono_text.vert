@@ -8,9 +8,7 @@ layout(location = 4) in uint iColor;
 layout(location = 5) in uint iTextureIndex;   // 0..7
 
 layout(location = 0) out vec2 vUV;
-layout(location = 1) out vec2 vScreenPos;
-layout(location = 2) out vec4 vColor;
-layout(location = 3) flat out uint vTextureIndex;
+layout(location = 1) out vec4 vColor;
 
 layout(push_constant) uniform PushConstants {
     float uScreenWidth;
@@ -39,11 +37,9 @@ void main()
     float z_vk = z_gl * 0.5 + 0.5;
     gl_Position = vec4(ndc_x, ndc_y, z_vk, 1.0);
 
-    vScreenPos = worldPos;
     vUV = vec2(
         mix(iUV.x, iUV.z, aQuad.x),
         mix(iUV.y, iUV.w, aQuad.y)
     );
     vColor        = unpackRGBA(iColor);
-    vTextureIndex = iTextureIndex;
 }

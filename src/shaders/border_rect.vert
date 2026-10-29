@@ -40,18 +40,8 @@ void main()
     float ndc_x = (vScreenPos.x / pc.uScreenWidth) * 2.0 - 1.0;
     float ndc_y = (vScreenPos.y / pc.uScreenHeight) * 2.0 - 1.0;
 
-    // Vulkan NDC depth range is [0, 1] not [-1, 1].
-    // GL version wrote iPos.z * 0.015625 into clip.z with w=1, which lands in
-    // [-1, 1]. Remap to [0, 1] so it matches:  z_vk = (z_gl + 1) * 0.5
-    // If you previously relied on z == 0 -> middle of the depth range, this maps
-    // it to 0.5 which is the same physical depth. Adjust if you want a fixed depth.
     float z_gl = iPos.z * 0.015625;
     float z_vk = z_gl * 0.5 + 0.5;
-
-    // Y-flip: if you render to a Vulkan target that shares GL's convention
-    // (top-left origin), keep the ndc_y as written above. If your render target
-    // was authored for GL and you're now presenting in Vulkan, you may want to
-    // negate ndc_y. Keep consistent with your other Vulkan pipelines.
     gl_Position = vec4(ndc_x, ndc_y, z_vk, 1.0);
 
     vLocalPos    = aQuad * iSize;

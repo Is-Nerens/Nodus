@@ -9,13 +9,15 @@
 typedef struct DisplayManager
 {
     // Vulkan stuff
-    VkInstance       instance;
-    VkPhysicalDevice physicalDevice;
-    VkDevice         device;
-    VkQueue          graphicsQueue;
-    VkCommandPool    commandPool;
-    u32              graphicsFamily;
-    VkRenderPass     sharedRenderPass;
+    VkInstance            instance;
+    VkPhysicalDevice      physicalDevice;
+    VkDevice              device;
+    VkQueue               graphicsQueue;
+    VkCommandPool         commandPool;
+    u32                   graphicsFamily;
+    VkRenderPass          sharedRenderPass;
+    VkDescriptorSetLayout fontSetLayout;   // binding 0, COMBINED_IMAGE_SAMPLER, count 1, fragment
+    VkDescriptorPool      fontPool;
 
     // GPU arena allocator
     ArenaAllocatorGPU gpuArenaAlloc;
@@ -61,6 +63,11 @@ typedef struct {
     VkImage        images[NU_MAX_SWAPCHAIN_IMAGES];
     VkImageView    imageViews[NU_MAX_SWAPCHAIN_IMAGES];
     VkFramebuffer  framebuffers[NU_MAX_SWAPCHAIN_IMAGES];
+
+    // Depth buffer
+    VkImage        depthImage;
+    VkDeviceMemory depthImageMemory;
+    VkImageView    depthImageView;
     VkRenderPass   renderPass;
 
     // Sync

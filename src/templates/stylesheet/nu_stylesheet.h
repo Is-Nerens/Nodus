@@ -72,7 +72,7 @@ void Stylesheet_Init(Stylesheet* ss)
     ss->scrollbarStyle.trackBorderB = 40;
 }
 
-void Stylesheet_Free(Stylesheet* ss, VkDevice device)
+void Stylesheet_Free(Stylesheet* ss, VkDevice device, VkDescriptorPool fontPool)
 {
     Array_Free(&ss->items);
     Array_Free(&ss->variables);
@@ -83,7 +83,7 @@ void Stylesheet_Free(Stylesheet* ss, VkDevice device)
     LinearStringmap_Free(&ss->fontNameIndexMap);
     for (int i=0; i<ss->fonts.size; i++) {
         Font* font = Array_Get(&ss->fonts, i);
-        Font_Free(font, device);
+        Font_Free(font, device, fontPool);
     }
     Array_Free(&ss->fonts);
 }

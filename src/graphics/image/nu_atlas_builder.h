@@ -1,12 +1,5 @@
 #pragma once
 
-typedef struct {
-    unsigned char* buffer;
-    u16 w, h;
-    u16 x, y, shelfHeight;
-    int imageResourceIndex;
-} AtlasBuilder;
-
 void AtlasBuilder_Init(AtlasBuilder* a, u16 w, u16 h)
 {
     a->w = w;

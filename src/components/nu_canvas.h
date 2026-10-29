@@ -853,7 +853,7 @@ void Canvas_DrawText(
     float z = (float)(ctx->node->layer) + ctx->z * 0.005f;
 
     // Generate render data
-    NU_Generate_Text_Renderdata(&textLayer->textRenderData, font, string, x, y, z, col.r, col.g, col.b, wrapWidth);
+    NU_Generate_Text_Renderdata(&textLayer->textRenderData, font, NULL, string, x, y, z, col.r, col.g, col.b, wrapWidth);
 }
 
 void Canvas_DrawLengthText(

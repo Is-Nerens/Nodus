@@ -27,6 +27,20 @@ int Window_CreateSwapchain(Window* window, DisplayManager* displayManager)
         }
     }
 
+    // Destroy depth buffer
+    if (window->depthImageView != VK_NULL_HANDLE) {
+        vkDestroyImageView(device, window->depthImageView, NULL);
+        window->depthImageView = VK_NULL_HANDLE;
+    }
+    if (window->depthImage != VK_NULL_HANDLE) {
+        vkDestroyImage(device, window->depthImage, NULL);
+        window->depthImage = VK_NULL_HANDLE;
+    }
+    if (window->depthImageMemory != VK_NULL_HANDLE) {
+        vkFreeMemory(device, window->depthImageMemory, NULL);
+        window->depthImageMemory = VK_NULL_HANDLE;
+    }
+
     // Destroy the old swapchain.
     if (window->swapchain != VK_NULL_HANDLE) {
         vkDestroySwapchainKHR(device, window->swapchain, NULL);
@@ -113,27 +127,47 @@ int Window_CreateSwapchain(Window* window, DisplayManager* displayManager)
         colorAttachment.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
         colorAttachment.finalLayout = VK_IMAGE_LAYOUT_PRESENT_SRC_KHR;
 
+        VkAttachmentDescription depthAttachment = {0};
+        depthAttachment.format = VK_FORMAT_D32_SFLOAT;
+        depthAttachment.samples = VK_SAMPLE_COUNT_1_BIT;
+        depthAttachment.loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR;
+        depthAttachment.storeOp = VK_ATTACHMENT_STORE_OP_DONT_CARE;
+        depthAttachment.stencilLoadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE;
+        depthAttachment.stencilStoreOp = VK_ATTACHMENT_STORE_OP_DONT_CARE;
+        depthAttachment.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
+        depthAttachment.finalLayout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
+
+        VkAttachmentDescription attachments[2] = { colorAttachment, depthAttachment };
+
         VkAttachmentReference colorAttachmentRef = {0};
         colorAttachmentRef.attachment = 0;
         colorAttachmentRef.layout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
+
+        VkAttachmentReference depthAttachmentRef = {0};
+        depthAttachmentRef.attachment = 1;
+        depthAttachmentRef.layout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
 
         VkSubpassDescription subpass = {0};
         subpass.pipelineBindPoint = VK_PIPELINE_BIND_POINT_GRAPHICS;
         subpass.colorAttachmentCount = 1;
         subpass.pColorAttachments = &colorAttachmentRef;
+        subpass.pDepthStencilAttachment = &depthAttachmentRef;
 
         VkSubpassDependency dependency = {0};
         dependency.srcSubpass = VK_SUBPASS_EXTERNAL;
         dependency.dstSubpass = 0;
-        dependency.srcStageMask = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
+        dependency.srcStageMask = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT |
+                                  VK_PIPELINE_STAGE_EARLY_FRAGMENT_TESTS_BIT;
         dependency.srcAccessMask = 0;
-        dependency.dstStageMask = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
-        dependency.dstAccessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT;
+        dependency.dstStageMask = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT |
+                                  VK_PIPELINE_STAGE_EARLY_FRAGMENT_TESTS_BIT;
+        dependency.dstAccessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT |
+                                   VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT;
 
         VkRenderPassCreateInfo rpci = {0};
         rpci.sType = VK_STRUCTURE_TYPE_RENDER_PASS_CREATE_INFO;
-        rpci.attachmentCount = 1;
-        rpci.pAttachments = &colorAttachment;
+        rpci.attachmentCount = 2;
+        rpci.pAttachments = attachments;
         rpci.subpassCount = 1;
         rpci.pSubpasses = &subpass;
         rpci.dependencyCount = 1;
@@ -156,6 +190,61 @@ int Window_CreateSwapchain(Window* window, DisplayManager* displayManager)
         return 0;
     }
     window->swapchainExtent = extent;
+
+    // Depth buffer (one, shared across all framebuffers) ----
+    VkImageCreateInfo dci = {0};
+    dci.sType = VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO;
+    dci.imageType = VK_IMAGE_TYPE_2D;
+    dci.format = VK_FORMAT_D32_SFLOAT;
+    dci.extent.width = extent.width;
+    dci.extent.height = extent.height;
+    dci.extent.depth = 1;
+    dci.mipLevels = 1;
+    dci.arrayLayers = 1;
+    dci.samples = VK_SAMPLE_COUNT_1_BIT;
+    dci.tiling = VK_IMAGE_TILING_OPTIMAL;
+    dci.usage = VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT;
+    dci.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
+    dci.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
+    if (vkCreateImage(device, &dci, NULL, &window->depthImage) != VK_SUCCESS) {
+        ErrorSystem_AddError(&GUI.errorSystem, "<Vulkan Error> vkCreateImage (depth) failed");
+        return 0;
+    }
+    VkMemoryRequirements memReq;
+    vkGetImageMemoryRequirements(device, window->depthImage, &memReq);
+    VkPhysicalDeviceMemoryProperties memProps;
+    vkGetPhysicalDeviceMemoryProperties(displayManager->physicalDevice, &memProps);
+    u32 typeIndex = 0;
+    for (u32 i=0; i<memProps.memoryTypeCount; i++) {
+        if ((memReq.memoryTypeBits & (1u << i)) &&
+            (memProps.memoryTypes[i].propertyFlags & VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT)) {
+            typeIndex = i;
+            break;
+        }
+    }
+    VkMemoryAllocateInfo mai = {0};
+    mai.sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO;
+    mai.allocationSize = memReq.size;
+    mai.memoryTypeIndex = typeIndex;
+    if (vkAllocateMemory(device, &mai, NULL, &window->depthImageMemory) != VK_SUCCESS) {
+        ErrorSystem_AddError(&GUI.errorSystem, "<Vulkan Error> vkAllocateMemory (depth) failed");
+        return 0;
+    }
+    vkBindImageMemory(device, window->depthImage, window->depthImageMemory, 0);
+    VkImageViewCreateInfo dvci = {0};
+    dvci.sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO;
+    dvci.image = window->depthImage;
+    dvci.viewType = VK_IMAGE_VIEW_TYPE_2D;
+    dvci.format = VK_FORMAT_D32_SFLOAT;
+    dvci.subresourceRange.aspectMask = VK_IMAGE_ASPECT_DEPTH_BIT;
+    dvci.subresourceRange.baseMipLevel = 0;
+    dvci.subresourceRange.levelCount = 1;
+    dvci.subresourceRange.baseArrayLayer = 0;
+    dvci.subresourceRange.layerCount = 1;
+    if (vkCreateImageView(device, &dvci, NULL, &window->depthImageView) != VK_SUCCESS) {
+        ErrorSystem_AddError(&GUI.errorSystem, "<Vulkan Error> vkCreateImageView (depth) failed");
+        return 0;
+    }
 
     // Choose the minimum number of swapchain images to request
     u32 requestedImageCount = 2;
@@ -220,11 +309,12 @@ int Window_CreateSwapchain(Window* window, DisplayManager* displayManager)
         }
 
         // Create frame buffers
+        VkImageView fbAttachments[2] = { window->imageViews[i], window->depthImageView };
         VkFramebufferCreateInfo fci = {0};
         fci.sType = VK_STRUCTURE_TYPE_FRAMEBUFFER_CREATE_INFO;
         fci.renderPass = displayManager->sharedRenderPass;
-        fci.attachmentCount = 1;
-        fci.pAttachments = &window->imageViews[i];
+        fci.attachmentCount = 2;
+        fci.pAttachments = fbAttachments;
         fci.width = extent.width;
         fci.height = extent.height;
         fci.layers = 1;
@@ -262,6 +352,9 @@ int Window_CreateVulkanDevices(Window* window, DisplayManager* displayManager)
     for (u32 i=0; i<NU_FRAMES_IN_FLIGHT; i++) {
         window->commandBuffers[i] = VK_NULL_HANDLE;
     }
+    window->depthImage = VK_NULL_HANDLE;
+    window->depthImageMemory = VK_NULL_HANDLE;
+    window->depthImageView = VK_NULL_HANDLE;
     window->currentFrame = 0;
     window->imageCount = 0;
     window->imageIndex = 0;
@@ -382,19 +475,33 @@ void Window_DestroyVulkanDevices(Window* window, DisplayManager* displayManager)
         }
     }
 
-    // 5. Swapchain
+    // 5. Depth buffer
+    if (window->depthImageView != VK_NULL_HANDLE) {
+        vkDestroyImageView(device, window->depthImageView, NULL);
+        window->depthImageView = VK_NULL_HANDLE;
+    }
+    if (window->depthImage != VK_NULL_HANDLE) {
+        vkDestroyImage(device, window->depthImage, NULL);
+        window->depthImage = VK_NULL_HANDLE;
+    }
+    if (window->depthImageMemory != VK_NULL_HANDLE) {
+        vkFreeMemory(device, window->depthImageMemory, NULL);
+        window->depthImageMemory = VK_NULL_HANDLE;
+    }
+
+    // 6. Swapchain
     if (window->swapchain != VK_NULL_HANDLE) {
         vkDestroySwapchainKHR(device, window->swapchain, NULL);
         window->swapchain = VK_NULL_HANDLE;
     }
 
-    // 6. Surface — takes INSTANCE, not device
+    // 7. Surface — takes INSTANCE, not device
     if (window->surface != VK_NULL_HANDLE) {
         vkDestroySurfaceKHR(displayManager->instance, window->surface, NULL);
         window->surface = VK_NULL_HANDLE;
     }
 
-    // Reset counters so accidental reuse doesn't hit stale handles
+    // 8. Reset counters so accidental reuse doesn't hit stale handles
     window->imageCount = 0;
     window->currentFrame = 0;
 }
@@ -436,16 +543,17 @@ int Window_PrepareFrame(Window* window, DisplayManager* displayManager)
     if (vkBeginCommandBuffer(cmd, &beginInfo) != VK_SUCCESS) return 0;
 
     // Begin render pass
-    VkClearValue clearValue = {0};
-    clearValue.color = (VkClearColorValue){{0.0f, 0.0f, 0.0f, 1.0f}};
+    VkClearValue clearValues[2] = {0};
+    clearValues[0].color = (VkClearColorValue){{0.0f, 0.0f, 0.0f, 1.0f}};
+    clearValues[1].depthStencil = (VkClearDepthStencilValue){0.0f, 0};
     VkRenderPassBeginInfo renderInfo = {0};
     renderInfo.sType = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO;
     renderInfo.renderPass = displayManager->sharedRenderPass;
     renderInfo.framebuffer = window->framebuffers[window->imageIndex];
     renderInfo.renderArea.offset = (VkOffset2D){0, 0};
     renderInfo.renderArea.extent = window->swapchainExtent;
-    renderInfo.clearValueCount = 1;
-    renderInfo.pClearValues = &clearValue;
+    renderInfo.clearValueCount = 2;
+    renderInfo.pClearValues = clearValues;
     vkCmdBeginRenderPass(cmd, &renderInfo, VK_SUBPASS_CONTENTS_INLINE);
 
     // Success
@@ -471,6 +579,9 @@ int Window_Present(Window* window, DisplayManager* displayManager)
         return 0;
     }
 
+    printf("perform draw calls: ");
+    timer_start();
+
     // Submit draw commands
     VkSubmitInfo submitInfo = {0};
     submitInfo.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
@@ -485,6 +596,10 @@ int Window_Present(Window* window, DisplayManager* displayManager)
         ErrorSystem_AddError(&GUI.errorSystem, "<Vulkan Error> vkQueueSubmit failed");
         return 0;
     }
+    timer_stop();
+
+    printf("present frame: ");
+    timer_start();
 
     // Present frame
     VkPresentInfoKHR presentInfo = {0};
@@ -503,6 +618,7 @@ int Window_Present(Window* window, DisplayManager* displayManager)
         ErrorSystem_AddError(&GUI.errorSystem, "<Vulkan Error> Failed to swap window buffers");
         return 0;
     }
+    timer_stop();
 
     window->currentFrame = (window->currentFrame + 1) % NU_FRAMES_IN_FLIGHT;
 

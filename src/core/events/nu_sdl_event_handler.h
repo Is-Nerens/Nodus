@@ -3,16 +3,12 @@
 bool EventWatcher(void* data, SDL_Event* event)
 {
     switch(event->type) {
-        // ------------------------------------------------------------------------------------
-        // --- Window closed -> main window ? close application : destroy sub window branch ---
-        // ------------------------------------------------------------------------------------
+
         case SDL_EVENT_WINDOW_CLOSE_REQUESTED: {
             GUI.running = false;
             break;
         }
-        // ------------------------------------------------------------------------------------
-        // --- Quit event -> close application ------------------------------------------------
-        // ------------------------------------------------------------------------------------
+
         case SDL_EVENT_QUIT: {
             GUI.running = false;
             break;
@@ -20,16 +16,13 @@ bool EventWatcher(void* data, SDL_Event* event)
         // ------------------------------------------------------------------------------------
         // --- Timer event -> trigger user callback -------------------------------------------
         // ------------------------------------------------------------------------------------
-
         case SDL_EVENT_USER: {
             if (event->user.code == NU_EVENT_TIMER) {
                 ((NU_Callback)event->user.data1)(event->user.data2);
             }
             break;
         }
-        // ------------------------------------------------------------------------------------
-        // --- Resized window -> redraw -------------------------------------------------------
-        // ------------------------------------------------------------------------------------
+
         case SDL_EVENT_WINDOW_RESIZED: {
             NU_Layout();
             CheckForResizeEvents();
@@ -71,9 +64,7 @@ bool EventWatcher(void* data, SDL_Event* event)
 
             break;
         }
-        // ------------------------------------------------------------------------------------
-        // --- Keypress -----------------------------------------------------------------------
-        // ------------------------------------------------------------------------------------
+
         case SDL_EVENT_KEY_DOWN: {
 
             // if in text edit mode
@@ -173,13 +164,12 @@ bool EventWatcher(void* data, SDL_Event* event)
             TriggerAllOnKeyDownEvents(event->key.key, event->key.repeat);
             break;
         }
+
         case SDL_EVENT_KEY_UP: {
             TriggerAllOnKeyUpEvents(event->key.key, event->key.repeat);
             break;
         }
-        // ------------------------------------------------------------------------------------
-        // --- Type text -> update text input if focused --------------------------------------
-        // ------------------------------------------------------------------------------------
+
         case SDL_EVENT_TEXT_INPUT: {
 
             TriggerAllOnTypeEvents(event->text.text);
@@ -208,22 +198,20 @@ bool EventWatcher(void* data, SDL_Event* event)
 
             break;
         }
-        // ------------------------------------------------------------------------------------
-        // --- Move mouse -> redraw if node styling changes -----------------------------------
-        // ------------------------------------------------------------------------------------
-        case SDL_EVENT_MOUSE_MOTION: {
-            GUI.awaiting_redraw = true;
-            break;
 
-            // update hovered window
+        case SDL_EVENT_MOUSE_MOTION: {
+
+            // Update hovered window
             DisplayManager_SetHoveredWindow(&GUI.displayManager, SDL_GetWindowFromID(event->window.windowID));
 
+            // Perform hover procedure
             NU_Mouse_Hover();
 
-            // get local mouse coordinates
-            float mouseX, mouseY; GetLocalMouseCoords(&GUI.displayManager, &mouseX, &mouseY);
+            // Get local mouse coordinates
+            float mouseX, mouseY;
+            DisplayManager_GetLocalMouseCoords(&GUI.displayManager, &mouseX, &mouseY);
 
-            // if dragging scrollbar -> update node->node.scrollV
+            // If dragging scrollbar -> update node->node.scrollV
             if (GUI.scroll_mouse_down_node != NULL)
             {
                 // Compute scrollV
@@ -243,17 +231,16 @@ bool EventWatcher(void* data, SDL_Event* event)
                 float dragDist = (mouseY - GUI.v_scroll_thumb_grab_offset) - trackTop;
                 node->public.generic.scrollV = dragDist / (usableTrackHeight - thumbHeight);
                 node->public.generic.scrollV = min(max(node->public.generic.scrollV, 0.0f), 1.0f); // Clamp to range [0,1]
-
                 TriggerOnScrollEvent(node);
 
                 // must redraw later
                 GUI.awaiting_redraw = true;
             }
 
-            // check for mouse move events
+            // Check for mouse move events
             TriggerAllMouseMoveEvents(mouseX, mouseY, event->motion.xrel, event->motion.yrel);
 
-            // if focused on text input -> update highlighting
+            // If focused on text input -> update highlighting
             if (GUI.focused_node != NULL) {
                 Node* node = GUI.focused_node;
                 Font* font = Stylesheet_Get_Font(&GUI.stylesheet, node->fontIdx);
@@ -264,9 +251,7 @@ bool EventWatcher(void* data, SDL_Event* event)
             }
             break;
         }
-        // ------------------------------------------------------------------------------------
-        // --- Focus on window -> redraw ------------------------------------------------------
-        // ------------------------------------------------------------------------------------
+
         case SDL_EVENT_WINDOW_FOCUS_GAINED: {
             break;
             // Update last clicked window
@@ -276,12 +261,8 @@ bool EventWatcher(void* data, SDL_Event* event)
             GUI.awaiting_redraw = true;
             break;
         }
-        // ------------------------------------------------------------------------------------
-        // --- Mouse button pressed down ------------------------------------------------------
-        // ------------------------------------------------------------------------------------
-        case SDL_EVENT_MOUSE_BUTTON_DOWN: {
 
-            break;
+        case SDL_EVENT_MOUSE_BUTTON_DOWN: {
 
             // Update last clicked window
             GUI.displayManager.lastClickedWindow = SDL_GetWindowFromID(event->button.windowID);
@@ -293,7 +274,7 @@ bool EventWatcher(void* data, SDL_Event* event)
 
             // Get mouse down coordinates
             float mouseX; float mouseY;
-            GetLocalMouseCoords(&GUI.displayManager, &mouseX, &mouseY);
+            DisplayManager_GetLocalMouseCoords(&GUI.displayManager, &mouseX, &mouseY);
 
             // Set mouse down node
             GUI.prev_mouse_down_node = GUI.mouse_down_node;
@@ -368,16 +349,13 @@ bool EventWatcher(void* data, SDL_Event* event)
             TriggerAllMouseDownOutsideEvents(mouseX, mouseY, (int)event->button.button);
             break;
         }
-        // ------------------------------------------------------------------------------------
-        // --- Released mouse button ----------------------------------------------------------
-        // ------------------------------------------------------------------------------------
+
         case SDL_EVENT_MOUSE_BUTTON_UP: {
-            break;
 
             GUI.scroll_mouse_down_node = NULL;
 
             float mouseX; float mouseY;
-            GetLocalMouseCoords(&GUI.displayManager, &mouseX, &mouseY);
+            DisplayManager_GetLocalMouseCoords(&GUI.displayManager, &mouseX, &mouseY);
 
             // Trigger all mouse up events
             if (GUI.displayManager.hoveredWindowNode) {
@@ -422,9 +400,7 @@ bool EventWatcher(void* data, SDL_Event* event)
             }
             break;
         }
-        // ------------------------------------------------------------------------------------
-        // --- Mouse scroll wheel -------------------------------------------------------------
-        // ------------------------------------------------------------------------------------
+
         case SDL_EVENT_MOUSE_WHEEL: {
             break;
             // If scrolling

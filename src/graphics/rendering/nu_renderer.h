@@ -1,9 +1,5 @@
 #pragma once
 
-// #include <rendering/gui/nu_mesh_generation.h>
-// #include <rendering/nu_renderer_structures.h>
-// #include <rendering/nu_shader.h>
-
 void NU_DrawVertexRGB(
     Window* window,
     DisplayManager* displayManager,
@@ -14,7 +10,8 @@ void NU_DrawVertexRGB(
     float scissorTop,
     float scissorBottom,
     float scissorLeft,
-    float scissorRight)
+    float scissorRight,
+    bool MSAA_4X)
 {
     // Skip draw if there is no data
     if (vertices->size == 0 || indices->size == 0) return;
@@ -23,7 +20,11 @@ void NU_DrawVertexRGB(
     VkCommandBuffer cmd = window->commandBuffers[window->currentFrame];
 
     // Bind pipeline
-    vkCmdBindPipeline(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, displayManager->vertexRGBPipeline.handle);
+    vkCmdBindPipeline(
+        cmd,
+        VK_PIPELINE_BIND_POINT_GRAPHICS,
+        MSAA_4X ? displayManager->vertexRGBPipelineMSAA4X.handle : displayManager->vertexRGBPipeline.handle
+    );
 
     // Viewport / scissor
     VkViewport vp = {
@@ -80,23 +81,13 @@ void NU_DrawVertexRGB(
     vkCmdDrawIndexed(cmd, (uint32_t)indices->size, 1, 0, 0, 0);
 }
 
-void NU_DrawClippedVertexRGB(
-    Window* window,
-    DisplayManager* displayManager,
-    Array* vertices,
-    Array* indices,
-    float clipTop, float clipBottom,
-    float clipLeft, float clipRight)
-{
-
-}
-
 void NU_DrawBorderRects(
     Window* window,
     DisplayManager* displayManager,
     Array* borderRects,
     float screenWidth,
-    float screenHeight)
+    float screenHeight,
+    bool MSAA_4X)
 {
     if (Array_Length(borderRects) == 0) return;
 
@@ -104,7 +95,11 @@ void NU_DrawBorderRects(
 
 
     // Bind pipeline
-    vkCmdBindPipeline(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, displayManager->borderRectPipeline.handle);
+    vkCmdBindPipeline(
+        cmd,
+        VK_PIPELINE_BIND_POINT_GRAPHICS,
+        MSAA_4X ? displayManager->borderRectPipelineMSAA4X.handle : displayManager->borderRectPipeline.handle
+    );
 
     // Dynamic viewport / scissor (full window)
     VkViewport vp = {
@@ -161,20 +156,65 @@ void NU_DrawBorderRects(
     vkCmdDraw(cmd, 6, (uint32)Array_Length(borderRects), 0, 0);
 }
 
-void NU_DrawImage(
+void NU_DrawCanvasRenderTarget(
     Window* window,
     DisplayManager* displayManager,
     ImageRenderData* imageRenderData,
-    ImageResource* imageResource)
+    VkDescriptorSet renderTargetDescriptorSet,
+    bool MSAA_4X)
 {
+    VkCommandBuffer cmd = window->commandBuffers[window->currentFrame];
+    NuPipeline pipeline = MSAA_4X ? displayManager->imagePipelineMSAA4X : displayManager->imagePipeline;
 
+    vkCmdBindPipeline(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, pipeline.handle);
+
+    // Dynamic viewport / scissor (full window)
+    VkViewport vp = {
+        0.0f, 0.0f,
+        (float)window->swapchainExtent.width,
+        (float)window->swapchainExtent.height,
+        0.0f, 1.0f
+    };
+    VkRect2D sc = {{0, 0}, window->swapchainExtent};
+    vkCmdSetViewport(cmd, 0, 1, &vp);
+    vkCmdSetScissor(cmd, 0, 1, &sc);
+
+    // Push constants: screen W/H + image offset
+    float push[4] = {
+        (float)window->swapchainExtent.width,
+        (float)window->swapchainExtent.height,
+        0.0f,
+        0.0f
+    };
+    vkCmdPushConstants(cmd, pipeline.layout, VK_SHADER_STAGE_VERTEX_BIT, 0, sizeof(push), push);
+
+    // Bind the canvas descriptor set (slot 0 = resolved view)
+    VkDescriptorSet sets[1] = { renderTargetDescriptorSet };
+    vkCmdBindDescriptorSets(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, pipeline.layout, 0, 1, sets, 0, NULL);
+
+    // Upload instance data
+    VkDeviceSize bytes = sizeof(ImageRenderData);
+    ArenaAllocGPU alloc = ArenaAllocatorGPU_Alloc(&displayManager->gpuArenaAlloc, bytes, 16);
+    if (alloc.buffer == VK_NULL_HANDLE) {
+        ErrorSystem_AddError(&GUI.errorSystem, "<Vulkan Error> canvas image arena alloc failed");
+        return;
+    }
+    memcpy((char*)alloc.mapped + alloc.offset, imageRenderData, sizeof(ImageRenderData));
+
+    // Bind quad buffer + instance buffer
+    VkBuffer bufs[2] = { quadBuffer, alloc.buffer };
+    VkDeviceSize offsets[2] = { 0, alloc.offset };
+    vkCmdBindVertexBuffers(cmd, 0, 2, bufs, offsets);
+
+    vkCmdDraw(cmd, 6, 1, 0, 0);
 }
 
 void NU_DrawImages(
     Window* window,
     DisplayManager* displayManager,
     ImageResourceManager* imageResourceManager,
-    ImageRenderGroup* imageRenderGroup)
+    ImageRenderGroup* imageRenderGroup,
+    bool MSAA_4X)
 {
     Array* imagesRenderData = &imageRenderGroup->imagesRenderData;
     if (Array_Length(imagesRenderData) == 0) return;
@@ -189,10 +229,8 @@ void NU_DrawImages(
     // Get command buffer
     VkCommandBuffer cmd = window->commandBuffers[window->currentFrame];
 
-    // Image pipeline (no subpixel variant)
-    NuPipeline pipeline = displayManager->imagePipeline;
-
-    printf("drawing: %d images\n", (int)(Array_Length(imagesRenderData)));
+    // Image pipeline
+    NuPipeline pipeline = MSAA_4X ? displayManager->imagePipelineMSAA4X : displayManager->imagePipeline;
 
     // Bind pipeline
     vkCmdBindPipeline(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, pipeline.handle);
@@ -249,7 +287,8 @@ void NU_DrawText(
     Font* font,
     Array* textRenderData,
     float offsetX,
-    float offsetY)
+    float offsetY,
+    bool MSAA_4X)
 {
     if (Array_Length(textRenderData) == 0) return;
 
@@ -257,8 +296,8 @@ void NU_DrawText(
     VkCommandBuffer cmd = window->commandBuffers[window->currentFrame];
 
     // Select pipeline
-    NuPipeline pipeline = displayManager->monoTextPipeline;
-    if (font->subpixelRendering) pipeline = displayManager->subpixelTextPipeline;
+    NuPipeline pipeline = MSAA_4X ? displayManager->monoTextPipelineMSAA4X : displayManager->monoTextPipeline;
+    if (font->subpixelRendering) pipeline = MSAA_4X ? displayManager->subpixelTextPipelineMSAA4X : displayManager->subpixelTextPipeline;
 
     // Bind pipeline
     vkCmdBindPipeline(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, pipeline.handle);
@@ -313,7 +352,8 @@ void NU_DrawClippedText(
     Font* font,
     Array* textRenderData,
     float offsetX,
-    float offsetY)
+    float offsetY,
+    bool MSAA_4X)
 {
     if (Array_Length(textRenderData) == 0) return;
 
@@ -321,8 +361,8 @@ void NU_DrawClippedText(
     VkCommandBuffer cmd = window->commandBuffers[window->currentFrame];
 
     // Select pipeline
-    NuPipeline pipeline = displayManager->clippedMonoTextPipeline;
-    if (font->subpixelRendering) pipeline = displayManager->clippedSubpixelTextPipeline;
+    NuPipeline pipeline = MSAA_4X ? displayManager->clippedMonoTextPipelineMSAA4X : displayManager->clippedMonoTextPipeline;
+    if (font->subpixelRendering) pipeline = MSAA_4X ? displayManager->clippedSubpixelTextPipelineMSAA4X : displayManager->clippedSubpixelTextPipeline;
 
     // Bind pipeline
     vkCmdBindPipeline(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, pipeline.handle);

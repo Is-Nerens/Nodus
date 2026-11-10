@@ -235,10 +235,6 @@ void Add_NodeRectRenderData(
     renderData->scissorRight = scissorRight;
 }
 
-void Draw_CanvasContent(Node* node)
-{
-
-}
 
 void Add_ScrollbarRenderData(
     Node* node, float z,
@@ -529,6 +525,100 @@ void NU_GenerateDrawlists()
     }
 }
 
+void NU_CanvasDraw(NU_Canvas_Context* ctx, Window* window)
+{
+    CanvasRenderTarget* rt = &ctx->renderTarget;
+
+    // Begin the canvas render pass (into the MSAA attachments, resolving to rt->view)
+    Node* node = ctx->node;
+    float r = (float)(node->public.generic.backgroundR) / 255.0f;
+    float g = (float)(node->public.generic.backgroundG) / 255.0f;
+    float b = (float)(node->public.generic.backgroundB) / 255.0f;
+    VkClearValue clearValues[3] = {0};
+        clearValues[0].color        = (VkClearColorValue){{r, g, b, 1.0f}};
+        clearValues[1].depthStencil = (VkClearDepthStencilValue){0.0f, 0};
+        clearValues[2].color        = (VkClearColorValue){{0.0f, 0.0f, 0.0f, 1.0f}}; // loadOp=DONT_CARE, unused
+
+    VkRenderPassBeginInfo renderInfo = {0};
+    renderInfo.sType           = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO;
+    renderInfo.renderPass      = GUI.displayManager.sharedRenderPassMSAA4X;
+    renderInfo.framebuffer     = rt->framebuffer;
+    renderInfo.renderArea      = (VkRect2D){ {0,0}, { rt->width, rt->height } };
+    renderInfo.clearValueCount = 3;
+    renderInfo.pClearValues    = clearValues;
+    VkCommandBuffer cmd = window->commandBuffers[window->currentFrame];
+    vkCmdBeginRenderPass(cmd, &renderInfo, VK_SUBPASS_CONTENTS_INLINE);
+
+    NU_ClipBounds* clip = (NU_ClipBounds*)Hashmap_Get(&GUI.displayManager.clipMap, &node->clippedAncestor);
+
+    // Compute offsets and clipping bounds
+    float offsetX = roundf(node->public.generic.x + node->public.generic.borderLeft + node->public.generic.padLeft);
+    float offsetY = roundf(node->public.generic.y + node->public.generic.borderTop + node->public.generic.padTop);
+    float top    = node->public.generic.y + node->public.generic.borderTop + node->public.generic.padTop;
+    float bottom = node->public.generic.y + node->public.generic.height - node->public.generic.borderBottom - node->public.generic.padBottom;
+    float left   = node->public.generic.x + node->public.generic.borderLeft + node->public.generic.padLeft;
+    float right  = node->public.generic.x + node->public.generic.width - node->public.generic.borderRight - node->public.generic.padRight;
+    if (clip)
+    {
+        top    = max(top, clip->top);
+        bottom = max(bottom, clip->bottom);
+        left   = max(left, clip->left);
+        right  = max(right, clip->right);
+    }
+    ctx->canvasWidth  = node->public.generic.width;
+    ctx->canvasHeight = node->public.generic.height;
+
+    // Retarget z values of unseen vertices
+    uint32 retargetedCount = 0;
+    for (uint32 v = ctx->meshLayer.zValuesRetargeted; v < Vertex_RGB_List_Length(&ctx->meshLayer.vertices); v++) {
+        vertex_rgb* vert = &ctx->meshLayer.vertices.array[v];
+        vert->z = ComputeZ((uint32)(vert->z), 0);
+        retargetedCount++;
+    }
+    ctx->meshLayer.zValuesRetargeted += retargetedCount;
+
+    // Retarget z values of unseen glyph render instances
+    for (uint32 l=0; l<Array_Length(&ctx->textLayers); l++) {
+        CanvasTextLayer* layer = Array_Get(&ctx->textLayers, l);
+        retargetedCount = 0;
+        for (uint32 g = layer->zValuesRetargeted; g < Array_Length(&layer->textRenderData); g++) {
+            GlyphRenderData* renderData = Array_Get(&layer->textRenderData, g);
+            renderData->z = ComputeZ((uint32)(renderData->z), 0);
+            retargetedCount++;
+        }
+        layer->zValuesRetargeted += retargetedCount;
+    }
+
+    // Draw mesh layer
+    NU_DrawVertexRGB(
+        window,
+        &GUI.displayManager,
+        &ctx->meshLayer.vertices,
+        &ctx->meshLayer.indices,
+        0, 0,
+        top, bottom, left, right,
+        true
+    );
+
+    // Draw text layers
+    for (int l=0; l<Array_Length(&ctx->textLayers); l++) {
+        CanvasTextLayer* layer = Array_Get(&ctx->textLayers, l);
+        if (Array_Length(&layer->textRenderData) == 0) continue;
+        Font* font = Stylesheet_Get_Font(&GUI.stylesheet, layer->fontIdx);
+        NU_DrawText(
+            window,
+            &GUI.displayManager,
+            font,
+            &layer->textRenderData,
+            0, 0,
+            true
+        );
+    }
+
+    vkCmdEndRenderPass(cmd);
+    ctx->renderUpdated = true;
+}
+
 void NU_Draw()
 {
     NU_GenerateDrawlists();
@@ -563,6 +653,23 @@ void NU_Draw()
             continue;
         }
 
+        // Get window dimensions and drawlist
+        NuWindowDrawlist* drawList = &win->drawlist;
+        int winW_int, winH_int;
+        SDL_GetWindowSizeInPixels(win->sdlWin, &winW_int, &winH_int);
+        float winW = (float)winW_int;
+        float winH = (float)winH_int;
+
+        // Render canvas content to canvas render targets
+        for (uint32 n=0; n<Array_Length(&drawList->canvasNodes); n++) {
+            Node* node = *(Node**)Array_Get(&drawList->canvasNodes, n);
+            NU_Canvas_Context* ctx = Container_Get(&GUI.canvasContexts, node->special.canvas.ctxHandle);
+            if (ctx && !ctx->renderUpdated) NU_CanvasDraw(ctx, win);
+        }
+
+        // Begin render pass
+        Window_BeginRenderPass(win, &GUI.displayManager);
+
         // Clear border rect render data array
         Array_Clear(&GUI.borderRectsRenderData);
 
@@ -595,14 +702,6 @@ void NU_Draw()
             ImageRenderGroup* imageRenderGroup = Array_Get(&GUI.imageRenderGroups, j);
             Array_Clear(&imageRenderGroup->imagesRenderData);
         }
-
-        // Get window dimensions
-        SDL_Window* window = win->sdlWin;
-        NuWindowDrawlist* drawList = &win->drawlist;
-        int winW_int, winH_int;
-        SDL_GetWindowSizeInPixels(window, &winW_int, &winH_int);
-        float winW = (float)winW_int;
-        float winH = (float)winH_int;
 
         // Construct render data for non-clipped nodes
         for (uint32 n=0; n<drawList->drawNodes.size; n++)
@@ -730,94 +829,55 @@ void NU_Draw()
         }
 
         // Draw unclipped border rects (1 draw call)
-        NU_DrawBorderRects(win, &GUI.displayManager, &GUI.borderRectsRenderData, winW, winH);
+        NU_DrawBorderRects(win, &GUI.displayManager, &GUI.borderRectsRenderData, winW, winH, false);
 
         // Draw unclipped text (1 draw call per font)
         for (uint32 t=0; t<Array_Length(&GUI.stylesheet.fonts); t++) {
             Font* font = Stylesheet_Get_Font(&GUI.stylesheet, t);
             Array* textRenderData = Array_Get(&GUI.perFontTextRenderData, t);
-            NU_DrawText(win, &GUI.displayManager, font, textRenderData, 0, 0);
+            NU_DrawText(win, &GUI.displayManager, font, textRenderData, 0, 0, false);
         }
 
         // Draw clipped text (1 draw call per font)
         for (uint32 t=0; t<Array_Length(&GUI.stylesheet.fonts); t++) {
             Font* font = Stylesheet_Get_Font(&GUI.stylesheet, t);
             Array* clippedTextRenderData = Array_Get(&GUI.perFontClippedTextRenderData, t);
-            NU_DrawClippedText(win, &GUI.displayManager, font, clippedTextRenderData, 0, 0);
+            NU_DrawClippedText(win, &GUI.displayManager, font, clippedTextRenderData, 0, 0, false);
         }
 
-        // 4. Draw canvas contents
+        // Composite canvas render target images
         for (uint32 n=0; n<Array_Length(&drawList->canvasNodes); n++) {
             Node* node = *(Node**)Array_Get(&drawList->canvasNodes, n);
-
             NU_Canvas_Context* ctx = Container_Get(&GUI.canvasContexts, node->special.canvas.ctxHandle);
             if (ctx == NULL) continue;
-
-            NU_ClipBounds* clip = (NU_ClipBounds*)Hashmap_Get(&GUI.displayManager.clipMap, &node->clippedAncestor);
-
-            // Compute offsets and clipping bounds
-            float offsetX = roundf(node->public.generic.x + node->public.generic.borderLeft + node->public.generic.padLeft);
-            float offsetY = roundf(node->public.generic.y + node->public.generic.borderTop + node->public.generic.padTop);
-            float top    = node->public.generic.y + node->public.generic.borderTop + node->public.generic.padTop;
-            float bottom = node->public.generic.y + node->public.generic.height - node->public.generic.borderBottom - node->public.generic.padBottom;
-            float left   = node->public.generic.x + node->public.generic.borderLeft + node->public.generic.padLeft;
-            float right  = node->public.generic.x + node->public.generic.width - node->public.generic.borderRight - node->public.generic.padRight;
-            if (clip)
-            {
-                top    = max(top, clip->top);
-                bottom = max(bottom, clip->bottom);
-                left   = max(left, clip->left);
-                right  = max(right, clip->right);
-            }
-            ctx->canvasWidth = node->public.generic.width;
-            ctx->canvasHeight = node->public.generic.height;
-
-            uint32 baseDepthLayer = node->layer + ABSOLUTE_Z_LAYER * NodeStatePosAbsolute(node);
-
-            // Retarget z values of unseen vertices
-            uint32 retargetedCount = 0;
-            for (uint32 v=ctx->meshLayer.zValuesRetargeted; v<Vertex_RGB_List_Length(&ctx->meshLayer.vertices); v++) {
-                vertex_rgb* vert = &ctx->meshLayer.vertices.array[v];
-                vert->z = ComputeZ(baseDepthLayer, (uint8)(vert->z));
-                retargetedCount++;
-            }
-            ctx->meshLayer.zValuesRetargeted += retargetedCount;
-
-            // Retarget z values of unseen glyph render instances
-            retargetedCount = 0;
-            for (uint32 l=0; l<Array_Length(&ctx->textLayers); l++) {
-                CanvasTextLayer* layer = Array_Get(&ctx->textLayers, l);
-                for (uint32 g=layer->zValuesRetargeted; g<Array_Length(&layer->textRenderData); g++) {
-                    GlyphRenderData* renderData = Array_Get(&layer->textRenderData, g);
-                    renderData->z = ComputeZ(baseDepthLayer, (uint8)(renderData->z));
-                    retargetedCount++;
-                }
-                layer->zValuesRetargeted += retargetedCount;
-            }
-
-            // Draw mesh layer
-            NU_DrawVertexRGB(
-                win,
-                &GUI.displayManager,
-                &ctx->meshLayer.vertices,
-                &ctx->meshLayer.indices,
-                offsetX, offsetY,
-                top, bottom, left, right
-            );
-
-            // Draw text layers
-            for (int l=0; l<Array_Length(&ctx->textLayers); l++) {
-                CanvasTextLayer* layer = Array_Get(&ctx->textLayers, l);
-                if (Array_Length(&layer->textRenderData) == 0) continue;
-                Font* font = Stylesheet_Get_Font(&GUI.stylesheet, layer->fontIdx);
-                NU_DrawText(win, &GUI.displayManager, font, &layer->textRenderData, offsetX, offsetY);
-            }
+            ImageRenderData renderData;
+            renderData.x = node->public.generic.x + node->public.generic.borderLeft + node->public.generic.padLeft;
+            renderData.y = node->public.generic.y + node->public.generic.borderTop + node->public.generic.padTop;
+            renderData.z = ComputeZ(node->layer + ABSOLUTE_Z_LAYER * NodeStatePosAbsolute(node), 1);
+            renderData.w = NODE_INNER_WIDTH(node);
+            renderData.h = NODE_INNER_HEIGHT(node);
+            renderData.u0 = 0.0f;
+            renderData.v0 = 0.0f;
+            renderData.u1 = 1.0f;
+            renderData.v1 = 1.0f;
+            renderData.clipTop = 0;
+            renderData.clipBottom = 60000;
+            renderData.clipLeft = 0;
+            renderData.clipRight = 60000;
+            renderData.clipRadiusTopLeft = 0;
+            renderData.clipRadiusTopRight = 0;
+            renderData.clipRadiusBottomLeft = 0;
+            renderData.clipRadiusBottomRight = 0;
+            renderData.textureIndex = 0;
+            renderData.filter = IMAGE_FILTER_NEAREST;
+            renderData.repeat = IMAGE_REPEAT_NONE;
+            NU_DrawCanvasRenderTarget(win, &GUI.displayManager, &renderData, ctx->renderTarget.descriptorSet, false);
         }
 
         // Draw images (1 draw call per image render group)
         for (int i=0; i<Array_Length(&GUI.imageRenderGroups); i++) {
             ImageRenderGroup* imageRenderGroup = Array_Get(&GUI.imageRenderGroups, i);
-            NU_DrawImages(win, &GUI.displayManager, &GUI.imageResourceManager, imageRenderGroup);
+            NU_DrawImages(win, &GUI.displayManager, &GUI.imageResourceManager, imageRenderGroup, false);
         }
 
         // Display

@@ -175,7 +175,6 @@ int DisplayManager_CreateVulkanDevices(DisplayManager* displayManager)
         return 0;
     }
 
-    // Store everything inside vkState
     displayManager->instance = instance;
     displayManager->physicalDevice = physicalDevice;
     displayManager->device = device;
@@ -183,6 +182,7 @@ int DisplayManager_CreateVulkanDevices(DisplayManager* displayManager)
     displayManager->graphicsFamily = graphicsFamily;
     displayManager->commandPool = commandPool;
     displayManager->sharedRenderPass = NULL; // Will be created lazily when the first window is created
+    displayManager->sharedRenderPassMSAA4X = NULL; // This too
 
     // Success
     return 1;
@@ -210,6 +210,10 @@ void DisplayManager_DestroyVulkanDevices(DisplayManager* displayManager)
     if (displayManager->sharedRenderPass != VK_NULL_HANDLE) {
         vkDestroyRenderPass(displayManager->device, displayManager->sharedRenderPass, NULL);
         displayManager->sharedRenderPass = VK_NULL_HANDLE;
+    }
+    if (displayManager->sharedRenderPassMSAA4X != VK_NULL_HANDLE) {
+        vkDestroyRenderPass(displayManager->device, displayManager->sharedRenderPassMSAA4X, NULL);
+        displayManager->sharedRenderPassMSAA4X = VK_NULL_HANDLE;
     }
     displayManager->physicalDevice = VK_NULL_HANDLE;
     displayManager->graphicsQueue = VK_NULL_HANDLE;
@@ -259,6 +263,13 @@ void DisplayManager_Free(DisplayManager* displayManager)
     NU_DestroyPipeline(displayManager, &displayManager->subpixelTextPipeline);
     NU_DestroyPipeline(displayManager, &displayManager->clippedSubpixelTextPipeline);
     NU_DestroyPipeline(displayManager, &displayManager->vertexRGBPipeline);
+    NU_DestroyPipeline(displayManager, &displayManager->borderRectPipelineMSAA4X);
+    NU_DestroyPipeline(displayManager, &displayManager->imagePipelineMSAA4X);
+    NU_DestroyPipeline(displayManager, &displayManager->monoTextPipelineMSAA4X);
+    NU_DestroyPipeline(displayManager, &displayManager->clippedMonoTextPipelineMSAA4X);
+    NU_DestroyPipeline(displayManager, &displayManager->subpixelTextPipelineMSAA4X);
+    NU_DestroyPipeline(displayManager, &displayManager->clippedSubpixelTextPipelineMSAA4X);
+    NU_DestroyPipeline(displayManager, &displayManager->vertexRGBPipelineMSAA4X);
 
     // 4. Destroy quad buffer
     NU_DestroyQuadBuffer(displayManager->device);
@@ -331,13 +342,24 @@ int DisplayManager_CreateWindow(DisplayManager* displayManager, Node* node, cons
 
     // Create render pipelines here lazily if not created already
     if (displayManager->borderRectPipeline.handle == VK_NULL_HANDLE) {
+
+        // Non-MSAA
         NU_CreateBorderRectPipeline(displayManager, &displayManager->borderRectPipeline, false);
         NU_CreateVertexRGBPipeline(displayManager, &displayManager->vertexRGBPipeline, false);
-        NU_CreateImagePipeline(displayManager, &displayManager->imagePipeline);
-        NU_CreateMonoTextPipeline(displayManager, &displayManager->monoTextPipeline);
-        NU_CreateSubpixelTextPipeline(displayManager, &displayManager->subpixelTextPipeline);
-        NU_CreateClippedMonoTextPipeline(displayManager, &displayManager->clippedMonoTextPipeline);
-        NU_CreateClippedSubpixelTextPipeline(displayManager, &displayManager->clippedSubpixelTextPipeline);
+        NU_CreateImagePipeline(displayManager, &displayManager->imagePipeline, false);
+        NU_CreateMonoTextPipeline(displayManager, &displayManager->monoTextPipeline, false);
+        NU_CreateSubpixelTextPipeline(displayManager, &displayManager->subpixelTextPipeline, false);
+        NU_CreateClippedMonoTextPipeline(displayManager, &displayManager->clippedMonoTextPipeline, false);
+        NU_CreateClippedSubpixelTextPipeline(displayManager, &displayManager->clippedSubpixelTextPipeline, false);
+
+        // MSAA4X
+        NU_CreateBorderRectPipeline(displayManager, &displayManager->borderRectPipelineMSAA4X, true);
+        NU_CreateVertexRGBPipeline(displayManager, &displayManager->vertexRGBPipelineMSAA4X, true);
+        NU_CreateImagePipeline(displayManager, &displayManager->imagePipelineMSAA4X, true);
+        NU_CreateMonoTextPipeline(displayManager, &displayManager->monoTextPipelineMSAA4X, true);
+        NU_CreateSubpixelTextPipeline(displayManager, &displayManager->subpixelTextPipelineMSAA4X, true);
+        NU_CreateClippedMonoTextPipeline(displayManager, &displayManager->clippedMonoTextPipelineMSAA4X, true);
+        NU_CreateClippedSubpixelTextPipeline(displayManager, &displayManager->clippedSubpixelTextPipelineMSAA4X, true);
     }
 
     // Init drawlist

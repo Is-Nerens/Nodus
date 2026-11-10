@@ -1,6 +1,7 @@
 #pragma once
 
-#include "vulkan/vulkan_core.h"
+#include "nu_canvas_render_target.h"
+
 #define NORMALIZE(dx, dy) do { float32 len = sqrtf((dx)*(dx) + (dy)*(dy)); if (len > 0.0001f) { dx /= len; dy /= len; } } while(0)
 
 typedef struct {
@@ -30,14 +31,20 @@ typedef struct {
     uint32 selectedTextLayerIdx; // If this == -1 then we are working on the mesh layer
     bool isMeshLayer;
     float32 zLayer;
+
+    // Render target
+    CanvasRenderTarget renderTarget;
+    bool renderUpdated;
 } NU_Canvas_Context;
 
-void Canvas_InitContext(Node* node, NU_Canvas_Context* ctx)
+void Canvas_InitContext(Node* node, NU_Canvas_Context* ctx, DisplayManager* displayManager, ImageResourceManager* imageResourceManager)
 {
     // Init node state
     ctx->node = node;
     ctx->canvasWidth = NODE_INNER_WIDTH(node);
     ctx->canvasHeight = NODE_INNER_HEIGHT(node);
+    ctx->canvasWidth = max(ctx->canvasWidth, 50);
+    ctx->canvasHeight = max(ctx->canvasHeight, 50);
 
     // Init context state
     ctx->isMeshLayer = true;
@@ -55,9 +62,21 @@ void Canvas_InitContext(Node* node, NU_Canvas_Context* ctx)
     defaultTextLayer->fontIdx = 0;
     defaultTextLayer->zValuesRetargeted = 0;
     Array_Init(&defaultTextLayer->textRenderData, sizeof(GlyphRenderData), 256);
+
+    // Create a render target
+    CanvasRenderTarget_Create(
+        displayManager,
+        imageResourceManager,
+        &ctx->renderTarget,
+        ctx->canvasWidth,
+        ctx->canvasHeight
+    );
+
+    // Must be rendered
+    ctx->renderUpdated = false;
 }
 
-void Canvas_FreeContext(NU_Canvas_Context* ctx)
+void Canvas_FreeContext(NU_Canvas_Context* ctx, DisplayManager* displayManager, ImageResourceManager* imageResourceManager)
 {
     // Free mesh layer
     Vertex_RGB_List_Free(&ctx->meshLayer.vertices);
@@ -69,9 +88,12 @@ void Canvas_FreeContext(NU_Canvas_Context* ctx)
         Array_Free(&textLayer->textRenderData);
     }
     Array_Free(&ctx->textLayers);
+
+    // Destroy render target
+    CanvasRenderTarget_Destroy(displayManager, imageResourceManager, &ctx->renderTarget);
 }
 
-void Canvas_ClearContext(NU_Canvas_Context* ctx)
+void Canvas_ClearContext(NU_Canvas_Context* ctx, DisplayManager* displayManager, ImageResourceManager* imageResourceManager)
 {
     // Clear mesh layer
     Vertex_RGB_List_Clear(&ctx->meshLayer.vertices);
@@ -89,9 +111,35 @@ void Canvas_ClearContext(NU_Canvas_Context* ctx)
     ctx->selectedTextLayerIdx = 0;
     ctx->zLayer = 1.0f;
 
+    // Calculate width and height
+    float newWidth = NODE_INNER_WIDTH(ctx->node);
+    float newHeight = NODE_INNER_HEIGHT(ctx->node);
+    newWidth = max(newWidth, 50);
+    newHeight = max(newHeight, 50);
+
+    // Size changed -> recreate render target
+    if (ctx->canvasWidth != newWidth || ctx->canvasHeight != newHeight) {
+        CanvasRenderTarget_Resize(
+            displayManager,
+            imageResourceManager,
+            &ctx->renderTarget,
+            (uint32)(newWidth),
+            (uint32)(newHeight)
+        );
+    }
+    NuColor clearColor = {
+        ctx->node->public.generic.backgroundR,
+        ctx->node->public.generic.backgroundG,
+        ctx->node->public.generic.backgroundB,
+        255,
+    };
+
     // Update width and height
-    ctx->canvasWidth = NODE_INNER_WIDTH(ctx->node);
-    ctx->canvasHeight = NODE_INNER_HEIGHT(ctx->node);
+    ctx->canvasWidth = newWidth;
+    ctx->canvasHeight = newHeight;
+
+    // Must be re-rendered
+    ctx->renderUpdated = false;
 }
 
 void Canvas_SetFont(NU_Canvas_Context* ctx, const char* fontName)

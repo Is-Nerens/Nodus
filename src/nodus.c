@@ -1157,7 +1157,7 @@ _EXPORT int NU_CANVAS_CTX(const NuCanvas* canvasNode) {
 
     // Create a context and return id
     NU_Canvas_Context ctx;
-    Canvas_InitContext(node, &ctx);
+    Canvas_InitContext(node, &ctx, &GUI.displayManager, &GUI.imageResourceManager);
     int ctxId = Container_Add(&GUI.canvasContexts, &ctx);
     node->special.canvas.ctxHandle = ctxId;
     return ctxId;
@@ -1165,7 +1165,7 @@ _EXPORT int NU_CANVAS_CTX(const NuCanvas* canvasNode) {
 
 _EXPORT void NU_CANVAS_CLEAR(int contextID) {
     NU_Canvas_Context* ctx = Container_Get(&GUI.canvasContexts, contextID);
-    if (ctx) Canvas_ClearContext(ctx);
+    if (ctx) Canvas_ClearContext(ctx, &GUI.displayManager, &GUI.imageResourceManager);
 }
 
 _EXPORT float NU_CANVAS_WIDTH(int contextId) {

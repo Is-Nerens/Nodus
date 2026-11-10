@@ -20,12 +20,12 @@ int ImageResource_Create(
 {
     // Result
     *imageResource = (ImageResource){0};
-    const VkFormat format = VK_FORMAT_R8G8B8A8_SRGB;
+    const VkFormat format        = VK_FORMAT_R8G8B8A8_SRGB;
     const VkDeviceSize imageSize = (VkDeviceSize)width * height * 4;
-    VkBuffer       stagingBuffer = VK_NULL_HANDLE;
+    VkBuffer stagingBuffer       = VK_NULL_HANDLE;
     VkDeviceMemory stagingMemory = VK_NULL_HANDLE;
     VkCommandBuffer cmd          = VK_NULL_HANDLE;
-    VkFence        fence        = VK_NULL_HANDLE;
+    VkFence fence                = VK_NULL_HANDLE;
 
     // Create image
     imageResource->width  = (uint16)width;
@@ -48,7 +48,6 @@ int ImageResource_Create(
     // Get memory requirements
     VkMemoryRequirements requirements;
     vkGetImageMemoryRequirements(displayManager->device, imageResource->image, &requirements);
-
     uint32 memoryTypeIndex = FindMemoryType(displayManager->physicalDevice, requirements.memoryTypeBits, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
     if (memoryTypeIndex == UINT32_MAX) goto fail;
 
@@ -247,6 +246,7 @@ int ImageResourceManager_CreateVulkanDevices(ImageResourceManager* resourceManag
 
     VkDescriptorPoolCreateInfo pci = {0};
     pci.sType         = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO;
+    pci.flags         = VK_DESCRIPTOR_POOL_CREATE_FREE_DESCRIPTOR_SET_BIT;
     pci.maxSets       = maxGroups;
     pci.poolSizeCount = 1;
     pci.pPoolSizes    = &poolSize;

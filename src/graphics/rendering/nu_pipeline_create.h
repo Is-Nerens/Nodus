@@ -1,5 +1,6 @@
 #pragma once
 
+#include "vulkan/vulkan_core.h"
 static VkBuffer quadBuffer  = VK_NULL_HANDLE;
 static VkDeviceMemory quadMemory  = VK_NULL_HANDLE;
 
@@ -250,7 +251,7 @@ int NU_CreateBorderRectPipeline(DisplayManager* dm, NuPipeline* pipeline, bool M
     gp.pColorBlendState    = &cb;
     gp.pDynamicState       = &dyn;
     gp.layout              = pipeline->layout;
-    gp.renderPass          = dm->sharedRenderPass;
+    gp.renderPass          = MSAA_4X ? dm->sharedRenderPassMSAA4X : dm->sharedRenderPass;
     gp.subpass             = 0;
     if (vkCreateGraphicsPipelines(dm->device, VK_NULL_HANDLE, 1, &gp, NULL, &pipeline->handle) != VK_SUCCESS) {
         vkDestroyPipelineLayout(dm->device, pipeline->layout, NULL);
@@ -270,11 +271,11 @@ extern const unsigned int  src_shaders_build_image_vert_spv_len;
 extern const unsigned char src_shaders_build_image_frag_spv[];
 extern const unsigned int  src_shaders_build_image_frag_spv_len;
 
-int NU_CreateImagePipeline(DisplayManager* displayManager, NuPipeline* pipeline)
+int NU_CreateImagePipeline(DisplayManager* displayManager, NuPipeline* pipeline, bool MSAA_4X)
 {
     // ---- Device + render pass come from the DisplayManager value ----
     VkDevice device = displayManager->device;
-    VkRenderPass renderPass = displayManager->sharedRenderPass;
+    VkRenderPass renderPass = MSAA_4X ? displayManager->sharedRenderPassMSAA4X : displayManager->sharedRenderPass;
 
     VkDescriptorSetLayout setLayout = VK_NULL_HANDLE;
 
@@ -404,7 +405,7 @@ int NU_CreateImagePipeline(DisplayManager* displayManager, NuPipeline* pipeline)
     // ---- Multisample ----
     VkPipelineMultisampleStateCreateInfo ms = {0};
     ms.sType                = VK_STRUCTURE_TYPE_PIPELINE_MULTISAMPLE_STATE_CREATE_INFO;
-    ms.rasterizationSamples = VK_SAMPLE_COUNT_1_BIT;
+    ms.rasterizationSamples = MSAA_4X ? VK_SAMPLE_COUNT_4_BIT : VK_SAMPLE_COUNT_1_BIT;
     ms.sampleShadingEnable  = VK_FALSE;
 
     // ---- Depth test
@@ -514,11 +515,11 @@ extern const unsigned int  src_shaders_build_mono_text_vert_spv_len;
 extern const unsigned char src_shaders_build_mono_text_frag_spv[];
 extern const unsigned int  src_shaders_build_mono_text_frag_spv_len;
 
-int NU_CreateMonoTextPipeline(DisplayManager* displayManager, NuPipeline* pipeline)
+int NU_CreateMonoTextPipeline(DisplayManager* displayManager, NuPipeline* pipeline, bool MSAA_4X)
 {
     // ---- Device + render pass come from the DisplayManager value ----
     VkDevice device = displayManager->device;
-    VkRenderPass renderPass = displayManager->sharedRenderPass;
+    VkRenderPass renderPass = MSAA_4X ? displayManager->sharedRenderPassMSAA4X : displayManager->sharedRenderPass;
 
     // Descriptor set layout is local: it only needs to outlive
     // vkCreatePipelineLayout. (If you later need to allocate a descriptor
@@ -641,7 +642,7 @@ int NU_CreateMonoTextPipeline(DisplayManager* displayManager, NuPipeline* pipeli
     // ---- Multisample (match render pass; border-rect used MSAA_4X flag) ----
     VkPipelineMultisampleStateCreateInfo ms = {0};
     ms.sType                = VK_STRUCTURE_TYPE_PIPELINE_MULTISAMPLE_STATE_CREATE_INFO;
-    ms.rasterizationSamples = VK_SAMPLE_COUNT_1_BIT;   // <-- set to 4x if sharedRenderPass is 4x MSAA
+    ms.rasterizationSamples = MSAA_4X ? VK_SAMPLE_COUNT_4_BIT : VK_SAMPLE_COUNT_1_BIT;   // <-- set to 4x if sharedRenderPass is 4x MSAA
     ms.sampleShadingEnable  = VK_FALSE;
 
     // ---- Depth test
@@ -755,11 +756,11 @@ extern const unsigned int  src_shaders_build_clipped_mono_text_vert_spv_len;
 extern const unsigned char src_shaders_build_clipped_mono_text_frag_spv[];
 extern const unsigned int  src_shaders_build_clipped_mono_text_frag_spv_len;
 
-int NU_CreateClippedMonoTextPipeline(DisplayManager* displayManager, NuPipeline* pipeline)
+int NU_CreateClippedMonoTextPipeline(DisplayManager* displayManager, NuPipeline* pipeline, bool MSAA_4X)
 {
     // ---- Device + render pass come from the DisplayManager value ----
     VkDevice device = displayManager->device;
-    VkRenderPass renderPass = displayManager->sharedRenderPass;
+    VkRenderPass renderPass = MSAA_4X ? displayManager->sharedRenderPassMSAA4X : displayManager->sharedRenderPass;
 
     // Descriptor set layout is local: it only needs to outlive
     // vkCreatePipelineLayout. (If you later need to allocate a descriptor
@@ -900,7 +901,7 @@ int NU_CreateClippedMonoTextPipeline(DisplayManager* displayManager, NuPipeline*
     // ---- Multisample (match render pass; border-rect used MSAA_4X flag) ----
     VkPipelineMultisampleStateCreateInfo ms = {0};
     ms.sType                = VK_STRUCTURE_TYPE_PIPELINE_MULTISAMPLE_STATE_CREATE_INFO;
-    ms.rasterizationSamples = VK_SAMPLE_COUNT_1_BIT;   // <-- set to 4x if sharedRenderPass is 4x MSAA
+    ms.rasterizationSamples = MSAA_4X ? VK_SAMPLE_COUNT_4_BIT : VK_SAMPLE_COUNT_1_BIT;   // <-- set to 4x if sharedRenderPass is 4x MSAA
     ms.sampleShadingEnable  = VK_FALSE;
 
     // ---- Depth test
@@ -1014,11 +1015,11 @@ extern const unsigned int  src_shaders_build_subpixel_text_vert_spv_len;
 extern const unsigned char src_shaders_build_subpixel_text_frag_spv[];
 extern const unsigned int  src_shaders_build_subpixel_text_frag_spv_len;
 
-int NU_CreateSubpixelTextPipeline(DisplayManager* displayManager, NuPipeline* pipeline)
+int NU_CreateSubpixelTextPipeline(DisplayManager* displayManager, NuPipeline* pipeline, bool MSAA_4X)
 {
     // ---- Device + render pass come from the DisplayManager value ----
     VkDevice device = displayManager->device;
-    VkRenderPass renderPass = displayManager->sharedRenderPass;
+    VkRenderPass renderPass = MSAA_4X ? displayManager->sharedRenderPassMSAA4X : displayManager->sharedRenderPass;
 
     // Descriptor set layout is local: it only needs to outlive
     // vkCreatePipelineLayout.
@@ -1140,7 +1141,7 @@ int NU_CreateSubpixelTextPipeline(DisplayManager* displayManager, NuPipeline* pi
     // ---- Multisample
     VkPipelineMultisampleStateCreateInfo ms = {0};
     ms.sType                = VK_STRUCTURE_TYPE_PIPELINE_MULTISAMPLE_STATE_CREATE_INFO;
-    ms.rasterizationSamples = VK_SAMPLE_COUNT_1_BIT;
+    ms.rasterizationSamples = MSAA_4X ? VK_SAMPLE_COUNT_4_BIT : VK_SAMPLE_COUNT_1_BIT;
     ms.sampleShadingEnable  = VK_FALSE;
 
     // ---- Depth test
@@ -1252,11 +1253,11 @@ extern const unsigned int  src_shaders_build_clipped_subpixel_text_vert_spv_len;
 extern const unsigned char src_shaders_build_clipped_subpixel_text_frag_spv[];
 extern const unsigned int  src_shaders_build_clipped_subpixel_text_frag_spv_len;
 
-int NU_CreateClippedSubpixelTextPipeline(DisplayManager* displayManager, NuPipeline* pipeline)
+int NU_CreateClippedSubpixelTextPipeline(DisplayManager* displayManager, NuPipeline* pipeline, bool MSAA_4X)
 {
     // ---- Device + render pass come from the DisplayManager value ----
     VkDevice device = displayManager->device;
-    VkRenderPass renderPass = displayManager->sharedRenderPass;
+    VkRenderPass renderPass = MSAA_4X ? displayManager->sharedRenderPassMSAA4X : displayManager->sharedRenderPass;
 
     // Descriptor set layout is local: it only needs to outlive
     // vkCreatePipelineLayout. (If you later need to allocate a descriptor
@@ -1397,7 +1398,7 @@ int NU_CreateClippedSubpixelTextPipeline(DisplayManager* displayManager, NuPipel
     // ---- Multisample (match render pass; border-rect used MSAA_4X flag) ----
     VkPipelineMultisampleStateCreateInfo ms = {0};
     ms.sType                = VK_STRUCTURE_TYPE_PIPELINE_MULTISAMPLE_STATE_CREATE_INFO;
-    ms.rasterizationSamples = VK_SAMPLE_COUNT_1_BIT;   // <-- set to 4x if sharedRenderPass is 4x MSAA
+    ms.rasterizationSamples = MSAA_4X ? VK_SAMPLE_COUNT_4_BIT : VK_SAMPLE_COUNT_1_BIT;   // <-- set to 4x if sharedRenderPass is 4x MSAA
     ms.sampleShadingEnable  = VK_FALSE;
 
     // ---- Depth test
@@ -1668,7 +1669,7 @@ int NU_CreateVertexRGBPipeline(DisplayManager* dm, NuPipeline* pipeline, bool MS
     gpci.pColorBlendState    = &cb;
     gpci.pDynamicState       = &dyn;
     gpci.layout              = pipeline->layout;
-    gpci.renderPass          = dm->sharedRenderPass;
+    gpci.renderPass          = MSAA_4X ? dm->sharedRenderPassMSAA4X : dm->sharedRenderPass;
     gpci.subpass             = 0;
     if (vkCreateGraphicsPipelines(dm->device, VK_NULL_HANDLE, 1, &gpci, NULL, &pipeline->handle) != VK_SUCCESS) {
         vkDestroyPipelineLayout(dm->device, pipeline->layout, NULL);

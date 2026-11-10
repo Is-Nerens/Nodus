@@ -195,7 +195,7 @@ void NU_DissociateNode(Node* node)
         case NU_TYPE_CANVAS: {
             NU_Canvas_Context* ctx = Container_Get(&GUI.canvasContexts, node->special.canvas.ctxHandle);
             if (ctx) {
-                Canvas_FreeContext(ctx);
+                Canvas_FreeContext(ctx, &GUI.displayManager, &GUI.imageResourceManager);
                 Container_Remove(&GUI.canvasContexts, node->special.canvas.ctxHandle);
             }
             break;

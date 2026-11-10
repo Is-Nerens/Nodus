@@ -16,6 +16,7 @@ typedef struct DisplayManager
     VkCommandPool         commandPool;
     uint32                graphicsFamily;
     VkRenderPass          sharedRenderPass;
+    VkRenderPass          sharedRenderPassMSAA4X;
     VkDescriptorSetLayout fontSetLayout;   // binding 0, COMBINED_IMAGE_SAMPLER, count 1, fragment
     VkDescriptorPool      fontPool;
 
@@ -30,6 +31,14 @@ typedef struct DisplayManager
     NuPipeline subpixelTextPipeline;
     NuPipeline clippedSubpixelTextPipeline;
     NuPipeline vertexRGBPipeline;
+    NuPipeline borderRectPipelineMSAA4X;
+    NuPipeline imagePipelineMSAA4X;
+    NuPipeline monoTextPipelineMSAA4X;
+    NuPipeline clippedMonoTextPipelineMSAA4X;
+    NuPipeline subpixelTextPipelineMSAA4X;
+    NuPipeline clippedSubpixelTextPipelineMSAA4X;
+    NuPipeline vertexRGBPipelineMSAA4X;
+
 
 
     // Nodus stuff

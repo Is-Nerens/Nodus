@@ -42,7 +42,7 @@ void Canvas_InitContext(Node* node, NU_Canvas_Context* ctx)
     // Init context state
     ctx->isMeshLayer = true;
     ctx->selectedTextLayerIdx = 0;
-    ctx->zLayer = 0.0f;
+    ctx->zLayer = 1.0f;
 
     // Initialise mesh layer
     Vertex_RGB_List_Init(&ctx->meshLayer.vertices, 1024);
@@ -87,6 +87,11 @@ void Canvas_ClearContext(NU_Canvas_Context* ctx)
 
     // Reset state
     ctx->selectedTextLayerIdx = 0;
+    ctx->zLayer = 1.0f;
+
+    // Update width and height
+    ctx->canvasWidth = NODE_INNER_WIDTH(ctx->node);
+    ctx->canvasHeight = NODE_INNER_HEIGHT(ctx->node);
 }
 
 void Canvas_SetFont(NU_Canvas_Context* ctx, const char* fontName)

@@ -116,6 +116,10 @@ static void NU_Prepass(BreadthFirstSearch* bfs, Array* scrollAutoNodes)
             float text_width = NU_Calculate_Text_Unwrapped_Width(font, node->public.generic.textContent);
             node->public.generic.contentWidth = text_width;
         }
+        else if (node->type == NU_TYPE_INPUT) {
+            Font* font = Stylesheet_Get_Font(&GUI.stylesheet, node->fontIdx);
+            node->public.generic.contentHeight = font->line_height;
+        }
 
         // Enforce constraint -> min >= borderAndPad
         node->public.generic.minWidth = max(node->public.generic.minWidth, borderPadWidth);
@@ -742,31 +746,18 @@ static void NU_CalculateTextHeights(BreadthFirstSearch* bfs)
 
         // Skip irrelevant nodes
         if (NodeStateHidden(node) || // Hidden
-            node->public.generic.textContent == NULL || // No text content
-            (node->type != NU_TYPE_BOX && node->type != NU_TYPE_BUTTON && node->type != NU_TYPE_INPUT)) { // Not a valid node type
+            !NODE_HAS_TEXT_CONTENT(node)) { // Not a valid node type
             continue;
         }
 
-        if (node->type == NU_TYPE_INPUT) {
-            Font* node_font = Stylesheet_Get_Font(&GUI.stylesheet, node->fontIdx);
-            float borderPadHeight = NODE_BORDER_PAD_HEIGHT(node);
+        Font* node_font = Stylesheet_Get_Font(&GUI.stylesheet, node->fontIdx);
 
-            // Set input content height equal to line height
-            node->public.generic.contentHeight = node_font->line_height;
+        // Calculate text height -> drive content height
+        float textHeight = NU_Calculate_FreeText_Height_From_Wrap_Width(node_font, node->public.generic.textContent, node->public.generic.contentWidth);
+        node->public.generic.contentHeight = textHeight;
 
-            // Recalculate height based on updated content height
-            node->public.generic.height = max(node->public.generic.contentHeight + borderPadHeight, node->public.generic.preferredHeight);
-        }
-        else {
-            Font* node_font = Stylesheet_Get_Font(&GUI.stylesheet, node->fontIdx);
-
-            // Calculate text height -> drive content height
-            float textHeight = NU_Calculate_FreeText_Height_From_Wrap_Width(node_font, node->public.generic.textContent, node->public.generic.contentWidth);
-            node->public.generic.contentHeight = textHeight;
-
-            // Recalculate height based on updated content height
-            node->public.generic.height = max(node->public.generic.contentHeight + NODE_BORDER_PAD_HEIGHT(node), node->public.generic.preferredHeight);
-        }
+        // Recalculate height based on updated content height
+        node->public.generic.height = max(node->public.generic.contentHeight + NODE_BORDER_PAD_HEIGHT(node), node->public.generic.preferredHeight);
     }
 }
 
@@ -1069,9 +1060,6 @@ void NU_Layout()
     ReverseBreadthFirstSearch_Reset(rbfs, GUI.tree.root);
     Array_Clear(&GUI.layoutScrollAutoNodes);
 
-    printf("\nserial layout time: ");
-    timer_start();
-
     // Primary iteration
     NU_Prepass(bfs, &GUI.layoutScrollAutoNodes);
     NU_PropagateChildWidthsToParents(rbfs);
@@ -1082,7 +1070,7 @@ void NU_Layout()
     NU_GrowShrinkHeights(bfs, 0.0f);
     NU_CalculatePositions(bfs, 0.0f);
 
-    // // Compute thumb-constrained track width
+    // Compute thumb-constrained track width
     float trackWidth = SCROLLBAR_TRACK_WIDTH();
 
     // SECOND PASS -> RECOMPUTE OVERFLOWED SCROLL BRANCHES
@@ -1104,6 +1092,4 @@ void NU_Layout()
             NU_CalculatePositions(bfs, trackWidth);
         }
     }
-
-    timer_stop();
 }

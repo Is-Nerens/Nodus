@@ -87,7 +87,7 @@ struct NU_GUI GUI;
 #include <graphics/rendering/nu_renderer.h>
 #include <display/nu_display_manager.h>
 #include <templates/stylesheet/nu_stylesheet.h>
-#include <components/nu_canvas.h>
+#include <components/canvas/nu_canvas.h>
 #include <components/text input/nu_text_input.h>
 #include <templates/xml/nu_xml.h>
 #include <core/nu_layout.h>

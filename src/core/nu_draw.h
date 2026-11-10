@@ -72,73 +72,106 @@ void NU_AddNodeTextToRenderDataArray(Node* node, NU_ClipBounds* clip, float z, A
     );
 }
 
-void NU_DrawInputNodeContent(Node* node, float z, float winWidth, float winHeight, NU_ClipBounds* clip)
+void AddTextInputRenderData(Node* node, NU_ClipBounds* clip, Array* textRenderData, Array* borderRectRenderData)
 {
     // Get font and inout text datastructure
-    Font* node_font = Stylesheet_Get_Font(&GUI.stylesheet, node->fontIdx);
+    Font* font = Stylesheet_Get_Font(&GUI.stylesheet, node->fontIdx);
     InputText* inputText = Container_Get(&GUI.textInputs, node->special.input.textInputHandle);
 
     // Recompute text offset
     if (inputText->updateOffsetsPostLayout) {
         inputText->updateOffsetsPostLayout = false;
-        InputText_ComputeCursorTextOffset_PlaceEnd(inputText, node, node_font);
+        InputText_ComputeCursorTextOffset_PlaceEnd(inputText, node, font);
     }
 
-    // Construct and draw text highlight
-    if (GUI.focused_node != NULL && node == GUI.focused_node && InputText_IsHighlighting(inputText))
-    {
-        Vertex_RGB_List highlightVertices; Vertex_RGB_List_Init(&highlightVertices, 4);
-        Index_List highlightIndices; Index_List_Init(&highlightIndices, 6);
-        //NU_ConstructInputHighlightMesh(node, z + 0.25f, inputText, &highlightVertices, &highlightIndices);
-        // Draw_Clipped_Vertex_RGB_List(
-        //     &highlightVertices, &highlightIndices,
-        //     winWidth, winHeight, 0, 0,
-        //     clip->top, clip->bottom,
-        //     clip->left, clip->right + 1
-        // );
-        // Vertex_RGB_List_Free(&highlightVertices);
-        // Index_List_Free(&highlightIndices);
-    }
-
-    // Draw text
+    // Add text render data
     float textPosX = floorf(node->public.generic.x + node->public.generic.borderLeft + node->public.generic.padLeft + inputText->textOffset);
     float textPosY = floorf(node->public.generic.y + node->public.generic.borderTop  + node->public.generic.padTop);
-    Array textRenderData;
-    Array_Init(&textRenderData, sizeof(GlyphRenderData), 256);
-    NuColor color = {
+    NuColor textColor = {
         node->public.generic.textR,
         node->public.generic.textG,
         node->public.generic.textB,
         255
     };
     NU_Generate_Text_Renderdata(
-        &textRenderData,
-        node_font,
+        textRenderData,
+        font,
         NULL,
         inputText->buffer,
         textPosX,
         textPosY,
-        z + 0.5f,
-        color,
+        ComputeZ(node->layer + ABSOLUTE_Z_LAYER * NodeStatePosAbsolute(node), 1),
+        textColor,
         -1.0f
     );
-    //NU_Draw_Clipped_Text(textRenderData, node_font, winWidth, winHeight, 0, 0, clip->top, clip->bottom, clip->left, clip->right);
-    Array_Free(&textRenderData);
 
-    // Draw cursor (if input is focused)
+    // Text highlight rect
+    if (node == GUI.focused_node && InputText_IsHighlighting(inputText))
+    {
+        NuNodeGenericAccess* n = &node->public.generic;
+        float cursorX = n->x + n->borderLeft + n->padLeft + inputText->cursorOffset;
+        float highlightX = n->x + n->borderLeft + n->padLeft + inputText->highlightOffset;
+        float x = highlightX; if (cursorX < x) x = cursorX;
+        float y = n->y + n->borderTop + n->padTop;
+        float width = fabs(cursorX - highlightX);
+        float height = n->height - n->borderTop - n->borderBottom - n->padTop - n->padBottom;
+
+        NuColor highlightColor = { 66, 137, 244, 255 };
+        float32 packedColor = PackColorIntoUint32(highlightColor);
+
+        BorderRectRenderData* renderData = Array_PushEmpty(borderRectRenderData);
+        renderData->x = x;
+        renderData->y = y;
+        renderData->z = ComputeZ(node->layer + ABSOLUTE_Z_LAYER * NodeStatePosAbsolute(node), 2);
+        renderData->w = width;
+        renderData->h = height;
+        renderData->backgroundRGBA = packedColor;
+        renderData->borderRGBA = packedColor;
+        renderData->radiusTl = 0;
+        renderData->radiusTr = 0;
+        renderData->radiusBl = 0;
+        renderData->radiusBr = 0;
+        renderData->borderTop = 0;
+        renderData->borderBottom = 0;
+        renderData->borderLeft = 0;
+        renderData->borderRight = 0;
+        renderData->scissorTop = clip->top;
+        renderData->scissorBottom = clip->bottom;
+        renderData->scissorLeft = clip->left;
+        renderData->scissorRight = clip->right;
+    }
+
+    // Add cursor rect
     if (node == GUI.focused_node && !InputText_IsHighlighting(inputText))
     {
-        Vertex_RGB_List cursorVertices; Vertex_RGB_List_Init(&cursorVertices, 4);
-        Index_List cursorIndices; Index_List_Init(&cursorIndices, 6);
-        //NU_ConstructInputCursorMesh(node, z + 0.5f, inputText, &cursorVertices, &cursorIndices);
-        // Draw_Clipped_Vertex_RGB_List(
-        //     &cursorVertices, &cursorIndices,
-        //     winWidth, winHeight, 0, 0,
-        //     clip->top, clip->bottom,
-        //     clip->left, clip->right + 1
-        // );
-        // Vertex_RGB_List_Free(&cursorVertices);
-        // Index_List_Free(&cursorIndices);
+        NuNodeGenericAccess* n = &node->public.generic;
+        float x = n->x + n->borderLeft + n->padLeft + inputText->cursorOffset;
+        float y = n->y + n->borderTop + n->padTop;
+        float innerHeight = n->height - n->borderTop - n->borderBottom - n->padTop - n->padBottom;
+
+        NuColor cursorColor = { 255, 255, 255, 255 };
+        float32 packedColor = PackColorIntoUint32(cursorColor);
+
+        BorderRectRenderData* renderData = Array_PushEmpty(borderRectRenderData);
+        renderData->x = x;
+        renderData->y = y;
+        renderData->z = ComputeZ(node->layer + ABSOLUTE_Z_LAYER * NodeStatePosAbsolute(node), 3);
+        renderData->w = 2;
+        renderData->h = innerHeight;
+        renderData->backgroundRGBA = packedColor;
+        renderData->borderRGBA = packedColor;
+        renderData->radiusTl = 0;
+        renderData->radiusTr = 0;
+        renderData->radiusBl = 0;
+        renderData->radiusBr = 0;
+        renderData->borderTop = 0;
+        renderData->borderBottom = 0;
+        renderData->borderLeft = 0;
+        renderData->borderRight = 0;
+        renderData->scissorTop = clip->top;
+        renderData->scissorBottom = clip->bottom;
+        renderData->scissorLeft = clip->left;
+        renderData->scissorRight = clip->right;
     }
 }
 
@@ -358,73 +391,6 @@ void Add_ScrollbarRenderData(
     thumbRData->scissorBottom = 10000000.0f;
     thumbRData->scissorLeft = 0.0f;
     thumbRData->scissorRight = 10000000.0f;
-}
-
-void NU_ConstructInputCursorMesh(
-    Node* node, float z,
-    InputText* inputText,
-    Vertex_RGB_List* vertices,
-    Index_List* indices)
-{
-    NuNodeGenericAccess* n = &node->public.generic;
-    float x = n->x + n->borderLeft + n->padLeft + inputText->cursorOffset;
-    float y = n->y + n->borderTop + n->padTop;
-    float innerHeight = n->height - n->borderTop  - n->borderBottom - n->padTop - n->padBottom;
-
-    NuColor color = { 255, 255, 255, 255 };
-    float32 packedColor = PackColorIntoFloat32(color);
-    vertices->array[0] = (vertex_rgb){ x, y, z, packedColor }; // top left
-    vertices->array[1] = (vertex_rgb){ x + 1, y, z, packedColor }; // top right
-    vertices->array[2] = (vertex_rgb){ x, y + innerHeight - 1, z, packedColor }; // bottom left
-    vertices->array[3] = (vertex_rgb){ x + 1, y + innerHeight - 1, z, packedColor }; // bottom right
-
-    // indices
-    uint32* indices_write = indices->array;
-    *indices_write++ = 0;
-    *indices_write++ = 1;
-    *indices_write++ = 2;
-    *indices_write++ = 1;
-    *indices_write++ = 2;
-    *indices_write++ = 3;
-
-    vertices->size = 4;
-    indices->size = 6;
-}
-
-void NU_ConstructInputHighlightMesh(
-    Node* node, float z,
-    InputText* inputText,
-    Vertex_RGB_List* vertices,
-    Index_List* indices)
-{
-    NuNodeGenericAccess* n = &node->public.generic;
-
-    float cursorX = n->x + n->borderLeft + n->padLeft + inputText->cursorOffset;
-    float highlightX = n->x + n->borderLeft + n->padLeft + inputText->highlightOffset;
-    float x = highlightX; if (cursorX < x) x = cursorX;
-    float y = n->y + n->borderTop + n->padTop;
-    float width = fabs(cursorX - highlightX);
-    float height = n->height - n->borderTop - n->borderBottom - n->padTop - n->padBottom;
-
-    NuColor highlightColor = { 66, 137, 244, 255 };
-    float32 packedHighlightColor = PackColorIntoFloat32(highlightColor);
-
-    vertices->array[0] = (vertex_rgb){ x, y, z, packedHighlightColor }; // top left
-    vertices->array[1] = (vertex_rgb){ x + width, y, z, packedHighlightColor }; // top right
-    vertices->array[2] = (vertex_rgb){ x, y + height, z, packedHighlightColor }; // bottom left
-    vertices->array[3] = (vertex_rgb){ x + width, y + height, z, packedHighlightColor }; // bottom right
-
-    // indices
-    uint32* indices_write = indices->array;
-    *indices_write++ = 0;
-    *indices_write++ = 1;
-    *indices_write++ = 2;
-    *indices_write++ = 1;
-    *indices_write++ = 2;
-    *indices_write++ = 3;
-
-    vertices->size = 4;
-    indices->size = 6;
 }
 
 
@@ -662,7 +628,8 @@ void NU_Draw()
                 clip.left = node->public.generic.x + node->public.generic.borderLeft + node->public.generic.padLeft;
                 clip.right = node->public.generic.x + node->public.generic.width - node->public.generic.borderRight - node->public.generic.padRight;
                 clip.bottom = node->public.generic.y + node->public.generic.height + 1000;
-                //NU_DrawInputNodeContent(node, z, winW, winH, &clip);
+                Array* textRenderData = Array_Get(&GUI.perFontTextRenderData, node->fontIdx);
+                AddTextInputRenderData(node, &clip, textRenderData, &GUI.borderRectsRenderData);
             }
 
             // Image render data
@@ -722,7 +689,8 @@ void NU_Draw()
                     NU_ClipBounds innerClip = *clip;
                     innerClip.left += node->public.generic.borderLeft + node->public.generic.padLeft;
                     innerClip.right -= node->public.generic.borderRight + node->public.generic.padRight;
-                    //NU_DrawInputNodeContent(node, z, winW, winH, &innerClip);
+                    Array* textRenderData = Array_Get(&GUI.perFontTextRenderData, node->fontIdx);
+                    AddTextInputRenderData(node, &innerClip, textRenderData, &GUI.borderRectsRenderData);
                 }
             }
 
@@ -808,10 +776,8 @@ void NU_Draw()
 
             // Retarget z values of unseen vertices
             uint32 retargetedCount = 0;
-            for (uint32 v=ctx->meshLayer.zValuesRetargeted;
-                v<Vertex_RGB_List_Length(&ctx->meshLayer.vertices); v++)
-            {
-                vertex_rgb* vert = &ctx->meshLayer.vertices.array[i];
+            for (uint32 v=ctx->meshLayer.zValuesRetargeted; v<Vertex_RGB_List_Length(&ctx->meshLayer.vertices); v++) {
+                vertex_rgb* vert = &ctx->meshLayer.vertices.array[v];
                 vert->z = ComputeZ(baseDepthLayer, (uint8)(vert->z));
                 retargetedCount++;
             }

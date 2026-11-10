@@ -174,7 +174,7 @@ bool EventWatcher(void* data, SDL_Event* event)
 
             TriggerAllOnTypeEvents(event->text.text);
 
-            if (GUI.focused_node != NULL) {
+            if (GUI.focused_node) {
                 Font* font = Stylesheet_Get_Font(&GUI.stylesheet, GUI.focused_node->fontIdx);
                 InputText* inputText = Container_Get(&GUI.textInputs, GUI.focused_node->special.input.textInputHandle);
 
@@ -182,6 +182,7 @@ bool EventWatcher(void* data, SDL_Event* event)
                 if (InputText_IsHighlighting(inputText)) {
                     InputText_RemoveHighlightedText(inputText, GUI.focused_node, font);
                     InputText_Write(inputText, GUI.focused_node, font, event->text.text);
+                    printf("typed %s\n", event->text.text);
                     updated = 1;
                 }
                 else {

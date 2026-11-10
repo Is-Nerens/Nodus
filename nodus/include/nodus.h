@@ -343,7 +343,7 @@ struct NU_EventCallbackInfo
 
 
 // UI functions
-_IMPORT int NU_CREATE_GUI(const char* xml_filepath, const char* css_filepath);
+_IMPORT NuWindow* NU_CREATE_GUI(const char* xml_filepath, const char* css_filepath);
 _IMPORT void NU_QUIT(void);
 _IMPORT void NU_RUN(void);
 _IMPORT int NU_ADD_TIMER(uint32_t intervalMs, NU_Callback callback, void* args);
@@ -498,6 +498,9 @@ _IMPORT void NU_WIDGET_DELETE(int widgetID, int deleteRoot);
 
 // Canvas functions
 _IMPORT int NU_CANVAS_CTX(const NuCanvas* canvasNode);
+_IMPORT void NU_CANVAS_CLEAR(int contextId);
+_IMPORT float NU_CANVAS_WIDTH(int contextId);
+_IMPORT float NU_CANVAS_HEIGHT(int contextId);
 _IMPORT NuColor NU_COLOR_FROM_HEXCODE(const char* hexcode);
 _IMPORT void NU_CANVAS_DRAW_BORDER_RECT(
     int contextID,

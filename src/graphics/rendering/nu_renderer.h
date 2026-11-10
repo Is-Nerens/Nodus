@@ -46,7 +46,12 @@ void NU_DrawVertexRGB(
 
     // Push constants
     // 4 floats: screenW, screenH, offsetX, offsetY
-    float push[4] = { (float)window->screenWidth, (float)window->screenHeight, offsetX, offsetY };
+    float push[4] = {
+        (float)window->swapchainExtent.width,
+        (float)window->swapchainExtent.height,
+        offsetX,
+        offsetY
+    };
     vkCmdPushConstants(cmd, displayManager->vertexRGBPipeline.layout, VK_SHADER_STAGE_VERTEX_BIT, 0, sizeof(push), push);
 
     // Allocate vertex buffer space in the GPU arena

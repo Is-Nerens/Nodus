@@ -319,6 +319,7 @@ int DisplayManager_CreateWindow(DisplayManager* displayManager, Node* node, cons
     }
     else {
         sdlWin = SDL_CreateWindow(title, width, height, SDL_WINDOW_VULKAN | SDL_WINDOW_RESIZABLE | SDL_WINDOW_HIGH_PIXEL_DENSITY);
+        SDL_StartTextInput(sdlWin);
     }
 
     // Create a new Window

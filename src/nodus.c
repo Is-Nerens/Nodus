@@ -49,9 +49,10 @@ _EXPORT void NU_QUIT(void) {
     SDL_Quit();
 }
 
-_EXPORT int NU_CREATE_GUI(const char* xml_filepath, const char* css_filepath) {
+_EXPORT NuWindow* NU_CREATE_GUI(const char* xml_filepath, const char* css_filepath) {
+
     // Init SDL
-    if (!SDL_Init(SDL_INIT_VIDEO)) return 0;
+    if (!SDL_Init(SDL_INIT_VIDEO)) return NULL;
     SDL_SetHint("SDL_MOUSE_FOCUS_CLICKTHROUGH", "1");
     SDL_SetHint(SDL_HINT_MAC_SCROLL_MOMENTUM, "1");
 
@@ -79,8 +80,6 @@ _EXPORT int NU_CREATE_GUI(const char* xml_filepath, const char* css_filepath) {
 
     // Init Event System (allocates memory)
     EventSystem_Init();
-
-    // Init layout and draw datastructures
 
     // Cursors
     GUI.cursorDefault    = SDL_CreateSystemCursor(SDL_SYSTEM_CURSOR_DEFAULT);
@@ -114,14 +113,24 @@ _EXPORT int NU_CREATE_GUI(const char* xml_filepath, const char* css_filepath) {
     GUI.bfs = BreadthFirstSearch_Create(GUI.tree.root);
     GUI.rbfs = ReverseBreadthFirstSearch_Create(GUI.tree.root);
 
-    // Load xml
-    if (!NU_Internal_Load_XML(xml_filepath, &GUI.imageResourceManager, &GUI.displayManager)) {
-        NU_QUIT(); return 0;
+    Node* rootNode = NULL;
+
+    // Create from xml template
+    if (xml_filepath) {
+        if (!NU_Internal_Load_XML(xml_filepath, &GUI.imageResourceManager, &GUI.displayManager)) {
+            NU_QUIT(); return NULL;
+        }
+        rootNode = GUI.tree.root;
+    }
+    // Create tree + root window node
+    else {
+        rootNode = TreeCreate(&GUI.tree);
+        DisplayManager_CreateWindow(&GUI.displayManager, rootNode, "", 100, 100);
     }
 
-    // Load css
+    // Create stylesheet from css
     if (!Stylesheet_Create(&GUI.stylesheet, &GUI.threadPool, css_filepath, &GUI.imageResourceManager, &GUI.displayManager)) {
-        NU_QUIT(); return 0;
+        NU_QUIT(); return NULL;
     }
 
     // Commit partial atlas builds to images
@@ -145,11 +154,9 @@ _EXPORT int NU_CREATE_GUI(const char* xml_filepath, const char* css_filepath) {
     }
 
     // Apply css
-    timer_start();
     if (!NU_Internal_Apply_Stylesheet_Parallel(&GUI.stylesheet, &GUI.threadPool)) {
-        NU_QUIT(); return 0;
+        NU_QUIT(); return NULL;
     }
-    timer_stop();
 
     // Initial layout calculation
     NU_Layout();
@@ -161,7 +168,7 @@ _EXPORT int NU_CREATE_GUI(const char* xml_filepath, const char* css_filepath) {
     GUI.timerMutex = SDL_CreateMutex();
 
     // Success
-    return 1;
+    return (NuWindow*)(rootNode);
 }
 
 int TimerHandler(void* args) {
@@ -296,6 +303,11 @@ _EXPORT const char* NU_GET_NEXT_ERROR() {
 _EXPORT NuColor NU_COLOR_FROM_HEXCODE(const char* hexcode) {
     NuColor black = { 0, 0, 0, 255 };
     if (!hexcode) return black;
+    uint32 offset = (hexcode[0] == '#') ? 1 : 0;
+    hexcode += offset;
+    if (hexcode[0] == '\0' || hexcode[1] == '\0' ||
+        hexcode[2] == '\0' || hexcode[3] == '\0' ||
+        hexcode[4] == '\0' || hexcode[5] == '\0') return black;
     int32 r1 = HexValue(hexcode[0]);
     int32 r2 = HexValue(hexcode[1]);
     int32 g1 = HexValue(hexcode[2]);
@@ -1115,7 +1127,7 @@ _EXPORT int NU_WIDGET(NuNode* widgetRoot,
     widget.updateCB = updateCB;
     widget.updateCB_Args = updateCB_Args;
     int widgetID = Container_Add(&GUI.widgets, &widget);
-    createCB(widgetRoot, widgetID, createCB_Args);
+    if (createCB) createCB(widgetRoot, widgetID, createCB_Args);
 
     return widgetID;
 }
@@ -1154,6 +1166,22 @@ _EXPORT int NU_CANVAS_CTX(const NuCanvas* canvasNode) {
 _EXPORT void NU_CANVAS_CLEAR(int contextID) {
     NU_Canvas_Context* ctx = Container_Get(&GUI.canvasContexts, contextID);
     if (ctx) Canvas_ClearContext(ctx);
+}
+
+_EXPORT float NU_CANVAS_WIDTH(int contextId) {
+    NU_Canvas_Context* ctx = Container_Get(&GUI.canvasContexts, contextId);
+    if (ctx) {
+        return ctx->canvasWidth;
+    }
+    return 0.0f;
+}
+
+_EXPORT float NU_CANVAS_HEIGHT(int contextId) {
+    NU_Canvas_Context* ctx = Container_Get(&GUI.canvasContexts, contextId);
+    if (ctx) {
+        return ctx->canvasHeight;
+    }
+    return 0.0f;
 }
 
 _EXPORT void NU_CANVAS_DRAW_BORDER_RECT(

@@ -11,16 +11,16 @@ typedef struct ArenaChunkGPU {
     void* mapped;
     VkDeviceSize capacity;
     VkDeviceSize offset;
-    u32 idleFrames;
+    uint32 idleFrames;
 } ArenaChunkGPU;
 
 typedef struct ArenaAllocatorGPU {
     VkPhysicalDeviceMemoryProperties memoryProperties;
     VkDevice device;
-    u32 typeIndex;
+    uint32 typeIndex;
     ArenaChunkGPU chunks[ARENA_MAX_CHUNKS];
-    u32 chunkCount;
-    u32 currentChunk;
+    uint32 chunkCount;
+    uint32 currentChunk;
 } ArenaAllocatorGPU;
 
 typedef struct ArenaAllocGPU {
@@ -48,7 +48,7 @@ static void ArenaChunkGPU_Destroy(ArenaChunkGPU* chunk, VkDevice device)
     chunk->idleFrames = 0;
 }
 
-static int ArenaChunkGPU_Create(ArenaChunkGPU* chunk, VkDevice device, u32 typeIndex, VkDeviceSize size)
+static int ArenaChunkGPU_Create(ArenaChunkGPU* chunk, VkDevice device, uint32 typeIndex, VkDeviceSize size)
 {
     // Init chunk
     chunk->buffer = VK_NULL_HANDLE;
@@ -105,7 +105,7 @@ static int ArenaChunkGPU_Create(ArenaChunkGPU* chunk, VkDevice device, u32 typeI
 
 static void ArenaAllocatorGPU_Destroy(ArenaAllocatorGPU* alloc)
 {
-    for (u32 c=0; c<alloc->chunkCount; c++) {
+    for (uint32 c=0; c<alloc->chunkCount; c++) {
         ArenaChunkGPU_Destroy(&alloc->chunks[c], alloc->device);
     }
     alloc->chunkCount = 0;
@@ -124,7 +124,7 @@ static int ArenaAllocatorGPU_Init(ArenaAllocatorGPU* alloc, VkDevice device, VkP
     // Get memory type index
     vkGetPhysicalDeviceMemoryProperties(physicalDevice, &alloc->memoryProperties);
     alloc->typeIndex = UINT32_MAX;
-    for (u32 i=0; i<alloc->memoryProperties.memoryTypeCount; i++) {
+    for (uint32 i=0; i<alloc->memoryProperties.memoryTypeCount; i++) {
         if ((alloc->memoryProperties.memoryTypes[i].propertyFlags & VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT) &&
             (alloc->memoryProperties.memoryTypes[i].propertyFlags & VK_MEMORY_PROPERTY_HOST_COHERENT_BIT)) {
             alloc->typeIndex = i;
@@ -153,15 +153,15 @@ static void ArenaAllocatorGPU_Clear(ArenaAllocatorGPU* alloc)
     // Increment idle counters for every chunk. Chunks that were used this
     // frame (i.e. touched by Alloc before this Clear ran) get reset to 0 in
     // Alloc, so this only counts chunks that went untouched
-    for (u32 i=0; i<alloc->chunkCount; i++) {
+    for (uint32 i=0; i<alloc->chunkCount; i++) {
         alloc->chunks[i].idleFrames++;
     }
 
     // Destroy chunks that have been idle for too long. Skip index 0 (the
     // primary chunk) because Alloc always starts there. Compact the array
     // so all live chunks are contiguous
-    u32 write = 1;
-    for (u32 read=1; read<alloc->chunkCount; read++) {
+    uint32 write = 1;
+    for (uint32 read=1; read<alloc->chunkCount; read++) {
         if (alloc->chunks[read].idleFrames >= ARENA_CHUNK_IDLE_THRESHOLD) {
             ArenaChunkGPU_Destroy(&alloc->chunks[read], alloc->device);
         } else {
@@ -175,7 +175,7 @@ static void ArenaAllocatorGPU_Clear(ArenaAllocatorGPU* alloc)
 
     // Reset bump pointers
     alloc->currentChunk = 0;
-    for (u32 i=0; i<alloc->chunkCount; i++) {
+    for (uint32 i=0; i<alloc->chunkCount; i++) {
         alloc->chunks[i].offset = 0;
     }
 }

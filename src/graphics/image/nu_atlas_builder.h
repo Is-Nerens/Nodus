@@ -1,6 +1,6 @@
 #pragma once
 
-void AtlasBuilder_Init(AtlasBuilder* a, u16 w, u16 h)
+void AtlasBuilder_Init(AtlasBuilder* a, uint16 w, uint16 h)
 {
     a->w = w;
     a->h = h;
@@ -36,7 +36,7 @@ static void AtlasBuilder_AddImage(
     AtlasBuilder* a,
     const unsigned char* src,
     int imgW, int imgH,
-    u16* outX, u16* outY)
+    uint16* outX, uint16* outY)
 {
     // New row if needed
     if (a->x + imgW > a->w) {

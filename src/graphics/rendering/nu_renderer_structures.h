@@ -1,188 +1,113 @@
 #pragma once
-#include <utils/nu_convert.h>
 #include <math.h>
 
 typedef struct {
-    float x, y;
+    float32 x, y;
 } vec2;
 
 typedef struct {
-    float r, g, b;
-} NU_RGB_FL;
-
-typedef struct {
-    u8 r, g, b;
-} NU_RGB;
-
-typedef struct {
-    float x, y, z;
-    float r, g, b;
+    float32 x, y, z;
+    float32 packedColor;
 } vertex_rgb;
 
 typedef struct {
-    float x, y, z;
-    float u, v;
+    float32 x, y, z;
+    float32 u, v;
 } vertex_uv;
 
 typedef struct {
-    float x, y, z;
-    float r, g, b;
-    float u, v;
+    float32 x, y, z;
+    float32 r, g, b;
+    float32 u, v;
 } vertex_rgb_uv;
 
 typedef struct {
-    GLuint* array;
-    u32 size;
-    u32 capacity;
+    uint32* array;
+    uint32 size;
+    uint32 capacity;
 } Index_List;
 
 typedef struct {
     vertex_rgb* array;
-    u32 size;
-    u32 capacity;
+    uint32 size;
+    uint32 capacity;
 } Vertex_RGB_List;
 
 typedef struct {
     vertex_uv* array;
-    u32 size;
-    u32 capacity;
+    uint32 size;
+    uint32 capacity;
 } Vertex_UV_List;
 
 typedef struct {
     vertex_rgb_uv* array;
-    u32 size;
-    u32 capacity;
+    uint32 size;
+    uint32 capacity;
 } Vertex_RGB_UV_List;
 
 typedef struct BorderRectRenderData {
-    float x, y, z;
-    float w, h;
-    u32 backgroundRGBA;
-    u32 borderRGBA;
-    float radiusTl, radiusTr, radiusBl, radiusBr;
-    float borderTop, borderBottom, borderLeft, borderRight;
-    float scissorTop, scissorBottom, scissorLeft, scissorRight;
+    float32 x, y, z;
+    float32 w, h;
+    uint32 backgroundRGBA;
+    uint32 borderRGBA;
+    float32 radiusTl, radiusTr, radiusBl, radiusBr;
+    float32 borderTop, borderBottom, borderLeft, borderRight;
+    float32 scissorTop, scissorBottom, scissorLeft, scissorRight;
 } BorderRectRenderData;
 
 typedef struct GlyphRenderData {
-    float x, y, z;
-    float w, h;
-    float u0, v0;
-    float u1, v1;
-    u32 colourRGBA;
-    u32 textureIndex;
+    float32 x, y, z;
+    float32 w, h;
+    float32 u0, v0;
+    float32 u1, v1;
+    uint32 colourRGBA;
+    uint32 textureIndex;
 } GlyphRenderData;
 
 typedef struct ClippedGlyphRenderData {
-    float x, y, z;
-    float w, h;
-    float u0, v0;
-    float u1, v1;
-    u16 clipTop, clipBottom;
-    u16 clipLeft, clipRight;
-    u8 clipRadiusTopLeft, clipRadiusTopRight;
-    u8 clipRadiusBottomLeft, clipRadiusBottomRight;
-    u32 colourRGBA;
-    u32 textureIndex;
+    float32 x, y, z;
+    float32 w, h;
+    float32 u0, v0;
+    float32 u1, v1;
+    uint16 clipTop, clipBottom;
+    uint16 clipLeft, clipRight;
+    uint8 clipRadiusTopLeft, clipRadiusTopRight;
+    uint8 clipRadiusBottomLeft, clipRadiusBottomRight;
+    uint32 colourRGBA;
+    uint32 textureIndex;
 } ClippedGlyphRenderData;
 
 typedef struct ImageRenderData {
-    float x, y, z;
-    float w, h;
-    float u0, v0;
-    float u1, v1;
-    u16 clipTop, clipBottom;
-    u16 clipLeft, clipRight;
-    u8 clipRadiusTopLeft, clipRadiusTopRight;
-    u8 clipRadiusBottomLeft, clipRadiusBottomRight;
-    u8 textureIndex, filter, repeat;
+    float32 x, y, z;
+    float32 w, h;
+    float32 u0, v0;
+    float32 u1, v1;
+    uint16 clipTop, clipBottom;
+    uint16 clipLeft, clipRight;
+    uint8 clipRadiusTopLeft, clipRadiusTopRight;
+    uint8 clipRadiusBottomLeft, clipRadiusBottomRight;
+    uint8 textureIndex, filter, repeat;
 } ImageRenderData;
-
-typedef struct {
-    Vertex_RGB_List vertices;
-    Index_List indices;
-} CanvasShapeLayer;
-
-typedef struct {
-    Array textRenderData;
-    int fontID;
-} CanvasTextLayer;
-
-typedef struct {
-    CanvasShapeLayer shapeLayer;
-    Array textLayers;
-
-    // State
-    bool isShapeLayer;
-    int fontID;
-    int z;
-    int textLayerIndex;
-    float canvasWidth;
-    float canvasHeight;
-    Node* node;
-} NU_Canvas_Context;
-
-void RGB_From_Hex(const char* hexstring, NU_RGB* result)
-{
-    // Ensure string is 7 chars long and first char is '#'
-    int i=0;
-    while(1) {
-        if (hexstring[i] == 0) {
-            break;
-        }
-        if (i > 7) {
-            result->r = 1.0f;
-            result->g = 1.0f;
-            result->b = 1.0f;
-            return;
-        }
-        i++;
-    }
-    if (hexstring[0] != '#') {
-        result->r = 1.0f;
-        result->g = 1.0f;
-        result->b = 1.0f;
-        return;
-    }
-
-    // Perform the conversion
-    int r1 = Hex_To_Int(hexstring[1]);
-    int r2 = Hex_To_Int(hexstring[2]);
-    int g1 = Hex_To_Int(hexstring[3]);
-    int g2 = Hex_To_Int(hexstring[4]);
-    int b1 = Hex_To_Int(hexstring[5]);
-    int b2 = Hex_To_Int(hexstring[6]);
-    if (r1 < 0 || r2 < 0 || g1 < 0 || g2 < 0 || b1 < 0 || b2 < 0)
-    {
-        result->r = 1.0f;
-        result->g = 1.0f;
-        result->b = 1.0f;
-        return;
-    }
-    result->r = (uint8_t)((r1 << 4) | r2);
-    result->g = (uint8_t)((g1 << 4) | g2);
-    result->b = (uint8_t)((b1 << 4) | b2);
-}
 
 // ----------------------
 // --- Init Functions ---
 // ----------------------
-void Index_List_Init(Index_List* list, u32 capacity) {
+void Index_List_Init(Index_List* list, uint32 capacity) {
     list->size = 0;
     list->capacity = capacity;
-    list->array = malloc(capacity * sizeof(GLuint));
+    list->array = malloc(capacity * sizeof(uint32));
 }
-void Vertex_RGB_List_Init(Vertex_RGB_List* list, u32 capacity) {
+void Vertex_RGB_List_Init(Vertex_RGB_List* list, uint32 capacity) {
     list->size = 0;
     list->capacity = capacity;
     list->array = malloc(capacity * sizeof(vertex_rgb));
 }
-void Vertex_UV_List_Init(Vertex_UV_List* list, u32 capacity) {
+void Vertex_UV_List_Init(Vertex_UV_List* list, uint32 capacity) {
     list->size = 0;
     list->capacity = capacity;
     list->array = malloc(capacity * sizeof(vertex_uv));
 }
-void Vertex_RGB_UV_List_Init(Vertex_RGB_UV_List* list, u32 capacity) {
+void Vertex_RGB_UV_List_Init(Vertex_RGB_UV_List* list, uint32 capacity) {
     list->size = 0;
     list->capacity = capacity;
     list->array = malloc(capacity * sizeof(vertex_rgb_uv));
@@ -212,8 +137,16 @@ void Vertex_RGB_UV_List_Free(Vertex_RGB_UV_List* list) {
     list->capacity = 0;
 }
 
+
 // ----------------------
-// --- Clear Functions ---
+// --- Length Functions --
+// ----------------------
+inline uint32 Vertex_RGB_List_Length(Vertex_RGB_List* list) {
+    return list->size;
+}
+
+// ----------------------
+// --- Clear Functions --
 // ----------------------
 void Index_List_Clear(Index_List* list) {
     list->size = 0;
@@ -235,19 +168,19 @@ void Vertex_RGB_UV_List_Clear(Vertex_RGB_UV_List* list) {
 // ----------------------
 // --- Grow Functions ---
 // ----------------------
-void Index_List_Grow(Index_List* list, u32 extra_capacity) {
+void Index_List_Grow(Index_List* list, uint32 extra_capacity) {
     list->capacity = max(list->capacity * 2, list->capacity + extra_capacity);
-    list->array = realloc(list->array, list->capacity * sizeof(GLuint));
+    list->array = realloc(list->array, list->capacity * sizeof(uint32));
 }
-void Vertex_RGB_List_Grow(Vertex_RGB_List* list, u32 extra_capacity) {
+void Vertex_RGB_List_Grow(Vertex_RGB_List* list, uint32 extra_capacity) {
     list->capacity = max(list->capacity * 2, list->capacity + extra_capacity);
     list->array = realloc(list->array, list->capacity * sizeof(vertex_rgb));
 }
-void Vertex_UV_List_Grow(Vertex_UV_List* list, u32 extra_capacity) {
+void Vertex_UV_List_Grow(Vertex_UV_List* list, uint32 extra_capacity) {
     list->capacity = max(list->capacity * 2, list->capacity + extra_capacity);
     list->array = realloc(list->array, list->capacity * sizeof(vertex_uv));
 }
-void Vertex_RGB_UV_List_Grow(Vertex_RGB_UV_List* list, u32 extra_capacity) {
+void Vertex_RGB_UV_List_Grow(Vertex_RGB_UV_List* list, uint32 extra_capacity) {
     list->capacity = max(list->capacity * 2, list->capacity + extra_capacity);
     list->array = realloc(list->array, list->capacity * sizeof(vertex_rgb_uv));
 }

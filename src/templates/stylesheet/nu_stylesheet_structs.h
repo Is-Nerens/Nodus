@@ -19,30 +19,30 @@ typedef struct StyleItemKey {
 
 typedef struct StyleItem
 {
-    u64 propertyFlags;
+    uint64 propertyFlags;
     int nextVariationIndex;
     int screenQueryIndex;
     int imageHandle;
-    u16 preferredWidth, preferredHeight;
-    u16 minWidth, maxWidth, minHeight, maxHeight;
-    i16 left, right, top, bottom;
-    u16 layoutFlags;
-    u8 gap, padTop, padBottom, padLeft, padRight;
-    u8 borderTop, borderBottom, borderLeft, borderRight;
-    u8 borderRadiusTl, borderRadiusTr, borderRadiusBl, borderRadiusBr;
-    u8 backgroundR, backgroundG, backgroundB;
-    u8 borderR, borderG, borderB;
-    u8 textR, textG, textB;
-    u8 fontIdx;
-    u8 imageWidthDimType;
-    u8 imageHeightDimType;
-    u8 imageRepeat;
-    u8 imageFilter;
+    uint16 preferredWidth, preferredHeight;
+    uint16 minWidth, maxWidth, minHeight, maxHeight;
+    int16 left, right, top, bottom;
+    uint16 layoutFlags;
+    uint8 gap, padTop, padBottom, padLeft, padRight;
+    uint8 borderTop, borderBottom, borderLeft, borderRight;
+    uint8 borderRadiusTl, borderRadiusTr, borderRadiusBl, borderRadiusBr;
+    uint8 backgroundR, backgroundG, backgroundB;
+    uint8 borderR, borderG, borderB;
+    uint8 textR, textG, textB;
+    uint8 fontIdx;
+    uint8 imageWidthDimType;
+    uint8 imageHeightDimType;
+    uint8 imageRepeat;
+    uint8 imageFilter;
     char horizontalAlignment;
     char verticalAlignment;
     char horizontalTextAlignment;
     char verticalTextAlignment;
-    u8 inputType;
+    uint8 inputType;
 } StyleItem;
 
 typedef struct StylesheetVariable
@@ -62,18 +62,18 @@ typedef struct StylesheetScreenQuery
 typedef struct Stylesheet_Scrollbar_Style
 {
     bool overlay;
-    u8 width;
-    u8 height;
-    u8 thumbMinSize;
-    u8 thumbBorderTop, thumbBorderBottom, thumbBorderLeft, thumbBorderRight;
-    u8 thumbBorderRadiusTl, thumbBorderRadiusTr, thumbBorderRadiusBl, thumbBorderRadiusBr;
-    u8 thumbBackgroundR, thumbBackgroundG, thumbBackgroundB;
-    u8 thumbBorderR, thumbBorderG, thumbBorderB;
-    u8 trackPadTop, trackPadBottom, trackPadLeft, trackPadRight;
-    u8 trackBorderTop, trackBorderBottom, trackBorderLeft, trackBorderRight;
-    u8 trackBorderRadiusTl, trackBorderRadiusTr, trackBorderRadiusBl, trackBorderRadiusBr;
-    u8 trackBackgroundR, trackBackgroundG, trackBackgroundB;
-    u8 trackBorderR, trackBorderG, trackBorderB;
+    uint8 width;
+    uint8 height;
+    uint8 thumbMinSize;
+    uint8 thumbBorderTop, thumbBorderBottom, thumbBorderLeft, thumbBorderRight;
+    uint8 thumbBorderRadiusTl, thumbBorderRadiusTr, thumbBorderRadiusBl, thumbBorderRadiusBr;
+    uint8 thumbBackgroundR, thumbBackgroundG, thumbBackgroundB;
+    uint8 thumbBorderR, thumbBorderG, thumbBorderB;
+    uint8 trackPadTop, trackPadBottom, trackPadLeft, trackPadRight;
+    uint8 trackBorderTop, trackBorderBottom, trackBorderLeft, trackBorderRight;
+    uint8 trackBorderRadiusTl, trackBorderRadiusTr, trackBorderRadiusBl, trackBorderRadiusBr;
+    uint8 trackBackgroundR, trackBackgroundG, trackBackgroundB;
+    uint8 trackBorderR, trackBorderG, trackBorderB;
 } Stylesheet_Scrollbar_Style;
 
 typedef struct Stylesheet
@@ -92,7 +92,7 @@ typedef struct Stylesheet
 
 typedef struct StyleTextRef
 {
-    u32 tokenIndex;
-    u32 srcIndex;
-    u32 len;
+    uint32 tokenIndex;
+    uint32 srcIndex;
+    uint32 len;
 } StyleTextRef;

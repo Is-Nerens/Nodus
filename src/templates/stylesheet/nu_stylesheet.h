@@ -1,9 +1,4 @@
 #pragma once
-#include <string.h>
-#include <stdint.h>
-#include <stdlib.h>
-#include <stdio.h>
-#include <utils/nu_convert.h>
 #include <utils/nu_file.h>
 #include "nu_stylesheet_tokens.h"
 #include "nu_stylesheet_structs.h"
@@ -135,6 +130,6 @@ int Stylesheet_Create(
     return 1; // Success
 }
 
-static inline Font* Stylesheet_Get_Font(Stylesheet* ss, u8 fontIdx) {
+static inline Font* Stylesheet_Get_Font(Stylesheet* ss, uint8 fontIdx) {
     return Array_Get(&ss->fonts, fontIdx);
 }

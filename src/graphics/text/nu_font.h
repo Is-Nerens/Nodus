@@ -17,23 +17,23 @@ enum FontAtlasState {
 
 typedef struct {
     FT_UInt index;
-    u16 width;
-    u16 height;
-    float bearingX;
-    float bearingY;
-    float advance;
-    float u, v;    // top-left UV (not normalised)
+    uint16 width;
+    uint16 height;
+    float32 bearingX;
+    float32 bearingY;
+    float32 advance;
+    float32 u, v;    // top-left UV (not normalised)
 } Glyph;
 
 typedef struct {
     unsigned char* buffer;
-    int width;
-    int height;
-    float invWidth;
-    float invHeight;
-    int penX;           // For construction only
-    int penY;           // For construction only
-    int tallestInRow;   // For construction only;
+    int32 width;
+    int32 height;
+    float32 invWidth;
+    float32 invHeight;
+    int32 penX;           // For construction only
+    int32 penY;           // For construction only
+    int32 tallestInRow;   // For construction only;
     FontImageGPU fontImageGPU;
     enum FontAtlasState updateState;
     bool subpixelRendering;
@@ -45,26 +45,26 @@ typedef struct
     FontAtlas atlas;
     Array Ascii_Glyphs;
     Hashmap UTF8_Glyphs;
-    int heightPixels;
-    int fontWeight;
-    float y_max;
-    float y_min;
-    float ascent;
-    float descent;
-    float line_height;
+    int32 heightPixels;
+    int32 fontWeight;
+    float32 y_max;
+    float32 y_min;
+    float32 ascent;
+    float32 descent;
+    float32 line_height;
     FT_Int32 loadFlags;
     FT_Int32 renderFlags;
     bool subpixelRendering;
 } Font;
 
-void FontAtlas_Create(FontAtlas* atlas, int width, int height, bool subpixelRendering)
+void FontAtlas_Create(FontAtlas* atlas, int32 width, int32 height, bool subpixelRendering)
 {
-    int channels = 1; if (subpixelRendering) channels = 4;
+    int32 channels = 1; if (subpixelRendering) channels = 4;
     atlas->buffer = calloc(width * height, channels);
     atlas->width = width;
     atlas->height = height;
-    atlas->invWidth = 1.0f / (float)(atlas->width);
-    atlas->invHeight = 1.0f / (float)(atlas->height);
+    atlas->invWidth = 1.0f / (float32)(atlas->width);
+    atlas->invHeight = 1.0f / (float32)(atlas->height);
     atlas->penX = 0;
     atlas->penY = 0;
     atlas->tallestInRow = 0;
@@ -75,7 +75,7 @@ void FontAtlas_Create(FontAtlas* atlas, int width, int height, bool subpixelRend
 void FontAtlas_AddGlyph(FontAtlas* atlas, Glyph* glyph, FT_Bitmap* bmp)
 {
     // Wrap onto new row if necessary
-    int width_remaining = atlas->width - atlas->penX;
+    int32 width_remaining = atlas->width - atlas->penX;
     if (width_remaining < glyph->width) {
         atlas->penX = 0;
         atlas->penY += atlas->tallestInRow;
@@ -84,10 +84,10 @@ void FontAtlas_AddGlyph(FontAtlas* atlas, Glyph* glyph, FT_Bitmap* bmp)
     atlas->tallestInRow = MAX(atlas->tallestInRow, glyph->height);
 
     // Set glyph UVs
-    glyph->u = (float)atlas->penX;
-    glyph->v = (float)atlas->penY;
+    glyph->u = (float32)atlas->penX;
+    glyph->v = (float32)atlas->penY;
 
-    int channels = 1; if (atlas->subpixelRendering) channels = 4;
+    int32 channels = 1; if (atlas->subpixelRendering) channels = 4;
 
     // Resize atlas if needed
     if (atlas->penY + glyph->height >= atlas->height) {
@@ -96,8 +96,8 @@ void FontAtlas_AddGlyph(FontAtlas* atlas, Glyph* glyph, FT_Bitmap* bmp)
         size_t new_size = channels * atlas->width * atlas->height;
         unsigned char* new_buffer = realloc(atlas->buffer, new_size);
         memset(new_buffer + old_size, 0, new_size - old_size);
-        atlas->invWidth = 1.0f / (float)(atlas->width);
-        atlas->invHeight = 1.0f / (float)(atlas->height);
+        atlas->invWidth = 1.0f / (float32)(atlas->width);
+        atlas->invHeight = 1.0f / (float32)(atlas->height);
         atlas->buffer = new_buffer;
         if (atlas->updateState != FONT_ATLAS_STATE_MUST_UPLOAD) atlas->updateState = FONT_ATLAS_STATE_MUST_RESIZE;
     }
@@ -106,13 +106,13 @@ void FontAtlas_AddGlyph(FontAtlas* atlas, Glyph* glyph, FT_Bitmap* bmp)
     }
 
     // Copy row by row
-    for (int row = 0; row < glyph->height; row++) {
+    for (int32 row = 0; row < glyph->height; row++) {
         unsigned char* src = bmp->buffer + row * bmp->pitch;
         unsigned char* dst = atlas->buffer + ((atlas->penY + row) * atlas->width + atlas->penX) * channels;
 
         if (atlas->subpixelRendering) {
             // FreeType LCD bitmap is 3 bytes/px; atlas is 4 bytes/px (RGBA)
-            for (int x = 0; x < glyph->width; x++) {
+            for (int32 x = 0; x < glyph->width; x++) {
                 dst[x * 4 + 0] = src[x * 3 + 0];
                 dst[x * 4 + 1] = src[x * 3 + 1];
                 dst[x * 4 + 2] = src[x * 3 + 2];
@@ -127,7 +127,7 @@ void FontAtlas_AddGlyph(FontAtlas* atlas, Glyph* glyph, FT_Bitmap* bmp)
     atlas->penX += glyph->width;
 }
 
-int Font_UpdateGPU(
+int32 Font_UpdateGPU(
     Font* font,
     VkDevice device,
     VkPhysicalDevice physicalDevice,
@@ -160,12 +160,12 @@ int Font_UpdateGPU(
     return 1;
 }
 
-int Font_CreateFromFace(Font* font, FT_Face face, int heightPixels, int fontWeight, bool subpixelRendering)
+int32 Font_CreateFromFace(Font* font, FT_Face face, int32 heightPixels, int32 fontWeight, bool subpixelRendering)
 {
     heightPixels = min(heightPixels, 256);
     font->subpixelRendering = subpixelRendering;
 
-    int channels = 1;
+    int32 channels = 1;
     font->loadFlags = FT_LOAD_DEFAULT | FT_LOAD_FORCE_AUTOHINT | FT_LOAD_TARGET_LIGHT;
     font->renderFlags = FT_RENDER_MODE_NORMAL;
     if (font->subpixelRendering) {
@@ -187,10 +187,10 @@ int Font_CreateFromFace(Font* font, FT_Face face, int heightPixels, int fontWeig
             // Get current design coordinates first
             FT_Get_Var_Design_Coordinates(face, mm->num_axis, coords);
 
-            for (int i = 0; i < mm->num_axis; i++) {
+            for (int32 i = 0; i < mm->num_axis; i++) {
                 if (mm->axis[i].tag == FT_MAKE_TAG('w','g','h','t')) {
                     FT_Var_Axis* axis = &mm->axis[i];
-                    float t = (fontWeight - 100.0f) / 800.0f;
+                    float32 t = (fontWeight - 100.0f) / 800.0f;
                     t = t < 0.0f ? 0.0f : (t > 1.0f ? 1.0f : t);
                     coords[i] = axis->minimum + (FT_Fixed)((axis->maximum - axis->minimum) * t);
                     break;
@@ -205,15 +205,15 @@ int Font_CreateFromFace(Font* font, FT_Face face, int heightPixels, int fontWeig
 
     FT_Size_Metrics* metrics = &face->size->metrics;
     font->heightPixels = metrics->height >> 6;
-    font->y_max         = (float)(face->bbox.yMax >> 6);
-    font->y_min         = (float)(face->bbox.yMin >> 6);
-    font->ascent        = (float)(face->size->metrics.ascender >> 6);
-    font->descent       = (float)(face->size->metrics.descender >> 6);
-    font->line_height   = (float)(face->size->metrics.height >> 6);
+    font->y_max         = (float32)(face->bbox.yMax >> 6);
+    font->y_min         = (float32)(face->bbox.yMin >> 6);
+    font->ascent        = (float32)(face->size->metrics.ascender >> 6);
+    font->descent       = (float32)(face->size->metrics.descender >> 6);
+    font->line_height   = (float32)(face->size->metrics.height >> 6);
 
     // Init font storage and datastructures
     Array_Init(&font->Ascii_Glyphs, sizeof(Glyph), 128);
-    Hashmap_Init(&font->UTF8_Glyphs, sizeof(u32), sizeof(Glyph), 256);
+    Hashmap_Init(&font->UTF8_Glyphs, sizeof(uint32), sizeof(Glyph), 256);
     FontAtlas_Create(&font->atlas, 512, 512, subpixelRendering);
 
     // Render and save each ASCII glyph 32..126
@@ -228,11 +228,11 @@ int Font_CreateFromFace(Font* font, FT_Face face, int heightPixels, int fontWeig
         // Store glyph metrics
         Glyph glyph;
         glyph.index    = glyph_index;
-        glyph.width    = (u16)bmp->width;
-        glyph.height   = (u16)bmp->rows;
+        glyph.width    = (uint16)bmp->width;
+        glyph.height   = (uint16)bmp->rows;
         glyph.bearingX = face->glyph->bitmap_left;
         glyph.bearingY = face->glyph->bitmap_top;
-        glyph.advance  = (float)(face->glyph->advance.x >> 6);
+        glyph.advance  = (float32)(face->glyph->advance.x >> 6);
         Array_Push(&font->Ascii_Glyphs, &glyph);
         Glyph* stored_glyph = Array_Get(&font->Ascii_Glyphs, glyph_char - 32);
 
@@ -244,7 +244,7 @@ int Font_CreateFromFace(Font* font, FT_Face face, int heightPixels, int fontWeig
     return 1; // Success
 }
 
-Glyph* Font_AddUncachedGlyph(Font* font, u32 codepoint)
+Glyph* Font_AddUncachedGlyph(Font* font, uint32 codepoint)
 {
     // Render glyph
     FT_UInt glyph_index = FT_Get_Char_Index(font->face, codepoint);
@@ -252,17 +252,17 @@ Glyph* Font_AddUncachedGlyph(Font* font, u32 codepoint)
     if (FT_Render_Glyph(font->face->glyph, font->renderFlags)) return Array_Get(&font->Ascii_Glyphs, 63);
     FT_Bitmap* bmp = &font->face->glyph->bitmap;
 
-    int channels = 1;
+    int32 channels = 1;
     if (font->subpixelRendering) channels = 4;
 
     // Store glyph metrics
     Glyph glyph;
     glyph.index    = glyph_index;
-    glyph.width    = (u16)bmp->width;
-    glyph.height   = (u16)bmp->rows;
+    glyph.width    = (uint16)bmp->width;
+    glyph.height   = (uint16)bmp->rows;
     glyph.bearingX = font->face->glyph->bitmap_left;
     glyph.bearingY = font->face->glyph->bitmap_top;
-    glyph.advance  = (float)(font->face->glyph->advance.x >> 6);
+    glyph.advance  = (float32)(font->face->glyph->advance.x >> 6);
     Hashmap_Set(&font->UTF8_Glyphs, &codepoint, &glyph);
     Glyph* stored_glyph = Hashmap_Get(&font->UTF8_Glyphs, &codepoint);
 
@@ -271,7 +271,7 @@ Glyph* Font_AddUncachedGlyph(Font* font, u32 codepoint)
     return stored_glyph;
 }
 
-int Font_Create(Font* font, const char* filepath, int heightPixels, int fontWeight, bool subpixelRendering)
+int32 Font_Create(Font* font, const char* filepath, int32 heightPixels, int32 fontWeight, bool subpixelRendering)
 {
     FT_Face face;
     FT_Error error = FT_New_Face(nu_global_freetype, filepath, 0, &face);
@@ -280,7 +280,7 @@ int Font_Create(Font* font, const char* filepath, int heightPixels, int fontWeig
     return Font_CreateFromFace(font, face, heightPixels, fontWeight, subpixelRendering);
 }
 
-int Font_CreateDefault(Font* font, int heightPixels, int fontWeight, bool subpixelRendering)
+int32 Font_CreateDefault(Font* font, int32 heightPixels, int32 fontWeight, bool subpixelRendering)
 {
     FT_Face face;
     FT_Error error = FT_New_Memory_Face(nu_global_freetype, (unsigned char*)nu_default_ttf, nu_default_ttf_len, 0, &face);
@@ -300,7 +300,7 @@ void Font_Free(Font* font, VkDevice device, VkDescriptorPool fontPool)
     FontImageGPU_Destroy(&font->atlas.fontImageGPU, device, fontPool);
 }
 
-Glyph* Font_GetGlyph(Font* font, u32 codepoint)
+Glyph* Font_GetGlyph(Font* font, uint32 codepoint)
 {
     // Ascii hot path
     if (codepoint < 128) {
@@ -317,7 +317,7 @@ Glyph* Font_GetGlyph(Font* font, u32 codepoint)
     return Font_AddUncachedGlyph(font, codepoint);
 }
 
-inline float Font_GetKerning(Font* font, FT_UInt leftIndex, FT_UInt rightIndex)
+inline float32 Font_GetKerning(Font* font, FT_UInt leftIndex, FT_UInt rightIndex)
 {
     FT_Vector kern; kern.x = 0.0f;
     FT_Get_Kerning(font->face, leftIndex, rightIndex, FT_KERNING_UNSCALED, &kern);

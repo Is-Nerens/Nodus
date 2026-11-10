@@ -402,7 +402,7 @@ bool EventWatcher(void* data, SDL_Event* event)
         }
 
         case SDL_EVENT_MOUSE_WHEEL: {
-            break;
+
             // If scrolling
             Node* node = GUI.scroll_hovered_node;
             if (node != NULL)

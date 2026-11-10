@@ -1,8 +1,6 @@
 #pragma once
 #define MAX(a, b) ((a) > (b) ? (a) : (b))
 #include <utils/nu_file.h>
-#include <utils/nu_convert.h>
-#include "../nu_token_array.h"
 #include "nu_xml_tokens.h"
 #include "nu_xml_grammar_assertions.h"
 #include "nu_xml_tokeniser.h"
@@ -25,6 +23,41 @@ typedef struct
     TokenArray tokens;
     Array textRefs;
 } TokenTextRefsPair;
+
+static bool XML_ParseHexcode(const char* hexcode, uint32 length, NuColor* result)
+{
+    if (!hexcode || !result) return false;
+    uint32 offset = (hexcode[0] == '#') ? 1 : 0;
+    uint32 hexLength = length - offset;
+    if (hexLength != 6 && hexLength != 8) return false;
+    hexcode += offset;
+    int32 r1 = HexValue(hexcode[0]);
+    int32 r2 = HexValue(hexcode[1]);
+    int32 g1 = HexValue(hexcode[2]);
+    int32 g2 = HexValue(hexcode[3]);
+    int32 b1 = HexValue(hexcode[4]);
+    int32 b2 = HexValue(hexcode[5]);
+    if (r1 < 0 || r2 < 0 ||
+        g1 < 0 || g2 < 0 ||
+        b1 < 0 || b2 < 0) {
+        return false;
+    }
+    uint8 alpha = 255;
+    if (hexLength == 8) {
+        int32 a1 = HexValue(hexcode[6]);
+        int32 a2 = HexValue(hexcode[7]);
+        if (a1 < 0 || a2 < 0) return false;
+        alpha = (uint8)((a1 << 4) | a2);
+    }
+    *result = (NuColor){
+        (uint8)((r1 << 4) | r2),
+        (uint8)((g1 << 4) | g2),
+        (uint8)((b1 << 4) | b2),
+        alpha
+    };
+    return true;
+}
+
 
 void NU_Parse_Property(const enum NU_XML_TOKEN token, Node* currentNode, char* ptext, struct Text_Ref* current_text_ref)
 {
@@ -123,8 +156,8 @@ void NU_Parse_Property(const enum NU_XML_TOKEN token, Node* currentNode, char* p
 
         // Set gap
         case GAP_PROPERTY: {
-            u8 gap;
-            if (String_To_u8(&gap, ptext)) {
+            uint8 gap;
+            if (CStringToUint8(&gap, ptext)) {
                 currentNode->overrideStyleFlags |= PROPERTY_FLAG_GAP;
                 currentNode->public.generic.gap = gap;
             }
@@ -134,8 +167,8 @@ void NU_Parse_Property(const enum NU_XML_TOKEN token, Node* currentNode, char* p
         // Set preferred width
         case WIDTH_PROPERTY:
         {
-            u16 width;
-            if (String_To_Uint16(&width, ptext)) {
+            uint16 width;
+            if (CStringToUint16(&width, ptext)) {
                 currentNode->overrideStyleFlags |= PROPERTY_FLAG_PREFERRED_WIDTH;
                 currentNode->public.generic.preferredWidth = width;
 
@@ -157,8 +190,8 @@ void NU_Parse_Property(const enum NU_XML_TOKEN token, Node* currentNode, char* p
 
         // Set min width
         case MIN_WIDTH_PROPERTY: {
-            u16 minWidth;
-            if (String_To_Uint16(&minWidth, ptext)) {
+            uint16 minWidth;
+            if (CStringToUint16(&minWidth, ptext)) {
                 currentNode->overrideStyleFlags |= PROPERTY_FLAG_MIN_WIDTH;
                 currentNode->public.generic.minWidth = minWidth;
             }
@@ -167,8 +200,8 @@ void NU_Parse_Property(const enum NU_XML_TOKEN token, Node* currentNode, char* p
 
         // Set max width
         case MAX_WIDTH_PROPERTY: {
-            u16 maxWidth;
-            if (String_To_Uint16(&maxWidth, ptext)) {
+            uint16 maxWidth;
+            if (CStringToUint16(&maxWidth, ptext)) {
                 currentNode->overrideStyleFlags |= PROPERTY_FLAG_MAX_WIDTH;
                 currentNode->public.generic.maxWidth = maxWidth;
             }
@@ -177,8 +210,8 @@ void NU_Parse_Property(const enum NU_XML_TOKEN token, Node* currentNode, char* p
 
         // Set preferred height
         case HEIGHT_PROPERTY: {
-            u16 height;
-            if (String_To_Uint16(&height, ptext)) {
+            uint16 height;
+            if (CStringToUint16(&height, ptext)) {
                 currentNode->overrideStyleFlags |= PROPERTY_FLAG_PREFERRED_HEIGHT;
                 currentNode->public.generic.preferredHeight = height;
                 if (currentNode->type == NU_TYPE_IMAGE) {
@@ -199,8 +232,8 @@ void NU_Parse_Property(const enum NU_XML_TOKEN token, Node* currentNode, char* p
 
         // Set min height
         case MIN_HEIGHT_PROPERTY: {
-            u16 minHeight;
-            if (String_To_Uint16(& minHeight, ptext)) {
+            uint16 minHeight;
+            if (CStringToUint16(& minHeight, ptext)) {
                 currentNode->overrideStyleFlags |= PROPERTY_FLAG_MIN_HEIGHT;
                 currentNode->public.generic.minHeight = minHeight;
             }
@@ -209,8 +242,8 @@ void NU_Parse_Property(const enum NU_XML_TOKEN token, Node* currentNode, char* p
 
         // Set max height
         case MAX_HEIGHT_PROPERTY: {
-            u16 maxHeight;
-            if (String_To_Uint16(&maxHeight, ptext)) {
+            uint16 maxHeight;
+            if (CStringToUint16(&maxHeight, ptext)) {
                 currentNode->overrideStyleFlags |= PROPERTY_FLAG_MAX_HEIGHT;
                 currentNode->public.generic.maxHeight = maxHeight;
             }
@@ -276,7 +309,7 @@ void NU_Parse_Property(const enum NU_XML_TOKEN token, Node* currentNode, char* p
         // Set absolute positioning
         case LEFT_PROPERTY: {
             int16_t abs_position;
-            if (String_To_Int16(&abs_position, ptext)) {
+            if (CStringToInt16(&abs_position, ptext)) {
                 currentNode->public.generic.left = abs_position;
                 currentNode->overrideStyleFlags |= PROPERTY_FLAG_LEFT;
             }
@@ -285,13 +318,13 @@ void NU_Parse_Property(const enum NU_XML_TOKEN token, Node* currentNode, char* p
 
         case RIGHT_PROPERTY: {
             int16_t abs_position;
-            if (String_To_Int16(&abs_position, ptext)) {
+            if (CStringToInt16(&abs_position, ptext)) {
                 currentNode->public.generic.right = abs_position;
                 currentNode->overrideStyleFlags |= PROPERTY_FLAG_RIGHT;
             }
             break;
             case TOP_PROPERTY:
-            if (String_To_Int16(&abs_position, ptext)) {
+            if (CStringToInt16(&abs_position, ptext)) {
                 currentNode->public.generic.top = abs_position;
                 currentNode->overrideStyleFlags |= PROPERTY_FLAG_TOP;
             }
@@ -300,7 +333,7 @@ void NU_Parse_Property(const enum NU_XML_TOKEN token, Node* currentNode, char* p
 
         case BOTTOM_PROPERTY: {
             int16_t abs_position;
-            if (String_To_Int16(&abs_position, ptext)) {
+            if (CStringToInt16(&abs_position, ptext)) {
                 currentNode->public.generic.bottom = abs_position;
                 currentNode->overrideStyleFlags |= PROPERTY_FLAG_BOTTOM;
             }
@@ -309,14 +342,14 @@ void NU_Parse_Property(const enum NU_XML_TOKEN token, Node* currentNode, char* p
 
         // Set background colour
         case BACKGROUND_COLOUR_PROPERTY: {
-            struct RGB rgb;
-            if (Parse_Hexcode(ptext, current_text_ref->char_count, &rgb)) {
+            NuColor color;
+            if (XML_ParseHexcode(ptext, current_text_ref->char_count, &color)) {
                 currentNode->overrideStyleFlags |= PROPERTY_FLAG_BACKGROUND;
                 currentNode->overrideStyleFlags &= ~PROPERTY_FLAG_HIDE_BACKGROUND;
                 currentNode->layoutFlags &= ~HIDE_BACKGROUND;
-                currentNode->public.generic.backgroundR = rgb.r;
-                currentNode->public.generic.backgroundG = rgb.g;
-                currentNode->public.generic.backgroundB = rgb.b;
+                currentNode->public.generic.backgroundR = color.r;
+                currentNode->public.generic.backgroundG = color.g;
+                currentNode->public.generic.backgroundB = color.b;
             } else if (strcmp(ptext, "none") == 0) {
                 currentNode->overrideStyleFlags |= PROPERTY_FLAG_HIDE_BACKGROUND;
                 currentNode->layoutFlags |= HIDE_BACKGROUND;
@@ -326,32 +359,32 @@ void NU_Parse_Property(const enum NU_XML_TOKEN token, Node* currentNode, char* p
 
         // Set border colour
         case BORDER_COLOUR_PROPERTY: {
-            struct RGB rgb;
-            if (Parse_Hexcode(ptext, current_text_ref->char_count, &rgb)) {
+            NuColor color;
+            if (XML_ParseHexcode(ptext, current_text_ref->char_count, &color)) {
                 currentNode->overrideStyleFlags |= PROPERTY_FLAG_BORDER_COLOUR;
-                currentNode->public.generic.borderR = rgb.r;
-                currentNode->public.generic.borderG = rgb.g;
-                currentNode->public.generic.borderB = rgb.b;
+                currentNode->public.generic.borderR = color.r;
+                currentNode->public.generic.borderG = color.g;
+                currentNode->public.generic.borderB = color.b;
             }
             break;
         }
 
         // Set text colour
         case TEXT_COLOUR_PROPERTY: {
-            struct RGB rgb;
-            if (Parse_Hexcode(ptext, current_text_ref->char_count, &rgb)) {
+            NuColor color;
+            if (XML_ParseHexcode(ptext, current_text_ref->char_count, &color)) {
                 currentNode->overrideStyleFlags |= PROPERTY_FLAG_TEXT_COLOUR;
-                currentNode->public.generic.textR = rgb.r;
-                currentNode->public.generic.textG = rgb.g;
-                currentNode->public.generic.textB = rgb.b;
+                currentNode->public.generic.textR = color.r;
+                currentNode->public.generic.textG = color.g;
+                currentNode->public.generic.textB = color.b;
             }
             break;
         }
 
         // Set border width
         case BORDER_WIDTH_PROPERTY: {
-            u8 property_uint8;
-            if (String_To_u8(&property_uint8, ptext)) {
+            uint8 property_uint8;
+            if (CStringToUint8(&property_uint8, ptext)) {
                 currentNode->overrideStyleFlags |= PROPERTY_FLAG_BORDER_TOP | PROPERTY_FLAG_BORDER_BOTTOM | PROPERTY_FLAG_BORDER_LEFT | PROPERTY_FLAG_BORDER_RIGHT;
                 currentNode->public.generic.borderTop = property_uint8;
                 currentNode->public.generic.borderBottom = property_uint8;
@@ -361,32 +394,32 @@ void NU_Parse_Property(const enum NU_XML_TOKEN token, Node* currentNode, char* p
             break;
         }
         case BORDER_TOP_WIDTH_PROPERTY: {
-            u8 property_uint8;
-            if (String_To_u8(&property_uint8, ptext)) {
+            uint8 property_uint8;
+            if (CStringToUint8(&property_uint8, ptext)) {
                 currentNode->overrideStyleFlags |= PROPERTY_FLAG_BORDER_TOP;
                 currentNode->public.generic.borderTop = property_uint8;
             }
             break;
         }
         case BORDER_BOTTOM_WIDTH_PROPERTY: {
-            u8 property_uint8;
-            if (String_To_u8(&property_uint8, ptext)) {
+            uint8 property_uint8;
+            if (CStringToUint8(&property_uint8, ptext)) {
                 currentNode->overrideStyleFlags |= PROPERTY_FLAG_BORDER_BOTTOM;
                 currentNode->public.generic.borderBottom = property_uint8;
             }
             break;
         }
         case BORDER_LEFT_WIDTH_PROPERTY: {
-            u8 property_uint8;
-            if (String_To_u8(&property_uint8, ptext)) {
+            uint8 property_uint8;
+            if (CStringToUint8(&property_uint8, ptext)) {
                 currentNode->overrideStyleFlags |= PROPERTY_FLAG_BORDER_LEFT;
                 currentNode->public.generic.borderLeft = property_uint8;
             }
             break;
         }
         case BORDER_RIGHT_WIDTH_PROPERTY: {
-            u8 property_uint8;
-            if (String_To_u8(&property_uint8, ptext)) {
+            uint8 property_uint8;
+            if (CStringToUint8(&property_uint8, ptext)) {
                 currentNode->overrideStyleFlags |= PROPERTY_FLAG_BORDER_RIGHT;
                 currentNode->public.generic.borderRight = property_uint8;
             }
@@ -395,8 +428,8 @@ void NU_Parse_Property(const enum NU_XML_TOKEN token, Node* currentNode, char* p
 
         // Set border radii
         case BORDER_RADIUS_PROPERTY: {
-            u8 property_uint8;
-            if (String_To_u8(&property_uint8, ptext)) {
+            uint8 property_uint8;
+            if (CStringToUint8(&property_uint8, ptext)) {
                 currentNode->overrideStyleFlags |= PROPERTY_FLAG_BORDER_RADIUS_TL | PROPERTY_FLAG_BORDER_RADIUS_TR | PROPERTY_FLAG_BORDER_RADIUS_BL | PROPERTY_FLAG_BORDER_RADIUS_BR;
                 currentNode->public.generic.borderRadiusTl = property_uint8;
                 currentNode->public.generic.borderRadiusTr = property_uint8;
@@ -406,32 +439,32 @@ void NU_Parse_Property(const enum NU_XML_TOKEN token, Node* currentNode, char* p
             break;
         }
         case BORDER_TOP_LEFT_RADIUS_PROPERTY: {
-            u8 property_uint8;
-            if (String_To_u8(&property_uint8, ptext)) {
+            uint8 property_uint8;
+            if (CStringToUint8(&property_uint8, ptext)) {
                 currentNode->overrideStyleFlags |= PROPERTY_FLAG_BORDER_RADIUS_TL;
                 currentNode->public.generic.borderRadiusTl = property_uint8;
             }
             break;
         }
         case BORDER_TOP_RIGHT_RADIUS_PROPERTY: {
-            u8 property_uint8;
-            if (String_To_u8(&property_uint8, ptext)) {
+            uint8 property_uint8;
+            if (CStringToUint8(&property_uint8, ptext)) {
                 currentNode->overrideStyleFlags |= PROPERTY_FLAG_BORDER_RADIUS_TR;
                 currentNode->public.generic.borderRadiusTr = property_uint8;
             }
             break;
         }
         case BORDER_BOTTOM_LEFT_RADIUS_PROPERTY: {
-            u8 property_uint8;
-            if (String_To_u8(&property_uint8, ptext)) {
+            uint8 property_uint8;
+            if (CStringToUint8(&property_uint8, ptext)) {
                 currentNode->overrideStyleFlags |= PROPERTY_FLAG_BORDER_RADIUS_BL;
                 currentNode->public.generic.borderRadiusBl = property_uint8;
             }
             break;
         }
         case BORDER_BOTTOM_RIGHT_RADIUS_PROPERTY: {
-            u8 property_uint8;
-            if (String_To_u8(&property_uint8, ptext)) {
+            uint8 property_uint8;
+            if (CStringToUint8(&property_uint8, ptext)) {
                 currentNode->overrideStyleFlags |= PROPERTY_FLAG_BORDER_RADIUS_BR;
                 currentNode->public.generic.borderRadiusBr = property_uint8;
             }
@@ -440,8 +473,8 @@ void NU_Parse_Property(const enum NU_XML_TOKEN token, Node* currentNode, char* p
 
         // Set padding
         case PADDING_PROPERTY: {
-            u8 property_uint8;
-            if (String_To_u8(&property_uint8, ptext)) {
+            uint8 property_uint8;
+            if (CStringToUint8(&property_uint8, ptext)) {
                 currentNode->overrideStyleFlags |= PROPERTY_FLAG_PAD_TOP | PROPERTY_FLAG_PAD_BOTTOM | PROPERTY_FLAG_PAD_LEFT | PROPERTY_FLAG_PAD_RIGHT;
                 currentNode->public.generic.padTop    = property_uint8;
                 currentNode->public.generic.padBottom = property_uint8;
@@ -451,32 +484,32 @@ void NU_Parse_Property(const enum NU_XML_TOKEN token, Node* currentNode, char* p
             break;
         }
         case PADDING_TOP_PROPERTY: {
-            u8 property_uint8;
-            if (String_To_u8(&property_uint8, ptext)) {
+            uint8 property_uint8;
+            if (CStringToUint8(&property_uint8, ptext)) {
                 currentNode->overrideStyleFlags |= PROPERTY_FLAG_PAD_TOP;
                 currentNode->public.generic.padTop = property_uint8;
             }
             break;
         }
         case PADDING_BOTTOM_PROPERTY: {
-            u8 property_uint8;
-            if (String_To_u8(&property_uint8, ptext)) {
+            uint8 property_uint8;
+            if (CStringToUint8(&property_uint8, ptext)) {
                 currentNode->overrideStyleFlags |= PROPERTY_FLAG_PAD_BOTTOM;
                 currentNode->public.generic.padBottom = property_uint8;
             }
             break;
         }
         case PADDING_LEFT_PROPERTY: {
-            u8 property_uint8;
-            if (String_To_u8(&property_uint8, ptext)) {
+            uint8 property_uint8;
+            if (CStringToUint8(&property_uint8, ptext)) {
                 currentNode->overrideStyleFlags |= PROPERTY_FLAG_PAD_LEFT;
                 currentNode->public.generic.padLeft = property_uint8;
             }
             break;
         }
         case PADDING_RIGHT_PROPERTY: {
-            u8 property_uint8;
-            if (String_To_u8(&property_uint8, ptext)) {
+            uint8 property_uint8;
+            if (CStringToUint8(&property_uint8, ptext)) {
                 currentNode->overrideStyleFlags |= PROPERTY_FLAG_PAD_RIGHT;
                 currentNode->public.generic.padRight = property_uint8;
             }
@@ -572,8 +605,8 @@ int NU_Parse_Component(
     enum XMLGenCtx ctx = GENCTX_GLOBAL;
     struct Text_Ref* current_text_ref;
     if (textRefs->size > 0) current_text_ref = Array_Get(textRefs, 0);
-    u32 text_content_ref_index = 0;
-    u32 text_ref_index = 0;
+    uint32 text_content_ref_index = 0;
+    uint32 text_ref_index = 0;
 
     int i = 0;
     while(i < tokens->size - 3)
@@ -590,7 +623,7 @@ int NU_Parse_Component(
                 // -----------------
                 // Enforce type rules
                 // -----------------
-                u8 type = NU_TokenToNodeType(TokenArray_Get(tokens, i+1));
+                uint8 type = NU_TokenToNodeType(TokenArray_Get(tokens, i+1));
                 if ((ctx == GENCTX_IN_CONTENT_OF_TABLE_WITHOUT_CHILDREN ||
                     ctx == GENCTX_IN_CONTENT_OF_TABLE_WITH_THEAD ||
                     ctx == GENCTX_IN_CONTENT_OF_TABLE_WITHOUT_THEAD) &&
@@ -775,8 +808,8 @@ int NU_Generate_Tree(
     // ---------------------------------
     struct Text_Ref* current_text_ref;
     if (textRefs->size > 0) current_text_ref = Array_Get(textRefs, 0);
-    u32 text_content_ref_index = 0;
-    u32 text_ref_index = 0;
+    uint32 text_content_ref_index = 0;
+    uint32 text_ref_index = 0;
 
 
 
@@ -809,7 +842,7 @@ int NU_Generate_Tree(
                 // -----------------
                 // Enforce type rules
                 // -----------------
-                u8 type = NU_TokenToNodeType(TokenArray_Get(tokens, i+1));
+                uint8 type = NU_TokenToNodeType(TokenArray_Get(tokens, i+1));
                 if ((ctx == GENCTX_IN_CONTENT_OF_TABLE_WITHOUT_CHILDREN ||
                     ctx == GENCTX_IN_CONTENT_OF_TABLE_WITH_THEAD ||
                     ctx == GENCTX_IN_CONTENT_OF_TABLE_WITHOUT_THEAD) &&

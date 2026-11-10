@@ -77,7 +77,7 @@ int NU_CreateBorderRectPipeline(DisplayManager* dm, NuPipeline* pipeline, bool M
     // Create vertex shader module
     VkShaderModule vertModule;
     smci.codeSize = src_shaders_build_border_rect_vert_spv_len;   // works because it's a real array
-    smci.pCode = (const u32*)(src_shaders_build_border_rect_vert_spv);
+    smci.pCode = (const uint32*)(src_shaders_build_border_rect_vert_spv);
     if (vkCreateShaderModule(dm->device, &smci, NULL, &vertModule) != VK_SUCCESS) {
         ErrorSystem_AddError(&GUI.errorSystem, "<Vulkan Error> vertex shader module failed");
         return 0;
@@ -86,7 +86,7 @@ int NU_CreateBorderRectPipeline(DisplayManager* dm, NuPipeline* pipeline, bool M
     // Create fragment shader module
     VkShaderModule fragModule;
     smci.codeSize = src_shaders_build_border_rect_frag_spv_len;
-    smci.pCode = (const u32*)(src_shaders_build_border_rect_frag_spv);
+    smci.pCode = (const uint32*)(src_shaders_build_border_rect_frag_spv);
     if (vkCreateShaderModule(dm->device, &smci, NULL, &fragModule) != VK_SUCCESS) {
         vkDestroyShaderModule(dm->device, vertModule, NULL);
         ErrorSystem_AddError(&GUI.errorSystem, "<Vulkan Error> fragment shader module failed");
@@ -192,7 +192,7 @@ int NU_CreateBorderRectPipeline(DisplayManager* dm, NuPipeline* pipeline, bool M
     ms.rasterizationSamples = MSAA_4X ? VK_SAMPLE_COUNT_4_BIT : VK_SAMPLE_COUNT_1_BIT;
     ms.sampleShadingEnable  = VK_FALSE;
 
-    // Depth stencil
+    // Depth test
     VkPipelineDepthStencilStateCreateInfo ds = {0};
     ds.sType                 = VK_STRUCTURE_TYPE_PIPELINE_DEPTH_STENCIL_STATE_CREATE_INFO;
     ds.depthTestEnable       = VK_TRUE;
@@ -284,7 +284,7 @@ int NU_CreateImagePipeline(DisplayManager* displayManager, NuPipeline* pipeline)
 
     VkShaderModule vertModule;
     smci.codeSize = src_shaders_build_image_vert_spv_len;
-    smci.pCode    = (const u32*)(src_shaders_build_image_vert_spv);
+    smci.pCode    = (const uint32*)(src_shaders_build_image_vert_spv);
     if (vkCreateShaderModule(device, &smci, NULL, &vertModule) != VK_SUCCESS) {
         ErrorSystem_AddError(&GUI.errorSystem, "<Vulkan Error> image vertex shader module failed");
         return 0;
@@ -292,7 +292,7 @@ int NU_CreateImagePipeline(DisplayManager* displayManager, NuPipeline* pipeline)
 
     VkShaderModule fragModule;
     smci.codeSize = src_shaders_build_image_frag_spv_len;
-    smci.pCode    = (const u32*)(src_shaders_build_image_frag_spv);
+    smci.pCode    = (const uint32*)(src_shaders_build_image_frag_spv);
     if (vkCreateShaderModule(device, &smci, NULL, &fragModule) != VK_SUCCESS) {
         vkDestroyShaderModule(device, vertModule, NULL);
         ErrorSystem_AddError(&GUI.errorSystem, "<Vulkan Error> image fragment shader module failed");
@@ -353,7 +353,7 @@ int NU_CreateImagePipeline(DisplayManager* displayManager, NuPipeline* pipeline)
     attrs[5].format   = VK_FORMAT_R32_UINT;
     attrs[5].offset   = offsetof(ImageRenderData, clipLeft);
 
-    attrs[6].location = 6;   // 4 x u8 radii
+    attrs[6].location = 6;   // 4 x uint8 radii
     attrs[6].binding  = 1;
     attrs[6].format   = VK_FORMAT_R32_UINT;
     attrs[6].offset   = offsetof(ImageRenderData, clipRadiusTopLeft);
@@ -407,7 +407,7 @@ int NU_CreateImagePipeline(DisplayManager* displayManager, NuPipeline* pipeline)
     ms.rasterizationSamples = VK_SAMPLE_COUNT_1_BIT;
     ms.sampleShadingEnable  = VK_FALSE;
 
-    // ---- Depth stencil ----
+    // ---- Depth test
     VkPipelineDepthStencilStateCreateInfo ds = {0};
     ds.sType                 = VK_STRUCTURE_TYPE_PIPELINE_DEPTH_STENCIL_STATE_CREATE_INFO;
     ds.depthTestEnable       = VK_TRUE;
@@ -531,7 +531,7 @@ int NU_CreateMonoTextPipeline(DisplayManager* displayManager, NuPipeline* pipeli
 
     VkShaderModule vertModule;
     smci.codeSize = src_shaders_build_mono_text_vert_spv_len;
-    smci.pCode    = (const u32*)(src_shaders_build_mono_text_vert_spv);
+    smci.pCode    = (const uint32*)(src_shaders_build_mono_text_vert_spv);
     if (vkCreateShaderModule(device, &smci, NULL, &vertModule) != VK_SUCCESS) {
         ErrorSystem_AddError(&GUI.errorSystem, "<Vulkan Error> mono text vertex shader module failed");
         return 0;
@@ -539,7 +539,7 @@ int NU_CreateMonoTextPipeline(DisplayManager* displayManager, NuPipeline* pipeli
 
     VkShaderModule fragModule;
     smci.codeSize = src_shaders_build_mono_text_frag_spv_len;
-    smci.pCode    = (const u32*)(src_shaders_build_mono_text_frag_spv);
+    smci.pCode    = (const uint32*)(src_shaders_build_mono_text_frag_spv);
     if (vkCreateShaderModule(device, &smci, NULL, &fragModule) != VK_SUCCESS) {
         vkDestroyShaderModule(device, vertModule, NULL);
         ErrorSystem_AddError(&GUI.errorSystem, "<Vulkan Error> mono text fragment shader module failed");
@@ -590,12 +590,12 @@ int NU_CreateMonoTextPipeline(DisplayManager* displayManager, NuPipeline* pipeli
     attrs[3].format   = VK_FORMAT_R32G32B32A32_SFLOAT;
     attrs[3].offset   = offsetof(GlyphRenderData, u0);
 
-    attrs[4].location = 4;   // iColor (u32 packed RGBA)
+    attrs[4].location = 4;   // iColor (uint32 packed RGBA)
     attrs[4].binding  = 1;
     attrs[4].format   = VK_FORMAT_R32_UINT;
     attrs[4].offset   = offsetof(GlyphRenderData, colourRGBA);
 
-    attrs[5].location = 5;   // iTextureIndex (u32)
+    attrs[5].location = 5;   // iTextureIndex (uint32)
     attrs[5].binding  = 1;
     attrs[5].format   = VK_FORMAT_R32_UINT;
     attrs[5].offset   = offsetof(GlyphRenderData, textureIndex);
@@ -644,7 +644,7 @@ int NU_CreateMonoTextPipeline(DisplayManager* displayManager, NuPipeline* pipeli
     ms.rasterizationSamples = VK_SAMPLE_COUNT_1_BIT;   // <-- set to 4x if sharedRenderPass is 4x MSAA
     ms.sampleShadingEnable  = VK_FALSE;
 
-    // ---- Depth stencil
+    // ---- Depth test
     VkPipelineDepthStencilStateCreateInfo ds = {0};
     ds.sType                 = VK_STRUCTURE_TYPE_PIPELINE_DEPTH_STENCIL_STATE_CREATE_INFO;
     ds.depthTestEnable       = VK_TRUE;
@@ -772,7 +772,7 @@ int NU_CreateClippedMonoTextPipeline(DisplayManager* displayManager, NuPipeline*
 
     VkShaderModule vertModule;
     smci.codeSize = src_shaders_build_clipped_mono_text_vert_spv_len;
-    smci.pCode    = (const u32*)(src_shaders_build_clipped_mono_text_vert_spv);
+    smci.pCode    = (const uint32*)(src_shaders_build_clipped_mono_text_vert_spv);
     if (vkCreateShaderModule(device, &smci, NULL, &vertModule) != VK_SUCCESS) {
         ErrorSystem_AddError(&GUI.errorSystem, "<Vulkan Error> clipped mono text vertex shader module failed");
         return 0;
@@ -780,7 +780,7 @@ int NU_CreateClippedMonoTextPipeline(DisplayManager* displayManager, NuPipeline*
 
     VkShaderModule fragModule;
     smci.codeSize = src_shaders_build_clipped_mono_text_frag_spv_len;
-    smci.pCode    = (const u32*)(src_shaders_build_clipped_mono_text_frag_spv);
+    smci.pCode    = (const uint32*)(src_shaders_build_clipped_mono_text_frag_spv);
     if (vkCreateShaderModule(device, &smci, NULL, &fragModule) != VK_SUCCESS) {
         vkDestroyShaderModule(device, vertModule, NULL);
         ErrorSystem_AddError(&GUI.errorSystem, "<Vulkan Error> clipped mono text fragment shader module failed");
@@ -831,17 +831,17 @@ int NU_CreateClippedMonoTextPipeline(DisplayManager* displayManager, NuPipeline*
     attrs[3].format   = VK_FORMAT_R32G32B32A32_SFLOAT;
     attrs[3].offset   = offsetof(ClippedGlyphRenderData, u0);
 
-    attrs[4].location = 4;   // iColor (u32 packed RGBA)
+    attrs[4].location = 4;   // iColor (uint32 packed RGBA)
     attrs[4].binding  = 1;
     attrs[4].format   = VK_FORMAT_R32_UINT;
     attrs[4].offset   = offsetof(ClippedGlyphRenderData, colourRGBA);
 
-    attrs[5].location = 5;   // iTextureIndex (u32)
+    attrs[5].location = 5;   // iTextureIndex (uint32)
     attrs[5].binding  = 1;
     attrs[5].format   = VK_FORMAT_R32_UINT;
     attrs[5].offset   = offsetof(ClippedGlyphRenderData, textureIndex);
 
-    // ---- Clipping attributes (3 x R32_UINT = 8 bytes of u16/u8 data) ----
+    // ---- Clipping attributes (3 x R32_UINT = 8 bytes of uint16/uint8 data) ----
     // Each R32_UINT reads 4 bytes starting at the offset of the *first* field
     // in its group, so the shader can shift/mask the two u16s / four u8s out.
     attrs[6].location = 6;   // clipTop | clipBottom  (low 16 = top, high 16 = bottom)
@@ -854,7 +854,7 @@ int NU_CreateClippedMonoTextPipeline(DisplayManager* displayManager, NuPipeline*
     attrs[7].format   = VK_FORMAT_R32_UINT;
     attrs[7].offset   = offsetof(ClippedGlyphRenderData, clipLeft);
 
-    attrs[8].location = 8;   // 4 x u8 radii: TL | TR | BL | BR (bits 0-7, 8-15, 16-23, 24-31)
+    attrs[8].location = 8;   // 4 x uint8 radii: TL | TR | BL | BR (bits 0-7, 8-15, 16-23, 24-31)
     attrs[8].binding  = 1;
     attrs[8].format   = VK_FORMAT_R32_UINT;
     attrs[8].offset   = offsetof(ClippedGlyphRenderData, clipRadiusTopLeft);
@@ -903,7 +903,7 @@ int NU_CreateClippedMonoTextPipeline(DisplayManager* displayManager, NuPipeline*
     ms.rasterizationSamples = VK_SAMPLE_COUNT_1_BIT;   // <-- set to 4x if sharedRenderPass is 4x MSAA
     ms.sampleShadingEnable  = VK_FALSE;
 
-    // ---- Depth stencil
+    // ---- Depth test
     VkPipelineDepthStencilStateCreateInfo ds = {0};
     ds.sType                 = VK_STRUCTURE_TYPE_PIPELINE_DEPTH_STENCIL_STATE_CREATE_INFO;
     ds.depthTestEnable       = VK_TRUE;
@@ -1030,7 +1030,7 @@ int NU_CreateSubpixelTextPipeline(DisplayManager* displayManager, NuPipeline* pi
 
     VkShaderModule vertModule;
     smci.codeSize = src_shaders_build_subpixel_text_vert_spv_len;
-    smci.pCode    = (const u32*)(src_shaders_build_subpixel_text_vert_spv);
+    smci.pCode    = (const uint32*)(src_shaders_build_subpixel_text_vert_spv);
     if (vkCreateShaderModule(device, &smci, NULL, &vertModule) != VK_SUCCESS) {
         ErrorSystem_AddError(&GUI.errorSystem, "<Vulkan Error> subpixel text vertex shader module failed");
         return 0;
@@ -1038,7 +1038,7 @@ int NU_CreateSubpixelTextPipeline(DisplayManager* displayManager, NuPipeline* pi
 
     VkShaderModule fragModule;
     smci.codeSize = src_shaders_build_subpixel_text_frag_spv_len;
-    smci.pCode    = (const u32*)(src_shaders_build_subpixel_text_frag_spv);
+    smci.pCode    = (const uint32*)(src_shaders_build_subpixel_text_frag_spv);
     if (vkCreateShaderModule(device, &smci, NULL, &fragModule) != VK_SUCCESS) {
         vkDestroyShaderModule(device, vertModule, NULL);
         ErrorSystem_AddError(&GUI.errorSystem, "<Vulkan Error> subpixel text fragment shader module failed");
@@ -1089,12 +1089,12 @@ int NU_CreateSubpixelTextPipeline(DisplayManager* displayManager, NuPipeline* pi
     attrs[3].format   = VK_FORMAT_R32G32B32A32_SFLOAT;
     attrs[3].offset   = offsetof(GlyphRenderData, u0);
 
-    attrs[4].location = 4;   // iColor (u32 packed RGBA)
+    attrs[4].location = 4;   // iColor (uint32 packed RGBA)
     attrs[4].binding  = 1;
     attrs[4].format   = VK_FORMAT_R32_UINT;
     attrs[4].offset   = offsetof(GlyphRenderData, colourRGBA);
 
-    attrs[5].location = 5;   // iTextureIndex (u32)
+    attrs[5].location = 5;   // iTextureIndex (uint32)
     attrs[5].binding  = 1;
     attrs[5].format   = VK_FORMAT_R32_UINT;
     attrs[5].offset   = offsetof(GlyphRenderData, textureIndex);
@@ -1140,10 +1140,10 @@ int NU_CreateSubpixelTextPipeline(DisplayManager* displayManager, NuPipeline* pi
     // ---- Multisample
     VkPipelineMultisampleStateCreateInfo ms = {0};
     ms.sType                = VK_STRUCTURE_TYPE_PIPELINE_MULTISAMPLE_STATE_CREATE_INFO;
-    ms.rasterizationSamples = VK_SAMPLE_COUNT_1_BIT;   // match sharedRenderPass
+    ms.rasterizationSamples = VK_SAMPLE_COUNT_1_BIT;
     ms.sampleShadingEnable  = VK_FALSE;
 
-    // ---- Depth stencil
+    // ---- Depth test
     VkPipelineDepthStencilStateCreateInfo ds = {0};
     ds.sType                 = VK_STRUCTURE_TYPE_PIPELINE_DEPTH_STENCIL_STATE_CREATE_INFO;
     ds.depthTestEnable       = VK_TRUE;
@@ -1269,7 +1269,7 @@ int NU_CreateClippedSubpixelTextPipeline(DisplayManager* displayManager, NuPipel
 
     VkShaderModule vertModule;
     smci.codeSize = src_shaders_build_clipped_subpixel_text_vert_spv_len;
-    smci.pCode    = (const u32*)(src_shaders_build_clipped_subpixel_text_vert_spv);
+    smci.pCode    = (const uint32*)(src_shaders_build_clipped_subpixel_text_vert_spv);
     if (vkCreateShaderModule(device, &smci, NULL, &vertModule) != VK_SUCCESS) {
         ErrorSystem_AddError(&GUI.errorSystem, "<Vulkan Error> clipped subpixel text vertex shader module failed");
         return 0;
@@ -1277,7 +1277,7 @@ int NU_CreateClippedSubpixelTextPipeline(DisplayManager* displayManager, NuPipel
 
     VkShaderModule fragModule;
     smci.codeSize = src_shaders_build_clipped_subpixel_text_frag_spv_len;
-    smci.pCode    = (const u32*)(src_shaders_build_clipped_subpixel_text_frag_spv);
+    smci.pCode    = (const uint32*)(src_shaders_build_clipped_subpixel_text_frag_spv);
     if (vkCreateShaderModule(device, &smci, NULL, &fragModule) != VK_SUCCESS) {
         vkDestroyShaderModule(device, vertModule, NULL);
         ErrorSystem_AddError(&GUI.errorSystem, "<Vulkan Error> clipped subpixel text fragment shader module failed");
@@ -1328,17 +1328,17 @@ int NU_CreateClippedSubpixelTextPipeline(DisplayManager* displayManager, NuPipel
     attrs[3].format   = VK_FORMAT_R32G32B32A32_SFLOAT;
     attrs[3].offset   = offsetof(ClippedGlyphRenderData, u0);
 
-    attrs[4].location = 4;   // iColor (u32 packed RGBA)
+    attrs[4].location = 4;   // iColor (uint32 packed RGBA)
     attrs[4].binding  = 1;
     attrs[4].format   = VK_FORMAT_R32_UINT;
     attrs[4].offset   = offsetof(ClippedGlyphRenderData, colourRGBA);
 
-    attrs[5].location = 5;   // iTextureIndex (u32)
+    attrs[5].location = 5;   // iTextureIndex (uint32)
     attrs[5].binding  = 1;
     attrs[5].format   = VK_FORMAT_R32_UINT;
     attrs[5].offset   = offsetof(ClippedGlyphRenderData, textureIndex);
 
-    // ---- Clipping attributes (3 x R32_UINT = 8 bytes of u16/u8 data) ----
+    // ---- Clipping attributes (3 x R32_UINT = 8 bytes of uint16/uint8 data) ----
     // Each R32_UINT reads 4 bytes starting at the offset of the *first* field
     // in its group, so the shader can shift/mask the two u16s / four u8s out.
     attrs[6].location = 6;   // clipTop | clipBottom  (low 16 = top, high 16 = bottom)
@@ -1351,7 +1351,7 @@ int NU_CreateClippedSubpixelTextPipeline(DisplayManager* displayManager, NuPipel
     attrs[7].format   = VK_FORMAT_R32_UINT;
     attrs[7].offset   = offsetof(ClippedGlyphRenderData, clipLeft);
 
-    attrs[8].location = 8;   // 4 x u8 radii: TL | TR | BL | BR (bits 0-7, 8-15, 16-23, 24-31)
+    attrs[8].location = 8;   // 4 x uint8 radii: TL | TR | BL | BR (bits 0-7, 8-15, 16-23, 24-31)
     attrs[8].binding  = 1;
     attrs[8].format   = VK_FORMAT_R32_UINT;
     attrs[8].offset   = offsetof(ClippedGlyphRenderData, clipRadiusTopLeft);
@@ -1400,7 +1400,7 @@ int NU_CreateClippedSubpixelTextPipeline(DisplayManager* displayManager, NuPipel
     ms.rasterizationSamples = VK_SAMPLE_COUNT_1_BIT;   // <-- set to 4x if sharedRenderPass is 4x MSAA
     ms.sampleShadingEnable  = VK_FALSE;
 
-    // ---- Depth stencil
+    // ---- Depth test
     VkPipelineDepthStencilStateCreateInfo ds = {0};
     ds.sType                 = VK_STRUCTURE_TYPE_PIPELINE_DEPTH_STENCIL_STATE_CREATE_INFO;
     ds.depthTestEnable       = VK_TRUE;
@@ -1521,7 +1521,7 @@ int NU_CreateVertexRGBPipeline(DisplayManager* dm, NuPipeline* pipeline, bool MS
     // Create vertex shader module
     VkShaderModule vertModule;
     smci.codeSize = src_shaders_build_vertex_rgb_vert_spv_len;   // works because it's a real array
-    smci.pCode = (const u32*)(src_shaders_build_vertex_rgb_vert_spv);
+    smci.pCode = (const uint32*)(src_shaders_build_vertex_rgb_vert_spv);
     if (vkCreateShaderModule(dm->device, &smci, NULL, &vertModule) != VK_SUCCESS) {
         ErrorSystem_AddError(&GUI.errorSystem, "<Vulkan Error> vertex shader module failed");
         return 0;
@@ -1530,7 +1530,7 @@ int NU_CreateVertexRGBPipeline(DisplayManager* dm, NuPipeline* pipeline, bool MS
     // Create fragment shader module
     VkShaderModule fragModule;
     smci.codeSize = src_shaders_build_vertex_rgb_frag_spv_len;
-    smci.pCode = (const u32*)(src_shaders_build_vertex_rgb_frag_spv);
+    smci.pCode = (const uint32*)(src_shaders_build_vertex_rgb_frag_spv);
     if (vkCreateShaderModule(dm->device, &smci, NULL, &fragModule) != VK_SUCCESS) {
         vkDestroyShaderModule(dm->device, vertModule, NULL);
         ErrorSystem_AddError(&GUI.errorSystem, "<Vulkan Error> fragment shader module failed");
@@ -1554,18 +1554,18 @@ int NU_CreateVertexRGBPipeline(DisplayManager* dm, NuPipeline* pipeline, bool MS
 
     // Vertex attribute layout
     VkVertexInputBindingDescription binding = {0};
-    binding.binding   = 0;                              // which binding slot
-    binding.stride    = sizeof(vertex_rgb);             // 24 bytes per vertex
-    binding.inputRate = VK_VERTEX_INPUT_RATE_VERTEX;    // not instanced
+    binding.binding   = 0;
+    binding.stride    = sizeof(vertex_rgb);
+    binding.inputRate = VK_VERTEX_INPUT_RATE_VERTEX;
     VkVertexInputAttributeDescription attrs[2] = {0};
-    attrs[0].location = 0;                              // matches layout(location=0) in shader
+    attrs[0].location = 0;
     attrs[0].binding  = 0;
-    attrs[0].format   = VK_FORMAT_R32G32B32_SFLOAT;     // vec3
-    attrs[0].offset   = offsetof(vertex_rgb, x);        // 0
-    attrs[1].location = 1;                              // matches layout(location=1)
+    attrs[0].format   = VK_FORMAT_R32G32B32_SFLOAT;
+    attrs[0].offset   = offsetof(vertex_rgb, x);
+    attrs[1].location = 1;
     attrs[1].binding  = 0;
-    attrs[1].format   = VK_FORMAT_R32G32B32_SFLOAT;     // vec3
-    attrs[1].offset   = offsetof(vertex_rgb, r);        // 12
+    attrs[1].format   = VK_FORMAT_R32_SFLOAT;
+    attrs[1].offset   = offsetof(vertex_rgb, packedColor);
     VkPipelineVertexInputStateCreateInfo vis = {0};
     vis.sType                           = VK_STRUCTURE_TYPE_PIPELINE_VERTEX_INPUT_STATE_CREATE_INFO;
     vis.vertexBindingDescriptionCount   = 1;
@@ -1610,7 +1610,7 @@ int NU_CreateVertexRGBPipeline(DisplayManager* dm, NuPipeline* pipeline, bool MS
     ms.rasterizationSamples = MSAA_4X ? VK_SAMPLE_COUNT_4_BIT : VK_SAMPLE_COUNT_1_BIT;
     ms.sampleShadingEnable  = VK_FALSE;
 
-    // ---- Depth stencil
+    // ---- Depth test
     VkPipelineDepthStencilStateCreateInfo ds = {0};
     ds.sType                 = VK_STRUCTURE_TYPE_PIPELINE_DEPTH_STENCIL_STATE_CREATE_INFO;
     ds.depthTestEnable       = VK_TRUE;

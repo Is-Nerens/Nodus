@@ -58,7 +58,7 @@ int DisplayManager_CreateVulkanDevices(DisplayManager* displayManager)
     }
 
     // Get device count
-    u32 deviceCount = 0;
+    uint32 deviceCount = 0;
     vkEnumeratePhysicalDevices(instance, &deviceCount, NULL);
     VkPhysicalDevice devices[8];
     if (deviceCount > 8) deviceCount = 8;
@@ -70,14 +70,14 @@ int DisplayManager_CreateVulkanDevices(DisplayManager* displayManager)
 
     // Choose a physical device
     VkPhysicalDevice physicalDevice = VK_NULL_HANDLE;
-    u32 graphicsFamily = 0;
-    for (u32 i=0; i<deviceCount; i++) {
-        u32 familyCount = 0;
+    uint32 graphicsFamily = 0;
+    for (uint32 i=0; i<deviceCount; i++) {
+        uint32 familyCount = 0;
         vkGetPhysicalDeviceQueueFamilyProperties(devices[i], &familyCount, NULL);
         VkQueueFamilyProperties families[16];
         if (familyCount > 16) familyCount = 16;
         vkGetPhysicalDeviceQueueFamilyProperties(devices[i], &familyCount, families);
-        for (u32 f=0; f<familyCount; f++) {
+        for (uint32 f=0; f<familyCount; f++) {
             if (families[f].queueFlags & VK_QUEUE_GRAPHICS_BIT) {
                 physicalDevice = devices[i];
                 graphicsFamily = f;
@@ -100,7 +100,7 @@ int DisplayManager_CreateVulkanDevices(DisplayManager* displayManager)
     qci.pQueuePriorities = &priority;
 
     const char* deviceExts[2];
-    u32 deviceExtCount = 0;
+    uint32 deviceExtCount = 0;
     deviceExts[deviceExtCount++] = VK_KHR_SWAPCHAIN_EXTENSION_NAME;
     #ifdef PLATFORM_MACOS
     deviceExts[deviceExtCount++] = "VK_KHR_portability_subset";
@@ -159,7 +159,7 @@ int DisplayManager_CreateVulkanDevices(DisplayManager* displayManager)
     }
 
     // Font descriptor pool (one set per font)
-    const u32 maxFonts = 32;
+    const uint32 maxFonts = 32;
     VkDescriptorPoolSize fontPoolSize = {0};
     fontPoolSize.type            = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
     fontPoolSize.descriptorCount = maxFonts;

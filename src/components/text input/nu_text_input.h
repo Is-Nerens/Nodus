@@ -2,16 +2,16 @@
 #include "nu_text_input_struct.h"
 
 // Updates the cursorOffset and textOffset
-void InputText_UpdateCusorTextOffsets(InputText* text, Node* node, Font* font, i8 moveDelta)
+void InputText_UpdateCusorTextOffsets(InputText* text, Node* node, Font* font, int8 moveDelta)
 {
     // calculate text width from start to cursor
     char temp = text->buffer[text->cursorBytes];
     text->buffer[text->cursorBytes] = '\0';
-    float preCursorTextWidth = NU_Calculate_Text_Unwrapped_Width(font, text->buffer);
+    float32 preCursorTextWidth = NU_Calculate_Text_Unwrapped_Width(font, text->buffer);
     text->buffer[text->cursorBytes] = temp;
 
     // calculate inner input width
-    float innerWidth = node->public.generic.width
+    float32 innerWidth = node->public.generic.width
         - node->public.generic.borderLeft
         - node->public.generic.borderRight
         - node->public.generic.padLeft
@@ -23,14 +23,14 @@ void InputText_UpdateCusorTextOffsets(InputText* text, Node* node, Font* font, i
     // overflow correction
     if (moveDelta < 0) {
         if (text->cursorOffset < 0.0f) {
-            float overshoot = -text->cursorOffset;
+            float32 overshoot = -text->cursorOffset;
             text->cursorOffset = 0.0f;
             text->textOffset += overshoot;
         }
     }
     else if (moveDelta > 0) {
         if (text->cursorOffset > innerWidth) {
-            float overshoot = text->cursorOffset - innerWidth;
+            float32 overshoot = text->cursorOffset - innerWidth;
             text->cursorOffset = innerWidth;
             text->textOffset -= overshoot;
         }
@@ -40,8 +40,8 @@ void InputText_UpdateCusorTextOffsets(InputText* text, Node* node, Font* font, i
 void InputText_ComputeCursorTextOffset_PlaceEnd(InputText* text, Node* node, Font* font)
 {
     // Compute offsets
-    float textWidth = NU_Calculate_Text_Unwrapped_Width(font, text->buffer);
-    float innerWidth = node->public.generic.width
+    float32 textWidth = NU_Calculate_Text_Unwrapped_Width(font, text->buffer);
+    float32 innerWidth = node->public.generic.width
         - node->public.generic.borderLeft
         - node->public.generic.borderRight
         - node->public.generic.padLeft
@@ -52,16 +52,16 @@ void InputText_ComputeCursorTextOffset_PlaceEnd(InputText* text, Node* node, Fon
 }
 
 // Updates the highlightOffset and textOffset
-void InputText_UpdateHighlightTextOffsets(InputText* text, Node* node, Font* font, i8 moveDelta)
+void InputText_UpdateHighlightTextOffsets(InputText* text, Node* node, Font* font, int8 moveDelta)
 {
     // calculate text width from start to cursor
     char temp = text->buffer[text->highlightBytes];
     text->buffer[text->highlightBytes] = '\0';
-    float preHighlightTextWidth = NU_Calculate_Text_Unwrapped_Width(font, text->buffer);
+    float32 preHighlightTextWidth = NU_Calculate_Text_Unwrapped_Width(font, text->buffer);
     text->buffer[text->highlightBytes] = temp;
 
     // calculate inner input width
-    float innerWidth = node->public.generic.width
+    float32 innerWidth = node->public.generic.width
         - node->public.generic.borderLeft
         - node->public.generic.borderRight
         - node->public.generic.padLeft
@@ -73,14 +73,14 @@ void InputText_UpdateHighlightTextOffsets(InputText* text, Node* node, Font* fon
     // overflow correction
     if (moveDelta < 0) {
         if (text->highlightOffset < 0.0f) {
-            float overshoot = -text->highlightOffset;
+            float32 overshoot = -text->highlightOffset;
             text->highlightOffset = 0.0f;
             text->textOffset += overshoot;
         }
     }
     else if (moveDelta > 0) {
         if (text->highlightOffset > innerWidth) {
-            float overshoot = text->highlightOffset - innerWidth;
+            float32 overshoot = text->highlightOffset - innerWidth;
             text->highlightOffset = innerWidth;
             text->highlightOffset -= overshoot;
         }
@@ -115,8 +115,8 @@ int InputText_Write(InputText* text, Node* node, Font* font, const char* string)
         else if (string[0] > '9' || string[0] < '0') return 0; // only accept digits
     }
 
-    u32 stringLen = strlen(string);
-    u32 required = text->numBytes + stringLen + 1;
+    uint32 stringLen = strlen(string);
+    uint32 required = text->numBytes + stringLen + 1;
     if (required > text->capacity) {
         text->capacity *= 2;
         if (text->capacity < required) text->capacity = required;
@@ -143,9 +143,9 @@ int InputText_Write(InputText* text, Node* node, Font* font, const char* string)
    IMPORTANT! This function assumes there is / are codepoint(s) to the left of the cursor */
 void InputText_RemoveCodepointBeforeCursor(InputText* text)
 {
-    u32 i = text->cursorBytes - 1;
+    uint32 i = text->cursorBytes - 1;
     while (i > 0 && ((unsigned char)text->buffer[i] & 0xC0) == 0x80) i--;
-    u32 bytes = text->cursorBytes - i;
+    uint32 bytes = text->cursorBytes - i;
     memmove(
         text->buffer + i,
         text->buffer + text->cursorBytes,
@@ -185,7 +185,7 @@ int InputText_BackspaceWord(InputText* text, Node* node, Font* font)
 
         // case 1: no decimal xxx|xxx
         if (text->decimalByteIndex == -1) {
-            u32 bytesToRemove = text->cursorBytes;
+            uint32 bytesToRemove = text->cursorBytes;
             memmove(
                 text->buffer,
                 text->buffer + text->cursorBytes,
@@ -197,7 +197,7 @@ int InputText_BackspaceWord(InputText* text, Node* node, Font* font)
         }
         // case 2: cursor is before decimal  xxx|xxx.xxx
         else if (text->cursorBytes-1 < text->decimalByteIndex) {
-            u32 bytesToRemove = text->cursorBytes;
+            uint32 bytesToRemove = text->cursorBytes;
             memmove(
                 text->buffer,
                 text->buffer + text->cursorBytes,
@@ -215,8 +215,8 @@ int InputText_BackspaceWord(InputText* text, Node* node, Font* font)
         }
         // case 4: cursor after decimal xxx.xxx|xx
         else {
-            u32 startByte = text->decimalByteIndex + 1;
-            u32 bytesToRemove = text->cursorBytes - startByte;
+            uint32 startByte = text->decimalByteIndex + 1;
+            uint32 bytesToRemove = text->cursorBytes - startByte;
             memmove(
                 text->buffer + startByte,
                 text->buffer + text->cursorBytes,
@@ -231,10 +231,10 @@ int InputText_BackspaceWord(InputText* text, Node* node, Font* font)
     else {
 
         // iterate backwards until the beginning of the string OR a space is found and the prev char is not a space
-        u32 bytesStart = text->cursorBytes - 1;
+        uint32 bytesStart = text->cursorBytes - 1;
         while (bytesStart > 0 && text->buffer[bytesStart - 1] == ' ') bytesStart--; // 1. skip spaces
         while (bytesStart > 0 && text->buffer[bytesStart - 1] != ' ') bytesStart--; // 2. skip the word
-        u32 bytesToRemove = text->cursorBytes - bytesStart;
+        uint32 bytesToRemove = text->cursorBytes - bytesStart;
 
         // perform removal
         memmove(
@@ -254,8 +254,8 @@ int InputText_BackspaceWord(InputText* text, Node* node, Font* font)
 int InputText_RemoveHighlightedText(InputText* text, Node* node, Font* font)
 {
     // Compute highlight start end
-    u16 highlightStart = text->highlightBytes;
-    u16 highlightEnd = text->cursorBytes;
+    uint16 highlightStart = text->highlightBytes;
+    uint16 highlightEnd = text->cursorBytes;
     if (text->cursorBytes < highlightStart) {
         highlightStart = text->cursorBytes;
         highlightEnd = text->highlightBytes;
@@ -268,7 +268,7 @@ int InputText_RemoveHighlightedText(InputText* text, Node* node, Font* font)
     }
     // Case 2: there are bytes to the right of highlight end
     else {
-        u16 bytesToShift = text->numBytes - highlightEnd;
+        uint16 bytesToShift = text->numBytes - highlightEnd;
         memmove(text->buffer + highlightStart, text->buffer + highlightEnd, bytesToShift);
         text->numBytes -= highlightEnd - highlightStart;
         text->buffer[text->numBytes] = '\0';
@@ -352,7 +352,7 @@ int InputText_MoveCursorLeftSpan(InputText* text, Node* node, Font* font)
     // stores text value
     else
     {
-        u32 bytesStart = text->cursorBytes - 1;
+        uint32 bytesStart = text->cursorBytes - 1;
         while (bytesStart > 0 && text->buffer[bytesStart - 1] == ' ') bytesStart--; // 1. skip spaces
         while (bytesStart > 0 && text->buffer[bytesStart - 1] != ' ') bytesStart--; // 2. skip the word
         text->cursorBytes -= text->cursorBytes - bytesStart;
@@ -391,7 +391,7 @@ int InputText_MoveCursorRightSpan(InputText* text, Node* node, Font* font)
     // stores text value
     else
     {
-        u32 bytesStart = text->cursorBytes + 1;
+        uint32 bytesStart = text->cursorBytes + 1;
         while (bytesStart < text->numBytes && text->buffer[bytesStart] == ' ') bytesStart++; // 1. skip spaces
         while (bytesStart < text->numBytes && text->buffer[bytesStart] != ' ') bytesStart++; // 2. skip the word
         text->cursorBytes = bytesStart;
@@ -401,44 +401,44 @@ int InputText_MoveCursorRightSpan(InputText* text, Node* node, Font* font)
     return 1;
 }
 
-void InputText_MousePlaceCursor(InputText* text, Node* node, Font* font, float mouseX)
+void InputText_MousePlaceCursor(InputText* text, Node* node, Font* font, float32 mouseX)
 {
-    float inputLeftX = node->public.generic.x + node->public.generic.padLeft + node->public.generic.borderLeft;
-    float mouseRelX = mouseX - inputLeftX - text->textOffset;
+    float32 inputLeftX = node->public.generic.x + node->public.generic.padLeft + node->public.generic.borderLeft;
+    float32 mouseRelX = mouseX - inputLeftX - text->textOffset;
 
     // Loop over glyphs in text, computing the glyph's x and width given the textOffset
     // If mouseX >= glyphX + glyphWidth * 0.5f && mouseX < nextGlyphX + nextGlyphWidth * 0.5f;
-    u32 cursorBytes = NU_Calculate_Unwrapped_Text_Cursorbytes(font, text->buffer, mouseRelX);
+    uint32 cursorBytes = NU_Calculate_Unwrapped_Text_Cursorbytes(font, text->buffer, mouseRelX);
     if (cursorBytes < text->cursorBytes) {
-        text->cursorBytes = (u16)cursorBytes;
+        text->cursorBytes = (uint16)cursorBytes;
         InputText_UpdateCusorTextOffsets(text, node, font, -1);
     }
     else {
-        text->cursorBytes = (u16)cursorBytes;
+        text->cursorBytes = (uint16)cursorBytes;
         InputText_UpdateCusorTextOffsets(text, node, font, 1);
     }
     text->highlightBytes = text->cursorBytes;
     text->dragging = true;
 }
 
-int InputText_MouseDrag(InputText* text, Node* node, Font* font, float mouseX)
+int InputText_MouseDrag(InputText* text, Node* node, Font* font, float32 mouseX)
 {
     if (!text->dragging) return 0;
 
-    float inputLeftX = node->public.generic.x + node->public.generic.padLeft + node->public.generic.borderLeft;
-    float mouseRelX = mouseX - inputLeftX - text->textOffset;
+    float32 inputLeftX = node->public.generic.x + node->public.generic.padLeft + node->public.generic.borderLeft;
+    float32 mouseRelX = mouseX - inputLeftX - text->textOffset;
 
-    u16 prevHighlightBytes = text->highlightBytes;
+    uint16 prevHighlightBytes = text->highlightBytes;
 
     // Loop over glyphs in text, computing the glyph's x and width given the textOffset
     // If mouseX >= glyphX + glyphWidth * 0.5f && mouseX < nextGlyphX + nextGlyphWidth * 0.5f;
-    u32 highlightBytes = NU_Calculate_Unwrapped_Text_Cursorbytes(font, text->buffer, mouseRelX);
+    uint32 highlightBytes = NU_Calculate_Unwrapped_Text_Cursorbytes(font, text->buffer, mouseRelX);
     if (highlightBytes < text->highlightBytes) {
-        text->highlightBytes = (u16)highlightBytes;
+        text->highlightBytes = (uint16)highlightBytes;
         InputText_UpdateHighlightTextOffsets(text, node, font, -1);
     }
     else {
-        text->highlightBytes = (u16)highlightBytes;
+        text->highlightBytes = (uint16)highlightBytes;
         InputText_UpdateHighlightTextOffsets(text, node, font, 1);
     }
     return prevHighlightBytes != text->highlightBytes;
@@ -455,8 +455,8 @@ void InputText_SelectAll(InputText* text, Font* font)
 void InputText_CopyToClipboard(InputText* text)
 {
     // Compute highlight start and end
-    u16 highlightStart = text->highlightBytes;
-    u16 highlightEnd = text->cursorBytes;
+    uint16 highlightStart = text->highlightBytes;
+    uint16 highlightEnd = text->cursorBytes;
     if (text->cursorBytes < highlightStart) {
         highlightStart = text->cursorBytes;
         highlightEnd = text->highlightBytes;

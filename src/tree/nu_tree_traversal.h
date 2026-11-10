@@ -8,13 +8,13 @@
 typedef struct DFSFrame {
     Node* node;
     Node* nextChild;
-    uint8_t visited;   // 0 = not returned yet, 1 = returned
+    uint8 visited;   // 0 = not returned yet, 1 = returned
 } DFSFrame;
 
 typedef struct DepthFirstSearch {
     DFSFrame* stack;
-    u32 size;
-    u32 capacity;
+    uint32 size;
+    uint32 capacity;
 } DepthFirstSearch;
 
 DepthFirstSearch DepthFirstSearch_Create(Node* root)
@@ -116,12 +116,12 @@ void DepthFirstSearch_Free(DepthFirstSearch* dfs)
 // -----------------------------------------------
 // typedef struct ParallelDFS_Worker {
 //     DFSFrame* stack;
-//     u32 size;
+//     uint32 size;
 // } ParallelDFS_Worker;
 
 // typedef struct ParallelDepthFirstSearch {
 //     DFSFrame* sharedStack;
-//     u32 sharedStackCapacity;
+//     uint32 sharedStackCapacity;
 // } ParallelDepthFirstSearch;
 
 // int ParallelDepthFirstSearch_Init(ParallelDepthFirstSearch* pdfs) {
@@ -138,7 +138,7 @@ void DepthFirstSearch_Free(DepthFirstSearch* dfs)
 // {
 //     // 1. Grow the stack space to contain enough space
 //     // for all the tree partition nodes
-//     u32 capacityNeeded = 0;
+//     uint32 capacityNeeded = 0;
 //     Node* partitionRoot;
 //     while((partitionRoot = TreePartitioner_GetNextPartition(
 //         partitioner,
@@ -189,9 +189,9 @@ void DepthFirstSearch_Free(DepthFirstSearch* dfs)
 // -----------------------------
 typedef struct BFSQueue {
     Node** data;
-    u32 size;
-    u32 capacity;
-    u32 front;
+    uint32 size;
+    uint32 capacity;
+    uint32 front;
 } BFSQueue;
 
 typedef struct BreadthFirstSearch {
@@ -199,7 +199,7 @@ typedef struct BreadthFirstSearch {
     Node* root;
 } BreadthFirstSearch;
 
-static void BFSQueue_Init(BFSQueue* q, u32 cap) {
+static void BFSQueue_Init(BFSQueue* q, uint32 cap) {
     q->data = malloc(sizeof(Node*) * cap);
     q->size = 0;
     q->front = 0;
@@ -273,8 +273,8 @@ void BreadthFirstSearch_Free(BreadthFirstSearch* bfs) {
 // -------------------------------------
 typedef struct ReverseBreadthFirstSearch {
     Node** nodes;
-    u32 count;
-    u32 index;
+    uint32 count;
+    uint32 index;
 } ReverseBreadthFirstSearch;
 
 ReverseBreadthFirstSearch ReverseBreadthFirstSearch_Create(Node* root) {
@@ -288,15 +288,15 @@ ReverseBreadthFirstSearch ReverseBreadthFirstSearch_Create(Node* root) {
 
     // Temp stack for layers
     Node*** layerStack = malloc(sizeof(Node**) * 16);
-    u32* layerCounts = malloc(sizeof(u32) * 16);
-    u32 layerStackSize = 0;
-    u32 layerCapacity = 16;
+    uint32* layerCounts = malloc(sizeof(uint32) * 16);
+    uint32 layerStackSize = 0;
+    uint32 layerCapacity = 16;
 
     while (queue.front < queue.size) {
-        u32 layerCount = queue.size - queue.front;
+        uint32 layerCount = queue.size - queue.front;
         Node** layerNodes = malloc(sizeof(Node*) * layerCount);
 
-        for (u32 i = 0; i < layerCount; i++) {
+        for (uint32 i = 0; i < layerCount; i++) {
             Node* node = BFSQueue_Pop(&queue);
             layerNodes[i] = node;
 
@@ -310,7 +310,7 @@ ReverseBreadthFirstSearch ReverseBreadthFirstSearch_Create(Node* root) {
         if (layerStackSize == layerCapacity) {
             layerCapacity *= 2;
             layerStack = realloc(layerStack, sizeof(Node**) * layerCapacity);
-            layerCounts = realloc(layerCounts, sizeof(u32) * layerCapacity);
+            layerCounts = realloc(layerCounts, sizeof(uint32) * layerCapacity);
         }
 
         layerStack[layerStackSize] = layerNodes;
@@ -321,17 +321,17 @@ ReverseBreadthFirstSearch ReverseBreadthFirstSearch_Create(Node* root) {
     BFSQueue_Free(&queue);
 
     // Count total nodes
-    u32 total = 0;
-    for (u32 i = 0; i < layerStackSize; i++) total += layerCounts[i];
+    uint32 total = 0;
+    for (uint32 i = 0; i < layerStackSize; i++) total += layerCounts[i];
 
     rBFS.nodes = malloc(sizeof(Node*) * total);
     rBFS.count = total;
     rBFS.index = 0;
 
     // Fill rBFS array bottom-up, left-to-right per layer
-    u32 pos = 0;
+    uint32 pos = 0;
     for (int l=layerStackSize-1; l>=0; l--) {
-        for (u32 i=0; i<layerCounts[l]; i++) {
+        for (uint32 i=0; i<layerCounts[l]; i++) {
             rBFS.nodes[pos++] = layerStack[l][i];
         }
         free(layerStack[l]);

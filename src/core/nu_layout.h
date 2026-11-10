@@ -1,29 +1,5 @@
 #pragma once
 
-static inline float NODE_BORDER_PAD_WIDTH(const Node* node)
-{
-    return node->public.generic.borderLeft + node->public.generic.borderRight
-         + node->public.generic.padLeft + node->public.generic.padRight;
-}
-
-static inline float NODE_BORDER_PAD_HEIGHT(const Node* node)
-{
-    return node->public.generic.borderTop + node->public.generic.borderBottom
-         + node->public.generic.padTop + node->public.generic.padBottom;
-}
-
-static inline float NODE_INNER_WIDTH(const Node* node)
-{
-    return node->public.generic.width - (node->public.generic.borderLeft + node->public.generic.borderRight
-         + node->public.generic.padLeft + node->public.generic.padRight);
-}
-
-static inline float NODE_INNER_HEIGHT(const Node* node)
-{
-    return node->public.generic.height - (node->public.generic.borderTop + node->public.generic.borderBottom
-         + node->public.generic.padTop + node->public.generic.padBottom);
-}
-
 static inline float SCROLLBAR_TRACK_WIDTH()
 {
     float thumbWidth = (float)GUI.stylesheet.scrollbarStyle.width - (float)GUI.stylesheet.scrollbarStyle.trackPadLeft - (float)GUI.stylesheet.scrollbarStyle.trackPadRight;
@@ -32,17 +8,6 @@ static inline float SCROLLBAR_TRACK_WIDTH()
     }
     if (thumbWidth < 2) thumbWidth = 2;
     return thumbWidth + (float)GUI.stylesheet.scrollbarStyle.trackPadLeft + (float)GUI.stylesheet.scrollbarStyle.trackPadRight;
-}
-
-static inline bool NODE_HAS_TEXT_CONTENT(const Node* node)
-{
-    return node->public.generic.textContent != NULL &&
-    (node->type == NU_TYPE_BOX || node->type == NU_TYPE_BUTTON);
-}
-
-static inline bool NODE_CONTENTS_OVERFLOW_V(const Node* node)
-{
-    return node->public.generic.contentHeight > NODE_INNER_WIDTH(node);
 }
 
 static void NU_ApplyMinMaxWidthConstraint(Node* node)
@@ -102,7 +67,7 @@ static void NU_Prepass(BreadthFirstSearch* bfs, Array* scrollAutoNodes)
         if (node->type == NU_TYPE_IMAGE)
         {
             // Get image dimensions
-            u16 w, h;
+            uint16 w, h;
             ImageResourceManager_GetImageSize(&GUI.imageResourceManager, node->special.image.imageHandle, &w, &h);
 
             const bool wIntrinsic = (node->special.image.widthDimType  == IMAGE_DIM_INTRINSIC);
@@ -1027,7 +992,7 @@ static void NU_Repass(BreadthFirstSearch* bfs)
             if (child->type == NU_TYPE_IMAGE)
             {
                 // Get image dimensions
-                u16 w, h;
+                uint16 w, h;
                 ImageResourceManager_GetImageSize(&GUI.imageResourceManager, child->special.image.imageHandle, &w, &h);
 
                 const bool wIntrinsic = (child->special.image.widthDimType  == IMAGE_DIM_INTRINSIC);
@@ -1121,7 +1086,7 @@ void NU_Layout()
     float trackWidth = SCROLLBAR_TRACK_WIDTH();
 
     // SECOND PASS -> RECOMPUTE OVERFLOWED SCROLL BRANCHES
-    for (u32 i=0; i<GUI.layoutScrollAutoNodes.size; i++)
+    for (uint32 i=0; i<GUI.layoutScrollAutoNodes.size; i++)
     {
         Node* node = *(Node**)Array_Get(&GUI.layoutScrollAutoNodes, i);
 

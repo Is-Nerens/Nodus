@@ -141,7 +141,7 @@ void NU_Mouse_Hover()
     Array_Init(&stack, sizeof(Node*), 32);
 
     // Add absolute root nodes to stack
-    for (u32 i=0; i<GUI.displayManager.absoluteRootNodes.size; i++) {
+    for (uint32 i=0; i<GUI.displayManager.absoluteRootNodes.size; i++) {
         Node* absolute_node = *(Node**)Array_Get(&GUI.displayManager.absoluteRootNodes, i);
         if (absolute_node->windowID == GUI.displayManager.hoveredWindowNode->windowID && NU_MouseIsOverNode(absolute_node, mouseX, mouseY)) {
             Array_Push(&stack, &absolute_node);

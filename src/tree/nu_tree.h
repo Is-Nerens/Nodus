@@ -14,8 +14,8 @@ typedef struct Tree
 {
     Nalloc nodeAlloc;
     Node* root;
-    u32 depth;
-    u32 nodeCount;
+    uint32 depth;
+    uint32 nodeCount;
     Array deleteStack; // preallocated (reduce fragmentation)
     Array deletedButNotFreedNodes;
 } Tree;
@@ -58,7 +58,7 @@ static inline void Tree_AdjustSubtreeSizes(Node* node, int32_t delta)
     }
 }
 
-Node* TreeCreateNode(Tree* tree, Node* parent, u8 type)
+Node* TreeCreateNode(Tree* tree, Node* parent, uint8 type)
 {
     // grow tree depth if necessary
     if (parent->layer == tree->depth - 1) tree->depth++;

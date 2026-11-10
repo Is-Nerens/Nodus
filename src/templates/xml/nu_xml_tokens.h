@@ -80,12 +80,12 @@ typedef enum NU_XML_TOKEN
 
 typedef struct Text_Ref
 {
-    u32 NU_Token_index;
-    u32 src_index;
-    u8 char_count;
+    uint32 NU_Token_index;
+    uint32 src_index;
+    uint8 char_count;
 } Text_Ref;
 
-NU_XML_TOKEN NU_Word_To_Token(char* word, u8 wordLen)
+NU_XML_TOKEN NU_Word_To_Token(char* word, uint8 wordLen)
 {
     word[wordLen] = '\0';
     for (int i = XML_PROPERTY_FIRST; i<= XML_TAG_LAST; i++) {
@@ -94,7 +94,7 @@ NU_XML_TOKEN NU_Word_To_Token(char* word, u8 wordLen)
     return UNDEFINED;
 }
 
-NU_XML_TOKEN NU_Word_To_Tag_Token(char* word, u8 wordLen)
+NU_XML_TOKEN NU_Word_To_Tag_Token(char* word, uint8 wordLen)
 {
     word[wordLen] = '\0';
     for (int i = XML_TAG_FIRST; i<= XML_TAG_LAST; i++) {
@@ -103,7 +103,7 @@ NU_XML_TOKEN NU_Word_To_Tag_Token(char* word, u8 wordLen)
     return UNDEFINED_TAG;
 }
 
-NU_XML_TOKEN NU_Word_To_Property_Token(char* word, u8 wordLen)
+NU_XML_TOKEN NU_Word_To_Property_Token(char* word, uint8 wordLen)
 {
     word[wordLen] = '\0';
     for (int i = XML_PROPERTY_FIRST; i<= XML_PROPERTY_LAST; i++) {
@@ -112,7 +112,7 @@ NU_XML_TOKEN NU_Word_To_Property_Token(char* word, u8 wordLen)
     return UNDEFINED_PROPERTY;
 }
 
-u8 NU_TokenToNodeType(NU_XML_TOKEN token)
+uint8 NU_TokenToNodeType(NU_XML_TOKEN token)
 {
     if (token < XML_TAG_FIRST || token > XML_TAG_LAST) return NU_TYPE_UNKNOWN;
     return token - XML_TAG_FIRST;

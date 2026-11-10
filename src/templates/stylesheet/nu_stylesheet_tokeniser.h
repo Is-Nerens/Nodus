@@ -1,6 +1,5 @@
 #pragma once
 #include <utils/nu_utf8_parser_word.h>
-#include "../nu_token_array.h"
 #include "nu_stylesheet_tokens.h"
 
 static void Stylesheet_Tokenise(String src, TokenArray* tokens, Array* textRefs)
@@ -9,17 +8,17 @@ static void Stylesheet_Tokenise(String src, TokenArray* tokens, Array* textRefs)
     ParserWord_Init(&word);
 
     // Context
-    u8 ctx = CSS_TOKENISE_CTX_GLOBAL;
+    uint8 ctx = CSS_TOKENISE_CTX_GLOBAL;
 
     // Iterate over src file
-    u32 srcLen = StringLen(src);
-    int i = 0;
+    uint32 srcLen = StringLen(src);
+    int32 i = 0;
     while (i < srcLen)
     {
-        u32 c = StringNextUTF8Codepoint(src, &i);
+        uint32 c = StringNextUTF8Codepoint(src, &i);
 
         // Globalspace comment begins
-        int peekI = i;
+        int32 peekI = i;
         if (ctx == CSS_TOKENISE_CTX_GLOBAL && i < srcLen - 1 && c == '/' && StringNextUTF8Codepoint(src, &peekI) == '*') {
             i=peekI; ctx = CSS_TOKENISE_CTX_GLOBAL_COMMENT; continue; // ^
         }

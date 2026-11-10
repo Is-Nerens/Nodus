@@ -20,10 +20,10 @@ layout(push_constant) uniform PushConstants {
 vec4 unpackRGBA(uint c)
 {
     return vec4(
-        float((c >> 0)  & 255u) / 255.0,
-        float((c >> 8)  & 255u) / 255.0,
+        float((c >> 24) & 255u) / 255.0,
         float((c >> 16) & 255u) / 255.0,
-        float((c >> 24) & 255u) / 255.0
+        float((c >> 8)  & 255u) / 255.0,
+        float((c >> 0)  & 255u) / 255.0
     );
 }
 
@@ -33,9 +33,7 @@ void main()
     float ndc_x = (worldPos.x / pc.uScreenWidth) * 2.0 - 1.0;
     float ndc_y = (worldPos.y / pc.uScreenHeight) * 2.0 - 1.0;
 
-    float z_gl = iPos.z * 0.015625;
-    float z_vk = z_gl * 0.5 + 0.5;
-    gl_Position = vec4(ndc_x, ndc_y, z_vk, 1.0);
+    gl_Position = vec4(ndc_x, ndc_y, iPos.z, 1.0);
 
     vUV = vec2(
         mix(iUV.x, iUV.z, aQuad.x),

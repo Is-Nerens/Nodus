@@ -290,12 +290,12 @@ void PrintStyleTokenLine(StylesheetToken token)
     printf("%s\n", name);
 }
 
-static inline u32 Property_Token_To_Flag(StylesheetToken token)
+static inline uint32 Property_Token_To_Flag(StylesheetToken token)
 {
     return (1u << token);
 }
 
-static StylesheetToken NU_Word_To_Style_Token(char* word, u8 len)
+static StylesheetToken NU_Word_To_Style_Token(char* word, uint8 len)
 {
     word[len] = '\0';
     for (int i = STYLE_PROPERTY_FIRST; i <= STYLE_PSEUDO_LAST; i++) {
@@ -304,7 +304,7 @@ static StylesheetToken NU_Word_To_Style_Token(char* word, u8 len)
     return STYLE_UNDEFINED;
 }
 
-static StylesheetToken NU_Word_To_Style_Property_Token(char* word, u8 len)
+static StylesheetToken NU_Word_To_Style_Property_Token(char* word, uint8 len)
 {
     word[len] = '\0';
     for (int i = STYLE_PROPERTY_FIRST; i <= STYLE_PROPERTY_LAST; i++) {
@@ -313,7 +313,7 @@ static StylesheetToken NU_Word_To_Style_Property_Token(char* word, u8 len)
     return STYLE_UNDEFINED;
 }
 
-static StylesheetToken NU_Word_To_Tag_Selector_Token(char* word, u8 len)
+static StylesheetToken NU_Word_To_Tag_Selector_Token(char* word, uint8 len)
 {
     word[len] = '\0';
     for (int i = STYLE_TAG_SELECTOR_FIRST; i <= STYLE_TAG_SELECTOR_LAST; i++) {
@@ -322,7 +322,7 @@ static StylesheetToken NU_Word_To_Tag_Selector_Token(char* word, u8 len)
     return STYLE_UNDEFINED;
 }
 
-static StylesheetToken NU_Word_To_Any_Selector_Token(char* word, u8 len)
+static StylesheetToken NU_Word_To_Any_Selector_Token(char* word, uint8 len)
 {
     word[len] = '\0';
     for (int i = STYLE_TAG_SELECTOR_FIRST; i <= STYLE_SPECIAL_SELECTOR_LAST; i++) {
@@ -331,7 +331,7 @@ static StylesheetToken NU_Word_To_Any_Selector_Token(char* word, u8 len)
     return STYLE_UNDEFINED;
 }
 
-static StylesheetToken NU_Word_To_Pseudo_Token(char* word, u8 len)
+static StylesheetToken NU_Word_To_Pseudo_Token(char* word, uint8 len)
 {
     word[len] = '\0';
     for (int i = STYLE_PSEUDO_FIRST; i <= STYLE_PSEUDO_LAST; i++) {

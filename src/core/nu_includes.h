@@ -4,26 +4,15 @@
 #include <vulkan/vulkan.h>
 #include <SDL3/SDL.h>
 #include <SDL3/SDL_vulkan.h>
-#include <GL/glew.h>
+#include <ft2build.h>
 #include <math.h>
 #include <stdlib.h>
-#include <stdbool.h>
-#include <ft2build.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include FT_FREETYPE_H
 #include FT_MULTIPLE_MASTERS_H
 
-// Platform macros
-#if defined(_WIN32) || defined(_WIN64)
-    #define PLATFORM_WINDOWS
-#elif defined(__APPLE__) && defined(__MACH__)
-    #define PLATFORM_MACOS
-#elif defined(__linux__) || defined(__unix__)
-    #define PLATFORM_LINUX
-#else
-    #error "Unsupported platform"
-#endif
+#include "utils/nu_platform.h"
 
 // MacOS MoltenVK portability
 #ifdef PLATFORM_MACOS
@@ -54,10 +43,12 @@ typedef void (*NU_Callback)(void* args);
 #define NU_EVENT_TIMER 1
 
 // Nodus includes
-#include <utils/nu_int.h>
+#include <utils/nu_types.h>
+#include <utils/nu_color.h>
+#include <utils/nu_type_parse.h>
 #include <utils/nu_performance.h>
 #include <utils/nu_threadpool.h>
-#include <datastructures/Array.h>
+#include <datastructures/array.h>
 #include <datastructures/string.h>
 #include <datastructures/container.h>
 #include <datastructures/stringset.h>
@@ -69,6 +60,7 @@ typedef void (*NU_Callback)(void* args);
 #include <datastructures/string_arena.h>
 #include <datastructures/hashmap.h>
 #include <datastructures/linalloc.h>
+#include <datastructures/token_array.h>
 #include <core/nu_error.h>
 #include <tree/nu_tree.h>
 #include <graphics/rendering/nu_vulkan_utils.h>

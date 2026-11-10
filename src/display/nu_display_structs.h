@@ -14,7 +14,7 @@ typedef struct DisplayManager
     VkDevice              device;
     VkQueue               graphicsQueue;
     VkCommandPool         commandPool;
-    u32                   graphicsFamily;
+    uint32                graphicsFamily;
     VkRenderPass          sharedRenderPass;
     VkDescriptorSetLayout fontSetLayout;   // binding 0, COMBINED_IMAGE_SAMPLER, count 1, fragment
     VkDescriptorPool      fontPool;
@@ -59,7 +59,7 @@ typedef struct {
     VkSwapchainKHR swapchain;
     VkFormat       swapchainFormat;
     VkExtent2D     swapchainExtent;
-    u32            imageCount;
+    uint32            imageCount;
     VkImage        images[NU_MAX_SWAPCHAIN_IMAGES];
     VkImageView    imageViews[NU_MAX_SWAPCHAIN_IMAGES];
     VkFramebuffer  framebuffers[NU_MAX_SWAPCHAIN_IMAGES];
@@ -78,8 +78,8 @@ typedef struct {
     // Command buffers
     VkCommandPool   commandPool;
     VkCommandBuffer commandBuffers[NU_FRAMES_IN_FLIGHT];
-    u32 currentFrame;
-    u32 imageIndex;
+    uint32 currentFrame;
+    uint32 imageIndex;
 
     // Draw info
     NuWindowDrawlist drawlist;

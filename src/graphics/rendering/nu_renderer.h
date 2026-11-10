@@ -7,8 +7,14 @@
 void NU_DrawVertexRGB(
     Window* window,
     DisplayManager* displayManager,
-    Array* vertices,
-    Array* indices)
+    Vertex_RGB_List* vertices,
+    Index_List* indices,
+    float offsetX,
+    float offsetY,
+    float scissorTop,
+    float scissorBottom,
+    float scissorLeft,
+    float scissorRight)
 {
     // Skip draw if there is no data
     if (vertices->size == 0 || indices->size == 0) return;
@@ -19,42 +25,49 @@ void NU_DrawVertexRGB(
     // Bind pipeline
     vkCmdBindPipeline(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, displayManager->vertexRGBPipeline.handle);
 
-    // Wiewport / scissor
+    // Viewport / scissor
     VkViewport vp = {
         0.0f, 0.0f,
         (float)window->swapchainExtent.width,
         (float)window->swapchainExtent.height,
         0.0f, 1.0f
     };
-    VkRect2D sc = {{0, 0}, window->swapchainExtent};
+    VkRect2D sc = {
+        .offset = {
+            .x = (uint32)scissorLeft,
+            .y = (uint32)scissorTop },
+        .extent = {
+            .width  = (uint32)(scissorRight - scissorLeft),
+            .height = (uint32)(scissorBottom - scissorTop)
+        }
+    };
     vkCmdSetViewport(cmd, 0, 1, &vp);
     vkCmdSetScissor(cmd, 0, 1, &sc);
 
     // Push constants
     // 4 floats: screenW, screenH, offsetX, offsetY
-    float push[4] = { (float)window->screenWidth, (float)window->screenHeight, 0.0f, 0.0f };
+    float push[4] = { (float)window->screenWidth, (float)window->screenHeight, offsetX, offsetY };
     vkCmdPushConstants(cmd, displayManager->vertexRGBPipeline.layout, VK_SHADER_STAGE_VERTEX_BIT, 0, sizeof(push), push);
 
     // Allocate vertex buffer space in the GPU arena
-    VkDeviceSize vertBytes = vertices->size * vertices->elementSize;
+    VkDeviceSize vertBytes = vertices->size * sizeof(vertex_rgb);
     ArenaAllocGPU vertAlloc = ArenaAllocatorGPU_Alloc(&displayManager->gpuArenaAlloc, vertBytes, 16);
     if (vertAlloc.buffer == VK_NULL_HANDLE) {
         ErrorSystem_AddError(&GUI.errorSystem, "<Vulkan Error> vertexRGB vertex arena alloc failed");
         return;
     }
-    memcpy((char*)vertAlloc.mapped + vertAlloc.offset, vertices->data, (size_t)vertBytes);
+    memcpy((char*)vertAlloc.mapped + vertAlloc.offset, vertices->array, (size_t)vertBytes);
 
     // Allocate index buffer space in the GPU arean
-    VkDeviceSize idxBytes = indices->size * indices->elementSize;
+    VkDeviceSize idxBytes = indices->size * sizeof(uint32);
     ArenaAllocGPU idxAlloc = ArenaAllocatorGPU_Alloc(&displayManager->gpuArenaAlloc, idxBytes, 16);
     if (idxAlloc.buffer == VK_NULL_HANDLE) {
         ErrorSystem_AddError(&GUI.errorSystem, "<Vulkan Error> vertexRGB index arena alloc failed");
         return;
     }
-    memcpy((char*)idxAlloc.mapped + idxAlloc.offset, indices->data, (size_t)idxBytes);
+    memcpy((char*)idxAlloc.mapped + idxAlloc.offset, indices->array, (size_t)idxBytes);
 
     // Bind vertex + index buffers
-    VkDeviceSize zero = 0;
     vkCmdBindVertexBuffers(cmd, 0, 1, &vertAlloc.buffer, &vertAlloc.offset);
     vkCmdBindIndexBuffer(cmd, idxAlloc.buffer, idxAlloc.offset, VK_INDEX_TYPE_UINT32);
 
@@ -140,7 +153,7 @@ void NU_DrawBorderRects(
     vkCmdBindVertexBuffers(cmd, 0, 2, bufs, offsets);
 
     // ---- Draw ----
-    vkCmdDraw(cmd, 6, (u32)Array_Length(borderRects), 0, 0);
+    vkCmdDraw(cmd, 6, (uint32)Array_Length(borderRects), 0, 0);
 }
 
 void NU_DrawImage(
@@ -163,7 +176,7 @@ void NU_DrawImages(
 
     // Bounds-check the group index against the descriptor set array
     if (imageRenderGroup->groupIndex < 0 ||
-        (u32)imageRenderGroup->groupIndex >= Array_Length(&imageResourceManager->groupDescriptorSets)) {
+        (uint32)imageRenderGroup->groupIndex >= Array_Length(&imageResourceManager->groupDescriptorSets)) {
         ErrorSystem_AddError(&GUI.errorSystem, "<Vulkan Error> image group index out of range");
         return;
     }
@@ -222,7 +235,7 @@ void NU_DrawImages(
     vkCmdBindVertexBuffers(cmd, 0, 2, bufs, offsets);
 
     // Draw
-    vkCmdDraw(cmd, 6, (u32)Array_Length(imagesRenderData), 0, 0);
+    vkCmdDraw(cmd, 6, (uint32)Array_Length(imagesRenderData), 0, 0);
 }
 
 void NU_DrawText(
@@ -286,7 +299,7 @@ void NU_DrawText(
     vkCmdBindVertexBuffers(cmd, 0, 2, bufs, offsets);
 
     // Draw
-    vkCmdDraw(cmd, 6, (u32)Array_Length(textRenderData), 0, 0);
+    vkCmdDraw(cmd, 6, (uint32)Array_Length(textRenderData), 0, 0);
 }
 
 void NU_DrawClippedText(
@@ -350,5 +363,5 @@ void NU_DrawClippedText(
     vkCmdBindVertexBuffers(cmd, 0, 2, bufs, offsets);
 
     // Draw
-    vkCmdDraw(cmd, 6, (u32)Array_Length(textRenderData), 0, 0);
+    vkCmdDraw(cmd, 6, (uint32)Array_Length(textRenderData), 0, 0);
 }

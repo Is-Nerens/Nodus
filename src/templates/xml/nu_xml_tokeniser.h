@@ -7,17 +7,17 @@ void NU_Tokenise(String src, TokenArray* tokenVectorOut, Array* textRefsOut)
 {
     ParserWord word;
     ParserWord_Init(&word);
-    u32 textLen     = 0;
-    u32 trailingWS  = 0;
-    u8  ctx         = 0; // 0: globalspace, 1: commentspace, 2: tagspace, 3: property valuespace
-    u8  seenTagName = 0;
+    uint32 textLen     = 0;
+    uint32 trailingWS  = 0;
+    uint8  ctx         = 0; // 0: globalspace, 1: commentspace, 2: tagspace, 3: property valuespace
+    uint8  seenTagName = 0;
 
     // iterate over src file
-    u32 srcLen = StringLen(src);
+    uint32 srcLen = StringLen(src);
     int i = 0;
     while (i < srcLen)
     {
-        u32 c = StringNextUTF8Codepoint(src, &i);
+        uint32 c = StringNextUTF8Codepoint(src, &i);
 
         // comment begins
         int peekI = i;

@@ -16,7 +16,7 @@ int Window_CreateSwapchain(Window* window, DisplayManager* displayManager)
     if (width == 0 || height == 0) return 0;
 
     // Destroy old framebuffers and image views.
-    for (u32 i=0; i<window->imageCount; i++) {
+    for (uint32 i=0; i<window->imageCount; i++) {
         if (window->framebuffers[i] != VK_NULL_HANDLE) {
             vkDestroyFramebuffer(device, window->framebuffers[i], NULL);
             window->framebuffers[i] = VK_NULL_HANDLE;
@@ -48,7 +48,7 @@ int Window_CreateSwapchain(Window* window, DisplayManager* displayManager)
     }
 
     // Clear per-image handles so a failure leaves no stale state.
-    for (u32 i=0; i<NU_MAX_SWAPCHAIN_IMAGES; i++) {
+    for (uint32 i=0; i<NU_MAX_SWAPCHAIN_IMAGES; i++) {
         window->images[i] = VK_NULL_HANDLE;
         window->imageViews[i] = VK_NULL_HANDLE;
         window->framebuffers[i] = VK_NULL_HANDLE;
@@ -65,7 +65,7 @@ int Window_CreateSwapchain(Window* window, DisplayManager* displayManager)
     }
 
     // Query supported surface formats.
-    u32 formatCount = 0;
+    uint32 formatCount = 0;
     if (vkGetPhysicalDeviceSurfaceFormatsKHR(
         displayManager->physicalDevice,
         window->surface,
@@ -75,7 +75,7 @@ int Window_CreateSwapchain(Window* window, DisplayManager* displayManager)
     }
 
     // Select a format
-    u32 fmtCount = 0;
+    uint32 fmtCount = 0;
     if (vkGetPhysicalDeviceSurfaceFormatsKHR(
         displayManager->physicalDevice,
         window->surface,
@@ -95,7 +95,7 @@ int Window_CreateSwapchain(Window* window, DisplayManager* displayManager)
         return 0;
     }
     VkSurfaceFormatKHR chosen = formats[0];
-    for (u32 i=0; i<fmtCount; i++) {
+    for (uint32 i=0; i<fmtCount; i++) {
         if (formats[i].format == VK_FORMAT_B8G8R8A8_UNORM &&
             formats[i].colorSpace == VK_COLOR_SPACE_SRGB_NONLINEAR_KHR) {
             chosen = formats[i];
@@ -183,8 +183,8 @@ int Window_CreateSwapchain(Window* window, DisplayManager* displayManager)
     if (caps.currentExtent.width != 0xFFFFFFFFu) {
         extent = caps.currentExtent;
     } else {
-        extent.width = (u32)width < caps.minImageExtent.width? caps.minImageExtent.width : ((u32)width > caps.maxImageExtent.width ? caps.maxImageExtent.width : (u32)width);
-        extent.height = (u32)height < caps.minImageExtent.height ? caps.minImageExtent.height : ((u32)height > caps.maxImageExtent.height ? caps.maxImageExtent.height : (u32)height);
+        extent.width = (uint32)width < caps.minImageExtent.width? caps.minImageExtent.width : ((uint32)width > caps.maxImageExtent.width ? caps.maxImageExtent.width : (uint32)width);
+        extent.height = (uint32)height < caps.minImageExtent.height ? caps.minImageExtent.height : ((uint32)height > caps.maxImageExtent.height ? caps.maxImageExtent.height : (uint32)height);
     }
     if (extent.width == 0 || extent.height == 0) {
         return 0;
@@ -214,8 +214,8 @@ int Window_CreateSwapchain(Window* window, DisplayManager* displayManager)
     vkGetImageMemoryRequirements(device, window->depthImage, &memReq);
     VkPhysicalDeviceMemoryProperties memProps;
     vkGetPhysicalDeviceMemoryProperties(displayManager->physicalDevice, &memProps);
-    u32 typeIndex = 0;
-    for (u32 i=0; i<memProps.memoryTypeCount; i++) {
+    uint32 typeIndex = 0;
+    for (uint32 i=0; i<memProps.memoryTypeCount; i++) {
         if ((memReq.memoryTypeBits & (1u << i)) &&
             (memProps.memoryTypes[i].propertyFlags & VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT)) {
             typeIndex = i;
@@ -247,7 +247,7 @@ int Window_CreateSwapchain(Window* window, DisplayManager* displayManager)
     }
 
     // Choose the minimum number of swapchain images to request
-    u32 requestedImageCount = 2;
+    uint32 requestedImageCount = 2;
     if (requestedImageCount < caps.minImageCount) requestedImageCount = caps.minImageCount;
     if (caps.maxImageCount != 0 && requestedImageCount > caps.maxImageCount) {
         requestedImageCount = caps.maxImageCount;
@@ -266,7 +266,8 @@ int Window_CreateSwapchain(Window* window, DisplayManager* displayManager)
     sci.imageSharingMode = VK_SHARING_MODE_EXCLUSIVE;
     sci.preTransform = caps.currentTransform;
     sci.compositeAlpha = VK_COMPOSITE_ALPHA_OPAQUE_BIT_KHR;
-    sci.presentMode = VK_PRESENT_MODE_IMMEDIATE_KHR;
+    //sci.presentMode = VK_PRESENT_MODE_IMMEDIATE_KHR;
+    sci.presentMode = VK_PRESENT_MODE_FIFO_KHR;
     sci.clipped = VK_TRUE;
     sci.oldSwapchain = VK_NULL_HANDLE;
     VkSwapchainKHR swapchain = VK_NULL_HANDLE;
@@ -277,7 +278,7 @@ int Window_CreateSwapchain(Window* window, DisplayManager* displayManager)
     window->swapchain = swapchain;
 
     // Get the image count
-    u32 actualImageCount = 0;
+    uint32 actualImageCount = 0;
     VkResult result = vkGetSwapchainImagesKHR(device, window->swapchain, &actualImageCount, NULL);
     if (result != VK_SUCCESS || actualImageCount == 0 || actualImageCount > NU_MAX_SWAPCHAIN_IMAGES) {
         return 0;
@@ -289,7 +290,7 @@ int Window_CreateSwapchain(Window* window, DisplayManager* displayManager)
     window->imageCount = actualImageCount;
 
     // Create image views
-    for (u32 i=0; i<window->imageCount; i++) {
+    for (uint32 i=0; i<window->imageCount; i++) {
         VkImageViewCreateInfo vci = {0};
         vci.sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO;
         vci.image = window->images[i];
@@ -339,17 +340,17 @@ int Window_CreateVulkanDevices(Window* window, DisplayManager* displayManager)
     window->swapchainExtent = (VkExtent2D){0};
     window->renderPass = VK_NULL_HANDLE;
     window->commandPool = VK_NULL_HANDLE;
-    for (u32 i=0; i<NU_MAX_SWAPCHAIN_IMAGES; i++) {
+    for (uint32 i=0; i<NU_MAX_SWAPCHAIN_IMAGES; i++) {
         window->images[i] = VK_NULL_HANDLE;
         window->imageViews[i] = VK_NULL_HANDLE;
         window->framebuffers[i] = VK_NULL_HANDLE;
     }
-    for (u32 i=0; i<NU_FRAMES_IN_FLIGHT; i++) {
+    for (uint32 i=0; i<NU_FRAMES_IN_FLIGHT; i++) {
         window->imageAvailable[i] = VK_NULL_HANDLE;
         window->renderFinished[i] = VK_NULL_HANDLE;
         window->inFlightFences[i] = VK_NULL_HANDLE;
     }
-    for (u32 i=0; i<NU_FRAMES_IN_FLIGHT; i++) {
+    for (uint32 i=0; i<NU_FRAMES_IN_FLIGHT; i++) {
         window->commandBuffers[i] = VK_NULL_HANDLE;
     }
     window->depthImage = VK_NULL_HANDLE;
@@ -394,7 +395,7 @@ int Window_CreateVulkanDevices(Window* window, DisplayManager* displayManager)
     VkFenceCreateInfo fci = {0};
     fci.sType = VK_STRUCTURE_TYPE_FENCE_CREATE_INFO;
     fci.flags = VK_FENCE_CREATE_SIGNALED_BIT;
-    for (u32 i = 0; i < NU_FRAMES_IN_FLIGHT; i++) {
+    for (uint32 i = 0; i < NU_FRAMES_IN_FLIGHT; i++) {
         if (vkCreateSemaphore(device, &semci, NULL, &window->imageAvailable[i]) != VK_SUCCESS ||
             vkCreateSemaphore(device, &semci, NULL, &window->renderFinished[i]) != VK_SUCCESS ||
             vkCreateFence(device, &fci, NULL, &window->inFlightFences[i]) != VK_SUCCESS)
@@ -444,7 +445,7 @@ void Window_DestroyVulkanDevices(Window* window, DisplayManager* displayManager)
     }
 
     // 2. Sync objects
-    for (u32 i=0; i<NU_FRAMES_IN_FLIGHT; i++) {
+    for (uint32 i=0; i<NU_FRAMES_IN_FLIGHT; i++) {
         if (window->inFlightFences[i] != VK_NULL_HANDLE) {
             vkDestroyFence(device, window->inFlightFences[i], NULL);
             window->inFlightFences[i] = VK_NULL_HANDLE;
@@ -460,7 +461,7 @@ void Window_DestroyVulkanDevices(Window* window, DisplayManager* displayManager)
     }
 
     // 3. Framebuffers
-    for (u32 i=0; i<window->imageCount; i++) {
+    for (uint32 i=0; i<window->imageCount; i++) {
         if (window->framebuffers[i] != VK_NULL_HANDLE) {
             vkDestroyFramebuffer(device, window->framebuffers[i], NULL);
             window->framebuffers[i] = VK_NULL_HANDLE;
@@ -468,7 +469,7 @@ void Window_DestroyVulkanDevices(Window* window, DisplayManager* displayManager)
     }
 
     // 4. Image views
-    for (u32 i=0; i<window->imageCount; i++) {
+    for (uint32 i=0; i<window->imageCount; i++) {
         if (window->imageViews[i] != VK_NULL_HANDLE) {
             vkDestroyImageView(device, window->imageViews[i], NULL);
             window->imageViews[i] = VK_NULL_HANDLE;
@@ -579,9 +580,6 @@ int Window_Present(Window* window, DisplayManager* displayManager)
         return 0;
     }
 
-    printf("perform draw calls: ");
-    timer_start();
-
     // Submit draw commands
     VkSubmitInfo submitInfo = {0};
     submitInfo.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
@@ -596,10 +594,6 @@ int Window_Present(Window* window, DisplayManager* displayManager)
         ErrorSystem_AddError(&GUI.errorSystem, "<Vulkan Error> vkQueueSubmit failed");
         return 0;
     }
-    timer_stop();
-
-    printf("present frame: ");
-    timer_start();
 
     // Present frame
     VkPresentInfoKHR presentInfo = {0};
@@ -618,7 +612,6 @@ int Window_Present(Window* window, DisplayManager* displayManager)
         ErrorSystem_AddError(&GUI.errorSystem, "<Vulkan Error> Failed to swap window buffers");
         return 0;
     }
-    timer_stop();
 
     window->currentFrame = (window->currentFrame + 1) % NU_FRAMES_IN_FLIGHT;
 

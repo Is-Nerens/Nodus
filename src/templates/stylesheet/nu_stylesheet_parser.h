@@ -1,6 +1,5 @@
 #pragma once
 #include "nu_stylesheet_grammar_assertions.h"
-#include "../nu_token_array.h"
 #include "nu_stylesheet_structs.h"
 #include "nu_stylesheet_tokens.h"
 
@@ -110,7 +109,41 @@ void Stylesheet_OverwriteStyleItem(StyleItem* item, StyleItem* overwriter)
     item->fontIdx = item->fontIdx * !(overwriter->propertyFlags & PROPERTY_FLAG_FONT) + overwriter->fontIdx  * !!(overwriter->propertyFlags & PROPERTY_FLAG_FONT);
 }
 
-u64 Stylesheet_ParseProperty(
+static bool Stylesheet_ParseHexcode(const char* hexcode, uint32 length, NuColor* result)
+{
+    if (!hexcode || !result) return false;
+    uint32 offset = (hexcode[0] == '#') ? 1 : 0;
+    uint32 hexLength = length - offset;
+    if (hexLength != 6 && hexLength != 8) return false;
+    hexcode += offset;
+    int32 r1 = HexValue(hexcode[0]);
+    int32 r2 = HexValue(hexcode[1]);
+    int32 g1 = HexValue(hexcode[2]);
+    int32 g2 = HexValue(hexcode[3]);
+    int32 b1 = HexValue(hexcode[4]);
+    int32 b2 = HexValue(hexcode[5]);
+    if (r1 < 0 || r2 < 0 ||
+        g1 < 0 || g2 < 0 ||
+        b1 < 0 || b2 < 0) {
+        return false;
+    }
+    uint8 alpha = 255;
+    if (hexLength == 8) {
+        int32 a1 = HexValue(hexcode[6]);
+        int32 a2 = HexValue(hexcode[7]);
+        if (a1 < 0 || a2 < 0) return false;
+        alpha = (uint8)((a1 << 4) | a2);
+    }
+    *result = (NuColor){
+        (uint8)((r1 << 4) | r2),
+        (uint8)((g1 << 4) | g2),
+        (uint8)((b1 << 4) | b2),
+        alpha
+    };
+    return true;
+}
+
+uint64 Stylesheet_ParseProperty(
     Stylesheet* ss,
     StylesheetToken token,
     StyleItem* item,
@@ -118,7 +151,7 @@ u64 Stylesheet_ParseProperty(
     ImageResourceManager* imageResouceManager,
     DisplayManager* displayManager)
 {
-    u64 propertyFlagsSet = 0;
+    uint64 propertyFlagsSet = 0;
 
     switch (token)
     {
@@ -207,12 +240,12 @@ u64 Stylesheet_ParseProperty(
 
         // Set gap
         case STYLE_GAP_PROPERTY:
-            propertyFlagsSet |= (PROPERTY_FLAG_GAP * String_To_u8(&item->gap, text));
+            propertyFlagsSet |= (PROPERTY_FLAG_GAP * CStringToUint8(&item->gap, text));
             break;
 
         // Set preferred width
         case STYLE_WIDTH_PROPERTY:
-            if (String_To_Uint16(&item->preferredWidth, text)) {
+            if (CStringToUint16(&item->preferredWidth, text)) {
                 item->imageWidthDimType = IMAGE_DIM_SPECIFIC;
                 propertyFlagsSet |= PROPERTY_FLAG_PREFERRED_WIDTH;
                 item->propertyFlags |= PROPERTY_FLAG_IMAGE_WIDTH_DIM;
@@ -229,17 +262,17 @@ u64 Stylesheet_ParseProperty(
 
         // Set min width
         case STYLE_MIN_WIDTH_PROPERTY:
-            propertyFlagsSet |= (PROPERTY_FLAG_MIN_WIDTH * String_To_Uint16(&item->minWidth, text));
+            propertyFlagsSet |= (PROPERTY_FLAG_MIN_WIDTH * CStringToUint16(&item->minWidth, text));
             break;
 
         // Set max width
         case STYLE_MAX_WIDTH_PROPERTY:
-            propertyFlagsSet |= (PROPERTY_FLAG_MAX_WIDTH * String_To_Uint16(&item->maxWidth, text));
+            propertyFlagsSet |= (PROPERTY_FLAG_MAX_WIDTH * CStringToUint16(&item->maxWidth, text));
             break;
 
         // Set preferred height
         case STYLE_HEIGHT_PROPERTY:
-            if (String_To_Uint16(&item->preferredHeight, text)) {
+            if (CStringToUint16(&item->preferredHeight, text)) {
                 item->imageHeightDimType = IMAGE_DIM_SPECIFIC;
                 propertyFlagsSet |= PROPERTY_FLAG_PREFERRED_HEIGHT;
                 propertyFlagsSet |= PROPERTY_FLAG_IMAGE_HEIGHT_DIM;
@@ -256,12 +289,12 @@ u64 Stylesheet_ParseProperty(
 
         // Set min height
         case STYLE_MIN_HEIGHT_PROPERTY:
-            propertyFlagsSet |= (PROPERTY_FLAG_MIN_HEIGHT * String_To_Uint16(&item->minHeight, text));
+            propertyFlagsSet |= (PROPERTY_FLAG_MIN_HEIGHT * CStringToUint16(&item->minHeight, text));
             break;
 
         // Set max height
         case STYLE_MAX_HEIGHT_PROPERTY:
-            propertyFlagsSet |= (PROPERTY_FLAG_MAX_HEIGHT * String_To_Uint16(&item->maxHeight, text));
+            propertyFlagsSet |= (PROPERTY_FLAG_MAX_HEIGHT * CStringToUint16(&item->maxHeight, text));
             break;
 
         // Set horizontal alignment
@@ -330,28 +363,28 @@ u64 Stylesheet_ParseProperty(
 
         // Set absolute position properties
         case STYLE_LEFT_PROPERTY:
-            propertyFlagsSet |= PROPERTY_FLAG_LEFT * String_To_Int16(&item->left, text);
+            propertyFlagsSet |= PROPERTY_FLAG_LEFT * CStringToInt16(&item->left, text);
             break;
 
         case STYLE_RIGHT_PROPERTY:
-            propertyFlagsSet |= PROPERTY_FLAG_RIGHT * String_To_Int16(&item->right, text);
+            propertyFlagsSet |= PROPERTY_FLAG_RIGHT * CStringToInt16(&item->right, text);
             break;
 
         case STYLE_TOP_PROPERTY:
-            propertyFlagsSet |= PROPERTY_FLAG_TOP * String_To_Int16(&item->top, text);
+            propertyFlagsSet |= PROPERTY_FLAG_TOP * CStringToInt16(&item->top, text);
             break;
 
         case STYLE_BOTTOM_PROPERTY:
-            propertyFlagsSet |= PROPERTY_FLAG_BOTTOM * String_To_Int16(&item->bottom, text);
+            propertyFlagsSet |= PROPERTY_FLAG_BOTTOM * CStringToInt16(&item->bottom, text);
             break;
 
         // Set background colour
         case STYLE_BACKGROUND_COLOUR_PROPERTY: {
-            struct RGB rgb;
-            if (Parse_Hexcode(text, textLen, &rgb)) {
-                item->backgroundR = rgb.r;
-                item->backgroundG = rgb.g;
-                item->backgroundB = rgb.b;
+            NuColor color;
+            if (Stylesheet_ParseHexcode(text, textLen, &color)) {
+                item->backgroundR = color.r;
+                item->backgroundG = color.g;
+                item->backgroundB = color.b;
                 propertyFlagsSet |= PROPERTY_FLAG_BACKGROUND;
                 propertyFlagsSet &= ~PROPERTY_FLAG_HIDE_BACKGROUND;
                 item->layoutFlags &= ~HIDE_BACKGROUND;
@@ -364,11 +397,11 @@ u64 Stylesheet_ParseProperty(
 
         // Set border colour
         case STYLE_BORDER_COLOUR_PROPERTY: {
-            struct RGB rgb;
-            if (Parse_Hexcode(text, textLen, &rgb)) {
-                item->borderR = rgb.r;
-                item->borderG = rgb.g;
-                item->borderB = rgb.b;
+            NuColor color;
+            if (Stylesheet_ParseHexcode(text, textLen, &color)) {
+                item->borderR = color.r;
+                item->borderG = color.g;
+                item->borderB = color.b;
                 propertyFlagsSet |= PROPERTY_FLAG_BORDER_COLOUR;
             }
             break;
@@ -376,11 +409,11 @@ u64 Stylesheet_ParseProperty(
 
         // Set text colour
         case STYLE_TEXT_COLOUR_PROPERTY: {
-            struct RGB rgb;
-            if (Parse_Hexcode(text, textLen, &rgb)) {
-                item->textR = rgb.r;
-                item->textG = rgb.g;
-                item->textB = rgb.b;
+            NuColor color;
+            if (Stylesheet_ParseHexcode(text, textLen, &color)) {
+                item->textR = color.r;
+                item->textG = color.g;
+                item->textB = color.b;
                 propertyFlagsSet |= PROPERTY_FLAG_TEXT_COLOUR;
             }
             break;
@@ -388,8 +421,8 @@ u64 Stylesheet_ParseProperty(
 
         // Set border width
         case STYLE_BORDER_WIDTH_PROPERTY: {
-            u8 border_width;
-            if (String_To_u8(&border_width, text)) {
+            uint8 border_width;
+            if (CStringToUint8(&border_width, text)) {
                 item->borderTop = border_width;
                 item->borderBottom = border_width;
                 item->borderLeft = border_width;
@@ -403,25 +436,25 @@ u64 Stylesheet_ParseProperty(
         }
 
         case STYLE_BORDER_TOP_WIDTH_PROPERTY:
-            propertyFlagsSet |= PROPERTY_FLAG_BORDER_TOP * String_To_u8(&item->borderTop, text);
+            propertyFlagsSet |= PROPERTY_FLAG_BORDER_TOP * CStringToUint8(&item->borderTop, text);
             break;
 
         case STYLE_BORDER_BOTTOM_WIDTH_PROPERTY:
-            propertyFlagsSet |= PROPERTY_FLAG_BORDER_BOTTOM * String_To_u8(&item->borderBottom, text);
+            propertyFlagsSet |= PROPERTY_FLAG_BORDER_BOTTOM * CStringToUint8(&item->borderBottom, text);
             break;
 
         case STYLE_BORDER_LEFT_WIDTH_PROPERTY:
-            propertyFlagsSet |= PROPERTY_FLAG_BORDER_LEFT * String_To_u8(&item->borderLeft, text);
+            propertyFlagsSet |= PROPERTY_FLAG_BORDER_LEFT * CStringToUint8(&item->borderLeft, text);
             break;
 
         case STYLE_BORDER_RIGHT_WIDTH_PROPERTY:
-            propertyFlagsSet |= PROPERTY_FLAG_BORDER_RIGHT * String_To_u8(&item->borderRight, text);
+            propertyFlagsSet |= PROPERTY_FLAG_BORDER_RIGHT * CStringToUint8(&item->borderRight, text);
             break;
 
         // Set border radii
         case STYLE_BORDER_RADIUS_PROPERTY: {
-            u8 border_radius;
-            if (String_To_u8(&border_radius, text)) {
+            uint8 border_radius;
+            if (CStringToUint8(&border_radius, text)) {
                 item->borderRadiusTl = border_radius;
                 item->borderRadiusTr = border_radius;
                 item->borderRadiusBl = border_radius;
@@ -436,28 +469,28 @@ u64 Stylesheet_ParseProperty(
 
         case STYLE_BORDER_TOP_LEFT_RADIUS_PROPERTY:
             propertyFlagsSet |= PROPERTY_FLAG_BORDER_RADIUS_TL *
-                String_To_u8(&item->borderRadiusTl, text);
+                CStringToUint8(&item->borderRadiusTl, text);
             break;
 
         case STYLE_BORDER_TOP_RIGHT_RADIUS_PROPERTY:
             propertyFlagsSet |= PROPERTY_FLAG_BORDER_RADIUS_TR *
-                String_To_u8(&item->borderRadiusTr, text);
+                CStringToUint8(&item->borderRadiusTr, text);
             break;
 
         case STYLE_BORDER_BOTTOM_LEFT_RADIUS_PROPERTY:
             propertyFlagsSet |= PROPERTY_FLAG_BORDER_RADIUS_BL *
-                String_To_u8(&item->borderRadiusBl, text);
+                CStringToUint8(&item->borderRadiusBl, text);
             break;
 
         case STYLE_BORDER_BOTTOM_RIGHT_RADIUS_PROPERTY:
             propertyFlagsSet |= PROPERTY_FLAG_BORDER_RADIUS_BR *
-                String_To_u8(&item->borderRadiusBr, text);
+                CStringToUint8(&item->borderRadiusBr, text);
             break;
 
         // Set padding
         case STYLE_PADDING_PROPERTY: {
-            u8 pad;
-            if (String_To_u8(&pad, text)) {
+            uint8 pad;
+            if (CStringToUint8(&pad, text)) {
                 item->padTop = pad;
                 item->padBottom = pad;
                 item->padLeft = pad;
@@ -471,19 +504,19 @@ u64 Stylesheet_ParseProperty(
         }
 
         case STYLE_PADDING_TOP_PROPERTY:
-            propertyFlagsSet |= PROPERTY_FLAG_PAD_TOP * String_To_u8(&item->padTop, text);
+            propertyFlagsSet |= PROPERTY_FLAG_PAD_TOP * CStringToUint8(&item->padTop, text);
             break;
 
         case STYLE_PADDING_BOTTOM_PROPERTY:
-            propertyFlagsSet |= PROPERTY_FLAG_PAD_BOTTOM * String_To_u8(&item->padBottom, text);
+            propertyFlagsSet |= PROPERTY_FLAG_PAD_BOTTOM * CStringToUint8(&item->padBottom, text);
             break;
 
         case STYLE_PADDING_LEFT_PROPERTY:
-            propertyFlagsSet |= PROPERTY_FLAG_PAD_LEFT * String_To_u8(&item->padLeft, text);
+            propertyFlagsSet |= PROPERTY_FLAG_PAD_LEFT * CStringToUint8(&item->padLeft, text);
             break;
 
         case STYLE_PADDING_RIGHT_PROPERTY:
-            propertyFlagsSet |= PROPERTY_FLAG_PAD_RIGHT * String_To_u8(&item->padRight, text);
+            propertyFlagsSet |= PROPERTY_FLAG_PAD_RIGHT * CStringToUint8(&item->padRight, text);
             break;
 
         case STYLE_IMAGE_SOURCE_PROPERTY: {
@@ -538,7 +571,7 @@ u64 Stylesheet_ParseProperty(
         case STYLE_FONT_PROPERTY: {
             void* foundFont = LinearStringmap_Get(&ss->fontNameIndexMap, text);
             if (foundFont) {
-                item->fontIdx = *(u8*)foundFont;
+                item->fontIdx = *(uint8*)foundFont;
                 propertyFlagsSet |= PROPERTY_FLAG_FONT;
             }
             break;
@@ -836,10 +869,10 @@ void Stylesheet_ParseVariableProperty(Stylesheet* ss, const enum StylesheetToken
         // Set background colour
         case STYLE_BACKGROUND_COLOUR_PROPERTY: {
             if (variable.type == STYLESHEET_VARIABLE_DTYPE_RGB) {
-                struct RGB rgb = UnpackRGB(variable.value);
-                item->backgroundR = rgb.r;
-                item->backgroundG = rgb.g;
-                item->backgroundB = rgb.b;
+                NuColor color = UnpackInt32IntoColor(variable.value);
+                item->backgroundR = color.r;
+                item->backgroundG = color.g;
+                item->backgroundB = color.b;
                 item->propertyFlags |= PROPERTY_FLAG_BACKGROUND;
                 item->propertyFlags &= ~PROPERTY_FLAG_HIDE_BACKGROUND;
                 item->layoutFlags &= ~HIDE_BACKGROUND;
@@ -854,10 +887,10 @@ void Stylesheet_ParseVariableProperty(Stylesheet* ss, const enum StylesheetToken
         // Set border colour
         case STYLE_BORDER_COLOUR_PROPERTY: {
             if (variable.type == STYLESHEET_VARIABLE_DTYPE_RGB) {
-                struct RGB rgb = UnpackRGB(variable.value);
-                item->borderR = rgb.r;
-                item->borderG = rgb.g;
-                item->borderB = rgb.b;
+                NuColor color = UnpackInt32IntoColor(variable.value);
+                item->borderR = color.r;
+                item->borderG = color.g;
+                item->borderB = color.b;
                 item->propertyFlags |= PROPERTY_FLAG_BORDER_COLOUR;
             }
             break;
@@ -866,10 +899,10 @@ void Stylesheet_ParseVariableProperty(Stylesheet* ss, const enum StylesheetToken
         // Set text colour
         case STYLE_TEXT_COLOUR_PROPERTY: {
             if (variable.type == STYLESHEET_VARIABLE_DTYPE_RGB) {
-                struct RGB rgb = UnpackRGB(variable.value);
-                item->textR = rgb.r;
-                item->textG = rgb.g;
-                item->textB = rgb.b;
+                NuColor color = UnpackInt32IntoColor(variable.value);
+                item->textR = color.r;
+                item->textG = color.g;
+                item->textB = color.b;
                 item->propertyFlags |= PROPERTY_FLAG_TEXT_COLOUR;
             }
             break;
@@ -878,7 +911,7 @@ void Stylesheet_ParseVariableProperty(Stylesheet* ss, const enum StylesheetToken
         // Set border width
         case STYLE_BORDER_WIDTH_PROPERTY: {
             if (variable.type == STYLESHEET_VARIABLE_DTYPE_NUMBER) {
-                u8 border_width = variable.value;
+                uint8 border_width = variable.value;
                 item->borderTop = border_width;
                 item->borderBottom = border_width;
                 item->borderLeft = border_width;
@@ -922,7 +955,7 @@ void Stylesheet_ParseVariableProperty(Stylesheet* ss, const enum StylesheetToken
         // Set border radii
         case STYLE_BORDER_RADIUS_PROPERTY: {
             if (variable.type == STYLESHEET_VARIABLE_DTYPE_NUMBER) {
-                u8 border_radius = variable.value;
+                uint8 border_radius = variable.value;
                 item->borderRadiusTl = border_radius;
                 item->borderRadiusTr = border_radius;
                 item->borderRadiusBl = border_radius;
@@ -966,7 +999,7 @@ void Stylesheet_ParseVariableProperty(Stylesheet* ss, const enum StylesheetToken
         // Set padding
         case STYLE_PADDING_PROPERTY: {
             if (variable.type == STYLESHEET_VARIABLE_DTYPE_NUMBER) {
-                u8 pad = variable.value;
+                uint8 pad = variable.value;
                 item->padTop = pad;
                 item->padBottom = pad;
                 item->padLeft = pad;
@@ -1086,7 +1119,7 @@ StyleTextRef* Stylesheet_BinarySearchTextRef(Array* textRefs, int targetTokenInd
 
 void Stylesheet_ParseVariable(Stylesheet* ss, const char* text, int textLen, int* valueOut, enum StylesheetVariableDtype* typeOut)
 {
-    struct RGB rgb;
+    NuColor color;
     int _int;
     if (strcmp(text, "v") == 0) {
         *typeOut = STYLESHEET_VARIABLE_DTYPE_VERTICAL;
@@ -1139,18 +1172,18 @@ void Stylesheet_ParseVariable(Stylesheet* ss, const char* text, int textLen, int
     else if (strcmp(text, "number") == 0) {
         *typeOut = STYLESHEET_VARIABLE_DTYPE_INPUT_NUMBER;
     }
-    else if (Parse_Hexcode(text, textLen, &rgb)) {
-        *valueOut = PackRGB(rgb);
+    else if (Stylesheet_ParseHexcode(text, textLen, &color)) {
+        *valueOut = PackColorIntoInt32(color);
         *typeOut = STYLESHEET_VARIABLE_DTYPE_RGB;
     }
-    else if (String_To_Int(&_int, text)) {
+    else if (CStringToInt32(&_int, text)) {
         *valueOut = _int;
         *typeOut = STYLESHEET_VARIABLE_DTYPE_NUMBER;
     }
     else {
         void* foundFont = LinearStringmap_Get(&ss->fontNameIndexMap, text);
         if (foundFont) {
-            *valueOut = *(u8*)foundFont;
+            *valueOut = *(uint8*)foundFont;
             *typeOut = STYLESHEET_VARIABLE_DTYPE_NUMBER;
         }
         else {
@@ -1242,7 +1275,7 @@ int Stylesheet_ParseScreenQueries(char* src, TokenArray* tokens, Stylesheet* ss,
             StyleTextRef* textRef = Stylesheet_BinarySearchTextRef(textRefs, i+2);
             const char* text = &src[textRef->srcIndex];
             int screenWidth;
-            if (String_To_Int(&screenWidth, text)) {
+            if (CStringToInt32(&screenWidth, text)) {
 
                 // Add screen query
                 screenQuery = Array_PushEmpty(&ss->screenQueries);
@@ -1326,14 +1359,14 @@ int Stylesheet_ParseScreenQueries(char* src, TokenArray* tokens, Stylesheet* ss,
 
 void Stylesheet_ParseScrollbarProperty(Stylesheet* ss, const enum StylesheetToken token, const char* text)
 {
-    u8 property;
+    uint8 property;
     switch (token)
     {
         case STYLE_WIDTH_PROPERTY:
-            if (String_To_u8(&property, text)) ss->scrollbarStyle.width = property;
+            if (CStringToUint8(&property, text)) ss->scrollbarStyle.width = property;
             break;
         case STYLE_HEIGHT_PROPERTY:
-            if (String_To_u8(&property, text)) ss->scrollbarStyle.height = property;
+            if (CStringToUint8(&property, text)) ss->scrollbarStyle.height = property;
             break;
         case STYLE_SCROLLBAR_OVERLAY:
             if (stringEquals(text, "true")) ss->scrollbarStyle.overlay = true;
@@ -1344,26 +1377,26 @@ void Stylesheet_ParseScrollbarProperty(Stylesheet* ss, const enum StylesheetToke
 
 void Stylesheet_ParseScrollThumbProperty(Stylesheet* ss, const enum StylesheetToken token, const char* text, int textLen)
 {
-    u8 property;
-    struct RGB rgb;
+    uint8 property;
+    NuColor color;
     switch (token)
     {
         case STYLE_BACKGROUND_COLOUR_PROPERTY:
-            if (Parse_Hexcode(text, textLen, &rgb)) {
-                ss->scrollbarStyle.thumbBackgroundR = rgb.r;
-                ss->scrollbarStyle.thumbBackgroundG = rgb.g;
-                ss->scrollbarStyle.thumbBackgroundB = rgb.b;
+            if (Stylesheet_ParseHexcode(text, textLen, &color)) {
+                ss->scrollbarStyle.thumbBackgroundR = color.r;
+                ss->scrollbarStyle.thumbBackgroundG = color.g;
+                ss->scrollbarStyle.thumbBackgroundB = color.b;
             }
             break;
         case STYLE_BORDER_COLOUR_PROPERTY:
-            if (Parse_Hexcode(text, textLen, &rgb)) {
-                ss->scrollbarStyle.thumbBorderR = rgb.r;
-                ss->scrollbarStyle.thumbBorderG = rgb.g;
-                ss->scrollbarStyle.thumbBorderB = rgb.b;
+            if (Stylesheet_ParseHexcode(text, textLen, &color)) {
+                ss->scrollbarStyle.thumbBorderR = color.r;
+                ss->scrollbarStyle.thumbBorderG = color.g;
+                ss->scrollbarStyle.thumbBorderB = color.b;
             }
             break;
         case STYLE_BORDER_WIDTH_PROPERTY:
-            if (String_To_u8(&property, text)) {
+            if (CStringToUint8(&property, text)) {
                 ss->scrollbarStyle.thumbBorderTop    = property;
                 ss->scrollbarStyle.thumbBorderBottom = property;
                 ss->scrollbarStyle.thumbBorderLeft   = property;
@@ -1371,19 +1404,19 @@ void Stylesheet_ParseScrollThumbProperty(Stylesheet* ss, const enum StylesheetTo
             }
             break;
         case STYLE_BORDER_TOP_WIDTH_PROPERTY:
-            String_To_u8(&ss->scrollbarStyle.thumbBorderTop, text); // 0 if parse fails
+            CStringToUint8(&ss->scrollbarStyle.thumbBorderTop, text); // 0 if parse fails
             break;
         case STYLE_BORDER_BOTTOM_WIDTH_PROPERTY:
-            String_To_u8(&ss->scrollbarStyle.thumbBorderBottom, text); // 0 if parse fails
+            CStringToUint8(&ss->scrollbarStyle.thumbBorderBottom, text); // 0 if parse fails
             break;
         case STYLE_BORDER_LEFT_WIDTH_PROPERTY:
-            String_To_u8(&ss->scrollbarStyle.thumbBorderLeft, text); // 0 if parse fails
+            CStringToUint8(&ss->scrollbarStyle.thumbBorderLeft, text); // 0 if parse fails
             break;
         case STYLE_BORDER_RIGHT_WIDTH_PROPERTY:
-            String_To_u8(&ss->scrollbarStyle.thumbBorderRight, text); // 0 if parse fails
+            CStringToUint8(&ss->scrollbarStyle.thumbBorderRight, text); // 0 if parse fails
             break;
         case STYLE_BORDER_RADIUS_PROPERTY:
-            if (String_To_u8(&property, text)) {
+            if (CStringToUint8(&property, text)) {
                 ss->scrollbarStyle.thumbBorderRadiusTl = property;
                 ss->scrollbarStyle.thumbBorderRadiusTr = property;
                 ss->scrollbarStyle.thumbBorderRadiusBl = property;
@@ -1391,19 +1424,19 @@ void Stylesheet_ParseScrollThumbProperty(Stylesheet* ss, const enum StylesheetTo
             }
             break;
         case STYLE_BORDER_TOP_LEFT_RADIUS_PROPERTY:
-            String_To_u8(&ss->scrollbarStyle.thumbBorderRadiusTl, text); // 0 if parse fails
+            CStringToUint8(&ss->scrollbarStyle.thumbBorderRadiusTl, text); // 0 if parse fails
             break;
         case STYLE_BORDER_TOP_RIGHT_RADIUS_PROPERTY:
-            String_To_u8(&ss->scrollbarStyle.thumbBorderRadiusTr, text); // 0 if parse fails
+            CStringToUint8(&ss->scrollbarStyle.thumbBorderRadiusTr, text); // 0 if parse fails
             break;
         case STYLE_BORDER_BOTTOM_LEFT_RADIUS_PROPERTY:
-            String_To_u8(&ss->scrollbarStyle.thumbBorderRadiusBl, text); // 0 if parse fails
+            CStringToUint8(&ss->scrollbarStyle.thumbBorderRadiusBl, text); // 0 if parse fails
             break;
         case STYLE_BORDER_BOTTOM_RIGHT_RADIUS_PROPERTY:
-            String_To_u8(&ss->scrollbarStyle.thumbBorderRadiusBr, text); // 0 if parse fails
+            CStringToUint8(&ss->scrollbarStyle.thumbBorderRadiusBr, text); // 0 if parse fails
             break;
         case STYLE_SCROLL_THUMB_MIN_SIZE:
-            if (String_To_u8(&property, text)) {
+            if (CStringToUint8(&property, text)) {
                 ss->scrollbarStyle.thumbMinSize = property;
             }
             break;
@@ -1414,26 +1447,26 @@ void Stylesheet_ParseScrollThumbProperty(Stylesheet* ss, const enum StylesheetTo
 
 void Stylesheet_ParseScrollTrackProperty(Stylesheet* ss, const enum StylesheetToken token, const char* text, int textLen)
 {
-    u8 property;
-    struct RGB rgb;
+    uint8 property;
+    NuColor color;
     switch (token)
     {
         case STYLE_BACKGROUND_COLOUR_PROPERTY:
-            if (Parse_Hexcode(text, textLen, &rgb)) {
-                ss->scrollbarStyle.trackBackgroundR = rgb.r;
-                ss->scrollbarStyle.trackBackgroundG = rgb.g;
-                ss->scrollbarStyle.trackBackgroundB = rgb.b;
+            if (Stylesheet_ParseHexcode(text, textLen, &color)) {
+                ss->scrollbarStyle.trackBackgroundR = color.r;
+                ss->scrollbarStyle.trackBackgroundG = color.g;
+                ss->scrollbarStyle.trackBackgroundB = color.b;
             }
             break;
         case STYLE_BORDER_COLOUR_PROPERTY:
-            if (Parse_Hexcode(text, textLen, &rgb)) {
-                ss->scrollbarStyle.trackBorderR = rgb.r;
-                ss->scrollbarStyle.trackBorderG = rgb.g;
-                ss->scrollbarStyle.trackBorderB = rgb.b;
+            if (Stylesheet_ParseHexcode(text, textLen, &color)) {
+                ss->scrollbarStyle.trackBorderR = color.r;
+                ss->scrollbarStyle.trackBorderG = color.g;
+                ss->scrollbarStyle.trackBorderB = color.b;
             }
             break;
         case STYLE_BORDER_WIDTH_PROPERTY:
-            if (String_To_u8(&property, text)) {
+            if (CStringToUint8(&property, text)) {
                 ss->scrollbarStyle.trackBorderTop    = property;
                 ss->scrollbarStyle.trackBorderBottom = property;
                 ss->scrollbarStyle.trackBorderLeft   = property;
@@ -1441,19 +1474,19 @@ void Stylesheet_ParseScrollTrackProperty(Stylesheet* ss, const enum StylesheetTo
             }
             break;
         case STYLE_BORDER_TOP_WIDTH_PROPERTY:
-            String_To_u8(&ss->scrollbarStyle.trackBorderTop, text);
+            CStringToUint8(&ss->scrollbarStyle.trackBorderTop, text);
             break;
         case STYLE_BORDER_BOTTOM_WIDTH_PROPERTY:
-            String_To_u8(&ss->scrollbarStyle.trackBorderBottom, text);
+            CStringToUint8(&ss->scrollbarStyle.trackBorderBottom, text);
             break;
         case STYLE_BORDER_LEFT_WIDTH_PROPERTY:
-            String_To_u8(&ss->scrollbarStyle.trackBorderLeft, text);
+            CStringToUint8(&ss->scrollbarStyle.trackBorderLeft, text);
             break;
         case STYLE_BORDER_RIGHT_WIDTH_PROPERTY:
-            String_To_u8(&ss->scrollbarStyle.trackBorderRight, text);
+            CStringToUint8(&ss->scrollbarStyle.trackBorderRight, text);
             break;
         case STYLE_BORDER_RADIUS_PROPERTY:
-            if (String_To_u8(&property, text)) {
+            if (CStringToUint8(&property, text)) {
                 ss->scrollbarStyle.trackBorderRadiusTl = property;
                 ss->scrollbarStyle.trackBorderRadiusTr = property;
                 ss->scrollbarStyle.trackBorderRadiusBl = property;
@@ -1461,19 +1494,19 @@ void Stylesheet_ParseScrollTrackProperty(Stylesheet* ss, const enum StylesheetTo
             }
             break;
         case STYLE_BORDER_TOP_LEFT_RADIUS_PROPERTY:
-            String_To_u8(&ss->scrollbarStyle.trackBorderRadiusTl, text);
+            CStringToUint8(&ss->scrollbarStyle.trackBorderRadiusTl, text);
             break;
         case STYLE_BORDER_TOP_RIGHT_RADIUS_PROPERTY:
-            String_To_u8(&ss->scrollbarStyle.trackBorderRadiusTr, text);
+            CStringToUint8(&ss->scrollbarStyle.trackBorderRadiusTr, text);
             break;
         case STYLE_BORDER_BOTTOM_LEFT_RADIUS_PROPERTY:
-            String_To_u8(&ss->scrollbarStyle.trackBorderRadiusBl, text);
+            CStringToUint8(&ss->scrollbarStyle.trackBorderRadiusBl, text);
             break;
         case STYLE_BORDER_BOTTOM_RIGHT_RADIUS_PROPERTY:
-            String_To_u8(&ss->scrollbarStyle.trackBorderRadiusBr, text);
+            CStringToUint8(&ss->scrollbarStyle.trackBorderRadiusBr, text);
             break;
         case STYLE_PADDING_PROPERTY:
-            if (String_To_u8(&property, text)) {
+            if (CStringToUint8(&property, text)) {
                 ss->scrollbarStyle.trackPadTop    = property;
                 ss->scrollbarStyle.trackPadBottom = property;
                 ss->scrollbarStyle.trackPadLeft   = property;
@@ -1481,16 +1514,16 @@ void Stylesheet_ParseScrollTrackProperty(Stylesheet* ss, const enum StylesheetTo
             }
             break;
         case STYLE_PADDING_TOP_PROPERTY:
-            String_To_u8(&ss->scrollbarStyle.trackPadTop, text);
+            CStringToUint8(&ss->scrollbarStyle.trackPadTop, text);
             break;
         case STYLE_PADDING_BOTTOM_PROPERTY:
-            String_To_u8(&ss->scrollbarStyle.trackPadBottom, text);
+            CStringToUint8(&ss->scrollbarStyle.trackPadBottom, text);
             break;
         case STYLE_PADDING_LEFT_PROPERTY:
-            String_To_u8(&ss->scrollbarStyle.trackPadLeft, text);
+            CStringToUint8(&ss->scrollbarStyle.trackPadLeft, text);
             break;
         case STYLE_PADDING_RIGHT_PROPERTY:
-            String_To_u8(&ss->scrollbarStyle.trackPadRight, text);
+            CStringToUint8(&ss->scrollbarStyle.trackPadRight, text);
             break;
         default: // Invalid property (ignore)
             break;
@@ -1529,12 +1562,12 @@ int Stylesheet_ParseFonts(Stylesheet* ss, ThreadPool* threadpool, char* src, Tok
                     }
                     case STYLE_FONT_SIZE: {
                         int size = 0;
-                        if (String_To_Int(&size, propertyText)) fontSize = size;
+                        if (CStringToInt32(&size, propertyText)) fontSize = size;
                         break;
                     }
                     case STYLE_FONT_WEIGHT: {
                         int weight = 0;
-                        if (String_To_Int(&weight, propertyText)) fontWeight = weight;
+                        if (CStringToInt32(&weight, propertyText)) fontWeight = weight;
                         break;
                     }
                     default:
@@ -1560,7 +1593,7 @@ int Stylesheet_ParseFonts(Stylesheet* ss, ThreadPool* threadpool, char* src, Tok
                 {
                     // Create uninitialised font
                     Font* createFont = Array_PushEmpty(&ss->fonts);
-                    u8 createFontIdx = ss->fonts.size - 1;
+                    uint8 createFontIdx = ss->fonts.size - 1;
                     LinearStringmap_Set(&ss->fontNameIndexMap, fontName, &createFontIdx);
 
                     // Create a font job
@@ -1689,11 +1722,11 @@ int Stylesheet_Parse(
     int ctx = STYLE_PARSE_CTX_SELECTOR;
 
     // State
-    u32 selectorIndexes[256];
+    uint32 selectorIndexes[256];
     int selectorCount = 0;
     int classIdAutoIncr = 0;
     int idIdAutoIncr = 0;
-    u32 textRefIndex = 0;
+    uint32 textRefIndex = 0;
     StyleTextRef* textRef;
 
     // Temp style item
@@ -1962,7 +1995,7 @@ int Stylesheet_Parse(
                     else {
                         switch (ctx) {
                             case STYLE_PARSE_CTX_SELECTOR: {
-                                u64 propertyFlagsSet = Stylesheet_ParseProperty(ss, token, &tempItem, text, textRef->len, imageResouceManager, displayManager);
+                                uint64 propertyFlagsSet = Stylesheet_ParseProperty(ss, token, &tempItem, text, textRef->len, imageResouceManager, displayManager);
 
                                 // Clear these flags from all selected variations
                                 for (int s=0; s<selectorCount; s++) {

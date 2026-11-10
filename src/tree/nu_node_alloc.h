@@ -8,13 +8,13 @@
 
 typedef union NallocNode {
     Node node;
-    u32 nextFree;
+    uint32 nextFree;
 } NallocNode;
 
 typedef struct Nalloc {
     NallocNode* allocation;
-    u32 freeIndex;
-    u32 count;
+    uint32 freeIndex;
+    uint32 count;
 } Nalloc;
 
 int Nalloc_Init(Nalloc* nalloc)
@@ -36,20 +36,20 @@ Node* Nalloc_Alloc(Nalloc* nalloc)
 {
     // Reuse a previously freed node
     if (nalloc->freeIndex != INVALID_NODE_INDEX) {
-        u32 resultIndex = nalloc->freeIndex;
+        uint32 resultIndex = nalloc->freeIndex;
         nalloc->freeIndex = nalloc->allocation[resultIndex].nextFree;
         return &nalloc->allocation[resultIndex].node;
     }
 
     // Allocate a new node at the end of the pool
     if (nalloc->count >= NALLOC_NODE_CAPACITY) return NULL;
-    u32 resultIndex = nalloc->count++;
+    uint32 resultIndex = nalloc->count++;
     return &nalloc->allocation[resultIndex].node;
 }
 
 void Nalloc_Free(Nalloc* nalloc, Node* node)
 {
-    u32 index = (u32)(node - &nalloc->allocation[0].node);
+    uint32 index = (uint32)(node - &nalloc->allocation[0].node);
     nalloc->allocation[index].nextFree = nalloc->freeIndex;
     nalloc->freeIndex = index;
 }

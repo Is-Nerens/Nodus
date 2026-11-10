@@ -59,7 +59,7 @@ static int AssertPropertyGrammar(struct TokenArray* tokens, int i)
     return 0; // Failure
 }
 
-static int AssertTagCloseStartGrammar(struct TokenArray* tokens, int i, u8 openType)
+static int AssertTagCloseStartGrammar(struct TokenArray* tokens, int i, uint8 openType)
 {
     // ENFORCE RULE: NEXT TOKEN SHOULD BE TAG AND MUST MATCH OPENING TAG
     // ENDORCE RULE: THIRD TOKEN MUST BE A TAG END

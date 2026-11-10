@@ -106,14 +106,10 @@ typedef struct NU_Nodelist
 } NU_Nodelist;
 
 typedef struct {
-    uint8_t r, g, b;
-} NU_RGB;
+    uint8_t r, g, b, a;
+} NuColor;
 
-typedef struct {
-    float r, g, b;
-} NU_RGB_FL;
-
-enum NU_EventType
+typedef enum NU_EventType
 {
     NU_EVENT_ON_CLICK,
     NU_EVENT_ON_INPUT_CHANGED,
@@ -131,9 +127,9 @@ enum NU_EventType
     NU_EVENT_ON_KEY_DOWN,
     NU_EVENT_ON_KEY_UP,
     NU_EVENT_ON_TYPE
-};
+} NU_EventType;
 
-enum NU_Keycode
+typedef enum NU_Keycode
 {
     NU_KEY_UNKNOWN = 0,
     NU_KEY_SPACE = 32,
@@ -285,7 +281,7 @@ enum NU_Keycode
     NU_KEY_AC_STOP = 0x4000011cu,      // 1073742108
     NU_KEY_AC_REFRESH = 0x4000011du,   // 1073742109
     NU_KEY_AC_BOOKMARKS = 0x4000011eu, // 1073742110
-};
+} NU_Keycode;
 
 #define NU_TYPE_WINDOW 0
 #define NU_TYPE_BOX    1
@@ -434,12 +430,9 @@ _IMPORT void NU_SET_BORDER_RADIUS_TL(NuNode* node, uint8_t borderRadiusTl);
 _IMPORT void NU_SET_BORDER_RADIUS_TR(NuNode* node, uint8_t borderRadiusTr);
 _IMPORT void NU_SET_BORDER_RADIUS_BL(NuNode* node, uint8_t borderRadiusBl);
 _IMPORT void NU_SET_BORDER_RADIUS_BR(NuNode* node, uint8_t borderRadiusBr);
-_IMPORT void NU_SET_BACKGROUND_RGB(NuNode* node, NU_RGB rgb);
-_IMPORT void NU_SET_BORDER_RGB(NuNode* node, NU_RGB rgb);
-_IMPORT void NU_SET_TEXT_RGB(NuNode* node, NU_RGB rgb);
-_IMPORT void NU_SET_BACKGROUND_HEX(NuNode* node, const char* hexcode);
-_IMPORT void NU_SET_BORDER_HEX(NuNode* node, const char* hexcode);
-_IMPORT void NU_SET_TEXT_HEX(NuNode* node, const char* hexcode);
+_IMPORT void NU_SET_BACKGROUND_COLOR(NuNode* node, NuColor color);
+_IMPORT void NU_SET_BORDER_COLOR(NuNode* node, NuColor color);
+_IMPORT void NU_SET_TEXT_COLOR(NuNode* node, NuColor color);
 
 // Node type specific set functions
 _IMPORT void NU_WINDOW_SET_TEXT_CONTENT(NuWindow* window, char* string);
@@ -504,17 +497,14 @@ _IMPORT void NU_WIDGET_UPDATE(int widgetID);
 _IMPORT void NU_WIDGET_DELETE(int widgetID, int deleteRoot);
 
 // Canvas functions
-_IMPORT int NU_CANVAS_CTX(const NuNode* canvasNode);
-_IMPORT void NU_CANVAS_CLEAR(int contextID);
-_IMPORT void NU_RENDER();
-_IMPORT NU_RGB NU_HEX_TO_RGB(const char* hex);
-_IMPORT NU_RGB_FL NU_HEX_TO_RGB_FL(const char* hex);
+_IMPORT int NU_CANVAS_CTX(const NuCanvas* canvasNode);
+_IMPORT NuColor NU_COLOR_FROM_HEXCODE(const char* hexcode);
 _IMPORT void NU_CANVAS_DRAW_BORDER_RECT(
     int contextID,
     float x, float y, float w, float h,
     float thickness,
-    NU_RGB_FL border_col,
-    NU_RGB_FL fill_col
+    NuColor borderColor,
+    NuColor fillColor
 );
 _IMPORT void NU_CANVAS_DRAW_TRIANGLE(
     int contextID,
@@ -522,26 +512,26 @@ _IMPORT void NU_CANVAS_DRAW_TRIANGLE(
     float x2, float y2,
     float x3, float y3,
     float thickness,
-    NU_RGB_FL border_col,
-    NU_RGB_FL fill_col
+    NuColor borderColor,
+    NuColor fillColor
 );
 _IMPORT void NU_CANVAS_DRAW_VLINE(
     int contextID,
     float x, float y, float height,
     float thickness,
-    NU_RGB_FL col
+    NuColor color
 );
 _IMPORT void NU_CANVAS_DRAW_HLINE(
     int contextID,
     float x, float y, float width,
     float thickness,
-    NU_RGB_FL col
+    NuColor color
 );
 _IMPORT void NU_CANVAS_DRAW_LINE(
     int contextID,
     float x1, float y1, float x2, float y2,
     float thickness,
-    NU_RGB_FL col
+    NuColor color
 );
 _IMPORT void NU_CANVAS_DRAW_DASHED_LINE(
     int contextID,
@@ -549,14 +539,14 @@ _IMPORT void NU_CANVAS_DRAW_DASHED_LINE(
     float thickness,
     uint8_t* dash_pattern,
     uint32_t dash_pattern_len,
-    NU_RGB_FL col
+    NuColor color
 );
 _IMPORT void NU_CANVAS_SET_FONT(int contextID, const char* font_name);
 _IMPORT void NU_CANVAS_DRAW_TEXT(
     int contextID,
     float x, float y,
     float wrapWidth,
-    NU_RGB col,
+    NuColor color,
     const char* string
 );
 _IMPORT float NU_CANVAS_TEXT_HEIGHT(
@@ -571,14 +561,14 @@ _IMPORT float NU_CANVAS_TEXT_WIDTH(
 _IMPORT void NU_LText(
     int contextID,
     float x, float y, float wrapWidth,
-    NU_RGB_FL col, const char* string,
+    NuColor color, const char* string,
     size_t stringLen
 );
 _IMPORT float NU_CANVAS_DRAW_LEN_TEXT(
     int contextID,
     float x, float y,
     float wrapWidth,
-    NU_RGB col,
+    NuColor color,
     const char* string,
     size_t stringLen
 );

@@ -3,12 +3,12 @@
 #include <stdint.h>
 #include <vulkan/vulkan.h>
 
-u32 FindMemoryType(VkPhysicalDevice physicalDevice, u32 typeFilter, VkMemoryPropertyFlags properties)
+uint32 FindMemoryType(VkPhysicalDevice physicalDevice, uint32 typeFilter, VkMemoryPropertyFlags properties)
 {
     VkPhysicalDeviceMemoryProperties memProperties;
     vkGetPhysicalDeviceMemoryProperties(physicalDevice, &memProperties);
 
-    for (u32 i=0; i<memProperties.memoryTypeCount; i++)
+    for (uint32 i=0; i<memProperties.memoryTypeCount; i++)
     {
         // Is this memory type allowed by the requirements?
         if ((typeFilter & (1u << i)) == 0) continue;

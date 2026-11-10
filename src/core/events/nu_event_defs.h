@@ -18,7 +18,7 @@
 #define NU_EVENT_FLAG_ON_KEY_UP             0x4000   // 0b0100000000000000
 #define NU_EVENT_FLAG_ON_TYPE               0x8000   // 0b1000000000000000
 
-enum NU_EventType
+typedef enum NU_EventType
 {
     NU_EVENT_ON_CLICK,
     NU_EVENT_ON_INPUT_CHANGED,
@@ -36,7 +36,7 @@ enum NU_EventType
     NU_EVENT_ON_KEY_DOWN,
     NU_EVENT_ON_KEY_UP,
     NU_EVENT_ON_TYPE
-};
+} NU_EventType;
 
 typedef struct NU_Event_Info_Mouse
 {
@@ -53,7 +53,7 @@ typedef struct NU_Event_Info_Input
 
 typedef struct NU_Event_Info_Keypress
 {
-    enum NU_Keycode keycode;
+    NU_Keycode keycode;
     bool repeat;
 } NU_Event_Info_Keypress;
 
@@ -69,7 +69,7 @@ typedef struct NU_Event
     NU_Event_Info_Input input;
     NU_Event_Info_Keypress keypress;
     NU_Event_Info_Type type;
-    enum NU_EventType eventType;
+    NU_EventType eventType;
 } NU_Event;
 
 typedef void (*NU_EventCallback)(NU_Event event, void* args);

@@ -11,7 +11,7 @@ typedef enum {
 
 typedef struct TreePartition {
     Node* root;
-    u32 childCount; // Estimated workload
+    uint32 childCount; // Estimated workload
 } TreePartition;
 
 typedef struct TreePartitioner {
@@ -64,7 +64,7 @@ static int TreePartitioner_AddPartition(TreePartitioner* part, Node* root)
 static int TreePartitioner_PartitionRecursive(
     TreePartitioner* part,
     Node* subtreeRoot,
-    u32 targetSize,
+    uint32 targetSize,
     int remainingSlots)
 {
     if (remainingSlots <= 0) return 0;
@@ -73,12 +73,12 @@ static int TreePartitioner_PartitionRecursive(
     // for becoming partitions. We only look at *direct children* of
     // subtreeRoot — deeper descendants are handled by recursion.
     Node* candidates[TREE_PARTITION_MAX];
-    u32 sizes[TREE_PARTITION_MAX];
+    uint32 sizes[TREE_PARTITION_MAX];
     int count = 0;
 
     for (Node* c = subtreeRoot->firstChild; c; c = c->nextSibling) {
         if (!c->firstChild) continue;  // leaf: can't be a partition root
-        u32 size = c->subtreeSize;
+        uint32 size = c->subtreeSize;
         if (size < TREE_PARTITION_MIN_NODES) continue;  // too small to be its own partition
 
         // Insert in descending order.
@@ -99,10 +99,10 @@ static int TreePartitioner_PartitionRecursive(
     int made = 0;
     for (int i = 0; i < count && made < remainingSlots; i++) {
         Node* cand = candidates[i];
-        u32 size = sizes[i];
+        uint32 size = sizes[i];
 
-        u32 upperBound = targetSize + targetSize / 2;
-        u32 lowerBound = targetSize / 2;
+        uint32 upperBound = targetSize + targetSize / 2;
+        uint32 lowerBound = targetSize / 2;
         if (lowerBound < TREE_PARTITION_MIN_NODES) lowerBound = TREE_PARTITION_MIN_NODES;
 
         if (size <= upperBound) {
@@ -118,7 +118,7 @@ static int TreePartitioner_PartitionRecursive(
         // size > upperBound: try to descend, but only if the children
         // can themselves form partitions of at least TREE_PARTITION_MIN_NODES.
         // Otherwise cut here even though it's oversized.
-        u32 bestChild = 0;
+        uint32 bestChild = 0;
         for (Node* c = cand->firstChild; c; c = c->nextSibling) {
             if (c->subtreeSize > bestChild) bestChild = c->subtreeSize;
         }
@@ -152,8 +152,8 @@ int TreePartitioner_Partition(TreePartitioner* part, Node* root, int partitionCo
 
     TreePartitioner_ClearFlags(root);
 
-    u32 totalSize = root->subtreeSize;
-    u32 targetSize = totalSize / (u32)partitionCount;
+    uint32 totalSize = root->subtreeSize;
+    uint32 targetSize = totalSize / (uint32)partitionCount;
     if (targetSize == 0) targetSize = 1;
 
     // If we can't even carve out one min-sized partition, don't bother —
@@ -169,9 +169,9 @@ int TreePartitioner_Partition(TreePartitioner* part, Node* root, int partitionCo
     int made = TreePartitioner_PartitionRecursive(part, root, targetSize, partitionCount - 1);
 
     // Root partition is always last, owns whatever wasn't claimed.
-    u32 claimedSize = 0;
+    uint32 claimedSize = 0;
     for (int i = 0; i < made; i++) claimedSize += part->partitions[i].childCount;
-    u32 rootRemainder = (totalSize > claimedSize) ? (totalSize - claimedSize) : 1;
+    uint32 rootRemainder = (totalSize > claimedSize) ? (totalSize - claimedSize) : 1;
 
     part->partitions[made].root = root;
     part->partitions[made].childCount = rootRemainder;

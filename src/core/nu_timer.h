@@ -1,8 +1,8 @@
 #pragma once
 
 typedef struct NU_Timer {
-    u32 intervalMs;
-    u64 lastFiredTime;
+    uint32 intervalMs;
+    uint64 lastFiredTime;
     NU_Callback callback;
     void* args;
     bool willBeRemoved;

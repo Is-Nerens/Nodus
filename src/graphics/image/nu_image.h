@@ -13,8 +13,8 @@
 /* Creates an image resource that Vulkan can work with */
 int ImageResource_Create(
     DisplayManager* displayManager,
-    u32 width,
-    u32 height,
+    uint32 width,
+    uint32 height,
     const unsigned char* buffer,
     ImageResource* imageResource)
 {
@@ -28,8 +28,8 @@ int ImageResource_Create(
     VkFence        fence        = VK_NULL_HANDLE;
 
     // Create image
-    imageResource->width  = (u16)width;
-    imageResource->height = (u16)height;
+    imageResource->width  = (uint16)width;
+    imageResource->height = (uint16)height;
     VkImageCreateInfo imageInfo = {
         .sType         = VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO,
         .imageType     = VK_IMAGE_TYPE_2D,
@@ -49,7 +49,7 @@ int ImageResource_Create(
     VkMemoryRequirements requirements;
     vkGetImageMemoryRequirements(displayManager->device, imageResource->image, &requirements);
 
-    u32 memoryTypeIndex = FindMemoryType(displayManager->physicalDevice, requirements.memoryTypeBits, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
+    uint32 memoryTypeIndex = FindMemoryType(displayManager->physicalDevice, requirements.memoryTypeBits, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
     if (memoryTypeIndex == UINT32_MAX) goto fail;
 
     // Allocate image memory
@@ -71,7 +71,7 @@ int ImageResource_Create(
     if (vkCreateBuffer(displayManager->device, &bufferInfo, NULL, &stagingBuffer) != VK_SUCCESS) goto fail;
     VkMemoryRequirements bufReqs;
     vkGetBufferMemoryRequirements(displayManager->device, stagingBuffer, &bufReqs);
-    u32 stagingTypeIndex = FindMemoryType(
+    uint32 stagingTypeIndex = FindMemoryType(
         displayManager->physicalDevice,bufReqs.memoryTypeBits,
         VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT
     );
@@ -218,7 +218,7 @@ fail:
  * layout, pool, sampler, and a 1x1 white dummy image used to fill unused
  * slots in a partial last group. Call once, after DisplayManager has a
  * valid device, and before ImageResourceManager_BuildGroupDescriptorSets. */
-int ImageResourceManager_CreateVulkanDevices(ImageResourceManager* resourceManager, DisplayManager* displayManager, u32 maxGroups)
+int ImageResourceManager_CreateVulkanDevices(ImageResourceManager* resourceManager, DisplayManager* displayManager, uint32 maxGroups)
 {
     VkDevice device = displayManager->device;
     VkPhysicalDevice physicalDevice = displayManager->physicalDevice;
@@ -280,7 +280,7 @@ int ImageResourceManager_CreateVulkanDevices(ImageResourceManager* resourceManag
     }
 
     // 4. 1x1 white dummy image (fills unused slots in a partial last group)
-    const u32 dw = 1, dh = 1;
+    const uint32 dw = 1, dh = 1;
     const unsigned char whitePixel[4] = { 255, 255, 255, 255 };
 
     VkImageCreateInfo ici = {0};
@@ -531,12 +531,12 @@ void ImageResourceManager_CreateImageResourcesFromPartialAtlasBuilds(ImageResour
 
 void ImageResourceManager_BuildGroupDescriptorSets(ImageResourceManager* resourceManager, DisplayManager* displayManager)
 {
-    u32 total = (u32)Array_Length(&resourceManager->imageResources);
+    uint32 total = (uint32)Array_Length(&resourceManager->imageResources);
     if (total == 0) return;
 
     VkDevice device = displayManager->device;
 
-    for (u32 i=0; i<total; i+= 8) {
+    for (uint32 i=0; i<total; i+= 8) {
 
         // Create a descriptor set for this group
         VkDescriptorSetAllocateInfo allocInfo = {0};
@@ -552,10 +552,10 @@ void ImageResourceManager_BuildGroupDescriptorSets(ImageResourceManager* resourc
         // Fill 8 slots. Slots past the real image count use the dummy view,
         // so every element of sampler2D uTextures[8] is valid at draw time.
         VkDescriptorImageInfo info[8];
-        for (u32 slot=0; slot<8; slot++) {
+        for (uint32 slot=0; slot<8; slot++) {
             info[slot].imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
             info[slot].sampler = resourceManager->sampler;
-            u32 imageIndex = i + slot;
+            uint32 imageIndex = i + slot;
             if (imageIndex < total) {
                 ImageResource* resource = Array_Get(&resourceManager->imageResources, imageIndex);
                 info[slot].imageView = resource->view;
@@ -581,7 +581,7 @@ void ImageResourceManager_BuildGroupDescriptorSets(ImageResourceManager* resourc
 }
 
 /* Returns the width and height of an image, given an image handle */
-void ImageResourceManager_GetImageSize(ImageResourceManager* resourceManager, int imageHandle, u16* w, u16* h)
+void ImageResourceManager_GetImageSize(ImageResourceManager* resourceManager, int imageHandle, uint16* w, uint16* h)
 {
     ImageView* imageView = Array_Get(&resourceManager->imageViews, imageHandle - 1);
     *w = imageView->w;
@@ -602,7 +602,7 @@ int ImageResourceManager_LoadImage(ImageResourceManager* resourceManager, Displa
 {
     // Load from disk using STB_Image
     int w, h, n;
-    unsigned char* buffer = stbi_load(filepath, &w, &h, &n, 4); // Force RGBA
+    byte* buffer = stbi_load(filepath, &w, &h, &n, 4); // Force RGBA
     if (!buffer) return 0;
 
     int imageHandle;
@@ -645,7 +645,7 @@ int ImageResourceManager_LoadImage(ImageResourceManager* resourceManager, Displa
             {
                 // Find the most full atlas builder
                 AtlasBuilder* mostFullBuilder = &resourceManager->builders[0];
-                u16 maxShelfHeight = mostFullBuilder->shelfHeight;
+                uint16 maxShelfHeight = mostFullBuilder->shelfHeight;
                 for (int i=1; i<resourceManager->buildersCreated; i++) {
                     AtlasBuilder* candidateBuilder = &resourceManager->builders[i];
                     if (candidateBuilder->shelfHeight > maxShelfHeight) {
@@ -670,7 +670,7 @@ int ImageResourceManager_LoadImage(ImageResourceManager* resourceManager, Displa
         }
 
         // Blit image onto builder atlas and compute UVs
-        u16 x, y;
+        uint16 x, y;
         AtlasBuilder_AddImage(builder, buffer, w, h, &x, &y);
         ImageView* imageView = Array_PushEmpty(&resourceManager->imageViews);
         float atlasW = (float)builder->w;

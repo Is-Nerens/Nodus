@@ -7,8 +7,8 @@ typedef struct {
     VkSampler sampler;
     VkDescriptorSet descriptorSet;
     VkImageLayout layout;
-    u32 width;
-    u32 height;
+    uint32 width;
+    uint32 height;
     bool mono;
 } FontImageGPU;
 
@@ -20,7 +20,7 @@ void FontImageGPU_Create(
     VkQueue graphicsQueue,
     VkDescriptorPool fontPool,
     VkDescriptorSetLayout fontSetLayout,
-    u32 width, u32 height,
+    uint32 width, uint32 height,
     const unsigned char* buffer,
     bool mono)
 {
@@ -28,7 +28,7 @@ void FontImageGPU_Create(
     if (width == 0 || height == 0 || buffer == NULL) return;
 
     // 1 channel (R8) for mono coverage atlases, 3 channels (RGB8) for colour
-    const u32 channels  = mono ? 1u : 4u;
+    const uint32 channels  = mono ? 1u : 4u;
     const VkFormat format = mono ? VK_FORMAT_R8_UNORM : VK_FORMAT_R8G8B8A8_UNORM;
 
     VkDeviceSize imageSize = (VkDeviceSize)width * height * channels;
@@ -260,7 +260,7 @@ void FontImageGPU_Patch(
     VkPhysicalDevice physicalDevice,
     VkCommandPool commandPool,
     VkQueue graphicsQueue,
-    u32 x, u32 y, u32 width, u32 height,
+    uint32 x, uint32 y, uint32 width, uint32 height,
     const unsigned char* buffer)
 {
     // 1. Validate the image and patch bounds
@@ -392,7 +392,7 @@ void FontImageGPU_Resize(
     VkPhysicalDevice physicalDevice,
     VkCommandPool commandPool,
     VkQueue graphicsQueue,
-    u32 width, u32 height,
+    uint32 width, uint32 height,
     const unsigned char* buffer)
 {
     // 1. Validate the image, dimensions and pixel buffer
@@ -419,7 +419,7 @@ void FontImageGPU_Resize(
 
     // 1 channel (R8) for mono coverage atlases, 3 channels (RGB8) for colour.
     // Resize preserves the existing channel count; it does not switch format
-    const u32 channels  = image->mono ? 1u : 4u;
+    const uint32 channels  = image->mono ? 1u : 4u;
     const VkFormat format = image->mono ? VK_FORMAT_R8_UNORM : VK_FORMAT_R8G8B8A8_UNORM;
     const VkDeviceSize imageSize = (VkDeviceSize)width * height * channels;
 

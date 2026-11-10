@@ -30,9 +30,7 @@ void main()
     float ndc_x = (worldPos.x / pc.uScreenWidth) * 2.0 - 1.0;
     float ndc_y = (worldPos.y / pc.uScreenHeight) * 2.0 - 1.0;
 
-    float z_gl = iPos.z * 0.015625;
-    float z_vk = z_gl * 0.5 + 0.5;
-    gl_Position = vec4(ndc_x, ndc_y, z_vk, 1.0);
+    gl_Position = vec4(ndc_x, ndc_y, iPos.z, 1.0);
 
     vScreenPos = worldPos;
     vUV = vec2(

@@ -3,10 +3,10 @@
 #include <string.h>
 #include "nu_font.h"
 
-u32 NextUTF8Codepoint(const char* string, int* byteIndex)
+uint32 NextUTF8Codepoint(const char* string, int* byteIndex)
 {
     unsigned char* p = (unsigned char*)string + *byteIndex;
-    u32 cp;
+    uint32 cp;
 
     if (*p == 0) return 0; // end of string
 
@@ -39,10 +39,10 @@ u32 NextUTF8Codepoint(const char* string, int* byteIndex)
     return cp;
 }
 
-u32 NextUTF8CodepointL(const char* string, int* byteIndex, size_t stringLen)
+uint32 NextUTF8CodepointL(const char* string, int* byteIndex, size_t stringLen)
 {
     unsigned char* p = (unsigned char*)string + *byteIndex;
-    u32 cp;
+    uint32 cp;
 
     if (*byteIndex == stringLen-1) return 0; // end of string
 
@@ -78,10 +78,10 @@ u32 NextUTF8CodepointL(const char* string, int* byteIndex, size_t stringLen)
 float NU_Calculate_Text_Min_Wrap_Width(Font* font, const char* string)
 {
     int byteIndex = 0;
-    u32 codepoint;
-    u32 lastCodepoint = 0;
-    u32 wordFirstCodepoint;
-    u32 wordLastCodepoint;
+    uint32 codepoint;
+    uint32 lastCodepoint = 0;
+    uint32 wordFirstCodepoint;
+    uint32 wordLastCodepoint;
 
     int wordLen = 0;
     float result = 0.0f;
@@ -151,8 +151,8 @@ float NU_Calculate_FreeText_Height_From_Wrap_Width(Font* font, const char* strin
     float penX = 0.0f;
     int wraps = 0;
     int byteIndex = 0;
-    u32 codepoint;
-    u32 lastCodepoint = 0;
+    uint32 codepoint;
+    uint32 lastCodepoint = 0;
 
     while ((codepoint = NextUTF8Codepoint(string, &byteIndex)) != 0)
     {
@@ -172,8 +172,8 @@ float NU_Calculate_FreeText_Height_From_Wrap_Width(Font* font, const char* strin
             // Calculate width of next word
             float nextWordWidth = 0.0f;
             int j = byteIndex;
-            u32 jCodepoint;
-            u32 jPrevCodepoint = 0;
+            uint32 jCodepoint;
+            uint32 jPrevCodepoint = 0;
             while ((jCodepoint = NextUTF8Codepoint(string, &j)) != 0 && jCodepoint != ' ' && jCodepoint != '\t')
             {
                 Glyph* glyph = Font_GetGlyph(font, jCodepoint);
@@ -236,8 +236,8 @@ float NU_Calculate_LText_Height_From_Wrap_Width(Font* font, const char* string, 
     float penX = 0.0f;
     int wraps = 0;
     int byteIndex = 0;
-    u32 codepoint;
-    u32 lastCodepoint = 0;
+    uint32 codepoint;
+    uint32 lastCodepoint = 0;
 
     while ((codepoint = NextUTF8CodepointL(string, &byteIndex, stringLen)) != 0)
     {
@@ -257,8 +257,8 @@ float NU_Calculate_LText_Height_From_Wrap_Width(Font* font, const char* string, 
             // Calculate width of next word
             float nextWordWidth = 0.0f;
             int j = byteIndex;
-            u32 jCodepoint;
-            u32 jPrevCodepoint = 0;
+            uint32 jCodepoint;
+            uint32 jPrevCodepoint = 0;
             while ((jCodepoint = NextUTF8Codepoint(string, &j)) != 0 && jCodepoint != ' ' && jCodepoint != '\t')
             {
                 Glyph* glyph = Font_GetGlyph(font, jCodepoint);
@@ -318,8 +318,8 @@ float NU_Calculate_Text_Unwrapped_Width(Font* font, const char* string)
     if (!string || string[0] == '\0') return 0.0f;
 
     int byteIndex = 0;
-    u32 codepoint;
-    u32 lastCodepoint = 0;
+    uint32 codepoint;
+    uint32 lastCodepoint = 0;
 
     float width = 0.0f;
 
@@ -346,8 +346,8 @@ float NU_Calculate_LText_Unwrapped_Width(Font* font, const char* string, size_t 
     if (!string || stringLen == 0) return 0.0f;
 
     int byteIndex = 0;
-    u32 codepoint;
-    u32 lastCodepoint = 0;
+    uint32 codepoint;
+    uint32 lastCodepoint = 0;
 
     float width = 0.0f;
 
@@ -373,7 +373,7 @@ void NU_Generate_Text_Renderdata(
     Array* glyphRenderData,
     Font* font, NU_ClipBounds* clip, const char* string,
     float x, float y, float z,
-    u8 r, u8 g, u8 b,
+    NuColor color,
     float maxWidth)
 {
     if (string[0] == '\0') return;
@@ -385,8 +385,8 @@ void NU_Generate_Text_Renderdata(
     float penY = y + font->ascent;
 
     int byteIndex = 0;
-    u32 codepoint;
-    u32 lastCodepoint = 0;
+    uint32 codepoint;
+    uint32 lastCodepoint = 0;
 
     while ((codepoint = NextUTF8Codepoint(string, &byteIndex)) != 0)
     {
@@ -406,8 +406,8 @@ void NU_Generate_Text_Renderdata(
             // Calculate width of next word
             float nextWordWidth = 0.0f;
             int j = byteIndex;
-            u32 jCodepoint;
-            u32 jPrevCodepoint = 0;
+            uint32 jCodepoint;
+            uint32 jPrevCodepoint = 0;
             while ((jCodepoint = NextUTF8Codepoint(string, &j)) != 0 && jCodepoint != ' ' && jCodepoint != '\t')
             {
                 Glyph* glyph = Font_GetGlyph(font, jCodepoint);
@@ -463,15 +463,16 @@ void NU_Generate_Text_Renderdata(
                 renderData->v0 = glyph->v * font->atlas.invHeight;
                 renderData->u1 = (glyph->u + glyph->width) * font->atlas.invWidth;
                 renderData->v1 = (glyph->v + glyph->height) * font->atlas.invHeight;
-                renderData->clipTop = (u16)(clip->top);
-                renderData->clipBottom = (u16)(clip->bottom);
-                renderData->clipLeft = (u16)(clip->left);
-                renderData->clipRight = (u16)(clip->right);
+                renderData->clipTop = (uint16)(clip->top);
+                renderData->clipBottom = (uint16)(clip->bottom);
+                renderData->clipLeft = (uint16)(clip->left);
+                renderData->clipRight = (uint16)(clip->right);
                 renderData->clipRadiusTopLeft = 0;
                 renderData->clipRadiusTopRight = 0;
                 renderData->clipRadiusBottomLeft = 0;
                 renderData->clipRadiusBottomRight = 0;
-                renderData->colourRGBA = PackRGBA(r, g, b, 255);
+                color.a = 255;
+                renderData->colourRGBA = PackColorIntoUint32(color);
                 renderData->textureIndex = 0;
             }
             else {
@@ -485,7 +486,8 @@ void NU_Generate_Text_Renderdata(
                 renderData->v0 = glyph->v * font->atlas.invHeight;
                 renderData->u1 = (glyph->u + glyph->width) * font->atlas.invWidth;
                 renderData->v1 = (glyph->v + glyph->height) * font->atlas.invHeight;
-                renderData->colourRGBA = PackRGBA(r, g, b, 255);
+                color.a = 255;
+                renderData->colourRGBA = PackColorIntoUint32(color);
                 renderData->textureIndex = 0;
             }
 
@@ -502,7 +504,7 @@ void NU_Generate_LText_Renderdata(
     const char* string,
     size_t stringLen,
     float x, float y, float z,
-    u8 r, u8 g, u8 b, float maxWidth)
+    NuColor color, float maxWidth)
 {
     if (stringLen == 0) return;
     if (maxWidth <= 0.0f) maxWidth = 1e20f;
@@ -513,8 +515,8 @@ void NU_Generate_LText_Renderdata(
     float penY = y + font->ascent;
 
     int byteIndex = 0;
-    u32 codepoint;
-    u32 lastCodepoint = 0;
+    uint32 codepoint;
+    uint32 lastCodepoint = 0;
 
     while ((codepoint = NextUTF8CodepointL(string, &byteIndex, stringLen)) != 0)
     {
@@ -534,8 +536,8 @@ void NU_Generate_LText_Renderdata(
             // Calculate width of next word
             float nextWordWidth = 0.0f;
             int j = byteIndex;
-            u32 jCodepoint;
-            u32 jPrevCodepoint = 0;
+            uint32 jCodepoint;
+            uint32 jPrevCodepoint = 0;
             while ((jCodepoint = NextUTF8Codepoint(string, &j)) != 0 && jCodepoint != ' ' && jCodepoint != '\t')
             {
                 Glyph* glyph = Font_GetGlyph(font, jCodepoint);
@@ -590,7 +592,7 @@ void NU_Generate_LText_Renderdata(
             renderData->v0 = glyph->v * font->atlas.invHeight;
             renderData->u1 = (glyph->u + glyph->width) * font->atlas.invWidth;
             renderData->v1 = (glyph->v + glyph->height) * font->atlas.invHeight;
-            renderData->colourRGBA = PackRGBA(r, g, b, 255);
+            renderData->colourRGBA = PackColorIntoUint32(color);
 
             penX += glyph->advance;
         }
@@ -599,19 +601,19 @@ void NU_Generate_LText_Renderdata(
     }
 }
 
-u32 NU_Calculate_Unwrapped_Text_Cursorbytes(Font* font, const char* string, float cursorX)
+uint32 NU_Calculate_Unwrapped_Text_Cursorbytes(Font* font, const char* string, float cursorX)
 {
     if (!string || !*string) return 0;
 
-    u32 cursorBytes = 0;
+    uint32 cursorBytes = 0;
     float width = 0.0f;
     int byteIndex = 0;
-    u32 prevCp = 0;
+    uint32 prevCp = 0;
 
     while (1)
     {
         int currentByteIndex = byteIndex;
-        u32 cp = NextUTF8Codepoint(string, &byteIndex);
+        uint32 cp = NextUTF8Codepoint(string, &byteIndex);
         if (cp == 0) break; // end of string
         if (cp == '\r') continue;
 

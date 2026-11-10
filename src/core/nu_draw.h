@@ -1,5 +1,7 @@
 #pragma once
 
+#define ABSOLUTE_Z_LAYER 4096
+
 static NodeOverlap NodeVerticalOverlapState(Node* node, float y, float h)
 {
     float top = node->public.generic.y;
@@ -9,6 +11,15 @@ static NodeOverlap NodeVerticalOverlapState(Node* node, float y, float h)
     int overlap = (bottom > bounds_top) & (top < bounds_bottom);
     int inside = (top >= bounds_top) & (bottom <= bounds_bottom);
     return (NodeOverlap)(overlap + inside);
+}
+
+static inline float ComputeZ(uint32 layer, uint8 sublayer)
+{
+    uint32 p = layer * 8u + (uint32)(sublayer & 7u);   // ∈ [0, 2048)
+    uint32 bits = (126u << 23) | p;                 // exponent 126 => 2^-1, mantissa = p
+    float z;
+    memcpy(&z, &bits, sizeof z);
+    return z;
 }
 
 inline int NodeOutsideWindow(Node* node, int winW, int winH)
@@ -29,8 +40,8 @@ inline int NodeOutsideBounds(Node* node, float left, float right, float top, flo
 void NU_AddNodeTextToRenderDataArray(Node* node, NU_ClipBounds* clip, float z, Array* textRenderData)
 {
     // Compute node inner dimensions
-    float inner_width  = node->public.generic.width  - node->public.generic.borderLeft - node->public.generic.borderRight - node->public.generic.padLeft - node->public.generic.padRight;
-    float inner_height = node->public.generic.height - node->public.generic.borderTop  - node->public.generic.borderBottom - node->public.generic.padTop - node->public.generic.padBottom;
+    float inner_width  = NODE_INNER_WIDTH(node);
+    float inner_height = NODE_INNER_HEIGHT(node);
     float remaining_w = inner_width  - node->public.generic.contentWidth;
     float remaining_h = inner_height - node->public.generic.contentHeight;
 
@@ -42,6 +53,12 @@ void NU_AddNodeTextToRenderDataArray(Node* node, NU_ClipBounds* clip, float z, A
 
     // Add glyph render data
     Font* node_font = Stylesheet_Get_Font(&GUI.stylesheet, node->fontIdx);
+    NuColor color = {
+        node->public.generic.textR,
+        node->public.generic.textG,
+        node->public.generic.textB,
+        255
+    };
     NU_Generate_Text_Renderdata(
         textRenderData,
         node_font,
@@ -50,9 +67,7 @@ void NU_AddNodeTextToRenderDataArray(Node* node, NU_ClipBounds* clip, float z, A
         textPosX,
         textPosY,
         z,
-        node->public.generic.textR,
-        node->public.generic.textG,
-        node->public.generic.textB,
+        color,
         inner_width
     );
 }
@@ -90,6 +105,12 @@ void NU_DrawInputNodeContent(Node* node, float z, float winWidth, float winHeigh
     float textPosY = floorf(node->public.generic.y + node->public.generic.borderTop  + node->public.generic.padTop);
     Array textRenderData;
     Array_Init(&textRenderData, sizeof(GlyphRenderData), 256);
+    NuColor color = {
+        node->public.generic.textR,
+        node->public.generic.textG,
+        node->public.generic.textB,
+        255
+    };
     NU_Generate_Text_Renderdata(
         &textRenderData,
         node_font,
@@ -98,9 +119,7 @@ void NU_DrawInputNodeContent(Node* node, float z, float winWidth, float winHeigh
         textPosX,
         textPosY,
         z + 0.5f,
-        node->public.generic.textR,
-        node->public.generic.textG,
-        node->public.generic.textB,
+        color,
         -1.0f
     );
     //NU_Draw_Clipped_Text(textRenderData, node_font, winWidth, winHeight, 0, 0, clip->top, clip->bottom, clip->left, clip->right);
@@ -123,50 +142,6 @@ void NU_DrawInputNodeContent(Node* node, float z, float winWidth, float winHeigh
     }
 }
 
-void NU_DrawCanvasContent(Node* canvas_node, float winW, float winH, NU_ClipBounds* clip)
-{
-    // Get canvas ctx
-    NU_Canvas_Context* ctx = Container_Get(&GUI.canvasContexts, canvas_node->special.canvas.ctxHandle);
-    if (ctx == NULL) return;
-
-    // Compute offsets and clipping bounds
-    float offsetX = roundf(canvas_node->public.generic.x + canvas_node->public.generic.borderLeft + canvas_node->public.generic.padLeft);
-    float offsetY = roundf(canvas_node->public.generic.y + canvas_node->public.generic.borderTop + canvas_node->public.generic.padTop);
-    float top    = canvas_node->public.generic.y + canvas_node->public.generic.borderTop + canvas_node->public.generic.padTop;
-    float bottom = canvas_node->public.generic.y + canvas_node->public.generic.height - canvas_node->public.generic.borderBottom - canvas_node->public.generic.padBottom;
-    float left   = canvas_node->public.generic.x + canvas_node->public.generic.borderLeft + canvas_node->public.generic.padLeft;
-    float right  = canvas_node->public.generic.x + canvas_node->public.generic.width - canvas_node->public.generic.borderRight - canvas_node->public.generic.padRight;
-    if (clip)
-    {
-        top    = max(top, clip->top);
-        bottom = max(bottom, clip->bottom);
-        left   = max(left, clip->left);
-        right  = max(right, clip->right);
-    }
-    ctx->canvasWidth = canvas_node->public.generic.width;
-    ctx->canvasHeight = canvas_node->public.generic.height;
-
-    // Draw shape layer
-    // Draw_Clipped_Vertex_RGB_List(
-    //     &ctx->shapeLayer.vertices, &ctx->shapeLayer.indices,
-    //     winW, winH,
-    //     offsetX, offsetY,
-    //     top, bottom, left, right
-    // );
-
-    // Draw text layers
-    for (int l=0; l<ctx->textLayerIndex+1; l++) {
-        CanvasTextLayer* layer = Array_Get(&ctx->textLayers, l);
-        Font* font = Stylesheet_Get_Font(&GUI.stylesheet, layer->fontID);
-        // NU_Draw_Clipped_Text(
-        //     layer->textRenderData, font,
-        //     winW, winH,
-        //     offsetX, offsetY,
-        //     top, bottom, left, right
-        // );
-    }
-}
-
 void Add_NodeRectRenderData(
     Node* node, float z,
     float scissorTop, float scissorBottom, float scissorLeft, float scissorRight,
@@ -175,7 +150,7 @@ void Add_NodeRectRenderData(
 {
     NuNodeGenericAccess* n = &node->public.generic;
 
-    u8 alpha = 255;
+    uint8 alpha = 255;
     if (node->layoutFlags & HIDE_BACKGROUND) alpha = 0;
 
     BorderRectRenderData* renderData = Array_PushEmpty(borderRects);
@@ -199,18 +174,20 @@ void Add_NodeRectRenderData(
     if (leftRadiiSum   > renderData->h) { float scale = renderData->h / leftRadiiSum;   borderRadiusTl *= scale; borderRadiusBl *= scale; }
     if (rightRadiiSum  > renderData->h) { float scale = renderData->h / rightRadiiSum;  borderRadiusTr *= scale; borderRadiusBr *= scale; }
 
-    renderData->backgroundRGBA = PackRGBA(
+    NuColor backgroundColor = {
         n->backgroundR,
         n->backgroundG,
         n->backgroundB,
         alpha
-    );
-    renderData->borderRGBA = PackRGBA(
+    };
+    NuColor borderColor = {
         n->borderR,
         n->borderG,
         n->borderB,
-        255
-    );
+        alpha
+    };
+    renderData->backgroundRGBA = PackColorIntoUint32(backgroundColor);
+    renderData->borderRGBA = PackColorIntoUint32(borderColor);
     renderData->radiusTl = borderRadiusTl;
     renderData->radiusTr = borderRadiusTr;
     renderData->radiusBl = borderRadiusBl;
@@ -223,6 +200,11 @@ void Add_NodeRectRenderData(
     renderData->scissorBottom = scissorBottom;
     renderData->scissorLeft = scissorLeft;
     renderData->scissorRight = scissorRight;
+}
+
+void Draw_CanvasContent(Node* node)
+{
+
 }
 
 void Add_ScrollbarRenderData(
@@ -320,18 +302,20 @@ void Add_ScrollbarRenderData(
     trackRData->radiusTr = trackRadiusTr;
     trackRData->radiusBl = trackRadiusBl;
     trackRData->radiusBr = trackRadiusBr;
-    trackRData->backgroundRGBA = PackRGBA(
+    NuColor trackCol = {
         scrollbarStyle->trackBackgroundR,
         scrollbarStyle->trackBackgroundG,
         scrollbarStyle->trackBackgroundB,
         255
-    );
-    trackRData->borderRGBA = PackRGBA(
+    };
+    NuColor borderCol = {
         scrollbarStyle->trackBorderR,
         scrollbarStyle->trackBorderG,
         scrollbarStyle->trackBorderB,
         255
-    );
+    };
+    trackRData->backgroundRGBA = PackColorIntoUint32(trackCol);
+    trackRData->borderRGBA = PackColorIntoUint32(borderCol);
     trackRData->borderTop = scrollbarStyle->trackBorderTop;
     trackRData->borderBottom = scrollbarStyle->trackBorderBottom;
     trackRData->borderLeft = scrollbarStyle->trackBorderLeft;
@@ -352,18 +336,20 @@ void Add_ScrollbarRenderData(
     thumbRData->radiusTr = thumbRadiusTr;
     thumbRData->radiusBl = thumbRadiusBl;
     thumbRData->radiusBr = thumbRadiusBr;
-    thumbRData->backgroundRGBA = PackRGBA(
+    NuColor thumbBgCol = {
         scrollbarStyle->thumbBackgroundR,
         scrollbarStyle->thumbBackgroundG,
         scrollbarStyle->thumbBackgroundB,
         255
-    );
-    thumbRData->borderRGBA = PackRGBA(
+    };
+    NuColor thumbBorderCol = {
         scrollbarStyle->thumbBorderR,
         scrollbarStyle->thumbBorderG,
         scrollbarStyle->thumbBorderB,
         255
-    );
+    };
+    thumbRData->backgroundRGBA = PackColorIntoUint32(thumbBgCol);
+    thumbRData->borderRGBA = PackColorIntoUint32(thumbBorderCol);
     thumbRData->borderTop = scrollbarStyle->thumbBorderTop;
     thumbRData->borderBottom = scrollbarStyle->thumbBorderBottom;
     thumbRData->borderLeft = scrollbarStyle->thumbBorderLeft;
@@ -373,6 +359,77 @@ void Add_ScrollbarRenderData(
     thumbRData->scissorLeft = 0.0f;
     thumbRData->scissorRight = 10000000.0f;
 }
+
+void NU_ConstructInputCursorMesh(
+    Node* node, float z,
+    InputText* inputText,
+    Vertex_RGB_List* vertices,
+    Index_List* indices)
+{
+    NuNodeGenericAccess* n = &node->public.generic;
+    float x = n->x + n->borderLeft + n->padLeft + inputText->cursorOffset;
+    float y = n->y + n->borderTop + n->padTop;
+    float innerHeight = n->height - n->borderTop  - n->borderBottom - n->padTop - n->padBottom;
+
+    NuColor color = { 255, 255, 255, 255 };
+    float32 packedColor = PackColorIntoFloat32(color);
+    vertices->array[0] = (vertex_rgb){ x, y, z, packedColor }; // top left
+    vertices->array[1] = (vertex_rgb){ x + 1, y, z, packedColor }; // top right
+    vertices->array[2] = (vertex_rgb){ x, y + innerHeight - 1, z, packedColor }; // bottom left
+    vertices->array[3] = (vertex_rgb){ x + 1, y + innerHeight - 1, z, packedColor }; // bottom right
+
+    // indices
+    uint32* indices_write = indices->array;
+    *indices_write++ = 0;
+    *indices_write++ = 1;
+    *indices_write++ = 2;
+    *indices_write++ = 1;
+    *indices_write++ = 2;
+    *indices_write++ = 3;
+
+    vertices->size = 4;
+    indices->size = 6;
+}
+
+void NU_ConstructInputHighlightMesh(
+    Node* node, float z,
+    InputText* inputText,
+    Vertex_RGB_List* vertices,
+    Index_List* indices)
+{
+    NuNodeGenericAccess* n = &node->public.generic;
+
+    float cursorX = n->x + n->borderLeft + n->padLeft + inputText->cursorOffset;
+    float highlightX = n->x + n->borderLeft + n->padLeft + inputText->highlightOffset;
+    float x = highlightX; if (cursorX < x) x = cursorX;
+    float y = n->y + n->borderTop + n->padTop;
+    float width = fabs(cursorX - highlightX);
+    float height = n->height - n->borderTop - n->borderBottom - n->padTop - n->padBottom;
+
+    NuColor highlightColor = { 66, 137, 244, 255 };
+    float32 packedHighlightColor = PackColorIntoFloat32(highlightColor);
+
+    vertices->array[0] = (vertex_rgb){ x, y, z, packedHighlightColor }; // top left
+    vertices->array[1] = (vertex_rgb){ x + width, y, z, packedHighlightColor }; // top right
+    vertices->array[2] = (vertex_rgb){ x, y + height, z, packedHighlightColor }; // bottom left
+    vertices->array[3] = (vertex_rgb){ x + width, y + height, z, packedHighlightColor }; // bottom right
+
+    // indices
+    uint32* indices_write = indices->array;
+    *indices_write++ = 0;
+    *indices_write++ = 1;
+    *indices_write++ = 2;
+    *indices_write++ = 1;
+    *indices_write++ = 2;
+    *indices_write++ = 3;
+
+    vertices->size = 4;
+    indices->size = 6;
+}
+
+
+
+
 
 void NU_GenerateDrawlists()
 {
@@ -508,16 +565,13 @@ void NU_GenerateDrawlists()
 
 void NU_Draw()
 {
-    printf("generate draw lists: ");
-    timer_start();
     NU_GenerateDrawlists();
-    timer_stop();
 
     // Clear GPU arena allocator
     ArenaAllocatorGPU_Clear(&GUI.displayManager.gpuArenaAlloc);
 
     // Re-upload font atlases as needed
-    for (u32 t=0; t<GUI.stylesheet.fonts.size; t++) {
+    for (uint32 t=0; t<Array_Length(&GUI.stylesheet.fonts); t++) {
         Font* font = Stylesheet_Get_Font(&GUI.stylesheet, t);
         Font_UpdateGPU(
             font,
@@ -532,12 +586,8 @@ void NU_Draw()
 
     Node* focusedInputNode = NULL;
 
-
-    printf("prepare the draw calls: ");
-    timer_start();
-
     // For each window
-    for (u32 i=0; i<GUI.displayManager.windows.size; i++)
+    for (uint32 i=0; i<GUI.displayManager.windows.size; i++)
     {
         // Get the window
         Window* win = Container_GetAt(&GUI.displayManager.windows, i);
@@ -550,10 +600,16 @@ void NU_Draw()
         // Clear border rect render data array
         Array_Clear(&GUI.borderRectsRenderData);
 
-        // Clear glyph render data arrays
-        for (int j=0; j<GUI.stylesheet.fonts.size; j++) {
-            Array* renderData = Array_Get(&GUI.perFontTextRenderData, j);
-            Array_Clear(renderData);
+        // Clear text render data arrays
+        for (int j=0; j<Array_Length(&GUI.perFontTextRenderData); j++) {
+            Array* textRenderData = Array_Get(&GUI.perFontTextRenderData, j);
+            Array_Clear(textRenderData);
+        }
+
+        // Clear clipped text render data arrays
+        for (int j=0; j<Array_Length(&GUI.perFontClippedTextRenderData); j++) {
+            Array* clippedTextRenderData = Array_Get(&GUI.perFontClippedTextRenderData, j);
+            Array_Clear(clippedTextRenderData);
         }
 
         // Lazily append new image render groups
@@ -582,24 +638,24 @@ void NU_Draw()
         float winW = (float)winW_int;
         float winH = (float)winH_int;
 
-        // 1. Generate border rect data for unclipped nodes
-        for (u32 n=0; n<drawList->drawNodes.size; n++)
+        // Construct render data for non-clipped nodes
+        for (uint32 n=0; n<drawList->drawNodes.size; n++)
         {
             Node* node = *(Node**)Array_Get(&drawList->drawNodes, n);
-            float z = (float)(node->layer) + 32.0f * NodeStatePosAbsolute(node);
 
-            // Construct border rect data
-            Add_NodeRectRenderData(node, z, 0.0f, winH, 0.0f, winW, &GUI.borderRectsRenderData);
-            if ((node->layoutFlags & OVERFLOW_VERTICAL_SCROLL)
-                && node->public.generic.contentHeight > NODE_INNER_HEIGHT(node)) {
-                Add_ScrollbarRenderData(node, z + 0.5f, &GUI.stylesheet.scrollbarStyle, &GUI.borderRectsRenderData);
+            // Border rect render data
+            Add_NodeRectRenderData(node, ComputeZ(node->layer + ABSOLUTE_Z_LAYER * NodeStatePosAbsolute(node), 0), 0.0f, winH, 0.0f, winW, &GUI.borderRectsRenderData);
+            if ((node->layoutFlags & OVERFLOW_VERTICAL_SCROLL) && node->public.generic.contentHeight > NODE_INNER_HEIGHT(node)) {
+                Add_ScrollbarRenderData(node, ComputeZ(node->layer + ABSOLUTE_Z_LAYER * NodeStatePosAbsolute(node), 1), &GUI.stylesheet.scrollbarStyle, &GUI.borderRectsRenderData);
             }
-            // Construct text mesh for node's textContent
+
+            // Text content render data
             if (node->public.generic.textContent != NULL) {
                 Array* textRenderData = Array_Get(&GUI.perFontTextRenderData, node->fontIdx);
-                NU_AddNodeTextToRenderDataArray(node, NULL, z, textRenderData);
+                NU_AddNodeTextToRenderDataArray(node, NULL, ComputeZ(node->layer + ABSOLUTE_Z_LAYER * NodeStatePosAbsolute(node), 1), textRenderData);
             }
-            // Draw text input content (1 draw call)
+
+            // Text input render data
             else if (node->type == NU_TYPE_INPUT) {
                 NU_ClipBounds clip = {0};
                 clip.top = node->public.generic.y;
@@ -608,21 +664,22 @@ void NU_Draw()
                 clip.bottom = node->public.generic.y + node->public.generic.height + 1000;
                 //NU_DrawInputNodeContent(node, z, winW, winH, &clip);
             }
-            // Construct image render data
+
+            // Image render data
             if (node->special.image.imageHandle != 0 && node->type == NU_TYPE_IMAGE)
             {
                 // Get image render group
                 int imageHandle = node->special.image.imageHandle;
                 ImageView* imageView = ImageResourceManager_GetImageView(&GUI.imageResourceManager, imageHandle);
                 int groupIndex = imageView->imageResourceIndex / 8;
-                u8 groupImageIndex = imageView->imageResourceIndex % 8;
+                uint8 groupImageIndex = imageView->imageResourceIndex % 8;
                 ImageRenderGroup* imageRenderGroup = Array_Get(&GUI.imageRenderGroups, groupIndex);
 
                 // Create image render data in group
                 ImageRenderData* renderData = Array_PushEmpty(&imageRenderGroup->imagesRenderData);
                 renderData->x = node->public.generic.x + node->public.generic.borderLeft + node->public.generic.padLeft;
                 renderData->y = node->public.generic.y + node->public.generic.borderTop + node->public.generic.padTop;
-                renderData->z = z + 0.75f;
+                renderData->z = ComputeZ(node->layer + ABSOLUTE_Z_LAYER * NodeStatePosAbsolute(node), 2);
                 renderData->w = node->public.generic.width - NODE_BORDER_PAD_WIDTH(node);
                 renderData->h = node->public.generic.height - NODE_BORDER_PAD_HEIGHT(node);
                 renderData->u0 = imageView->u0;
@@ -643,45 +700,22 @@ void NU_Draw()
             }
         }
 
-        // 2. Draw all unclipped border rects (1 draw call)
-        NU_DrawBorderRects(
-            win,
-            &GUI.displayManager,
-            &GUI.borderRectsRenderData,
-            winW, winH);
-        Array_Clear(&GUI.borderRectsRenderData);
-
-        // 3. Draw all unclipped text (1 draw call per font)
-        for (u32 t=0; t<GUI.stylesheet.fonts.size; t++) {
-            Font* font = Stylesheet_Get_Font(&GUI.stylesheet, t);
-            Array* textRenderData = Array_Get(&GUI.perFontTextRenderData, t);
-            NU_DrawText(win, &GUI.displayManager, font, textRenderData, 0, 0);
-        }
-
-        // 4. Draw clipped node border rects + images + text + text input
-        for (u32 n=0; n<drawList->clippedDrawNodes.size; n++) {
+        // Construct render data for clipped nodes
+        for (uint32 n=0; n<drawList->clippedDrawNodes.size; n++) {
             Node* node = *(Node**)Array_Get(&drawList->clippedDrawNodes, n);
-            float z = (float)(node->layer) + 32.0f * NodeStatePosAbsolute(node);
 
-            // Draw border rect (1 draw call)
+            // Border rect render data
             NU_ClipBounds* clip = (NU_ClipBounds*)Hashmap_Get(&GUI.displayManager.clipMap, &node->clippedAncestor);
-            Add_NodeRectRenderData(node, z, clip->top, clip->bottom, clip->left, clip->right, &GUI.borderRectsRenderData);
-            NU_DrawBorderRects(
-                win,
-                &GUI.displayManager,
-                &GUI.borderRectsRenderData,
-                winW, winH);
-            Array_Clear(&GUI.borderRectsRenderData);
+            Add_NodeRectRenderData(node, ComputeZ(node->layer + ABSOLUTE_Z_LAYER * NodeStatePosAbsolute(node), 0), clip->top, clip->bottom, clip->left, clip->right, &GUI.borderRectsRenderData);
 
-            // Draw text content (1 draw call)
+            // Text content render data
             if (node->public.generic.textContent != NULL) {
                 Font* font = Stylesheet_Get_Font(&GUI.stylesheet, node->fontIdx);
                 Array* textRenderData = Array_Get(&GUI.perFontClippedTextRenderData, node->fontIdx);
-                Array_Clear(textRenderData);
-                NU_AddNodeTextToRenderDataArray(node, clip, z + 0.5f, textRenderData);
-                NU_DrawText(win, &GUI.displayManager, font, textRenderData, 0, 0);
+                NU_AddNodeTextToRenderDataArray(node, clip, ComputeZ(node->layer + ABSOLUTE_Z_LAYER * NodeStatePosAbsolute(node), 1), textRenderData);
             }
-            // Draw text input (1 draw call)
+
+            // Text input render data
             else if (node->type == NU_TYPE_INPUT) {
                 InputText* inputText = Container_Get(&GUI.textInputs, node->special.input.textInputHandle);
                 if (inputText->numBytes > 0) {
@@ -691,31 +725,32 @@ void NU_Draw()
                     //NU_DrawInputNodeContent(node, z, winW, winH, &innerClip);
                 }
             }
-            // Add image render data
+
+            // Image render data
             if (node->special.image.imageHandle != 0 && node->type == NU_TYPE_IMAGE)
             {
                 // Get image render group
                 int imageHandle = node->special.image.imageHandle;
                 ImageView* imageView = ImageResourceManager_GetImageView(&GUI.imageResourceManager, imageHandle);
                 int groupIndex = imageView->imageResourceIndex / 8;
-                u8 groupImageIndex = imageView->imageResourceIndex % 8;
+                uint8 groupImageIndex = imageView->imageResourceIndex % 8;
                 ImageRenderGroup* imageRenderGroup = Array_Get(&GUI.imageRenderGroups, groupIndex);
 
                 // Create image render data in group
                 ImageRenderData* renderData = Array_PushEmpty(&imageRenderGroup->imagesRenderData);
                 renderData->x = node->public.generic.x + node->public.generic.borderLeft + node->public.generic.padLeft;
                 renderData->y = node->public.generic.y + node->public.generic.borderTop + node->public.generic.padTop;
-                renderData->z = z + 0.75f;
+                renderData->z = ComputeZ(node->layer + ABSOLUTE_Z_LAYER * NodeStatePosAbsolute(node), 2);
                 renderData->w = node->public.generic.width - NODE_BORDER_PAD_WIDTH(node);
                 renderData->h = node->public.generic.height - NODE_BORDER_PAD_HEIGHT(node);
                 renderData->u0 = imageView->u0;
                 renderData->v0 = imageView->v0;
                 renderData->u1 = imageView->u1;
                 renderData->v1 = imageView->v1;
-                renderData->clipTop = 0;
-                renderData->clipBottom = 60000;
-                renderData->clipLeft = 0;
-                renderData->clipRight = 60000;
+                renderData->clipTop = clip->top;
+                renderData->clipBottom = clip->bottom;
+                renderData->clipLeft = clip->left;
+                renderData->clipRight = clip->right;
                 renderData->clipRadiusTopLeft = 0;
                 renderData->clipRadiusTopRight = 0;
                 renderData->clipRadiusBottomLeft = 0;
@@ -726,25 +761,98 @@ void NU_Draw()
             }
         }
 
-    //     // 5. Draw all canvas content
-    //     for (u32 n=0; n<drawList->canvasNodes.size; n++) {
-    //         Node* node = *(Node**)Array_Get(&drawList->canvasNodes, n);
-    //         float z = (float)(node->layer) + 32.0f * NodeStatePosAbsolute(node);
-    //         //NU_DrawCanvasContent(node, winW, winH, NULL);
-    //     }
+        // Draw unclipped border rects (1 draw call)
+        NU_DrawBorderRects(win, &GUI.displayManager, &GUI.borderRectsRenderData, winW, winH);
 
-        // 6. Draw images (1 draw call per image render group)
-        for (int i=0; i<Array_Length(&GUI.imageRenderGroups); i++) {
-            ImageRenderGroup* imageRenderGroup = Array_Get(&GUI.imageRenderGroups, i);
-            NU_DrawImages(
+        // Draw unclipped text (1 draw call per font)
+        for (uint32 t=0; t<Array_Length(&GUI.stylesheet.fonts); t++) {
+            Font* font = Stylesheet_Get_Font(&GUI.stylesheet, t);
+            Array* textRenderData = Array_Get(&GUI.perFontTextRenderData, t);
+            NU_DrawText(win, &GUI.displayManager, font, textRenderData, 0, 0);
+        }
+
+        // Draw clipped text (1 draw call per font)
+        for (uint32 t=0; t<Array_Length(&GUI.stylesheet.fonts); t++) {
+            Font* font = Stylesheet_Get_Font(&GUI.stylesheet, t);
+            Array* clippedTextRenderData = Array_Get(&GUI.perFontClippedTextRenderData, t);
+            NU_DrawClippedText(win, &GUI.displayManager, font, clippedTextRenderData, 0, 0);
+        }
+
+        // 4. Draw canvas contents
+        for (uint32 n=0; n<Array_Length(&drawList->canvasNodes); n++) {
+            Node* node = *(Node**)Array_Get(&drawList->canvasNodes, n);
+
+            NU_Canvas_Context* ctx = Container_Get(&GUI.canvasContexts, node->special.canvas.ctxHandle);
+            if (ctx == NULL) continue;
+
+            NU_ClipBounds* clip = (NU_ClipBounds*)Hashmap_Get(&GUI.displayManager.clipMap, &node->clippedAncestor);
+
+            // Compute offsets and clipping bounds
+            float offsetX = roundf(node->public.generic.x + node->public.generic.borderLeft + node->public.generic.padLeft);
+            float offsetY = roundf(node->public.generic.y + node->public.generic.borderTop + node->public.generic.padTop);
+            float top    = node->public.generic.y + node->public.generic.borderTop + node->public.generic.padTop;
+            float bottom = node->public.generic.y + node->public.generic.height - node->public.generic.borderBottom - node->public.generic.padBottom;
+            float left   = node->public.generic.x + node->public.generic.borderLeft + node->public.generic.padLeft;
+            float right  = node->public.generic.x + node->public.generic.width - node->public.generic.borderRight - node->public.generic.padRight;
+            if (clip)
+            {
+                top    = max(top, clip->top);
+                bottom = max(bottom, clip->bottom);
+                left   = max(left, clip->left);
+                right  = max(right, clip->right);
+            }
+            ctx->canvasWidth = node->public.generic.width;
+            ctx->canvasHeight = node->public.generic.height;
+
+            uint32 baseDepthLayer = node->layer + ABSOLUTE_Z_LAYER * NodeStatePosAbsolute(node);
+
+            // Retarget z values of unseen vertices
+            uint32 retargetedCount = 0;
+            for (uint32 v=ctx->meshLayer.zValuesRetargeted;
+                v<Vertex_RGB_List_Length(&ctx->meshLayer.vertices); v++)
+            {
+                vertex_rgb* vert = &ctx->meshLayer.vertices.array[i];
+                vert->z = ComputeZ(baseDepthLayer, (uint8)(vert->z));
+                retargetedCount++;
+            }
+            ctx->meshLayer.zValuesRetargeted += retargetedCount;
+
+            // Retarget z values of unseen glyph render instances
+            retargetedCount = 0;
+            for (uint32 l=0; l<Array_Length(&ctx->textLayers); l++) {
+                CanvasTextLayer* layer = Array_Get(&ctx->textLayers, l);
+                for (uint32 g=layer->zValuesRetargeted; g<Array_Length(&layer->textRenderData); g++) {
+                    GlyphRenderData* renderData = Array_Get(&layer->textRenderData, g);
+                    renderData->z = ComputeZ(baseDepthLayer, (uint8)(renderData->z));
+                    retargetedCount++;
+                }
+                layer->zValuesRetargeted += retargetedCount;
+            }
+
+            // Draw mesh layer
+            NU_DrawVertexRGB(
                 win,
                 &GUI.displayManager,
-                &GUI.imageResourceManager,
-                imageRenderGroup
+                &ctx->meshLayer.vertices,
+                &ctx->meshLayer.indices,
+                offsetX, offsetY,
+                top, bottom, left, right
             );
+
+            // Draw text layers
+            for (int l=0; l<Array_Length(&ctx->textLayers); l++) {
+                CanvasTextLayer* layer = Array_Get(&ctx->textLayers, l);
+                if (Array_Length(&layer->textRenderData) == 0) continue;
+                Font* font = Stylesheet_Get_Font(&GUI.stylesheet, layer->fontIdx);
+                NU_DrawText(win, &GUI.displayManager, font, &layer->textRenderData, offsetX, offsetY);
+            }
         }
-    //
-        timer_stop();
+
+        // Draw images (1 draw call per image render group)
+        for (int i=0; i<Array_Length(&GUI.imageRenderGroups); i++) {
+            ImageRenderGroup* imageRenderGroup = Array_Get(&GUI.imageRenderGroups, i);
+            NU_DrawImages(win, &GUI.displayManager, &GUI.imageResourceManager, imageRenderGroup);
+        }
 
         // Display
         Window_Present(win, &GUI.displayManager);

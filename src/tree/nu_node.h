@@ -93,21 +93,21 @@
 
 /* Members common to all node types */
 #define NU_NODE_FIELDS \
-    float x, y, width, height; \
-    float contentWidth, contentHeight; \
-    float scrollX, scrollV; \
-    u16 preferredWidth, preferredHeight; \
-    u16 minWidth, maxWidth; \
-    u16 minHeight, maxHeight; \
-    i16 left, right, top, bottom; \
-    u8 gap; \
-    u8 padTop, padBottom, padLeft, padRight; \
-    u8 borderTop, borderBottom, borderLeft, borderRight; \
-    u8 borderRadiusTl, borderRadiusTr; \
-    u8 borderRadiusBl, borderRadiusBr; \
-    u8 backgroundR, backgroundG, backgroundB; \
-    u8 borderR, borderG, borderB; \
-    u8 textR, textG, textB;
+    float32 x, y, width, height; \
+    float32 contentWidth, contentHeight; \
+    float32 scrollX, scrollV; \
+    uint16 preferredWidth, preferredHeight; \
+    uint16 minWidth, maxWidth; \
+    uint16 minHeight, maxHeight; \
+    int16 left, right, top, bottom; \
+    uint8 gap; \
+    uint8 padTop, padBottom, padLeft, padRight; \
+    uint8 borderTop, borderBottom, borderLeft, borderRight; \
+    uint8 borderRadiusTl, borderRadiusTr; \
+    uint8 borderRadiusBl, borderRadiusBr; \
+    uint8 backgroundR, backgroundG, backgroundB; \
+    uint8 borderR, borderG, borderB; \
+    uint8 textR, textG, textB;
 
 
 /* Node type opaque definitions */
@@ -193,19 +193,19 @@ typedef union PublicNodeStructUnion {
 
 /* Node type-specific data */
 typedef struct NuInputSpecial {
-    int textInputHandle;
+    int32 textInputHandle;
 } NuInputSpecial;
 
 typedef struct NuImageSpecial {
-    int imageHandle;
-    u8 widthDimType;
-    u8 heightDimType;
-    u8 repeat;
-    u8 filter;
+    int32 imageHandle;
+    uint8 widthDimType;
+    uint8 heightDimType;
+    uint8 repeat;
+    uint8 filter;
 } NuImageSpecial;
 
 typedef struct NuCanvasSpecial {
-    int ctxHandle;
+    int32 ctxHandle;
 } NuCanvasSpecial;
 
 typedef union NodeSpecialDataUnion {
@@ -216,15 +216,15 @@ typedef union NodeSpecialDataUnion {
 
 typedef struct InputText {
     char* buffer;
-    float cursorOffset;
-    float highlightOffset;
-    float textOffset;
-    int decimalByteIndex;
-    u16 numBytes;
-    u16 capacity;
-    u16 cursorBytes;
-    u16 highlightBytes;
-    u8 type; // 0 -> text, 1 -> number
+    float32 cursorOffset;
+    float32 highlightOffset;
+    float32 textOffset;
+    int32 decimalByteIndex;
+    uint16 numBytes;
+    uint16 capacity;
+    uint16 cursorBytes;
+    uint16 highlightBytes;
+    uint8 type; // 0 -> text, 1 -> number
     bool dragging;
     bool updateOffsetsPostLayout;
 } InputText;
@@ -241,37 +241,37 @@ typedef struct Node
     struct Node* clippedAncestor;  // Optional ancestor that has render clipping -> for calculating clipping union
     char* class;
     char* id;
-    u64 overrideStyleFlags;         // Bitflags determine which style properties ignore the stylesheet
+    uint64 overrideStyleFlags;         // Bitflags determine which style properties ignore the stylesheet
     NodeSpecialDataUnion special;   // Node type-specific data
-    int widgetID;
-    u32 subtreeSize;
-    u16 childCount;
-    u16 eventFlags;                 // Bit flags indicating bound events
-    u16 layoutFlags;                // Bit flags controlling layout and rendering
+    int32 widgetID;
+    uint32 subtreeSize;
+    uint16 childCount;
+    uint16 eventFlags;                 // Bit flags indicating bound events
+    uint16 layoutFlags;                // Bit flags controlling layout and rendering
     bool isPartitionRoot;
-    u8 type;
-    u8 layer;                       // Depth of this node in the tree [0, 1, ..n]
-    u8 stateFlags;                  // State bitflags (eg. "STATE_FLAG_HIDDEN")
-    u8 fontIdx;                     // Index of a font stored in an array
-    u8 windowID;                    // Index of a window stored in a container
-    u8 horizontalAlignment;         // Left, Center, Right [0, 1, 2]
-    u8 verticalAlignment;           // Top, Center, Bottom [0, 1, 2]
-    u8 horizontalTextAlignment;     // Left, Center, Right [0, 1, 2]
-    u8 verticalTextAlignment;       // Top, Center, Bottom [0, 1, 2]
+    uint8 type;
+    uint8 layer;                       // Depth of this node in the tree [0, 1, ..n]
+    uint8 stateFlags;                  // State bitflags (eg. "STATE_FLAG_HIDDEN")
+    uint8 fontIdx;                     // Index of a font stored in an array
+    uint8 windowID;                    // Index of a window stored in a container
+    uint8 horizontalAlignment;         // Left, Center, Right [0, 1, 2]
+    uint8 verticalAlignment;           // Top, Center, Bottom [0, 1, 2]
+    uint8 horizontalTextAlignment;     // Left, Center, Right [0, 1, 2]
+    uint8 verticalTextAlignment;       // Top, Center, Bottom [0, 1, 2]
 } Node;
 
 /* Other structs used by the layout engine */
 typedef struct NU_NodeDimensions
 {
-    float width, height;
+    float32 width, height;
 } NU_NodeDimensions;
 
 typedef struct NU_ClipBounds
 {
-    float top;
-    float bottom;
-    float left;
-    float right;
+    float32 top;
+    float32 bottom;
+    float32 left;
+    float32 right;
 } NU_ClipBounds;
 
 typedef enum NodeOverlap
@@ -297,7 +297,42 @@ inline bool NodeStateDeleted(Node* node)
     return (node->stateFlags & STATE_FLAG_DELETED) != 0;
 }
 
-void ApplyNodeDefaults(Node* node, Node* parent, u8 type, u16 layer)
+static inline float32 NODE_BORDER_PAD_WIDTH(const Node* node)
+{
+    return node->public.generic.borderLeft + node->public.generic.borderRight
+         + node->public.generic.padLeft + node->public.generic.padRight;
+}
+
+static inline float32 NODE_BORDER_PAD_HEIGHT(const Node* node)
+{
+    return node->public.generic.borderTop + node->public.generic.borderBottom
+         + node->public.generic.padTop + node->public.generic.padBottom;
+}
+
+static inline float32 NODE_INNER_WIDTH(const Node* node)
+{
+    return node->public.generic.width - (node->public.generic.borderLeft + node->public.generic.borderRight
+         + node->public.generic.padLeft + node->public.generic.padRight);
+}
+
+static inline float32 NODE_INNER_HEIGHT(const Node* node)
+{
+    return node->public.generic.height - (node->public.generic.borderTop + node->public.generic.borderBottom
+         + node->public.generic.padTop + node->public.generic.padBottom);
+}
+
+static inline bool NODE_HAS_TEXT_CONTENT(const Node* node)
+{
+    return node->public.generic.textContent != NULL &&
+    (node->type == NU_TYPE_BOX || node->type == NU_TYPE_BUTTON);
+}
+
+static inline bool NODE_CONTENTS_OVERFLOW_V(const Node* node)
+{
+    return node->public.generic.contentHeight > NODE_INNER_WIDTH(node);
+}
+
+void ApplyNodeDefaults(Node* node, Node* parent, uint8 type, uint16 layer)
 {
     // Zero init
     memset(node, 0, sizeof(Node));

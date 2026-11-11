@@ -20,24 +20,6 @@ extern "C" {
 #endif
 
 
-// Opaque structs
-typedef struct NU_Stylesheet NU_Stylesheet;
-
-/* Members common to all node types */
-#define NU_NODE_FIELDS \
-    uint16_t preferredWidth, preferredHeight; \
-    uint16_t minWidth, maxWidth; \
-    uint16_t minHeight, maxHeight; \
-    int16_t left, right, top, bottom; \
-    uint8_t gap; \
-    uint8_t padTop, padBottom, padLeft, padRight; \
-    uint8_t borderTop, borderBottom, borderLeft, borderRight; \
-    uint8_t borderRadiusTl, borderRadiusTr; \
-    uint8_t borderRadiusBl, borderRadiusBr; \
-    uint8_t backgroundR, backgroundG, backgroundB; \
-    uint8_t borderR, borderG, borderB; \
-    uint8_t textR, textG, textB;
-
 /* Node type opaque definitions */
 typedef struct NuNode NuNode;
 typedef struct NuWindow NuWindow;
@@ -52,52 +34,20 @@ typedef struct NuThead NuThead;
 typedef struct NuRow NuRow;
 
 /* Node type definitions */
-typedef struct NuNodeAccess {
-    NU_NODE_FIELDS;
-} NuNodeAccess;
-
-typedef struct NuWindowAccess {
-    NU_NODE_FIELDS;
-    char* textContent;
-} NuWindowAccess;
-
-typedef struct NuBoxAccess {
-    NU_NODE_FIELDS;
-    char* textContent;
-} NuBoxAccess;
-
-typedef struct NuButtonAccess {
-    NU_NODE_FIELDS;
-    char* textContent;
-} NuButtonAccess;
-
-typedef struct NuInputAccess {
-    NU_NODE_FIELDS;
-} NuInputAccess;
-
-typedef struct NuCanvasAccess {
-    NU_NODE_FIELDS;
-} NuCanvasAccess;
-
-typedef struct NuImageAccess {
-    NU_NODE_FIELDS;
-} NuImageAccess;
-
-typedef struct NuTableAccess {
-    NU_NODE_FIELDS;
-} NuTableAccess;
-
-typedef struct NuTheadAccess {
-    NU_NODE_FIELDS;
-} NuTheadAccess;
-
-typedef struct NuRowAccess {
-    NU_NODE_FIELDS;
-} NuRowAccess;
-
-typedef struct NuFrameAccess {
-    NU_NODE_FIELDS;
-} NuFrameAccess;
+typedef struct NuBaseReadonly {
+    uint16_t preferredWidth, preferredHeight;
+    uint16_t minWidth, maxWidth;
+    uint16_t minHeight, maxHeight;
+    int16_t left, right, top, bottom;
+    uint8_t gap;
+    uint8_t padTop, padBottom, padLeft, padRight;
+    uint8_t borderTop, borderBottom, borderLeft, borderRight;
+    uint8_t borderRadiusTl, borderRadiusTr;
+    uint8_t borderRadiusBl, borderRadiusBr;
+    uint8_t backgroundR, backgroundG, backgroundB;
+    uint8_t borderR, borderG, borderB;
+    uint8_t textR, textG, textB;
+} NuBaseReadonly;
 
 typedef struct NU_Nodelist
 {
@@ -328,6 +278,12 @@ typedef struct NU_Event
     enum NU_EventType eventType;
 } NU_Event;
 
+typedef enum {
+    NU_CANVAS_TYPE_UNBUFFERED,
+    NU_CANVAS_TYPE_BUFFERED_NO_MSAA,
+    NU_CANVAS_TYPE_BUFFERED_MSAA_4X,
+} CanvasRenderType;
+
 typedef void (*NU_EventCallback)(NU_Event event, void* args);
 typedef void (*NU_Callback)(void* args);
 typedef void (*NU_WidgetCreateCallback)(NuNode* root, int widgetID, void* args);
@@ -394,17 +350,8 @@ _IMPORT NuRow* NU_ROW(NuNode* parent);
 // Node deletion
 _IMPORT void NU_DELETE_NODE(NuNode* node);
 
-// Node member variable read access functions
-_IMPORT const NuWindowAccess* NU_WINDOW_GET(NuWindow* window);
-_IMPORT const NuBoxAccess*    NU_BOX_GET(NuBox* box);
-_IMPORT const NuFrameAccess*  NU_FRAME_GET(NuFrame* frame);
-_IMPORT const NuButtonAccess* NU_BUTTON_GET(NuButton* button);
-_IMPORT const NuInputAccess*  NU_INPUT_GET(NuInput* input);
-_IMPORT const NuCanvasAccess* NU_CANVAS_GET(NuCanvas* canvas);
-_IMPORT const NuImageAccess*  NU_IMAGE_GET(NuImage* image);
-_IMPORT const NuTableAccess*  NU_TABLE_GET(NuTable* table);
-_IMPORT const NuTheadAccess*  NU_THEAD_GET(NuThead* thead);
-_IMPORT const NuRowAccess*    NU_ROW_GET(NuRow* row);
+// Base node member variable read access
+_IMPORT const NuBaseReadonly* NU_BASE_GET(NuNode* node);
 
 // Generic node set functions
 _IMPORT void NU_SET_PREFERRED_WIDTH(NuNode* node, uint16_t preferredWidth);
@@ -544,6 +491,7 @@ _IMPORT void NU_CANVAS_DRAW_DASHED_LINE(
     uint32_t dash_pattern_len,
     NuColor color
 );
+_IMPORT void NU_CANVAS_SET_RENDER_TYPE(int contextId, CanvasRenderType renderType);
 _IMPORT void NU_CANVAS_SET_FONT(int contextID, const char* font_name);
 _IMPORT void NU_CANVAS_DRAW_TEXT(
     int contextID,

@@ -47,79 +47,77 @@ void EventSystem_Free()
 
 
 
-void NU_Internal_Bind_Event(NuNode* node, void* args, NU_EventCallback callback, enum NU_EventType event_type, int widgetID)
+void NU_Internal_Bind_Event(Node* node, void* args, NU_EventCallback callback, enum NU_EventType event_type, int widgetID)
 {
-    struct NU_Event event = {0}; event.node = node;
+    struct NU_Event event = {0}; event.node = (NuNode*)node;
     struct NU_EventCallbackInfo cb_info = { event, args, callback, widgetID };
-
-    Node* nodeP = NODEP_OF(node);
 
     switch (event_type) {
         case NU_EVENT_ON_CLICK:
-            nodeP->eventFlags |= NU_EVENT_FLAG_ON_CLICK;
-            Hashmap_Set(&GUI.eventSystem.on_click_events, &nodeP, &cb_info);
+            node->eventFlags |= NU_EVENT_FLAG_ON_CLICK;
+            Hashmap_Set(&GUI.eventSystem.on_click_events, &node, &cb_info);
             break;
         case NU_EVENT_ON_INPUT_CHANGED:
-            nodeP->eventFlags |= NU_EVENT_FLAG_ON_INPUT_CHANGED;
+            node->eventFlags |= NU_EVENT_FLAG_ON_INPUT_CHANGED;
             Hashmap_Set(&GUI.eventSystem.on_input_changed_events, &node, &cb_info);
             break;
         case NU_EVENT_ON_SCROLL:
-            nodeP->eventFlags |= NU_EVENT_FLAG_ON_SCROLL;
-            Hashmap_Set(&GUI.eventSystem.on_scroll_events, &nodeP, &cb_info);
+            node->eventFlags |= NU_EVENT_FLAG_ON_SCROLL;
+            Hashmap_Set(&GUI.eventSystem.on_scroll_events, &node, &cb_info);
             break;
         case NU_EVENT_ON_RESIZE:
-            nodeP->eventFlags |= NU_EVENT_FLAG_ON_RESIZE;
-            Hashmap_Set(&GUI.eventSystem.on_resize_events, &nodeP, &cb_info);
+            node->eventFlags |= NU_EVENT_FLAG_ON_RESIZE;
+            Hashmap_Set(&GUI.eventSystem.on_resize_events, &node, &cb_info);
             NU_NodeDimensions initial_dimensions = { -1.0f, -1.0f };
             Hashmap_Set(&GUI.eventSystem.node_resize_tracking, &node, &initial_dimensions);
             break;
         case NU_EVENT_ON_MOUSE_DOWN:
-            nodeP->eventFlags |= NU_EVENT_FLAG_ON_MOUSE_DOWN;
-            Hashmap_Set(&GUI.eventSystem.on_mouse_down_events, &nodeP, &cb_info);
+            node->eventFlags |= NU_EVENT_FLAG_ON_MOUSE_DOWN;
+            Hashmap_Set(&GUI.eventSystem.on_mouse_down_events, &node, &cb_info);
             break;
         case NU_EVENT_ON_MOUSE_UP:
-            nodeP->eventFlags |= NU_EVENT_FLAG_ON_MOUSE_UP;
-            Hashmap_Set(&GUI.eventSystem.on_mouse_up_events, &nodeP, &cb_info);
+            node->eventFlags |= NU_EVENT_FLAG_ON_MOUSE_UP;
+            Hashmap_Set(&GUI.eventSystem.on_mouse_up_events, &node, &cb_info);
             break;
         case NU_EVENT_ON_MOUSE_DOWN_OUTSIDE:
-            nodeP->eventFlags |= NU_EVENT_FLAG_ON_MOUSE_DOWN_OUTSIDE;
-            Hashmap_Set(&GUI.eventSystem.on_mouse_down_outside_events, &nodeP, &cb_info);
+            node->eventFlags |= NU_EVENT_FLAG_ON_MOUSE_DOWN_OUTSIDE;
+            Hashmap_Set(&GUI.eventSystem.on_mouse_down_outside_events, &node, &cb_info);
             break;
         case NU_EVENT_ON_MOUSE_MOVED:
-            nodeP->eventFlags |= NU_EVENT_FLAG_ON_MOUSE_MOVED;
-            Hashmap_Set(&GUI.eventSystem.on_mouse_move_events, &nodeP, &cb_info);
+            node->eventFlags |= NU_EVENT_FLAG_ON_MOUSE_MOVED;
+            Hashmap_Set(&GUI.eventSystem.on_mouse_move_events, &node, &cb_info);
             break;
         case NU_EVENT_ON_MOUSE_IN:
-            nodeP->eventFlags |= NU_EVENT_FLAG_ON_MOUSE_IN;
-            Hashmap_Set(&GUI.eventSystem.on_mouse_in_events, &nodeP, &cb_info);
+            node->eventFlags |= NU_EVENT_FLAG_ON_MOUSE_IN;
+            Hashmap_Set(&GUI.eventSystem.on_mouse_in_events, &node, &cb_info);
             break;
         case NU_EVENT_ON_MOUSE_OUT:
-            nodeP->eventFlags |= NU_EVENT_FLAG_ON_MOUSE_OUT;
-            Hashmap_Set(&GUI.eventSystem.on_mouse_out_events, &nodeP, &cb_info);
+            node->eventFlags |= NU_EVENT_FLAG_ON_MOUSE_OUT;
+            Hashmap_Set(&GUI.eventSystem.on_mouse_out_events, &node, &cb_info);
             break;
         case NU_EVENT_ON_MOUSE_WHEEL:
-            nodeP->eventFlags |= NU_EVENT_FLAG_ON_MOUSE_WHEEL;
-            Hashmap_Set(&GUI.eventSystem.on_mouse_wheel_events, &nodeP, &cb_info);
+            node->eventFlags |= NU_EVENT_FLAG_ON_MOUSE_WHEEL;
+            Hashmap_Set(&GUI.eventSystem.on_mouse_wheel_events, &node, &cb_info);
             break;
         case NU_EVENT_ON_INPUT_FOCUS:
-            nodeP->eventFlags |= NU_EVENT_FLAG_ON_INPUT_FOCUS;
-            Hashmap_Set(&GUI.eventSystem.on_input_focus_events, &nodeP, &cb_info);
+            node->eventFlags |= NU_EVENT_FLAG_ON_INPUT_FOCUS;
+            Hashmap_Set(&GUI.eventSystem.on_input_focus_events, &node, &cb_info);
             break;
         case NU_EVENT_ON_INPUT_DEFOCUS:
-            nodeP->eventFlags |= NU_EVENT_FLAG_ON_INPUT_DEFOCUS;
-            Hashmap_Set(&GUI.eventSystem.on_input_defocus_events, &nodeP, &cb_info);
+            node->eventFlags |= NU_EVENT_FLAG_ON_INPUT_DEFOCUS;
+            Hashmap_Set(&GUI.eventSystem.on_input_defocus_events, &node, &cb_info);
             break;
         case NU_EVENT_ON_KEY_DOWN:
-            nodeP->eventFlags |= NU_EVENT_FLAG_ON_KEY_DOWN;
-            Hashmap_Set(&GUI.eventSystem.on_key_down_events, &nodeP, &cb_info);
+            node->eventFlags |= NU_EVENT_FLAG_ON_KEY_DOWN;
+            Hashmap_Set(&GUI.eventSystem.on_key_down_events, &node, &cb_info);
             break;
         case NU_EVENT_ON_KEY_UP:
-            nodeP->eventFlags |= NU_EVENT_FLAG_ON_KEY_UP;
-            Hashmap_Set(&GUI.eventSystem.on_key_up_events, &nodeP, &cb_info);
+            node->eventFlags |= NU_EVENT_FLAG_ON_KEY_UP;
+            Hashmap_Set(&GUI.eventSystem.on_key_up_events, &node, &cb_info);
             break;
         case NU_EVENT_ON_TYPE:
-            nodeP->eventFlags |= NU_EVENT_FLAG_ON_TYPE;
-            Hashmap_Set(&GUI.eventSystem.on_type_events, &nodeP, &cb_info);
+            node->eventFlags |= NU_EVENT_FLAG_ON_TYPE;
+            Hashmap_Set(&GUI.eventSystem.on_type_events, &node, &cb_info);
             break;
     }
 }
@@ -417,9 +415,9 @@ void CheckForResizeEvents()
             NU_NodeDimensions* dims = (NU_NodeDimensions*)dims_get;
 
             // Resize detected? -> update dims and call callback
-            if (dims->width != -1.0f && (node->public.generic.width != dims->width || node->public.generic.height != dims->height)) {
-                dims->width = node->public.generic.width;
-                dims->height = node->public.generic.height;
+            if (dims->width != -1.0f && (node->base.width != dims->width || node->base.height != dims->height)) {
+                dims->width = node->base.width;
+                dims->height = node->base.height;
                 if (cb_info->callback) cb_info->callback(cb_info->event, cb_info->args);
 
                 // Run widget update function (if widget is bound)
@@ -432,8 +430,8 @@ void CheckForResizeEvents()
 
             // Init dims
             if (dims->width == -1.0f) {
-                dims->width = node->public.generic.width;
-                dims->height = node->public.generic.height;
+                dims->width = node->base.width;
+                dims->height = node->base.height;
             }
         }
     }

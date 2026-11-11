@@ -1,10 +1,10 @@
 #pragma once
 
-void NU_DrawVertexRGB(
+#include "nu_renderer_structures.h"
+void NU_DrawVertexSDFList(
     Window* window,
     DisplayManager* displayManager,
-    Vertex_RGB_List* vertices,
-    Index_List* indices,
+    VertexSDFList* vertexList,
     float offsetX,
     float offsetY,
     float scissorTop,
@@ -14,7 +14,7 @@ void NU_DrawVertexRGB(
     bool MSAA_4X)
 {
     // Skip draw if there is no data
-    if (vertices->size == 0 || indices->size == 0) return;
+    if (VertexSDFList_VertexCount(vertexList) == 0 || VertexSDFList_IndexCount(vertexList) == 0) return;
 
     // Get the command buffer
     VkCommandBuffer cmd = window->commandBuffers[window->currentFrame];
@@ -56,29 +56,29 @@ void NU_DrawVertexRGB(
     vkCmdPushConstants(cmd, displayManager->vertexRGBPipeline.layout, VK_SHADER_STAGE_VERTEX_BIT, 0, sizeof(push), push);
 
     // Allocate vertex buffer space in the GPU arena
-    VkDeviceSize vertBytes = vertices->size * sizeof(vertex_rgb);
+    VkDeviceSize vertBytes = VertexSDFList_VertexBytes(vertexList);
     ArenaAllocGPU vertAlloc = ArenaAllocatorGPU_Alloc(&displayManager->gpuArenaAlloc, vertBytes, 16);
     if (vertAlloc.buffer == VK_NULL_HANDLE) {
         ErrorSystem_AddError(&GUI.errorSystem, "<Vulkan Error> vertexRGB vertex arena alloc failed");
         return;
     }
-    memcpy((char*)vertAlloc.mapped + vertAlloc.offset, vertices->array, (size_t)vertBytes);
+    memcpy((char*)vertAlloc.mapped + vertAlloc.offset, vertexList->vertices, (size_t)vertBytes);
 
     // Allocate index buffer space in the GPU arean
-    VkDeviceSize idxBytes = indices->size * sizeof(uint32);
+    VkDeviceSize idxBytes = VertexSDFList_IndexBytes(vertexList);
     ArenaAllocGPU idxAlloc = ArenaAllocatorGPU_Alloc(&displayManager->gpuArenaAlloc, idxBytes, 16);
     if (idxAlloc.buffer == VK_NULL_HANDLE) {
         ErrorSystem_AddError(&GUI.errorSystem, "<Vulkan Error> vertexRGB index arena alloc failed");
         return;
     }
-    memcpy((char*)idxAlloc.mapped + idxAlloc.offset, indices->array, (size_t)idxBytes);
+    memcpy((char*)idxAlloc.mapped + idxAlloc.offset, vertexList->indices, (size_t)idxBytes);
 
     // Bind vertex + index buffers
     vkCmdBindVertexBuffers(cmd, 0, 1, &vertAlloc.buffer, &vertAlloc.offset);
     vkCmdBindIndexBuffer(cmd, idxAlloc.buffer, idxAlloc.offset, VK_INDEX_TYPE_UINT32);
 
     // Draw
-    vkCmdDrawIndexed(cmd, (uint32_t)indices->size, 1, 0, 0, 0);
+    vkCmdDrawIndexed(cmd, VertexSDFList_IndexCount(vertexList), 1, 0, 0, 0);
 }
 
 void NU_DrawBorderRects(

@@ -50,7 +50,6 @@ _EXPORT void NU_QUIT(void) {
 }
 
 _EXPORT NuWindow* NU_CREATE_GUI(const char* xml_filepath, const char* css_filepath) {
-
     // Init SDL
     if (!SDL_Init(SDL_INIT_VIDEO)) return NULL;
     SDL_SetHint("SDL_MOUSE_FOCUS_CLICKTHROUGH", "1");
@@ -245,12 +244,8 @@ _EXPORT void NU_RUN(void) {
         // Re-render UI if necessary
         if (GUI.awaiting_redraw)
         {
-            printf("layout: ");
-            timer_start();
             NU_Layout();
-            timer_stop();
             NU_Mouse_Hover();
-            printf("draw: ");
             NU_Draw();
             CheckForResizeEvents();
         }
@@ -442,8 +437,8 @@ _EXPORT NuWindow* NU_WINDOW(NuNode* parent) {
     Node* node = TreeCreateNode(&GUI.tree, parentP, NU_TYPE_WINDOW);
     Stylesheet_ApplyStyleToNode(&GUI.stylesheet, node);
     DisplayManager_CreateWindow(&GUI.displayManager, node, "",
-        max(node->public.generic.width, 100),
-        max(node->public.generic.height, 100)
+        max(node->base.width, 100),
+        max(node->base.height, 100)
     );
     return (NuWindow*)(node);
 }
@@ -528,234 +523,183 @@ _EXPORT void NU_DELETE_NODE(NuNode* node) {
     return TreeDeleteNode(&GUI.tree, nodeP, NU_DissociateNode);
 }
 
-_EXPORT const NuWindowAccess* Window_GET(NuWindow* window) {
-    Node* nodeP = (Node*)window;
-    return &nodeP->public.window;
-}
-
-_EXPORT const NuBoxAccess* NU_BOX_GET(NuBox* box) {
-    Node* nodeP = (Node*)box;
-    return &nodeP->public.box;
-}
-
-_EXPORT const NuFrameAccess* NU_FRAME_GET(NuFrame* frame) {
-    Node* nodeP = (Node*)frame;
-    return &nodeP->public.frame;
-}
-
-_EXPORT const NuButtonAccess* NU_BUTTON_GET(NuButton* button) {
-    Node* nodeP = (Node*)button;
-    return &nodeP->public.button;
-}
-
-_EXPORT const NuInputAccess* NU_INPUT_GET(NuInput* input) {
-    Node* nodeP = (Node*)input;
-    return &nodeP->public.input;
-}
-
-_EXPORT const NuCanvasAccess* NU_CANVAS_GET(NuCanvas* canvas) {
-    Node* nodeP = (Node*)canvas;
-    return &nodeP->public.canvas;
-}
-
-_EXPORT const NuImageAccess* NU_IMAGE_GET(NuImage* image) {
-    Node* nodeP = (Node*)image;
-    return &nodeP->public.image;
-}
-
-_EXPORT const NuTableAccess* NU_TABLE_GET(NuTable* table) {
-    Node* nodeP = (Node*)table;
-    return &nodeP->public.table;
-}
-
-_EXPORT const NuTheadAccess* NU_THEAD_GET(NuThead* thead) {
-    Node* nodeP = (Node*)thead;
-    return &nodeP->public.thead;
-}
-
-_EXPORT const NuRowAccess* NU_ROW_GET(NuRow* row) {
-    Node* nodeP = (Node*)row;
-    return &nodeP->public.row;
+_EXPORT const NodePublicBase* NU_BASE_GET(NuNode* node) {
+    Node* nodeP = (Node*)node;
+    return &nodeP->base;
 }
 
 _EXPORT void NU_SET_PREFERRED_WIDTH(NuNode* node, uint16_t preferredWidth) {
     Node* nodeP = (Node*)node;
-    nodeP->public.common.preferredWidth = preferredWidth;
+    nodeP->base.preferredWidth = preferredWidth;
     GUI.awaiting_redraw = true;
 }
 
 _EXPORT void NU_SET_PREFERRED_HEIGHT(NuNode* node, uint16_t preferredHeight) {
     Node* nodeP = (Node*)node;
-    nodeP->public.common.preferredHeight = preferredHeight;
+    nodeP->base.preferredHeight = preferredHeight;
     GUI.awaiting_redraw = true;
 }
 
 _EXPORT void NU_SET_MIN_WIDTH(NuNode* node, uint16_t minWidth) {
     Node* nodeP = (Node*)node;
-    nodeP->public.common.minWidth = minWidth;
+    nodeP->base.minWidth = minWidth;
     GUI.awaiting_redraw = true;
 }
 
 _EXPORT void NU_SET_MAX_WIDTH(NuNode* node, uint16_t maxWidth) {
     Node* nodeP = (Node*)node;
-    nodeP->public.common.maxWidth = maxWidth;
+    nodeP->base.maxWidth = maxWidth;
     GUI.awaiting_redraw = true;
 }
 
 _EXPORT void NU_SET_MIN_HEIGHT(NuNode* node, uint16_t minHeight) {
     Node* nodeP = (Node*)node;
-    nodeP->public.common.minHeight = minHeight;
+    nodeP->base.minHeight = minHeight;
     GUI.awaiting_redraw = true;
 }
 
 _EXPORT void NU_SET_MAX_HEIGHT(NuNode* node, uint16_t maxHeight) {
     Node* nodeP = (Node*)node;
-    nodeP->public.common.maxHeight = maxHeight;
+    nodeP->base.maxHeight = maxHeight;
     GUI.awaiting_redraw = true;
 }
 
 _EXPORT void NU_SET_LEFT(NuNode* node, uint16_t left) {
     Node* nodeP = (Node*)node;
-    nodeP->public.common.left = left;
+    nodeP->base.left = left;
     GUI.awaiting_redraw = true;
 }
 
 _EXPORT void NU_SET_RIGHT(NuNode* node, uint16_t right) {
     Node* nodeP = (Node*)node;
-    nodeP->public.common.right = right;
+    nodeP->base.right = right;
     GUI.awaiting_redraw = true;
 }
 
 _EXPORT void NU_SET_TOP(NuNode* node, uint16_t top) {
     Node* nodeP = (Node*)node;
-    nodeP->public.common.top = top;
+    nodeP->base.top = top;
     GUI.awaiting_redraw = true;
 }
 
 _EXPORT void NU_SET_BOTTOM(NuNode* node, uint16_t bottom) {
     Node* nodeP = (Node*)node;
-    nodeP->public.common.bottom = bottom;
+    nodeP->base.bottom = bottom;
     GUI.awaiting_redraw = true;
 }
 
 _EXPORT void NU_SET_GAP(NuNode* node, uint8_t gap) {
     Node* nodeP = (Node*)node;
-    nodeP->public.common.gap = gap;
+    nodeP->base.gap = gap;
     GUI.awaiting_redraw = true;
 }
 
 _EXPORT void NU_SET_PAD_TOP(NuNode* node, uint8_t padTop) {
     Node* nodeP = (Node*)node;
-    nodeP->public.common.padTop = padTop;
+    nodeP->base.padTop = padTop;
     GUI.awaiting_redraw = true;
 }
 
 _EXPORT void NU_SET_PAD_BOTTOM(NuNode* node, uint8_t padBottom) {
     Node* nodeP = (Node*)node;
-    nodeP->public.common.padBottom = padBottom;
+    nodeP->base.padBottom = padBottom;
     GUI.awaiting_redraw = true;
 }
 
 _EXPORT void NU_SET_PAD_LEFT(NuNode* node, uint8_t padLeft) {
     Node* nodeP = (Node*)node;
-    nodeP->public.common.padLeft = padLeft;
+    nodeP->base.padLeft = padLeft;
     GUI.awaiting_redraw = true;
 }
 
 _EXPORT void NU_SET_PAD_RIGHT(NuNode* node, uint8_t padRight) {
     Node* nodeP = (Node*)node;
-    nodeP->public.common.padRight = padRight;
+    nodeP->base.padRight = padRight;
     GUI.awaiting_redraw = true;
 }
 
 _EXPORT void NU_SET_BORDER_TOP(NuNode* node, uint8_t borderTop) {
     Node* nodeP = (Node*)node;
-    nodeP->public.common.borderTop = borderTop;
+    nodeP->base.borderTop = borderTop;
     GUI.awaiting_redraw = true;
 }
 
 _EXPORT void NU_SET_BORDER_BOTTOM(NuNode* node, uint8_t borderBottom) {
     Node* nodeP = (Node*)node;
-    nodeP->public.common.borderBottom = borderBottom;
+    nodeP->base.borderBottom = borderBottom;
     GUI.awaiting_redraw = true;
 }
 
 _EXPORT void NU_SET_BORDER_LEFT(NuNode* node, uint8_t borderLeft) {
     Node* nodeP = (Node*)node;
-    nodeP->public.common.borderLeft = borderLeft;
+    nodeP->base.borderLeft = borderLeft;
     GUI.awaiting_redraw = true;
 }
 
 _EXPORT void NU_SET_BORDER_RIGHT(NuNode* node, uint8_t borderRight) {
     Node* nodeP = (Node*)node;
-    nodeP->public.common.borderRight = borderRight;
+    nodeP->base.borderRight = borderRight;
     GUI.awaiting_redraw = true;
 }
 
 _EXPORT void NU_SET_BORDER_RADIUS_TL(NuNode* node, uint8_t borderRadiusTl) {
     Node* nodeP = (Node*)node;
-    nodeP->public.common.borderRadiusTl = borderRadiusTl;
+    nodeP->base.borderRadiusTl = borderRadiusTl;
     GUI.awaiting_redraw = true;
 }
 
 _EXPORT void NU_SET_BORDER_RADIUS_TR(NuNode* node, uint8_t borderRadiusTr) {
     Node* nodeP = (Node*)node;
-    nodeP->public.common.borderRadiusTr = borderRadiusTr;
+    nodeP->base.borderRadiusTr = borderRadiusTr;
     GUI.awaiting_redraw = true;
 }
 
 _EXPORT void NU_SET_BORDER_RADIUS_BL(NuNode* node, uint8_t borderRadiusBl) {
     Node* nodeP = (Node*)node;
-    nodeP->public.common.borderRadiusBl = borderRadiusBl;
+    nodeP->base.borderRadiusBl = borderRadiusBl;
     GUI.awaiting_redraw = true;
 }
 
 _EXPORT void NU_SET_BORDER_RADIUS_BR(NuNode* node, uint8_t borderRadiusBr) {
     Node* nodeP = (Node*)node;
-    nodeP->public.common.borderRadiusBr = borderRadiusBr;
+    nodeP->base.borderRadiusBr = borderRadiusBr;
     GUI.awaiting_redraw = true;
 }
 
 _EXPORT void NU_SET_BACKGROUND_COLOR(NuNode* node, NuColor color) {
     Node* nodeP = (Node*)node;
-    nodeP->public.common.backgroundR = color.r;
-    nodeP->public.common.backgroundG = color.g;
-    nodeP->public.common.backgroundB = color.b;
+    nodeP->base.backgroundR = color.r;
+    nodeP->base.backgroundG = color.g;
+    nodeP->base.backgroundB = color.b;
     nodeP->overrideStyleFlags |= PROPERTY_FLAG_BACKGROUND;
     GUI.awaiting_redraw = true;
 }
 
 _EXPORT void NU_SET_BORDER_COLOR(NuNode* node, NuColor color) {
     Node* nodeP = (Node*)node;
-    nodeP->public.common.borderR = color.r;
-    nodeP->public.common.borderG = color.g;
-    nodeP->public.common.borderB = color.b;
+    nodeP->base.borderR = color.r;
+    nodeP->base.borderG = color.g;
+    nodeP->base.borderB = color.b;
     nodeP->overrideStyleFlags |= PROPERTY_FLAG_BORDER_COLOUR;
     GUI.awaiting_redraw = true;
 }
 
 _EXPORT void NU_SET_TEXT_COLOR(NuNode* node, NuColor color) {
     Node* nodeP = (Node*)node;
-    nodeP->public.common.textR = color.r;
-    nodeP->public.common.textG = color.g;
-    nodeP->public.common.textB = color.b;
+    nodeP->special.text.textR = color.r;
+    nodeP->special.text.textB = color.g;
+    nodeP->special.text.textB = color.b;
     nodeP->overrideStyleFlags |= PROPERTY_FLAG_TEXT_COLOUR;
     GUI.awaiting_redraw = true;
 }
 
-_EXPORT void Window_SET_TEXT_CONTENT(NuWindow* window, char* string) {
-    Node* nodeP = (Node*)window;
-    nodeP->public.window.textContent = string;
-    GUI.awaiting_redraw = true;
-}
-
-_EXPORT void Window_SET_TITLE(NuWindow* window, const char* string) {
+_EXPORT void NU_WINDOW_SET_TITLE(NuWindow* window, const char* string) {
     Node* nodeP = (Node*)(window);
     SDL_Window* SDLwindow = DisplayManager_GetNodeSDLWindow(&GUI.displayManager, nodeP);
     SDL_SetWindowTitle(SDLwindow, string);
 }
 
-_EXPORT void Window_SET_FULLSCREEN(NuWindow* window) {
+_EXPORT void NU_WINDOW_SET_FULLSCREEN(NuWindow* window) {
     Node* nodeP = (Node*)(window);
     SDL_Window* SDLwindow = DisplayManager_GetNodeSDLWindow(&GUI.displayManager, nodeP);
     Uint32 flags = SDL_GetWindowFlags(SDLwindow);
@@ -764,7 +708,7 @@ _EXPORT void Window_SET_FULLSCREEN(NuWindow* window) {
     GUI.awaiting_redraw = true;
 }
 
-_EXPORT void Window_SET_WINDOWED(NuWindow* window) {
+_EXPORT void NU_WINDOW_SET_WINDOWED(NuWindow* window) {
     Node* nodeP = (Node*)(window);
     SDL_Window* SDLwindow = DisplayManager_GetNodeSDLWindow(&GUI.displayManager, nodeP);
     Uint32 flags = SDL_GetWindowFlags(SDLwindow);
@@ -775,13 +719,13 @@ _EXPORT void Window_SET_WINDOWED(NuWindow* window) {
 
 _EXPORT void NU_BOX_SET_TEXT_CONTENT(NuBox* box, char* string) {
     Node* nodeP = (Node*)box;
-    nodeP->public.box.textContent = string;
+    nodeP->special.text.textContent = string;
     GUI.awaiting_redraw = true;
 }
 
 _EXPORT void NU_BUTTON_SET_TEXT_CONTENT(NuButton* button, char* string) {
     Node* nodeP = (Node*)button;
-    nodeP->public.button.textContent = string;
+    nodeP->special.text.textContent = string;
     GUI.awaiting_redraw = true;
 }
 
@@ -1109,7 +1053,7 @@ _EXPORT void NU_REMOVE_CLASS(NuNode* node) {
 }
 
 _EXPORT void NU_BIND_EVENT(NuNode* node, NU_EventCallback callback, void* args, NU_EventType event_type, int widgetID) {
-    NU_Internal_Bind_Event(node, args, callback, event_type, widgetID);
+    NU_Internal_Bind_Event((Node*)(node), args, callback, event_type, widgetID);
 }
 
 _EXPORT int NU_WIDGET(NuNode* widgetRoot,
@@ -1191,7 +1135,10 @@ _EXPORT void NU_CANVAS_DRAW_BORDER_RECT(
     NuColor fillColor)
 {
     NU_Canvas_Context* ctx = Container_Get(&GUI.canvasContexts, contextID);
-    if (ctx) Canvas_DrawBorderRect(ctx, x, y, w, h, thickness, borderColor, fillColor);
+    if (ctx) {
+        Canvas_DrawBorderRect(ctx, x, y, w, h, thickness, borderColor, fillColor);
+        GUI.awaiting_redraw = true;
+    }
 }
 
 _EXPORT void NU_CANVAS_DRAW_TRIANGLE(
@@ -1204,7 +1151,10 @@ _EXPORT void NU_CANVAS_DRAW_TRIANGLE(
     NuColor fillColor)
 {
     NU_Canvas_Context* ctx = Container_Get(&GUI.canvasContexts, contextID);
-    if (ctx) Canvas_DrawTriangle(ctx, x1, y1, x2, y2, x3, y3, thickness, borderColor, fillColor);
+    if (ctx) {
+        Canvas_DrawTriangle(ctx, x1, y1, x2, y2, x3, y3, thickness, borderColor, fillColor);
+        GUI.awaiting_redraw = true;
+    }
 }
 
 _EXPORT void NU_CANVAS_DRAW_VLINE(
@@ -1214,7 +1164,10 @@ _EXPORT void NU_CANVAS_DRAW_VLINE(
     NuColor color)
 {
     NU_Canvas_Context* ctx = Container_Get(&GUI.canvasContexts, contextID);
-    if (ctx) Canvas_DrawVline(ctx, x, y, height, thickness, color);
+    if (ctx) {
+        Canvas_DrawVline(ctx, x, y, height, thickness, color);
+        GUI.awaiting_redraw = true;
+    }
 }
 
 _EXPORT void NU_CANVAS_DRAW_HLINE(
@@ -1224,7 +1177,10 @@ _EXPORT void NU_CANVAS_DRAW_HLINE(
     NuColor color)
 {
     NU_Canvas_Context* ctx = Container_Get(&GUI.canvasContexts, contextID);
-    if (ctx) Canvas_DrawHline(ctx, x, y, width, thickness, color);
+    if (ctx) {
+        Canvas_DrawHline(ctx, x, y, width, thickness, color);
+        GUI.awaiting_redraw = true;
+    }
 }
 
 _EXPORT void NU_CANVAS_DRAW_LINE(
@@ -1235,7 +1191,10 @@ _EXPORT void NU_CANVAS_DRAW_LINE(
     NuColor color)
 {
     NU_Canvas_Context* ctx = Container_Get(&GUI.canvasContexts, contextID);
-    if (ctx) Canvas_DrawLine(ctx, x1, y1, x2, y2, thickness, color);
+    if (ctx) {
+        Canvas_DrawLine(ctx, x1, y1, x2, y2, thickness, color);
+        GUI.awaiting_redraw = true;
+    }
 }
 
 _EXPORT void NU_CANVAS_DRAW_DASHED_LINE(
@@ -1255,15 +1214,23 @@ _EXPORT void NU_CANVAS_DRAW_DASHED_LINE(
             thickness,
             dash_pattern,
             dash_pattern_len,
-            color);
-        }
+            color
+        );
+        GUI.awaiting_redraw = true;
+    }
+}
+
+_EXPORT void NU_CANVAS_SET_RENDER_TYPE(int contextId, CanvasRenderType renderType)
+{
+    NU_Canvas_Context* ctx = Container_Get(&GUI.canvasContexts, contextId);
+    if (ctx) ctx->desiredRenderType = renderType;
 }
 
 _EXPORT void NU_CANVAS_SET_FONT(
-    int contextID,
+    int contextId,
     const char* font_name)
 {
-    NU_Canvas_Context* ctx = Container_Get(&GUI.canvasContexts, contextID);
+    NU_Canvas_Context* ctx = Container_Get(&GUI.canvasContexts, contextId);
     if (ctx) Canvas_SetFont(ctx, font_name);
 }
 
@@ -1277,6 +1244,7 @@ _EXPORT void NU_CANVAS_DRAW_TEXT(
         CanvasTextLayer* layer = Array_Get(&ctx->textLayers, ctx->selectedTextLayerIdx);
         Font* font = Stylesheet_Get_Font(&GUI.stylesheet, layer->fontIdx);
         Canvas_DrawText(ctx, font, x, y, wrapWidth, color, string);
+        GUI.awaiting_redraw = true;
     }
 }
 
@@ -1316,6 +1284,7 @@ _EXPORT void NU_CANVAS_DRAW_LEN_TEXT(
         CanvasTextLayer* layer = Array_Get(&ctx->textLayers, ctx->selectedTextLayerIdx);
         Font* font = Stylesheet_Get_Font(&GUI.stylesheet, layer->fontIdx);
         Canvas_DrawLengthText(ctx, font, x, y, wrapWidth, color, string, stringLen);
+        GUI.awaiting_redraw = true;
     }
 }
 

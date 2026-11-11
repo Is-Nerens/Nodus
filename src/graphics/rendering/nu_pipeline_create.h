@@ -198,7 +198,7 @@ int NU_CreateBorderRectPipeline(DisplayManager* dm, NuPipeline* pipeline, bool M
     ds.sType                 = VK_STRUCTURE_TYPE_PIPELINE_DEPTH_STENCIL_STATE_CREATE_INFO;
     ds.depthTestEnable       = VK_TRUE;
     ds.depthWriteEnable      = VK_TRUE;
-    ds.depthCompareOp        = VK_COMPARE_OP_GREATER;
+    ds.depthCompareOp        = VK_COMPARE_OP_GREATER_OR_EQUAL;
     ds.depthBoundsTestEnable = VK_FALSE;
     ds.stencilTestEnable     = VK_FALSE;
 
@@ -413,7 +413,7 @@ int NU_CreateImagePipeline(DisplayManager* displayManager, NuPipeline* pipeline,
     ds.sType                 = VK_STRUCTURE_TYPE_PIPELINE_DEPTH_STENCIL_STATE_CREATE_INFO;
     ds.depthTestEnable       = VK_TRUE;
     ds.depthWriteEnable      = VK_TRUE;
-    ds.depthCompareOp        = VK_COMPARE_OP_GREATER;
+    ds.depthCompareOp        = VK_COMPARE_OP_GREATER_OR_EQUAL;
     ds.depthBoundsTestEnable = VK_FALSE;
     ds.stencilTestEnable     = VK_FALSE;
 
@@ -650,7 +650,7 @@ int NU_CreateMonoTextPipeline(DisplayManager* displayManager, NuPipeline* pipeli
     ds.sType                 = VK_STRUCTURE_TYPE_PIPELINE_DEPTH_STENCIL_STATE_CREATE_INFO;
     ds.depthTestEnable       = VK_TRUE;
     ds.depthWriteEnable      = VK_TRUE;
-    ds.depthCompareOp        = VK_COMPARE_OP_GREATER;
+    ds.depthCompareOp        = VK_COMPARE_OP_GREATER_OR_EQUAL;
     ds.depthBoundsTestEnable = VK_FALSE;
     ds.stencilTestEnable     = VK_FALSE;
 
@@ -909,7 +909,7 @@ int NU_CreateClippedMonoTextPipeline(DisplayManager* displayManager, NuPipeline*
     ds.sType                 = VK_STRUCTURE_TYPE_PIPELINE_DEPTH_STENCIL_STATE_CREATE_INFO;
     ds.depthTestEnable       = VK_TRUE;
     ds.depthWriteEnable      = VK_TRUE;
-    ds.depthCompareOp        = VK_COMPARE_OP_GREATER;
+    ds.depthCompareOp        = VK_COMPARE_OP_GREATER_OR_EQUAL;
     ds.depthBoundsTestEnable = VK_FALSE;
     ds.stencilTestEnable     = VK_FALSE;
 
@@ -1149,7 +1149,7 @@ int NU_CreateSubpixelTextPipeline(DisplayManager* displayManager, NuPipeline* pi
     ds.sType                 = VK_STRUCTURE_TYPE_PIPELINE_DEPTH_STENCIL_STATE_CREATE_INFO;
     ds.depthTestEnable       = VK_TRUE;
     ds.depthWriteEnable      = VK_TRUE;
-    ds.depthCompareOp        = VK_COMPARE_OP_GREATER;
+    ds.depthCompareOp        = VK_COMPARE_OP_GREATER_OR_EQUAL;
     ds.depthBoundsTestEnable = VK_FALSE;
     ds.stencilTestEnable     = VK_FALSE;
 
@@ -1406,7 +1406,7 @@ int NU_CreateClippedSubpixelTextPipeline(DisplayManager* displayManager, NuPipel
     ds.sType                 = VK_STRUCTURE_TYPE_PIPELINE_DEPTH_STENCIL_STATE_CREATE_INFO;
     ds.depthTestEnable       = VK_TRUE;
     ds.depthWriteEnable      = VK_TRUE;
-    ds.depthCompareOp        = VK_COMPARE_OP_GREATER;
+    ds.depthCompareOp        = VK_COMPARE_OP_GREATER_OR_EQUAL;
     ds.depthBoundsTestEnable = VK_FALSE;
     ds.stencilTestEnable     = VK_FALSE;
 
@@ -1556,22 +1556,34 @@ int NU_CreateVertexRGBPipeline(DisplayManager* dm, NuPipeline* pipeline, bool MS
     // Vertex attribute layout
     VkVertexInputBindingDescription binding = {0};
     binding.binding   = 0;
-    binding.stride    = sizeof(vertex_rgb);
+    binding.stride    = sizeof(vertexSDF);
     binding.inputRate = VK_VERTEX_INPUT_RATE_VERTEX;
-    VkVertexInputAttributeDescription attrs[2] = {0};
+    VkVertexInputAttributeDescription attrs[4] = {0};
+    // location 0: vec3 = (x, y, z)
     attrs[0].location = 0;
     attrs[0].binding  = 0;
     attrs[0].format   = VK_FORMAT_R32G32B32_SFLOAT;
-    attrs[0].offset   = offsetof(vertex_rgb, x);
+    attrs[0].offset   = offsetof(vertexSDF, x);
+    // location 1: float = sdf
     attrs[1].location = 1;
     attrs[1].binding  = 0;
     attrs[1].format   = VK_FORMAT_R32_SFLOAT;
-    attrs[1].offset   = offsetof(vertex_rgb, packedColor);
+    attrs[1].offset   = offsetof(vertexSDF, sdf);
+    // location 2: float = sdf2
+    attrs[2].location = 2;
+    attrs[2].binding  = 0;
+    attrs[2].format   = VK_FORMAT_R32_SFLOAT;
+    attrs[2].offset   = offsetof(vertexSDF, sdf2);
+    // location 3: uint = packedColor
+    attrs[3].location = 3;
+    attrs[3].binding  = 0;
+    attrs[3].format   = VK_FORMAT_R32_SFLOAT;
+    attrs[3].offset   = offsetof(vertexSDF, packedColor);
     VkPipelineVertexInputStateCreateInfo vis = {0};
     vis.sType                           = VK_STRUCTURE_TYPE_PIPELINE_VERTEX_INPUT_STATE_CREATE_INFO;
     vis.vertexBindingDescriptionCount   = 1;
     vis.pVertexBindingDescriptions      = &binding;
-    vis.vertexAttributeDescriptionCount = 2;
+    vis.vertexAttributeDescriptionCount = 4;
     vis.pVertexAttributeDescriptions    = attrs;
 
     // Input assembly
@@ -1616,7 +1628,7 @@ int NU_CreateVertexRGBPipeline(DisplayManager* dm, NuPipeline* pipeline, bool MS
     ds.sType                 = VK_STRUCTURE_TYPE_PIPELINE_DEPTH_STENCIL_STATE_CREATE_INFO;
     ds.depthTestEnable       = VK_TRUE;
     ds.depthWriteEnable      = VK_TRUE;
-    ds.depthCompareOp        = VK_COMPARE_OP_GREATER;
+    ds.depthCompareOp        = VK_COMPARE_OP_GREATER_OR_EQUAL;
     ds.depthBoundsTestEnable = VK_FALSE;
     ds.stencilTestEnable     = VK_FALSE;
 

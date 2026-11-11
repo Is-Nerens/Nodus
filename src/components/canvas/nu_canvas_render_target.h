@@ -8,17 +8,22 @@ typedef struct {
     uint16 width;
     uint16 height;
 
-    // MSAA colour attachment
+    // Whether this target was created with MSAA attachments. Drives which
+    // attachments the framebuffer binds and whether MSAA images exist.
+    bool msaaEnabled;
+
+    // MSAA colour attachment (VK_NULL_HANDLE when msaaEnabled == false)
     VkImage msaaColorImage;
     VkDeviceMemory msaaColorMemory;
     VkImageView msaaColorView;
 
-    // MSAA depth attachment
+    // Depth attachment (1x when msaaEnabled == false, 4x when true)
     VkImage msaaDepthImage;
     VkDeviceMemory msaaDepthMemory;
     VkImageView msaaDepthView;
 
     // Binds { msaaColorView, msaaDepthView, view } into the shared canvas pass
+    // when MSAA is enabled, or { view, msaaDepthView } when it is not.
     VkFramebuffer framebuffer;
 
     // Set 0 for the image pipeline: uTextures[8], allocated from the image
@@ -104,8 +109,10 @@ fail:
 }
 
 // (Re)create the framebuffer that binds the canvas attachments into the shared
-// canvas pass. Dimensions must be the current logical extent — on shrink-reuse
-// resize the images stay larger, but the framebuffer must match the new extent.
+// canvas pass. When MSAA is enabled, binds { msaaColor, msaaDepth, resolved };
+// otherwise binds { resolved, depth }. Dimensions must be the current logical
+// extent — on shrink-reuse resize the images stay larger, but the framebuffer
+// must match the new extent.
 static int CanvasRenderTarget_CreateFramebuffer(
     DisplayManager* displayManager,
     CanvasRenderTarget* renderTarget)
@@ -113,16 +120,28 @@ static int CanvasRenderTarget_CreateFramebuffer(
     if (renderTarget->framebuffer)
         vkDestroyFramebuffer(displayManager->device, renderTarget->framebuffer, NULL);
 
-    VkImageView attachments[3] = {
-        renderTarget->msaaColorView,
-        renderTarget->msaaDepthView,
-        renderTarget->view
-    };
+    VkImageView attachments[3];
+    uint32 attachmentCount;
+
+    if (renderTarget->msaaEnabled) {
+        attachments[0] = renderTarget->msaaColorView;
+        attachments[1] = renderTarget->msaaDepthView;
+        attachments[2] = renderTarget->view;
+        attachmentCount = 3;
+    } else {
+        attachments[0] = renderTarget->view;
+        attachments[1] = renderTarget->msaaDepthView;
+        attachmentCount = 2;
+    }
+
+    VkRenderPass renderPass = renderTarget->msaaEnabled
+        ? displayManager->sharedRenderPassMSAA4X
+        : displayManager->sharedRenderPass;
 
     VkFramebufferCreateInfo fbInfo = {
         .sType           = VK_STRUCTURE_TYPE_FRAMEBUFFER_CREATE_INFO,
-        .renderPass      = displayManager->sharedRenderPassMSAA4X,
-        .attachmentCount = 3,
+        .renderPass      = renderPass,
+        .attachmentCount = attachmentCount,
         .pAttachments    = attachments,
         .width           = renderTarget->width,
         .height          = renderTarget->height,
@@ -195,25 +214,28 @@ static void CanvasRenderTarget_Destroy(
     *renderTarget = (CanvasRenderTarget){0};
 }
 
-// Create a canvas render target: a resolved, sampled colour image plus an MSAA
-// colour+depth pair used only inside the canvas pass. No alpha in the resolved
-// image — it is cleared to the containing canvas's background colour, so the
-// blend is a plain copy.
+// Create a canvas render target. When MSAA_4X is true, the resolved colour
+// image is paired with 4x MSAA colour+depth attachments and bound through the
+// shared 4x pass; when false, the resolved image is paired with a 1x depth
+// attachment and bound through the shared non-MSAA pass.
 static int CanvasRenderTarget_Create(
     DisplayManager* displayManager,
     ImageResourceManager* imageResourceManager,
     CanvasRenderTarget* renderTarget,
     uint32 width,
-    uint32 height)
+    uint32 height,
+    bool MSAA_4X)
 {
     *renderTarget = (CanvasRenderTarget){0};
+    renderTarget->msaaEnabled = MSAA_4X;
 
     // B8G8R8A8 is the only guaranteed colour-renderable format without alpha
     // on most drivers; if you can guarantee VK_FORMAT_B8G8R8A8_SRGB support,
     // use that instead for correct sRGB sampling.
     const VkFormat format = VK_FORMAT_B8G8R8A8_UNORM;
 
-    // Resolved colour image (blit target, sampled by UI)
+    // Resolved colour image (render target when non-MSAA, blit target when
+    // MSAA, sampled by UI in both cases).
     renderTarget->width  = (uint16)width;
     renderTarget->height = (uint16)height;
     if (!CanvasRenderTarget_CreateAttachment(
@@ -229,24 +251,26 @@ static int CanvasRenderTarget_Create(
     {
         goto fail;
     }
-    renderTarget->currentLayout = VK_IMAGE_LAYOUT_UNDEFINED;
+    renderTarget->currentLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
 
-    // MSAA colour attachment (canvas pass only; never sampled)
-    if (!CanvasRenderTarget_CreateAttachment(
-        displayManager,
-        &renderTarget->msaaColorImage,
-        &renderTarget->msaaColorMemory,
-        &renderTarget->msaaColorView,
-        format,
-        VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_TRANSFER_SRC_BIT,
-        VK_SAMPLE_COUNT_4_BIT,
-        VK_IMAGE_ASPECT_COLOR_BIT,
-        width, height))
-    {
-        goto fail;
+    if (MSAA_4X) {
+        // MSAA colour attachment (canvas pass only; never sampled)
+        if (!CanvasRenderTarget_CreateAttachment(
+            displayManager,
+            &renderTarget->msaaColorImage,
+            &renderTarget->msaaColorMemory,
+            &renderTarget->msaaColorView,
+            format,
+            VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_TRANSFER_SRC_BIT,
+            VK_SAMPLE_COUNT_4_BIT,
+            VK_IMAGE_ASPECT_COLOR_BIT,
+            width, height))
+        {
+            goto fail;
+        }
     }
 
-    // MSAA depth attachment
+    // Depth attachment (always created; sample count follows MSAA mode)
     if (!CanvasRenderTarget_CreateAttachment(
         displayManager,
         &renderTarget->msaaDepthImage,
@@ -254,14 +278,14 @@ static int CanvasRenderTarget_Create(
         &renderTarget->msaaDepthView,
         VK_FORMAT_D32_SFLOAT,
         VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT,
-        VK_SAMPLE_COUNT_4_BIT,
+        MSAA_4X ? VK_SAMPLE_COUNT_4_BIT : VK_SAMPLE_COUNT_1_BIT,
         VK_IMAGE_ASPECT_DEPTH_BIT,
         width, height))
     {
         goto fail;
     }
 
-    // Framebuffer binding the three views into the shared 4x pass
+    // Framebuffer binding the appropriate attachment set
     if (!CanvasRenderTarget_CreateFramebuffer(displayManager, renderTarget))
         goto fail;
 
@@ -279,36 +303,43 @@ fail:
 // Resize the canvas render target in place.
 //
 // Strategy:
-//   - Shrinking (both dimensions <= current): REUSE all existing images.
-//     The resolve blit targets the lower-left subregion, so no allocation
-//     churn. The framebuffer still has to be recreated because its extent must
-//     match the new logical extent, but no images are touched.
-//   - Any growth: destroy and recreate. Vulkan requires the render area at
-//     vkCmdBeginRenderPass to equal the attachment extent exactly, so a larger
-//     extent cannot reuse a smaller allocation. Content is lost.
+//   - Shrinking (both dimensions <= current) AND the MSAA mode is unchanged:
+//     REUSE all existing images. The resolve blit (MSAA) or render area
+//     (non-MSAA) targets the lower-left subregion, so no allocation churn. The
+//     framebuffer still has to be recreated because its extent must match the
+//     new logical extent, but no images are touched.
+//   - Any growth, or a change in MSAA mode: destroy and recreate. Vulkan
+//     requires the render area at vkCmdBeginRenderPass to equal the attachment
+//     extent exactly, so a larger extent cannot reuse a smaller allocation.
+//     Changing MSAA mode changes the attachment set entirely. Content is lost.
 static int CanvasRenderTarget_Resize(
     DisplayManager* displayManager,
     ImageResourceManager* imageResourceManager,
     CanvasRenderTarget* renderTarget,
     uint32 width,
-    uint32 height)
+    uint32 height,
+    bool MSAA_4X)
 {
     if (width == 0 || height == 0 || width > UINT16_MAX || height > UINT16_MAX) return 0;
 
     if (vkDeviceWaitIdle(displayManager->device) != VK_SUCCESS) return 0;
 
-    // Shrink-only: reuse images, recreate framebuffer at the new extent.
-    // Descriptor set is untouched: the view is the same image view.
-    if (width <= renderTarget->width && height <= renderTarget->height)
-    {
-        renderTarget->width  = (uint16)width;
-        renderTarget->height = (uint16)height;
-        return CanvasRenderTarget_CreateFramebuffer(displayManager, renderTarget);
-    }
+    // // Shrink-only with the same MSAA mode: reuse images, recreate framebuffer
+    // // at the new extent. Descriptor set is untouched: the view is the same
+    // // image view.
+    // if (MSAA_4X == renderTarget->msaaEnabled &&
+    //     width  <= renderTarget->width &&
+    //     height <= renderTarget->height)
+    // {
+    //     renderTarget->width  = (uint16)width;
+    //     renderTarget->height = (uint16)height;
+    //     return CanvasRenderTarget_CreateFramebuffer(displayManager, renderTarget);
+    // }
 
-    // Grow (or mixed): recreate at the new extent. Content is lost.
+    // Grow, mixed, or MSAA-mode change: recreate at the new extent. Content is
+    // lost.
     CanvasRenderTarget_Destroy(displayManager, imageResourceManager, renderTarget);
-    return CanvasRenderTarget_Create(displayManager, imageResourceManager, renderTarget, width, height);
+    return CanvasRenderTarget_Create(displayManager, imageResourceManager, renderTarget, width, height, MSAA_4X);
 }
 
 // Rapidly clear the canvas: the resolved colour image is cleared to `color`
@@ -316,8 +347,9 @@ static int CanvasRenderTarget_Resize(
 // it runs entirely on the GPU — no CPU work proportional to canvas size.
 //
 // Leaves the resolved image in SHADER_READ_ONLY_OPTIMAL, ready to sample in the
-// UI pass. The MSAA colour and depth images are not touched: the canvas render
-// pass clears both via loadOp = CLEAR on every begin.
+// UI pass. When MSAA is enabled, the MSAA colour and depth images are not
+// touched: the canvas render pass clears both via loadOp = CLEAR on every
+// begin.
 static int CanvasRenderTarget_Clear(
     DisplayManager* displayManager,
     CanvasRenderTarget* renderTarget,

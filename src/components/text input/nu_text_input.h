@@ -11,11 +11,11 @@ void InputText_UpdateCusorTextOffsets(InputText* text, Node* node, Font* font, i
     text->buffer[text->cursorBytes] = temp;
 
     // calculate inner input width
-    float32 innerWidth = node->public.generic.width
-        - node->public.generic.borderLeft
-        - node->public.generic.borderRight
-        - node->public.generic.padLeft
-        - node->public.generic.padRight;
+    float32 innerWidth = node->base.width
+        - node->base.borderLeft
+        - node->base.borderRight
+        - node->base.padLeft
+        - node->base.padRight;
 
     // set relative cursor offset
     text->cursorOffset = text->textOffset + preCursorTextWidth;
@@ -41,11 +41,11 @@ void InputText_ComputeCursorTextOffset_PlaceEnd(InputText* text, Node* node, Fon
 {
     // Compute offsets
     float32 textWidth = NU_Calculate_Text_Unwrapped_Width(font, text->buffer);
-    float32 innerWidth = node->public.generic.width
-        - node->public.generic.borderLeft
-        - node->public.generic.borderRight
-        - node->public.generic.padLeft
-        - node->public.generic.padRight;
+    float32 innerWidth = node->base.width
+        - node->base.borderLeft
+        - node->base.borderRight
+        - node->base.padLeft
+        - node->base.padRight;
     if (textWidth > innerWidth) text->textOffset = innerWidth - textWidth;
     else text->textOffset = 0.0f;
     text->cursorOffset = textWidth + text->textOffset;
@@ -61,11 +61,11 @@ void InputText_UpdateHighlightTextOffsets(InputText* text, Node* node, Font* fon
     text->buffer[text->highlightBytes] = temp;
 
     // calculate inner input width
-    float32 innerWidth = node->public.generic.width
-        - node->public.generic.borderLeft
-        - node->public.generic.borderRight
-        - node->public.generic.padLeft
-        - node->public.generic.padRight;
+    float32 innerWidth = node->base.width
+        - node->base.borderLeft
+        - node->base.borderRight
+        - node->base.padLeft
+        - node->base.padRight;
 
     // set relative highlight offset
     text->highlightOffset = text->textOffset + preHighlightTextWidth;
@@ -403,7 +403,7 @@ int InputText_MoveCursorRightSpan(InputText* text, Node* node, Font* font)
 
 void InputText_MousePlaceCursor(InputText* text, Node* node, Font* font, float32 mouseX)
 {
-    float32 inputLeftX = node->public.generic.x + node->public.generic.padLeft + node->public.generic.borderLeft;
+    float32 inputLeftX = node->base.x + node->base.padLeft + node->base.borderLeft;
     float32 mouseRelX = mouseX - inputLeftX - text->textOffset;
 
     // Loop over glyphs in text, computing the glyph's x and width given the textOffset
@@ -425,7 +425,7 @@ int InputText_MouseDrag(InputText* text, Node* node, Font* font, float32 mouseX)
 {
     if (!text->dragging) return 0;
 
-    float32 inputLeftX = node->public.generic.x + node->public.generic.padLeft + node->public.generic.borderLeft;
+    float32 inputLeftX = node->base.x + node->base.padLeft + node->base.borderLeft;
     float32 mouseRelX = mouseX - inputLeftX - text->textOffset;
 
     uint16 prevHighlightBytes = text->highlightBytes;

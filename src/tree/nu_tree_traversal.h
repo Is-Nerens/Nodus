@@ -101,8 +101,8 @@ void DepthFirstSearch_Free(DepthFirstSearch* dfs)
 //     while (BFS_Thread_Next(bfs, &node)) {
 //         if (NodeStateHidden(node)) continue;
 //         if (node->type == NU_TYPE_WINDOW) {
-//             node->public.generic.x = 0;
-//             node->public.generic.y = 0;
+//             node->base.x = 0;
+//             node->base.y = 0;
 //         }
 //         NU_PositionChildrenHorizontally(node, scrollbarThickness);
 //         NU_PositionChildrenVertically(node, scrollbarThickness);

@@ -4,9 +4,14 @@
 
 #define NORMALIZE(dx, dy) do { float32 len = sqrtf((dx)*(dx) + (dy)*(dy)); if (len > 0.0001f) { dx /= len; dy /= len; } } while(0)
 
+typedef enum {
+    NU_CANVAS_TYPE_UNBUFFERED,
+    NU_CANVAS_TYPE_BUFFERED_NO_MSAA,
+    NU_CANVAS_TYPE_BUFFERED_MSAA_4X,
+} CanvasRenderType;
+
 typedef struct {
-    Vertex_RGB_List vertices;
-    Index_List indices;
+    VertexSDFList vertexList;
     uint32 zValuesRetargeted; // Number of vertices with finalised z values
 } CanvasMeshLayer;
 
@@ -32,12 +37,18 @@ typedef struct {
     bool isMeshLayer;
     float32 zLayer;
 
-    // Render target
+    // Render target (Optional)
     CanvasRenderTarget renderTarget;
-    bool renderUpdated;
+    CanvasRenderType desiredRenderType;
+    CanvasRenderType currentRenderType;
+    bool renderTargetUpToDate;
 } NU_Canvas_Context;
 
-void Canvas_InitContext(Node* node, NU_Canvas_Context* ctx, DisplayManager* displayManager, ImageResourceManager* imageResourceManager)
+void Canvas_InitContext(
+    Node* node,
+    NU_Canvas_Context* ctx,
+    DisplayManager* displayManager,
+    ImageResourceManager* imageResourceManager)
 {
     // Init node state
     ctx->node = node;
@@ -52,8 +63,7 @@ void Canvas_InitContext(Node* node, NU_Canvas_Context* ctx, DisplayManager* disp
     ctx->zLayer = 1.0f;
 
     // Initialise mesh layer
-    Vertex_RGB_List_Init(&ctx->meshLayer.vertices, 1024);
-    Index_List_Init(&ctx->meshLayer.indices, 2048);
+    VertexSDFList_Init(&ctx->meshLayer.vertexList, 1024, 2048);
     ctx->meshLayer.zValuesRetargeted = 0;
 
     // Initialise default text layer
@@ -63,24 +73,16 @@ void Canvas_InitContext(Node* node, NU_Canvas_Context* ctx, DisplayManager* disp
     defaultTextLayer->zValuesRetargeted = 0;
     Array_Init(&defaultTextLayer->textRenderData, sizeof(GlyphRenderData), 256);
 
-    // Create a render target
-    CanvasRenderTarget_Create(
-        displayManager,
-        imageResourceManager,
-        &ctx->renderTarget,
-        ctx->canvasWidth,
-        ctx->canvasHeight
-    );
-
-    // Must be rendered
-    ctx->renderUpdated = false;
+    // Set rendertype to default
+    ctx->currentRenderType = NU_CANVAS_TYPE_UNBUFFERED;
+    ctx->desiredRenderType = NU_CANVAS_TYPE_UNBUFFERED;
+    ctx->renderTargetUpToDate = false;
 }
 
 void Canvas_FreeContext(NU_Canvas_Context* ctx, DisplayManager* displayManager, ImageResourceManager* imageResourceManager)
 {
     // Free mesh layer
-    Vertex_RGB_List_Free(&ctx->meshLayer.vertices);
-    Index_List_Free(&ctx->meshLayer.indices);
+    VertexSDFList_Free(&ctx->meshLayer.vertexList);
 
     // Free text layers
     for (uint32 i=0; i<Array_Length(&ctx->textLayers); i++) {
@@ -89,15 +91,16 @@ void Canvas_FreeContext(NU_Canvas_Context* ctx, DisplayManager* displayManager, 
     }
     Array_Free(&ctx->textLayers);
 
-    // Destroy render target
-    CanvasRenderTarget_Destroy(displayManager, imageResourceManager, &ctx->renderTarget);
+    // Destroy render target if one exists
+    if (ctx->currentRenderType != NU_CANVAS_TYPE_UNBUFFERED) {
+        CanvasRenderTarget_Destroy(displayManager, imageResourceManager, &ctx->renderTarget);
+    }
 }
 
 void Canvas_ClearContext(NU_Canvas_Context* ctx, DisplayManager* displayManager, ImageResourceManager* imageResourceManager)
 {
     // Clear mesh layer
-    Vertex_RGB_List_Clear(&ctx->meshLayer.vertices);
-    Index_List_Clear(&ctx->meshLayer.indices);
+    VertexSDFList_Clear(&ctx->meshLayer.vertexList);
     ctx->meshLayer.zValuesRetargeted = 0;
 
     // Clear text layers
@@ -117,29 +120,66 @@ void Canvas_ClearContext(NU_Canvas_Context* ctx, DisplayManager* displayManager,
     newWidth = max(newWidth, 50);
     newHeight = max(newHeight, 50);
 
-    // Size changed -> recreate render target
-    if (ctx->canvasWidth != newWidth || ctx->canvasHeight != newHeight) {
+    // If canvas has a render target AND the size changed -> resize render target
+    if (ctx->currentRenderType != NU_CANVAS_TYPE_UNBUFFERED &&
+        (ctx->canvasWidth != newWidth || ctx->canvasHeight != newHeight))
+    {
+        bool MSAA_4X = (ctx->currentRenderType == NU_CANVAS_TYPE_BUFFERED_MSAA_4X);
         CanvasRenderTarget_Resize(
             displayManager,
             imageResourceManager,
             &ctx->renderTarget,
             (uint32)(newWidth),
-            (uint32)(newHeight)
+            (uint32)(newHeight),
+            MSAA_4X
         );
     }
-    NuColor clearColor = {
-        ctx->node->public.generic.backgroundR,
-        ctx->node->public.generic.backgroundG,
-        ctx->node->public.generic.backgroundB,
-        255,
-    };
 
     // Update width and height
     ctx->canvasWidth = newWidth;
     ctx->canvasHeight = newHeight;
 
     // Must be re-rendered
-    ctx->renderUpdated = false;
+    ctx->renderTargetUpToDate = false;
+}
+
+bool Canvas_CommitDesiredRenderType(NU_Canvas_Context* ctx, DisplayManager* displayManager, ImageResourceManager* imageResourceManager)
+{
+    if (ctx->currentRenderType == ctx->desiredRenderType) return false; // 0 = unchanged
+
+    // Destroy render target
+    if (ctx->desiredRenderType == NU_CANVAS_TYPE_UNBUFFERED) {
+        CanvasRenderTarget_Destroy(
+            displayManager,
+            imageResourceManager,
+            &ctx->renderTarget
+        );
+    }
+    // Create render target
+    else if (ctx->currentRenderType == NU_CANVAS_TYPE_UNBUFFERED) {
+        bool MSAA_4X = (ctx->desiredRenderType == NU_CANVAS_TYPE_BUFFERED_MSAA_4X);
+        CanvasRenderTarget_Create(
+            displayManager,
+            imageResourceManager, &ctx->renderTarget,
+            ctx->canvasWidth, ctx->canvasHeight,
+            MSAA_4X
+        );
+    }
+    // Resize render target
+    else {
+        bool MSAA_4X = (ctx->desiredRenderType == NU_CANVAS_TYPE_BUFFERED_MSAA_4X);
+        CanvasRenderTarget_Resize(
+            displayManager,
+            imageResourceManager,
+            &ctx->renderTarget,
+            (uint32)(ctx->canvasWidth),
+            (uint32)(ctx->canvasHeight),
+            MSAA_4X
+        );
+    }
+
+    ctx->currentRenderType = ctx->desiredRenderType;
+    return true; // 1 = changed
 }
 
 void Canvas_SetFont(NU_Canvas_Context* ctx, const char* fontName)
@@ -184,6 +224,9 @@ void Canvas_SetFont(NU_Canvas_Context* ctx, const char* fontName)
     }
 }
 
+inline bool Canvas_IS_MSAA_4X(NU_Canvas_Context* ctx) {
+    return ctx->currentRenderType == NU_CANVAS_TYPE_BUFFERED_MSAA_4X;
+}
 
 void Canvas_DrawBorderRect(
     NU_Canvas_Context* ctx,
@@ -205,106 +248,253 @@ void Canvas_DrawBorderRect(
         ctx->zLayer += 1.0f;
     }
 
-    // Get vertex and index lists
-    Vertex_RGB_List* vertices = &ctx->meshLayer.vertices;
-    Index_List* indices = &ctx->meshLayer.indices;
+    // Get vertexList
+    VertexSDFList* vertexList = &ctx->meshLayer.vertexList;
 
-    // --- Allocate extra space in vertex and index lists ---
-    uint32 additional_vertices = 12;
-    uint32 additional_indices = 30;
-    if (vertices->size + additional_vertices > vertices->capacity) Vertex_RGB_List_Grow(vertices, additional_vertices);
-    if (indices->size + additional_indices > indices->capacity) Index_List_Grow(indices, additional_indices);
+    // Ensure vertex and index capacity
+    uint32 additionalVertices = 12;
+    uint32 additionalIndices = 30;
+    VertexSDFList_EnsureVertexCapacity(vertexList, additionalVertices);
+    VertexSDFList_EnsureIndexCapacity(vertexList, additionalIndices);
 
-    uint32 vertex_offset = vertices->size;
-
+    // Cache z
     float32 z = ctx->zLayer;
 
-    // Pack colors into float32
+    // Pack colors into uint32
     float32 packedBorderColor = PackColorIntoFloat32(borderColor);
     float32 packedFillColor = PackColorIntoFloat32(fillColor);
 
+    // Perfectly straight lines -> sdf2 unused, set to large positive sentinel
+    float32 sdfUnused = 1e9f;
+
+    // Vertices
+    uint32 vertexOffset = VertexSDFList_VertexCount(vertexList);
+
     // Outer TL
-    vertices->array[vertex_offset] = (vertex_rgb){ x, y, z, packedBorderColor };
-
+    vertexList->vertices[vertexOffset] = (vertexSDF){ x, y, z, 0.0f, sdfUnused, packedBorderColor };
     // Outer TR
-    vertices->array[vertex_offset + 1] = (vertex_rgb){ x + w, y, z, packedBorderColor };
-
+    vertexList->vertices[vertexOffset + 1] = (vertexSDF){ x + w, y, z, 0.0f, sdfUnused, packedBorderColor };
     // Outer BL
-    vertices->array[vertex_offset + 2] = (vertex_rgb){ x, y + h, z, packedBorderColor };
-
+    vertexList->vertices[vertexOffset + 2] = (vertexSDF){ x, y + h, z, 0.0f, sdfUnused, packedBorderColor };
     // Outer BR
-    vertices->array[vertex_offset + 3] = (vertex_rgb){ x + w, y + h, z, packedBorderColor };
-
+    vertexList->vertices[vertexOffset + 3] = (vertexSDF){ x + w, y + h, z, 0.0f, sdfUnused, packedBorderColor };
     // Inner TL
-    vertices->array[vertex_offset + 4] = (vertex_rgb){ x + thickness, y + thickness, z, packedBorderColor };
-
+    vertexList->vertices[vertexOffset + 4] = (vertexSDF){ x + thickness, y + thickness, z, 0.0f, sdfUnused, packedBorderColor };
     // Inner TR
-    vertices->array[vertex_offset + 5] = (vertex_rgb){ x + w - thickness, y + thickness, z, packedBorderColor };
-
+    vertexList->vertices[vertexOffset + 5] = (vertexSDF){ x + w - thickness, y + thickness, z, 0.0f, sdfUnused, packedBorderColor };
     // Inner BL
-    vertices->array[vertex_offset + 6] = (vertex_rgb){ x + thickness, y + h - thickness, z, packedBorderColor };
-
+    vertexList->vertices[vertexOffset + 6] = (vertexSDF){ x + thickness, y + h - thickness, z, 0.0f, sdfUnused, packedBorderColor };
     // Inner BR
-    vertices->array[vertex_offset + 7] = (vertex_rgb){ x + w - thickness, y + h - thickness, z, packedBorderColor };
-
+    vertexList->vertices[vertexOffset + 7] = (vertexSDF){ x + w - thickness, y + h - thickness, z, 0.0f, sdfUnused, packedBorderColor };
     // Fill TL
-    vertices->array[vertex_offset + 8] = (vertex_rgb){ x + thickness, y + thickness, z, packedFillColor };
-
+    vertexList->vertices[vertexOffset + 8] = (vertexSDF){ x + thickness, y + thickness, z, 0.0f, sdfUnused, packedFillColor };
     // Fill TR
-    vertices->array[vertex_offset + 9] = (vertex_rgb){ x + w - thickness, y + thickness, z, packedFillColor };
-
+    vertexList->vertices[vertexOffset + 9] = (vertexSDF){ x + w - thickness, y + thickness, z, 0.0f, sdfUnused, packedFillColor };
     // Fill BL
-    vertices->array[vertex_offset + 10] = (vertex_rgb){ x + thickness, y + h - thickness, z, packedFillColor };
-
+    vertexList->vertices[vertexOffset + 10] = (vertexSDF){ x + thickness, y + h - thickness, z, 0.0f, sdfUnused, packedFillColor };
     // Fill BR
-    vertices->array[vertex_offset + 11] = (vertex_rgb){ x + w - thickness, y + h - thickness, z, packedFillColor };
+    vertexList->vertices[vertexOffset + 11] = (vertexSDF){ x + w - thickness, y + h - thickness, z, 0.0f, sdfUnused, packedFillColor };
+
 
     // Indices
-    uint32* indices_write = indices->array + indices->size;
+    uint32* indicesWrite = vertexList->indices + VertexSDFList_IndexCount(vertexList);
 
     // Top border face
-    *indices_write++ = vertex_offset;
-    *indices_write++ = vertex_offset + 1;
-    *indices_write++ = vertex_offset + 4;
-    *indices_write++ = vertex_offset + 1;
-    *indices_write++ = vertex_offset + 4;
-    *indices_write++ = vertex_offset + 5;
-
+    *indicesWrite++ = vertexOffset;
+    *indicesWrite++ = vertexOffset + 1;
+    *indicesWrite++ = vertexOffset + 4;
+    *indicesWrite++ = vertexOffset + 1;
+    *indicesWrite++ = vertexOffset + 4;
+    *indicesWrite++ = vertexOffset + 5;
     // Right border face
-    *indices_write++ = vertex_offset + 5;
-    *indices_write++ = vertex_offset + 1;
-    *indices_write++ = vertex_offset + 3;
-    *indices_write++ = vertex_offset + 5;
-    *indices_write++ = vertex_offset + 7;
-    *indices_write++ = vertex_offset + 3;
-
+    *indicesWrite++ = vertexOffset + 5;
+    *indicesWrite++ = vertexOffset + 1;
+    *indicesWrite++ = vertexOffset + 3;
+    *indicesWrite++ = vertexOffset + 5;
+    *indicesWrite++ = vertexOffset + 7;
+    *indicesWrite++ = vertexOffset + 3;
     // Bottom border face
-    *indices_write++ = vertex_offset + 2;
-    *indices_write++ = vertex_offset + 7;
-    *indices_write++ = vertex_offset + 3;
-    *indices_write++ = vertex_offset + 2;
-    *indices_write++ = vertex_offset + 6;
-    *indices_write++ = vertex_offset + 7;
-
+    *indicesWrite++ = vertexOffset + 2;
+    *indicesWrite++ = vertexOffset + 7;
+    *indicesWrite++ = vertexOffset + 3;
+    *indicesWrite++ = vertexOffset + 2;
+    *indicesWrite++ = vertexOffset + 6;
+    *indicesWrite++ = vertexOffset + 7;
     // Left border face
-    *indices_write++ = vertex_offset + 0;
-    *indices_write++ = vertex_offset + 4;
-    *indices_write++ = vertex_offset + 2;
-    *indices_write++ = vertex_offset + 2;
-    *indices_write++ = vertex_offset + 4;
-    *indices_write++ = vertex_offset + 6;
-
+    *indicesWrite++ = vertexOffset + 0;
+    *indicesWrite++ = vertexOffset + 4;
+    *indicesWrite++ = vertexOffset + 2;
+    *indicesWrite++ = vertexOffset + 2;
+    *indicesWrite++ = vertexOffset + 4;
+    *indicesWrite++ = vertexOffset + 6;
     // Center face
-    *indices_write++ = vertex_offset + 8;
-    *indices_write++ = vertex_offset + 9;
-    *indices_write++ = vertex_offset + 10;
-    *indices_write++ = vertex_offset + 9;
-    *indices_write++ = vertex_offset + 10;
-    *indices_write++ = vertex_offset + 11;
+    *indicesWrite++ = vertexOffset + 8;
+    *indicesWrite++ = vertexOffset + 9;
+    *indicesWrite++ = vertexOffset + 10;
+    *indicesWrite++ = vertexOffset + 9;
+    *indicesWrite++ = vertexOffset + 10;
+    *indicesWrite++ = vertexOffset + 11;
 
-    vertices->size += additional_vertices;
-    indices->size += additional_indices;
+    // Increment vertex and index count
+    vertexList->vertexCount += additionalVertices;
+    vertexList->indexCount += additionalIndices;
 }
+
+// void Canvas_DrawTriangle(
+//     NU_Canvas_Context* ctx,
+//     float32 x1, float32 y1,
+//     float32 x2, float32 y2,
+//     float32 x3, float32 y3,
+//     float32 thickness,
+//     NuColor borderColor,
+//     NuColor fillColor)
+// {
+//     // Skip if triangle is offscreen
+//     float32 minX = fminf(x1, fminf(x2, x3));
+//     float32 maxX = fmaxf(x1, fmaxf(x2, x3));
+//     float32 minY = fminf(y1, fminf(y2, y3));
+//     float32 maxY = fmaxf(y1, fmaxf(y2, y3));
+//     if (maxX < 0.0f || minX > ctx->canvasWidth || maxY < 0.0f || minY > ctx->canvasHeight) return;
+
+//     // Switching from text layer -> switch to mesh layer and increment z layer
+//     if (!ctx->isMeshLayer) {
+//         ctx->isMeshLayer = true;
+//         ctx->zLayer += 1.0f;
+//     }
+
+//     // Get vertexList
+//     VertexSDFList* vertexList = &ctx->meshLayer.vertexList;
+
+//     // Ensure vertex and index capacity
+//     uint32 additionalVertices = 9;
+//     uint32 additionalIndices = 21;
+//     VertexSDFList_EnsureVertexCapacity(vertexList, additionalVertices);
+//     VertexSDFList_EnsureIndexCapacity(vertexList, additionalIndices);
+
+//     // Cache z
+//     float32 z = ctx->zLayer;
+
+//     // Pack colors into uint32
+//     float32 packedBorderColor = PackColorIntoFloat32(borderColor);
+//     float32 packedFillColor = PackColorIntoFloat32(fillColor);
+
+//     // Vertices
+//     uint32 vertexOffset = VertexSDFList_VertexCount(vertexList);
+
+//     // No AA needed on this flat triangle -> deep inside sentinel for sdf, unused sentinel for sdf2
+//     float32 sdfInside = -1e9f;
+//     float32 sdfUnused =  1e9f;
+
+//     // Outer triangle (border)
+//     vertexList->vertices[vertexOffset + 0] = (vertexSDF){ x1, y1, z, sdfInside, sdfUnused, packedBorderColor };
+//     vertexList->vertices[vertexOffset + 1] = (vertexSDF){ x2, y2, z, sdfInside, sdfUnused, packedBorderColor };
+//     vertexList->vertices[vertexOffset + 2] = (vertexSDF){ x3, y3, z, sdfInside, sdfUnused, packedBorderColor };
+
+//     // Compute inward offset (very simple approximation using centroid)
+//     float32 dx1 = x2 - x1, dy1 = y2 - y1;
+//     float32 dx2 = x3 - x2, dy2 = y3 - y2;
+//     float32 dx3 = x1 - x3, dy3 = y1 - y3;
+
+//     float32 len1 = sqrtf(dx1 * dx1 + dy1 * dy1);
+//     float32 len2 = sqrtf(dx2 * dx2 + dy2 * dy2);
+//     float32 len3 = sqrtf(dx3 * dx3 + dy3 * dy3);
+
+//     float32 area = (x2 - x1) * (y3 - y1) - (y2 - y1) * (x3 - x1);
+//     float32 sign = (area > 0.0f) ? 1.0f : -1.0f;
+
+//     float32 nx1 = sign * dy1 / len1, ny1 = -sign * dx1 / len1;
+//     float32 nx2 = sign * dy2 / len2, ny2 = -sign * dx2 / len2;
+//     float32 nx3 = sign * dy3 / len3, ny3 = -sign * dx3 / len3;
+
+//     float32 inset = thickness;
+
+//     float32 d1 = nx1 * x1 + ny1 * y1 - inset;
+//     float32 d2 = nx2 * x2 + ny2 * y2 - inset;
+//     float32 d3 = nx3 * x3 + ny3 * y3 - inset;
+
+//     float32 det = nx1 * ny2 - ny1 * nx2;
+
+//     float32 ix1 = (d1 * ny2 - ny1 * d2) / det;
+//     float32 iy1 = (nx1 * d2 - d1 * nx2) / det;
+
+//     float32 det2 = nx2 * ny3 - ny2 * nx3;
+
+//     float32 ix2 = (d2 * ny3 - ny2 * d3) / det2;
+//     float32 iy2 = (nx2 * d3 - d2 * nx3) / det2;
+
+//     float32 det3 = nx3 * ny1 - ny3 * nx1;
+
+//     float32 ix3 = (d3 * ny1 - ny3 * d1) / det3;
+//     float32 iy3 = (nx3 * d1 - d3 * nx1) / det3;
+
+//     // Inner triangle points
+//     // Inner triangle (border)
+//     vertexList->vertices[vertexOffset + 3] = (vertexSDF){
+//         ix1, iy1, z,
+//         sdfInside, sdfUnused,
+//         packedBorderColor
+//     };
+//     vertexList->vertices[vertexOffset + 4] = (vertexSDF){
+//         ix2, iy2, z,
+//         sdfInside, sdfUnused,
+//         packedBorderColor
+//     };
+//     vertexList->vertices[vertexOffset + 5] = (vertexSDF){
+//         ix3, iy3, z,
+//         sdfInside, sdfUnused,
+//         packedBorderColor
+//     };
+
+//     // Inner triangle (fill)
+//     vertexList->vertices[vertexOffset + 6] = (vertexSDF){
+//         ix1, iy1, z,
+//         sdfInside, sdfUnused,
+//         packedFillColor
+//     };
+//     vertexList->vertices[vertexOffset + 7] = (vertexSDF){
+//         ix2, iy2, z,
+//         sdfInside, sdfUnused,
+//         packedFillColor
+//     };
+//     vertexList->vertices[vertexOffset + 8] = (vertexSDF){
+//         ix3, iy3, z,
+//         sdfInside, sdfUnused,
+//         packedFillColor
+//     };
+
+//     // Indices
+//     uint32* indicesWrite = vertexList->indices + VertexSDFList_IndexCount(vertexList);
+
+//     // Edge 1
+//     *indicesWrite++ = vertexOffset + 0;
+//     *indicesWrite++ = vertexOffset + 1;
+//     *indicesWrite++ = vertexOffset + 3;
+//     *indicesWrite++ = vertexOffset + 1;
+//     *indicesWrite++ = vertexOffset + 3;
+//     *indicesWrite++ = vertexOffset + 4;
+//     // Edge 2
+//     *indicesWrite++ = vertexOffset + 1;
+//     *indicesWrite++ = vertexOffset + 2;
+//     *indicesWrite++ = vertexOffset + 4;
+//     *indicesWrite++ = vertexOffset + 2;
+//     *indicesWrite++ = vertexOffset + 4;
+//     *indicesWrite++ = vertexOffset + 5;
+//     // Edge 3
+//     *indicesWrite++ = vertexOffset + 2;
+//     *indicesWrite++ = vertexOffset + 0;
+//     *indicesWrite++ = vertexOffset + 5;
+//     *indicesWrite++ = vertexOffset + 0;
+//     *indicesWrite++ = vertexOffset + 5;
+//     *indicesWrite++ = vertexOffset + 3;
+//     // Center
+//     *indicesWrite++ = vertexOffset + 6;
+//     *indicesWrite++ = vertexOffset + 7;
+//     *indicesWrite++ = vertexOffset + 8;
+
+//     // Increment vertex and index count
+//     vertexList->vertexCount += additionalVertices;
+//     vertexList->indexCount += additionalIndices;
+// }
 
 void Canvas_DrawTriangle(
     NU_Canvas_Context* ctx,
@@ -328,86 +518,138 @@ void Canvas_DrawTriangle(
         ctx->zLayer += 1.0f;
     }
 
-    // Get vertex and index lists
-    Vertex_RGB_List* vertices = &ctx->meshLayer.vertices;
-    Index_List* indices = &ctx->meshLayer.indices;
+    // Get vertexList
+    VertexSDFList* vertexList = &ctx->meshLayer.vertexList;
 
+    // Ensure vertex and index capacity
+    uint32 additionalVertices = 9;
+    uint32 additionalIndices = 21;
+    VertexSDFList_EnsureVertexCapacity(vertexList, additionalVertices);
+    VertexSDFList_EnsureIndexCapacity(vertexList, additionalIndices);
+
+    // Cache z
     float32 z = ctx->zLayer;
 
-    // --- Allocate extra space in vertex and index lists ---
-    uint32 additional_vertices = 6;
-    uint32 additional_indices = 21;
-    if (vertices->size + additional_vertices > vertices->capacity) Vertex_RGB_List_Grow(vertices, additional_vertices);
-    if (indices->size + additional_indices > indices->capacity) Index_List_Grow(indices, additional_indices);
-
-    uint32 vertex_offset = vertices->size;
-
-    // Pack colors into float32
+    // Pack colors into uint32
     float32 packedBorderColor = PackColorIntoFloat32(borderColor);
     float32 packedFillColor = PackColorIntoFloat32(fillColor);
 
-    // --- Outer triangle (border) ---
-    vertices->array[vertex_offset + 0] = (vertex_rgb){ x1, y1, packedBorderColor };
-    vertices->array[vertex_offset + 1] = (vertex_rgb){ x2, y2, packedBorderColor };
-    vertices->array[vertex_offset + 2] = (vertex_rgb){ x3, y3, packedBorderColor };
+    // Vertices
+    uint32 vertexOffset = VertexSDFList_VertexCount(vertexList);
+
+    // No AA needed on this flat triangle -> deep inside sentinel for sdf, unused sentinel for sdf2
+    float32 sdfInside = -1e9f;
+    float32 sdfUnused =  1e9f;
+
+    // Outer triangle (border)
+    vertexList->vertices[vertexOffset + 0] = (vertexSDF){ x1, y1, z, sdfInside, sdfUnused, packedBorderColor };
+    vertexList->vertices[vertexOffset + 1] = (vertexSDF){ x2, y2, z, sdfInside, sdfUnused, packedBorderColor };
+    vertexList->vertices[vertexOffset + 2] = (vertexSDF){ x3, y3, z, sdfInside, sdfUnused, packedBorderColor };
 
     // Compute inward offset (very simple approximation using centroid)
-    float32 cx = (x1 + x2 + x3) / 3.0f;
-    float32 cy = (y1 + y2 + y3) / 3.0f;
+    float32 dx1 = x2 - x1, dy1 = y2 - y1;
+    float32 dx2 = x3 - x2, dy2 = y3 - y2;
+    float32 dx3 = x1 - x3, dy3 = y1 - y3;
+
+    float32 len1 = sqrtf(dx1 * dx1 + dy1 * dy1);
+    float32 len2 = sqrtf(dx2 * dx2 + dy2 * dy2);
+    float32 len3 = sqrtf(dx3 * dx3 + dy3 * dy3);
+
+    float32 area = (x2 - x1) * (y3 - y1) - (y2 - y1) * (x3 - x1);
+    float32 sign = (area > 0.0f) ? 1.0f : -1.0f;
+
+    float32 nx1 = sign * dy1 / len1, ny1 = -sign * dx1 / len1;
+    float32 nx2 = sign * dy2 / len2, ny2 = -sign * dx2 / len2;
+    float32 nx3 = sign * dy3 / len3, ny3 = -sign * dx3 / len3;
+
+    float32 inset = thickness;
+
+    float32 d1 = nx1 * x1 + ny1 * y1 - inset;
+    float32 d2 = nx2 * x2 + ny2 * y2 - inset;
+    float32 d3 = nx3 * x3 + ny3 * y3 - inset;
+
+    float32 det = nx1 * ny2 - ny1 * nx2;
+
+    float32 ix1 = (d1 * ny2 - ny1 * d2) / det;
+    float32 iy1 = (nx1 * d2 - d1 * nx2) / det;
+
+    float32 det2 = nx2 * ny3 - ny2 * nx3;
+
+    float32 ix2 = (d2 * ny3 - ny2 * d3) / det2;
+    float32 iy2 = (nx2 * d3 - d2 * nx3) / det2;
+
+    float32 det3 = nx3 * ny1 - ny3 * nx1;
+
+    float32 ix3 = (d3 * ny1 - ny3 * d1) / det3;
+    float32 iy3 = (nx3 * d1 - d3 * nx1) / det3;
 
     // Inner triangle points
-    float32 dx1 = cx - x1, dy1 = cy - y1; NORMALIZE(dx1, dy1);
-    float32 dx2 = cx - x2, dy2 = cy - y2; NORMALIZE(dx2, dy2);
-    float32 dx3 = cx - x3, dy3 = cy - y3; NORMALIZE(dx3, dy3);
+    // Inner triangle (border)
+    vertexList->vertices[vertexOffset + 3] = (vertexSDF){
+        ix1, iy1, z,
+        sdfInside, sdfUnused,
+        packedBorderColor
+    };
+    vertexList->vertices[vertexOffset + 4] = (vertexSDF){
+        ix2, iy2, z,
+        sdfInside, sdfUnused,
+        packedBorderColor
+    };
+    vertexList->vertices[vertexOffset + 5] = (vertexSDF){
+        ix3, iy3, z,
+        sdfInside, sdfUnused,
+        packedBorderColor
+    };
 
-    // --- Inner triangle (fill) ---
-    vertices->array[vertex_offset + 3] = (vertex_rgb){
-        x1 + dx1 * thickness, y1 + dy1 * thickness, z,
+    // Inner triangle (fill)
+    vertexList->vertices[vertexOffset + 6] = (vertexSDF){
+        ix1, iy1, z,
+        sdfInside, sdfUnused,
         packedFillColor
     };
-    vertices->array[vertex_offset + 4] = (vertex_rgb){
-        x2 + dx2 * thickness, y2 + dy2 * thickness, z,
+    vertexList->vertices[vertexOffset + 7] = (vertexSDF){
+        ix2, iy2, z,
+        sdfInside, sdfUnused,
         packedFillColor
     };
-    vertices->array[vertex_offset + 5] = (vertex_rgb){
-        x3 + dx3 * thickness, y3 + dy3 * thickness, z,
+    vertexList->vertices[vertexOffset + 8] = (vertexSDF){
+        ix3, iy3, z,
+        sdfInside, sdfUnused,
         packedFillColor
     };
 
-    // --- Indices ---
-    uint32* indices_write = indices->array + indices->size;
+    // Indices
+    uint32* indicesWrite = vertexList->indices + VertexSDFList_IndexCount(vertexList);
 
     // Edge 1
-    *indices_write++ = vertex_offset + 0;
-    *indices_write++ = vertex_offset + 1;
-    *indices_write++ = vertex_offset + 3;
-    *indices_write++ = vertex_offset + 1;
-    *indices_write++ = vertex_offset + 3;
-    *indices_write++ = vertex_offset + 4;
-
+    *indicesWrite++ = vertexOffset + 0;
+    *indicesWrite++ = vertexOffset + 1;
+    *indicesWrite++ = vertexOffset + 3;
+    *indicesWrite++ = vertexOffset + 1;
+    *indicesWrite++ = vertexOffset + 3;
+    *indicesWrite++ = vertexOffset + 4;
     // Edge 2
-    *indices_write++ = vertex_offset + 1;
-    *indices_write++ = vertex_offset + 2;
-    *indices_write++ = vertex_offset + 4;
-    *indices_write++ = vertex_offset + 2;
-    *indices_write++ = vertex_offset + 4;
-    *indices_write++ = vertex_offset + 5;
-
+    *indicesWrite++ = vertexOffset + 1;
+    *indicesWrite++ = vertexOffset + 2;
+    *indicesWrite++ = vertexOffset + 4;
+    *indicesWrite++ = vertexOffset + 2;
+    *indicesWrite++ = vertexOffset + 4;
+    *indicesWrite++ = vertexOffset + 5;
     // Edge 3
-    *indices_write++ = vertex_offset + 2;
-    *indices_write++ = vertex_offset + 0;
-    *indices_write++ = vertex_offset + 5;
-    *indices_write++ = vertex_offset + 0;
-    *indices_write++ = vertex_offset + 5;
-    *indices_write++ = vertex_offset + 3;
-
+    *indicesWrite++ = vertexOffset + 2;
+    *indicesWrite++ = vertexOffset + 0;
+    *indicesWrite++ = vertexOffset + 5;
+    *indicesWrite++ = vertexOffset + 0;
+    *indicesWrite++ = vertexOffset + 5;
+    *indicesWrite++ = vertexOffset + 3;
     // Center
-    *indices_write++ = vertex_offset + 3;
-    *indices_write++ = vertex_offset + 4;
-    *indices_write++ = vertex_offset + 5;
+    *indicesWrite++ = vertexOffset + 6;
+    *indicesWrite++ = vertexOffset + 7;
+    *indicesWrite++ = vertexOffset + 8;
 
-    vertices->size += additional_vertices;
-    indices->size += additional_indices;
+    // Increment vertex and index count
+    vertexList->vertexCount += additionalVertices;
+    vertexList->indexCount += additionalIndices;
 }
 
 void Canvas_DrawVline(NU_Canvas_Context* ctx, float32 x, float32 y, float32 height, float32 thickness, NuColor color)
@@ -428,17 +670,17 @@ void Canvas_DrawVline(NU_Canvas_Context* ctx, float32 x, float32 y, float32 heig
         ctx->zLayer += 1.0f;
     }
 
-    // Get vertex and index lists
-    Vertex_RGB_List* vertices = &ctx->meshLayer.vertices;
-    Index_List* indices = &ctx->meshLayer.indices;
+    // Get vertexList
+    VertexSDFList* vertexList = &ctx->meshLayer.vertexList;
 
+    // Ensure vertex and index capacity
+    uint32 additionalVertices = 4;
+    uint32 additionalIndices = 6;
+    VertexSDFList_EnsureVertexCapacity(vertexList, additionalVertices);
+    VertexSDFList_EnsureIndexCapacity(vertexList, additionalIndices);
+
+    // Cache z
     float32 z = ctx->zLayer;
-
-    // --- Allocate extra space in vertex and index lists ---
-    uint32 additional_vertices = 4;
-    uint32 additional_indices = 6;
-    if (vertices->size + additional_vertices > vertices->capacity) Vertex_RGB_List_Grow(vertices, additional_vertices);
-    if (indices->size + additional_indices > indices->capacity) Index_List_Grow(indices, additional_indices);
 
     // Add pixel alignment offset
     x += 0.5f;
@@ -447,24 +689,32 @@ void Canvas_DrawVline(NU_Canvas_Context* ctx, float32 x, float32 y, float32 heig
     // Pack color into float32
     float32 packedColor = PackColorIntoFloat32(color);
 
-    // Create mesh
-    uint32 vertex_offset = vertices->size;
-    vertices->array[vertex_offset] = (vertex_rgb){ x - half_thick, y, z, packedColor }; // Bottom point (y) - thick -
-    vertices->array[vertex_offset + 1] = (vertex_rgb){ x + half_thick, y, z, packedColor }; // Bottom point (y) - thick +
-    vertices->array[vertex_offset + 2] = (vertex_rgb){ x - half_thick, y + height, z, packedColor }; // Top point (y1) - thick -
-    vertices->array[vertex_offset + 3] = (vertex_rgb){ x + half_thick, y + height, z, packedColor }; // Top point (y1) - thick +
+    // SDF: vertical line -> only the two long edges (left/right) need AA.
+    // sdf = distance to nearest long edge (negative inside, positive outside)
+    // sdf2 = unused (1e9 sentinel), so min(sdf, sdf2) == sdf
+    float32 sdfLeft  = -half_thick;   // on left edge, negative = inside
+    float32 sdfRight =  half_thick;   // on right edge, positive = outside
+    float32 sdfUnused = 1e9f;
+
+    // Vertices
+    uint32 vertexOffset = VertexSDFList_VertexCount(vertexList);
+    vertexList->vertices[vertexOffset]     = (vertexSDF){ x - half_thick, y,          z, sdfLeft,  sdfUnused, packedColor }; // Bottom left
+    vertexList->vertices[vertexOffset + 1] = (vertexSDF){ x + half_thick, y,          z, sdfRight, sdfUnused, packedColor }; // Bottom right
+    vertexList->vertices[vertexOffset + 2] = (vertexSDF){ x - half_thick, y + height, z, sdfLeft,  sdfUnused, packedColor }; // Top left
+    vertexList->vertices[vertexOffset + 3] = (vertexSDF){ x + half_thick, y + height, z, sdfRight, sdfUnused, packedColor }; // Top right
 
     // Indices
-    uint32* indices_write = indices->array + indices->size;
-    *indices_write++ = vertex_offset;
-    *indices_write++ = vertex_offset + 1;
-    *indices_write++ = vertex_offset + 2;
-    *indices_write++ = vertex_offset + 1;
-    *indices_write++ = vertex_offset + 2;
-    *indices_write++ = vertex_offset + 3;
+    uint32* indicesWrite = vertexList->indices + VertexSDFList_IndexCount(vertexList);
+    *indicesWrite++ = vertexOffset;
+    *indicesWrite++ = vertexOffset + 1;
+    *indicesWrite++ = vertexOffset + 2;
+    *indicesWrite++ = vertexOffset + 1;
+    *indicesWrite++ = vertexOffset + 2;
+    *indicesWrite++ = vertexOffset + 3;
 
-    vertices->size += additional_vertices;
-    indices->size += additional_indices;
+    // Increment vertex and index count
+    vertexList->vertexCount += additionalVertices;
+    vertexList->indexCount += additionalIndices;
 }
 
 void Canvas_DrawHline(NU_Canvas_Context* ctx, float32 x, float32 y, float32 width, float32 thickness, NuColor color)
@@ -485,43 +735,48 @@ void Canvas_DrawHline(NU_Canvas_Context* ctx, float32 x, float32 y, float32 widt
         ctx->zLayer += 1.0f;
     }
 
-    // Get vertex and index lists
-    Vertex_RGB_List* vertices = &ctx->meshLayer.vertices;
-    Index_List* indices = &ctx->meshLayer.indices;
+    // Get vertexList
+    VertexSDFList* vertexList = &ctx->meshLayer.vertexList;
 
+    // Ensure vertex and index capacity
+    uint32 additionalVertices = 4;
+    uint32 additionalIndices = 6;
+    VertexSDFList_EnsureVertexCapacity(vertexList, additionalVertices);
+    VertexSDFList_EnsureIndexCapacity(vertexList, additionalIndices);
+
+    // Cache z
     float32 z = ctx->zLayer;
-
-    // --- Allocate extra space in vertex and index lists ---
-    uint32 additional_vertices = 4;
-    uint32 additional_indices = 6;
-    if (vertices->size + additional_vertices > vertices->capacity) Vertex_RGB_List_Grow(vertices, additional_vertices);
-    if (indices->size + additional_indices > indices->capacity) Index_List_Grow(indices, additional_indices);
 
     // Add pixel alignment offset
     y += 0.5f;
     float32 half_thick = thickness * 0.5f;
 
-    // Pack color into float32
+    // Pack color into uint32
     float32 packedColor = PackColorIntoFloat32(color);
 
-    // Create mesh
-    uint32 vertex_offset = vertices->size;
-    vertices->array[vertex_offset] = (vertex_rgb){ x, y - half_thick, z, packedColor }; // Left point (x) - thick -
-    vertices->array[vertex_offset + 1] = (vertex_rgb){ x, y + half_thick, z, packedColor }; // Left point (x) - thick +
-    vertices->array[vertex_offset + 2] = (vertex_rgb){ x + width, y - half_thick, z, packedColor }; // Right point (x1) - thick -
-    vertices->array[vertex_offset + 3] = (vertex_rgb){ x + width, y + half_thick, z, packedColor }; // Right point (x1) - thick +
+    // No AA needed on axis-aligned line -> deep inside sentinel for sdf, unused sentinel for sdf2
+    float32 sdfInside = -1e9f;
+    float32 sdfUnused =  1e9f;
+
+    // Vertices
+    uint32 vertexOffset = VertexSDFList_VertexCount(vertexList);
+    vertexList->vertices[vertexOffset] = (vertexSDF){ x, y - half_thick, z, sdfInside, sdfUnused, packedColor }; // Left point (x) - thick -
+    vertexList->vertices[vertexOffset + 1] = (vertexSDF){ x, y + half_thick, z, sdfInside, sdfUnused, packedColor }; // Left point (x) - thick +
+    vertexList->vertices[vertexOffset + 2] = (vertexSDF){ x + width, y - half_thick, z, sdfInside, sdfUnused, packedColor }; // Right point (x1) - thick -
+    vertexList->vertices[vertexOffset + 3] = (vertexSDF){ x + width, y + half_thick, z, sdfInside, sdfUnused, packedColor }; // Right point (x1) - thick +
 
     // Indices
-    uint32* indices_write = indices->array + indices->size;
-    *indices_write++ = vertex_offset;
-    *indices_write++ = vertex_offset + 1;
-    *indices_write++ = vertex_offset + 2;
-    *indices_write++ = vertex_offset + 1;
-    *indices_write++ = vertex_offset + 2;
-    *indices_write++ = vertex_offset + 3;
+    uint32* indicesWrite = vertexList->indices + VertexSDFList_IndexCount(vertexList);
+    *indicesWrite++ = vertexOffset;
+    *indicesWrite++ = vertexOffset + 1;
+    *indicesWrite++ = vertexOffset + 2;
+    *indicesWrite++ = vertexOffset + 1;
+    *indicesWrite++ = vertexOffset + 2;
+    *indicesWrite++ = vertexOffset + 3;
 
-    vertices->size += additional_vertices;
-    indices->size += additional_indices;
+    // Increment vertex and index count
+    vertexList->vertexCount += additionalVertices;
+    vertexList->indexCount += additionalIndices;
 }
 
 void Canvas_DrawLine(
@@ -530,34 +785,38 @@ void Canvas_DrawLine(
     float32 thickness,
     NuColor color)
 {
+    if (thickness <= 0.0f) return;
+
     float32 twoThick = thickness * 2.0f;
     float32 canvasWidth = ctx->canvasWidth;
     float32 canvasHeight = ctx->canvasHeight;
 
-    // Skip if line is not visible on canvas
+    // Skip if line is not visible on canvas.
     if ((x1 < -twoThick && x2 < -twoThick) ||
-        (x1 > ctx->canvasWidth && x2 > ctx->canvasWidth) ||
+        (x1 > canvasWidth && x2 > canvasWidth) ||
         (y1 < -twoThick && y2 < -twoThick) ||
-        (y1 > ctx->canvasHeight + twoThick && y2 > ctx->canvasHeight + twoThick)) {
+        (y1 > canvasHeight + twoThick && y2 > canvasHeight + twoThick))
         return;
-    }
 
-    bool coordsWithinLargeVirtualCanvas = x1 >= -twoThick && x1 <= canvasWidth + twoThick &&
-                                          x2 >= -twoThick && x2 <= canvasWidth + twoThick &&
-                                          y1 >= -twoThick && y1 <= canvasHeight + twoThick &&
-                                          y2 >= -twoThick && y2 <= canvasHeight + twoThick;
+    bool coordsWithinLargeVirtualCanvas =
+        x1 >= -twoThick && x1 <= canvasWidth + twoThick &&
+        x2 >= -twoThick && x2 <= canvasWidth + twoThick &&
+        y1 >= -twoThick && y1 <= canvasHeight + twoThick &&
+        y2 >= -twoThick && y2 <= canvasHeight + twoThick;
 
-    // Implement fancy clipping -> moves coords closer to canvas
+    // Clip against an expanded canvas.
     if (!coordsWithinLargeVirtualCanvas)
     {
-        const float32 MINX = -twoThick, MINY = -twoThick;
-        const float32 MAXX = ctx->canvasWidth + twoThick * 2.0f, MAXY = ctx->canvasHeight + twoThick * 2.0f;
+        const float32 MINX = -twoThick;
+        const float32 MINY = -twoThick;
+        const float32 MAXX = canvasWidth + twoThick * 2.0f;
+        const float32 MAXY = canvasHeight + twoThick * 2.0f;
         float32 dx = x2 - x1;
         float32 dy = y2 - y1;
         float32 t0 = 0.0f;
         float32 t1 = 1.0f;
 
-        // left
+        // Left
         float32 p = -dx, q = x1 - MINX;
         if (p == 0.0f) {
             if (q < 0.0f) return;
@@ -572,7 +831,7 @@ void Canvas_DrawLine(
             }
         }
 
-        // right
+        // Right
         p = dx; q = MAXX - x1;
         if (p == 0.0f) {
             if (q < 0.0f) return;
@@ -587,7 +846,7 @@ void Canvas_DrawLine(
             }
         }
 
-        // bottom
+        // Bottom
         p = -dy; q = y1 - MINY;
         if (p == 0.0f) {
             if (q < 0.0f) return;
@@ -602,7 +861,7 @@ void Canvas_DrawLine(
             }
         }
 
-        // top
+        // Top
         p = dy; q = MAXY - y1;
         if (p == 0.0f) {
             if (q < 0.0f) return;
@@ -617,75 +876,104 @@ void Canvas_DrawLine(
             }
         }
 
-        // final rejection
         if (t0 > t1) return;
-
-        // apply clipping
-        float32 nx1 = x1 + dx * t0;
-        float32 ny1 = y1 + dy * t0;
-        float32 nx2 = x1 + dx * t1;
-        float32 ny2 = y1 + dy * t1;
-        x1 = nx1; y1 = ny1;
-        x2 = nx2; y2 = ny2;
+        float32 ox = x1;
+        float32 oy = y1;
+        x1 = ox + dx * t0;
+        y1 = oy + dy * t0;
+        x2 = ox + dx * t1;
+        y2 = oy + dy * t1;
     }
 
-    // Switching from text layer -> switch to mesh layer and increment z layer
+    // Pixel alignment
+    x1 += 0.5f;
+    x2 += 0.5f;
+    y1 += 0.5f;
+    y2 += 0.5f;
+    float32 dx = x2 - x1;
+    float32 dy = y2 - y1;
+    float32 length = sqrtf(dx * dx + dy * dy);
+    if (length < 0.0001f) return;
+    dx /= length;
+    dy /= length;
+
+    // Normal perpendicular to the line
+    float32 px = -dy;
+    float32 py = dx;
+    float32 halfThick = thickness * 0.5f;
+
+    // Extra geometry beyond the real line boundary
+    // Must match the distance range handled by the shader
+    const float32 aaPadding = 1.5f;
+    float32 extent = halfThick + aaPadding;
+
+    // Switching from text layer to mesh layer
     if (!ctx->isMeshLayer) {
         ctx->isMeshLayer = true;
         ctx->zLayer += 1.0f;
     }
 
-    // Get vertex and index lists
-    Vertex_RGB_List* vertices = &ctx->meshLayer.vertices;
-    Index_List* indices = &ctx->meshLayer.indices;
+    // Get vertex list
+    VertexSDFList* vertexList = &ctx->meshLayer.vertexList;
 
+    // Ensure vertex and index capacity
+    const uint32 additionalVertices = 8;
+    const uint32 additionalIndices = 12;
+    VertexSDFList_EnsureVertexCapacity(vertexList, additionalVertices);
+    VertexSDFList_EnsureIndexCapacity(vertexList, additionalIndices);
+
+    // Cache z
     float32 z = ctx->zLayer;
 
-    // --- Allocate extra space in vertex and index lists ---
-    uint32 additional_vertices = 4;
-    uint32 additional_indices = 6;
-    if (vertices->size + additional_vertices > vertices->capacity) Vertex_RGB_List_Grow(vertices, additional_vertices);
-    if (indices->size + additional_indices > indices->capacity) Index_List_Grow(indices, additional_indices);
-
-    x1 += 0.5f;
-    x2 += 0.5f;
-    y1 += 0.5f;
-    y2 += 0.5f;
-
-
-    float32 dx = x2 - x1;
-    float32 dy = y2 - y1;
-    float32 length = sqrtf(dx * dx + dy * dy);
-    if (length == 0.0f) return; // avoid divide-by-zero
-    dx /= length;
-    dy /= length;
-    float32 px = -dy;
-    float32 py = dx;
-    float32 half_thick = thickness * 0.5f;
-    px *= half_thick;
-    py *= half_thick;
-
-    // Pack color into float32
+    // Pack color into uint32
     float32 packedColor = PackColorIntoFloat32(color);
 
+    // The SDF is measured from the ACTUAL line boundary.
+    //
+    // At the expanded mesh boundary: +aaPadding
+    // At the real line boundary:       0
+    // At the centreline:              -halfThick
+    //
+    // Each half has a linear SDF interpolation
+    const float32 sdfUnused = 1e9f;
+    const float32 sdfOuter = aaPadding;
+    const float32 sdfCenter = -halfThick;
 
-    uint32 vertex_offset = vertices->size;
-    vertices->array[vertex_offset] = (vertex_rgb){ x1 - px, y1 - py, z, packedColor }; // V1 -> thick -
-    vertices->array[vertex_offset + 1] = (vertex_rgb){ x1 + px, y1 + py, z, packedColor }; // V1 -> thick +
-    vertices->array[vertex_offset + 2] = (vertex_rgb){ x2 - px, y2 - py, z, packedColor }; // V2 -> thick -
-    vertices->array[vertex_offset + 3] = (vertex_rgb){ x2 + px, y2 + py, z, packedColor }; // V2 -> thick +
+    uint32 vertexOffset = VertexSDFList_VertexCount(vertexList);
+
+    // Left half: expanded outer edge -> centreline
+    vertexList->vertices[vertexOffset] = (vertexSDF){ x1 - px * extent, y1 - py * extent, z, sdfOuter, sdfUnused, packedColor };
+    vertexList->vertices[vertexOffset + 1] = (vertexSDF){ x1, y1, z, sdfCenter, sdfUnused, packedColor };
+    vertexList->vertices[vertexOffset + 2] = (vertexSDF){ x2 - px * extent, y2 - py * extent, z, sdfOuter, sdfUnused, packedColor };
+    vertexList->vertices[vertexOffset + 3] = (vertexSDF){ x2, y2, z, sdfCenter, sdfUnused, packedColor };
+
+    // Right half: centreline -> expanded outer edge
+    vertexList->vertices[vertexOffset + 4] = (vertexSDF){ x1, y1, z, sdfCenter, sdfUnused, packedColor };
+    vertexList->vertices[vertexOffset + 5] = (vertexSDF){ x1 + px * extent, y1 + py * extent, z, sdfOuter, sdfUnused, packedColor };
+    vertexList->vertices[vertexOffset + 6] = (vertexSDF){ x2, y2, z, sdfCenter, sdfUnused, packedColor };
+    vertexList->vertices[vertexOffset + 7] = (vertexSDF){ x2 + px * extent, y2 + py * extent, z, sdfOuter, sdfUnused, packedColor };
 
     // Indices
-    uint32* indices_write = indices->array + indices->size;
-    *indices_write++ = vertex_offset;
-    *indices_write++ = vertex_offset + 1;
-    *indices_write++ = vertex_offset + 2;
-    *indices_write++ = vertex_offset + 1;
-    *indices_write++ = vertex_offset + 2;
-    *indices_write++ = vertex_offset + 3;
+    uint32* indicesWrite = vertexList->indices + VertexSDFList_IndexCount(vertexList);
 
-    vertices->size += additional_vertices;
-    indices->size += additional_indices;
+    // Left half
+    *indicesWrite++ = vertexOffset;
+    *indicesWrite++ = vertexOffset + 1;
+    *indicesWrite++ = vertexOffset + 2;
+    *indicesWrite++ = vertexOffset + 1;
+    *indicesWrite++ = vertexOffset + 2;
+    *indicesWrite++ = vertexOffset + 3;
+    // Right half
+    *indicesWrite++ = vertexOffset + 4;
+    *indicesWrite++ = vertexOffset + 5;
+    *indicesWrite++ = vertexOffset + 6;
+    *indicesWrite++ = vertexOffset + 5;
+    *indicesWrite++ = vertexOffset + 6;
+    *indicesWrite++ = vertexOffset + 7;
+
+    // Increment vertex and index count
+    vertexList->vertexCount += additionalVertices;
+    vertexList->indexCount += additionalIndices;
 }
 
 void Canvas_DrawDashedLine(
@@ -872,12 +1160,6 @@ void Canvas_DrawDashedLine(
         ctx->zLayer += 1.0f;
     }
 
-    // Get vertex and index lists
-    Vertex_RGB_List* vertices = &ctx->meshLayer.vertices;
-    Index_List* indices = &ctx->meshLayer.indices;
-
-    float32 z = ctx->zLayer;
-
     // Calculate number of vertices and indices are needed
     float32 pattern_len = 0.0f;
     uint32 vertices_per_pattern = 0;
@@ -890,21 +1172,33 @@ void Canvas_DrawDashedLine(
     float32 approx_cycles = length / pattern_len;
     uint32 min_additional_vertices = ((uint32)approx_cycles + 1) * vertices_per_pattern;
     uint32 min_additional_indices  = ((uint32)approx_cycles + 1) * indices_per_pattern;
-    if (vertices->size + min_additional_vertices > vertices->capacity) Vertex_RGB_List_Grow(vertices, min_additional_vertices);
-    if (indices->size + min_additional_indices > indices->capacity) Index_List_Grow(indices, min_additional_indices);
+
+    // Get vertexList
+    VertexSDFList* vertexList = &ctx->meshLayer.vertexList;
+
+    // Ensure vertex and index capacity
+    VertexSDFList_EnsureVertexCapacity(vertexList, min_additional_vertices);
+    VertexSDFList_EnsureIndexCapacity(vertexList, min_additional_indices);
+
+    // Cache z
+    float32 z = ctx->zLayer;
 
     // Generate the mesh
     float32 travelled = world_start;
     uint32 i = start_pattern_index;
     float32 remaining_in_segment = (float32)dash_pattern[i] - (phase - pattern_offset);
-    float32 half_thick = thickness * 0.5f;  // FIXED: was 0.25f
+    float32 half_thick = thickness * 0.5f;
 
     // Pre-calculate perpendicular direction (constant for the whole line)
     float32 perp_x = -step_y * half_thick;
     float32 perp_y =  step_x * half_thick;
 
-    // Pack color into float32
+    // Pack color into uint32
     float32 packedColor = PackColorIntoFloat32(color);
+
+    // No AA needed for now -> deep inside sentinel for sdf, unused sentinel for sdf2
+    float32 sdfInside = -1e9f;
+    float32 sdfUnused =  1e9f;
 
     while (travelled < world_end)
     {
@@ -924,14 +1218,14 @@ void Canvas_DrawDashedLine(
             float32 sx2 = x1 + step_x * (next - world_start);
             float32 sy2 = y1 + step_y * (next - world_start);
 
-            uint32 v0 = vertices->size;
-            vertex_rgb* v = vertices->array + v0;
-            v[0] = (vertex_rgb){ sx1 - perp_x, sy1 - perp_y, z, packedColor };
-            v[1] = (vertex_rgb){ sx1 + perp_x, sy1 + perp_y, z, packedColor };
-            v[2] = (vertex_rgb){ sx2 - perp_x, sy2 - perp_y, z, packedColor };
-            v[3] = (vertex_rgb){ sx2 + perp_x, sy2 + perp_y, z, packedColor };
+            uint32 v0 = VertexSDFList_VertexCount(vertexList);
+            vertexSDF* v = vertexList->vertices + v0;
+            v[0] = (vertexSDF){ sx1 - perp_x, sy1 - perp_y, z, sdfInside, sdfUnused, packedColor };
+            v[1] = (vertexSDF){ sx1 + perp_x, sy1 + perp_y, z, sdfInside, sdfUnused, packedColor };
+            v[2] = (vertexSDF){ sx2 - perp_x, sy2 - perp_y, z, sdfInside, sdfUnused, packedColor };
+            v[3] = (vertexSDF){ sx2 + perp_x, sy2 + perp_y, z, sdfInside, sdfUnused, packedColor };
 
-            uint32* id = indices->array + indices->size;
+            uint32* id = vertexList->indices + VertexSDFList_IndexCount(vertexList);
             id[0] = v0;
             id[1] = v0 + 1;
             id[2] = v0 + 2;
@@ -939,8 +1233,9 @@ void Canvas_DrawDashedLine(
             id[4] = v0 + 2;
             id[5] = v0 + 3;
 
-            vertices->size += 4;
-            indices->size += 6;
+            // Increment vertex and index count
+            vertexList->vertexCount += 4;
+            vertexList->indexCount += 6;
         }
 
         travelled = next;

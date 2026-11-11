@@ -88,28 +88,6 @@
 #define NU_TYPE_IMPORT 10
 #define NU_TYPE_UNKNOWN 11
 
-// Get containing Node* of public node
-#define NODEP_OF(ptr)((Node*)((char*)(ptr) - offsetof(Node, public)))
-
-/* Members common to all node types */
-#define NU_NODE_FIELDS \
-    float32 x, y, width, height; \
-    float32 contentWidth, contentHeight; \
-    float32 scrollX, scrollV; \
-    uint16 preferredWidth, preferredHeight; \
-    uint16 minWidth, maxWidth; \
-    uint16 minHeight, maxHeight; \
-    int16 left, right, top, bottom; \
-    uint8 gap; \
-    uint8 padTop, padBottom, padLeft, padRight; \
-    uint8 borderTop, borderBottom, borderLeft, borderRight; \
-    uint8 borderRadiusTl, borderRadiusTr; \
-    uint8 borderRadiusBl, borderRadiusBr; \
-    uint8 backgroundR, backgroundG, backgroundB; \
-    uint8 borderR, borderG, borderB; \
-    uint8 textR, textG, textB;
-
-
 /* Node type opaque definitions */
 typedef struct NuNode NuNode;
 typedef struct NuWindow NuWindow;
@@ -123,78 +101,33 @@ typedef struct NuTable NuTable;
 typedef struct NuThead NuThead;
 typedef struct NuRow NuRow;
 
-/* Node type accessible definitions */
-typedef struct NuNodeAccess {
-    NU_NODE_FIELDS;
-} NuNodeAccess;
-
-typedef struct NuNodeGenericAccess {
-    NU_NODE_FIELDS;
-    char* textContent;
-} NuNodeGenericAccess;
-
-typedef struct NuWindowAccess {
-    NU_NODE_FIELDS;
-    char* textContent;
-} NuWindowAccess;
-
-typedef struct NuBoxAccess {
-    NU_NODE_FIELDS;
-    char* textContent;
-} NuBoxAccess;
-
-typedef struct NuFrameAccess {
-    NU_NODE_FIELDS;
-} NuFrameAccess;
-
-typedef struct NuButtonAccess {
-    NU_NODE_FIELDS;
-    char* textContent;
-} NuButtonAccess;
-
-typedef struct NuInputAccess {
-    NU_NODE_FIELDS;
-} NuInputAccess;
-
-typedef struct NuCanvasAccess {
-    NU_NODE_FIELDS;
-} NuCanvasAccess;
-
-typedef struct NuImageAccess {
-    NU_NODE_FIELDS;
-} NuImageAccess;
-
-typedef struct NuTableAccess {
-    NU_NODE_FIELDS;
-} NuTableAccess;
-
-typedef struct NuTheadAccess {
-    NU_NODE_FIELDS;
-} NuTheadAccess;
-
-typedef struct NuRowAccess {
-    NU_NODE_FIELDS;
-} NuRowAccess;
-
-typedef union PublicNodeStructUnion {
-    NuNodeGenericAccess generic;
-    NuNodeAccess common;
-    NuWindowAccess window;
-    NuBoxAccess box;
-    NuButtonAccess button;
-    NuInputAccess input;
-    NuCanvasAccess canvas;
-    NuImageAccess image;
-    NuTableAccess table;
-    NuTheadAccess thead;
-    NuRowAccess row;
-    NuFrameAccess frame;
-} PublicNodeStructUnion;
+// Base node generic public members
+typedef struct NodePublicBase {
+    float32 x, y, width, height;
+    float32 contentWidth, contentHeight;
+    float32 scrollX, scrollV;
+    uint16 preferredWidth, preferredHeight;
+    uint16 minWidth, maxWidth;
+    uint16 minHeight, maxHeight;
+    int16 left, right, top, bottom;
+    uint8 gap;
+    uint8 padTop, padBottom, padLeft, padRight;
+    uint8 borderTop, borderBottom, borderLeft, borderRight;
+    uint8 borderRadiusTl, borderRadiusTr;
+    uint8 borderRadiusBl, borderRadiusBr;
+    uint8 backgroundR, backgroundG, backgroundB;
+    uint8 borderR, borderG, borderB;
+} NodePublicBase;
 
 /* Node type-specific data */
 typedef struct NuInputSpecial {
     int32 textInputHandle;
 } NuInputSpecial;
+
+typedef struct NuTextSpecial {
+    char* textContent;
+    uint8 textR, textG, textB;
+} NuTextSpecial;
 
 typedef struct NuImageSpecial {
     int32 imageHandle;
@@ -208,11 +141,12 @@ typedef struct NuCanvasSpecial {
     int32 ctxHandle;
 } NuCanvasSpecial;
 
-typedef union NodeSpecialDataUnion {
+typedef union NodeSpecialUnion {
+    NuTextSpecial text;
     NuInputSpecial input;
     NuImageSpecial image;
     NuCanvasSpecial canvas;
-} NodeSpecialDataUnion;
+} NodeSpecialUnion;
 
 typedef struct InputText {
     char* buffer;
@@ -232,32 +166,32 @@ typedef struct InputText {
 /* Private node storing public and private members */
 typedef struct Node
 {
-    PublicNodeStructUnion public;       // Publicly readible to library user
     struct Node* parent;
     struct Node* nextSibling;      // Next sibling in linked-list style array
     struct Node* prevSibling;      // Prev sibling in linked-list style array
     struct Node* firstChild;       // First child in linked-list style child array
     struct Node* lastChild;        // Last child in linked-list style child array
     struct Node* clippedAncestor;  // Optional ancestor that has render clipping -> for calculating clipping union
+    NodePublicBase base;           // Publicly readible to library user
+    NodeSpecialUnion special;      // Node type-specific data
     char* class;
     char* id;
-    uint64 overrideStyleFlags;         // Bitflags determine which style properties ignore the stylesheet
-    NodeSpecialDataUnion special;   // Node type-specific data
+    uint64 overrideStyleFlags;     // Bitflags determine which style properties ignore the stylesheet
     int32 widgetID;
     uint32 subtreeSize;
     uint16 childCount;
-    uint16 eventFlags;                 // Bit flags indicating bound events
-    uint16 layoutFlags;                // Bit flags controlling layout and rendering
+    uint16 eventFlags;             // Bit flags indicating bound events
+    uint16 layoutFlags;            // Bit flags controlling layout and rendering
     bool isPartitionRoot;
     uint8 type;
-    uint8 layer;                       // Depth of this node in the tree [0, 1, ..n]
-    uint8 stateFlags;                  // State bitflags (eg. "STATE_FLAG_HIDDEN")
-    uint8 fontIdx;                     // Index of a font stored in an array
-    uint8 windowID;                    // Index of a window stored in a container
-    uint8 horizontalAlignment;         // Left, Center, Right [0, 1, 2]
-    uint8 verticalAlignment;           // Top, Center, Bottom [0, 1, 2]
-    uint8 horizontalTextAlignment;     // Left, Center, Right [0, 1, 2]
-    uint8 verticalTextAlignment;       // Top, Center, Bottom [0, 1, 2]
+    uint8 layer;                   // Depth of this node in the tree [0, 1, ..n]
+    uint8 stateFlags;              // State bitflags (eg. "STATE_FLAG_HIDDEN")
+    uint8 fontIdx;                 // Index of a font stored in an array
+    uint8 windowID;                // Index of a window stored in a container
+    uint8 horizontalAlignment;     // Left, Center, Right [0, 1, 2]
+    uint8 verticalAlignment;       // Top, Center, Bottom [0, 1, 2]
+    uint8 horizontalTextAlignment; // Left, Center, Right [0, 1, 2]
+    uint8 verticalTextAlignment;   // Top, Center, Bottom [0, 1, 2]
 } Node;
 
 /* Other structs used by the layout engine */
@@ -299,37 +233,42 @@ inline bool NodeStateDeleted(Node* node)
 
 static inline float32 NODE_BORDER_PAD_WIDTH(const Node* node)
 {
-    return node->public.generic.borderLeft + node->public.generic.borderRight
-         + node->public.generic.padLeft + node->public.generic.padRight;
+    return node->base.borderLeft + node->base.borderRight
+         + node->base.padLeft + node->base.padRight;
 }
 
 static inline float32 NODE_BORDER_PAD_HEIGHT(const Node* node)
 {
-    return node->public.generic.borderTop + node->public.generic.borderBottom
-         + node->public.generic.padTop + node->public.generic.padBottom;
+    return node->base.borderTop + node->base.borderBottom
+         + node->base.padTop + node->base.padBottom;
 }
 
 static inline float32 NODE_INNER_WIDTH(const Node* node)
 {
-    return node->public.generic.width - (node->public.generic.borderLeft + node->public.generic.borderRight
-         + node->public.generic.padLeft + node->public.generic.padRight);
+    return node->base.width - (node->base.borderLeft + node->base.borderRight
+         + node->base.padLeft + node->base.padRight);
 }
 
 static inline float32 NODE_INNER_HEIGHT(const Node* node)
 {
-    return node->public.generic.height - (node->public.generic.borderTop + node->public.generic.borderBottom
-         + node->public.generic.padTop + node->public.generic.padBottom);
+    return node->base.height - (node->base.borderTop + node->base.borderBottom
+         + node->base.padTop + node->base.padBottom);
 }
 
 static inline bool NODE_HAS_TEXT_CONTENT(const Node* node)
 {
-    return node->public.generic.textContent != NULL &&
+    return node->special.text.textContent != NULL &&
     (node->type == NU_TYPE_BOX || node->type == NU_TYPE_BUTTON);
+}
+
+static inline bool NODE_CAN_HAVE_TEXT_CONTENT(const Node* node)
+{
+    return node->type == NU_TYPE_BOX || node->type == NU_TYPE_BUTTON;
 }
 
 static inline bool NODE_CONTENTS_OVERFLOW_V(const Node* node)
 {
-    return node->public.generic.contentHeight > NODE_INNER_WIDTH(node);
+    return node->base.contentHeight > NODE_INNER_WIDTH(node);
 }
 
 void ApplyNodeDefaults(Node* node, Node* parent, uint8 type, uint16 layer)
@@ -343,14 +282,17 @@ void ApplyNodeDefaults(Node* node, Node* parent, uint8 type, uint16 layer)
     node->type = type;
 
     // Set specific fields to default values
-    node->public.generic.maxWidth = node->public.generic.maxHeight = UINT16_MAX;
-    node->public.generic.backgroundR = node->public.generic.backgroundG = node->public.generic.backgroundB = 50;
-    node->public.generic.borderR = node->public.generic.borderG = node->public.generic.borderB = 100;
-    node->public.generic.textR = node->public.generic.textG = node->public.generic.textB = 255;
+    node->base.maxWidth = node->base.maxHeight = UINT16_MAX;
+    node->base.backgroundR = node->base.backgroundG = node->base.backgroundB = 50;
+    node->base.borderR = node->base.borderG = node->base.borderB = 100;
     node->horizontalTextAlignment = 0;
     node->verticalTextAlignment = 1;
     node->widgetID = -1;
     node->subtreeSize = 1;
+
+    if (NODE_CAN_HAVE_TEXT_CONTENT(node)) {
+        node->special.text.textR = node->special.text.textG = node->special.text.textB = 255;
+    }
 
     // Set defaults based on node type
     switch (node->type)

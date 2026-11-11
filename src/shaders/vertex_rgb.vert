@@ -1,7 +1,9 @@
 #version 450
 
 layout(location = 0) in vec3 iPos;
-layout(location = 1) in float iColor;
+layout(location = 1) in float sdf;
+layout(location = 2) in float sdf2;
+layout(location = 3) in float iColor;
 
 layout(push_constant) uniform Push {
     float uScreenWidth;
@@ -11,6 +13,7 @@ layout(push_constant) uniform Push {
 } pc;
 
 layout(location = 0) out vec4 vColor;
+layout(location = 1) out vec2 vSDF;
 
 vec4 unpackRGBA(float c)
 {
@@ -30,4 +33,5 @@ void main() {
     gl_Position = vec4(ndc_x, ndc_y, iPos.z, 1.0);
 
     vColor = unpackRGBA(iColor);
+    vSDF = vec2(sdf, sdf2);
 }

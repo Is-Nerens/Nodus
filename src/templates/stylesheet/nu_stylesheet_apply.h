@@ -20,50 +20,50 @@ static void Stylesheet_ApplyStyleItemToNode(StyleItem* item, Node* node)
     STYLE_APPLY_LAYOUT_FLAG(PROPERTY_FLAG_HIDDEN, HIDDEN);                                // Hidden or not
     STYLE_APPLY_LAYOUT_FLAG(PROPERTY_FLAG_IGNORE_MOUSE, IGNORE_MOUSE);                    // Ignore mouse or not
     STYLE_APPLY_LAYOUT_FLAG(PROPERTY_FLAG_HIDE_BACKGROUND, HIDE_BACKGROUND);              // Hide background (or not)
-    if (STYLE_SHOULD_APPLY_TO_NODE(PROPERTY_FLAG_GAP)) node->public.generic.gap = item->gap;
-    if (STYLE_SHOULD_APPLY_TO_NODE(PROPERTY_FLAG_PREFERRED_WIDTH)) node->public.generic.preferredWidth = item->preferredWidth;
-    if (STYLE_SHOULD_APPLY_TO_NODE(PROPERTY_FLAG_MIN_WIDTH)) node->public.generic.minWidth = item->minWidth;
-    if (STYLE_SHOULD_APPLY_TO_NODE(PROPERTY_FLAG_MAX_WIDTH)) node->public.generic.maxWidth = item->maxWidth;
-    if (STYLE_SHOULD_APPLY_TO_NODE(PROPERTY_FLAG_PREFERRED_HEIGHT)) node->public.generic.preferredHeight = item->preferredHeight;
-    if (STYLE_SHOULD_APPLY_TO_NODE(PROPERTY_FLAG_MIN_HEIGHT)) node->public.generic.minHeight = item->minHeight;
-    if (STYLE_SHOULD_APPLY_TO_NODE(PROPERTY_FLAG_MAX_HEIGHT)) node->public.generic.maxHeight = item->maxHeight;
+    if (STYLE_SHOULD_APPLY_TO_NODE(PROPERTY_FLAG_GAP)) node->base.gap = item->gap;
+    if (STYLE_SHOULD_APPLY_TO_NODE(PROPERTY_FLAG_PREFERRED_WIDTH)) node->base.preferredWidth = item->preferredWidth;
+    if (STYLE_SHOULD_APPLY_TO_NODE(PROPERTY_FLAG_MIN_WIDTH)) node->base.minWidth = item->minWidth;
+    if (STYLE_SHOULD_APPLY_TO_NODE(PROPERTY_FLAG_MAX_WIDTH)) node->base.maxWidth = item->maxWidth;
+    if (STYLE_SHOULD_APPLY_TO_NODE(PROPERTY_FLAG_PREFERRED_HEIGHT)) node->base.preferredHeight = item->preferredHeight;
+    if (STYLE_SHOULD_APPLY_TO_NODE(PROPERTY_FLAG_MIN_HEIGHT)) node->base.minHeight = item->minHeight;
+    if (STYLE_SHOULD_APPLY_TO_NODE(PROPERTY_FLAG_MAX_HEIGHT)) node->base.maxHeight = item->maxHeight;
     if (STYLE_SHOULD_APPLY_TO_NODE(PROPERTY_FLAG_ALIGN_H)) node->horizontalAlignment = item->horizontalAlignment;
     if (STYLE_SHOULD_APPLY_TO_NODE(PROPERTY_FLAG_ALIGN_V)) node->verticalAlignment = item->verticalAlignment;
     if (STYLE_SHOULD_APPLY_TO_NODE(PROPERTY_FLAG_TEXT_ALIGN_H)) node->horizontalTextAlignment = item->horizontalTextAlignment;
     if (STYLE_SHOULD_APPLY_TO_NODE(PROPERTY_FLAG_TEXT_ALIGN_V)) node->verticalTextAlignment = item->verticalTextAlignment;
-    if (STYLE_SHOULD_APPLY_TO_NODE(PROPERTY_FLAG_LEFT)) node->public.generic.left = item->left;
-    if (STYLE_SHOULD_APPLY_TO_NODE(PROPERTY_FLAG_RIGHT)) node->public.generic.right = item->right;
-    if (STYLE_SHOULD_APPLY_TO_NODE(PROPERTY_FLAG_TOP)) node->public.generic.top = item->top;
-    if (STYLE_SHOULD_APPLY_TO_NODE(PROPERTY_FLAG_BOTTOM)) node->public.generic.bottom = item->bottom;
+    if (STYLE_SHOULD_APPLY_TO_NODE(PROPERTY_FLAG_LEFT)) node->base.left = item->left;
+    if (STYLE_SHOULD_APPLY_TO_NODE(PROPERTY_FLAG_RIGHT)) node->base.right = item->right;
+    if (STYLE_SHOULD_APPLY_TO_NODE(PROPERTY_FLAG_TOP)) node->base.top = item->top;
+    if (STYLE_SHOULD_APPLY_TO_NODE(PROPERTY_FLAG_BOTTOM)) node->base.bottom = item->bottom;
     if (STYLE_SHOULD_APPLY_TO_NODE(PROPERTY_FLAG_BACKGROUND)) {
-        node->public.generic.backgroundR = item->backgroundR;
-        node->public.generic.backgroundG = item->backgroundG;
-        node->public.generic.backgroundB = item->backgroundB;
+        node->base.backgroundR = item->backgroundR;
+        node->base.backgroundG = item->backgroundG;
+        node->base.backgroundB = item->backgroundB;
         node->layoutFlags &= ~(HIDE_BACKGROUND * (!(node->overrideStyleFlags & PROPERTY_FLAG_HIDE_BACKGROUND) && !(item->propertyFlags & PROPERTY_FLAG_HIDE_BACKGROUND)));
     }
     if (STYLE_SHOULD_APPLY_TO_NODE(PROPERTY_FLAG_BORDER_COLOUR)) {
-        node->public.generic.borderR = item->borderR;
-        node->public.generic.borderG = item->borderG;
-        node->public.generic.borderB = item->borderB;
+        node->base.borderR = item->borderR;
+        node->base.borderG = item->borderG;
+        node->base.borderB = item->borderB;
     }
-    if (STYLE_SHOULD_APPLY_TO_NODE(PROPERTY_FLAG_TEXT_COLOUR)) {
-        node->public.generic.textR = item->textR;
-        node->public.generic.textG = item->textG;
-        node->public.generic.textB = item->textB;
+    if (STYLE_SHOULD_APPLY_TO_NODE(PROPERTY_FLAG_TEXT_COLOUR) && NODE_CAN_HAVE_TEXT_CONTENT(node)) {
+        node->special.text.textR = item->textR;
+        node->special.text.textG = item->textG;
+        node->special.text.textB = item->textB;
     }
-    if (STYLE_SHOULD_APPLY_TO_NODE(PROPERTY_FLAG_BORDER_TOP)) node->public.generic.borderTop = item->borderTop;
-    if (STYLE_SHOULD_APPLY_TO_NODE(PROPERTY_FLAG_BORDER_BOTTOM)) node->public.generic.borderBottom = item->borderBottom;
-    if (STYLE_SHOULD_APPLY_TO_NODE(PROPERTY_FLAG_BORDER_LEFT)) node->public.generic.borderLeft = item->borderLeft;
-    if (STYLE_SHOULD_APPLY_TO_NODE(PROPERTY_FLAG_BORDER_RIGHT)) node->public.generic.borderRight = item->borderRight;
-    if (STYLE_SHOULD_APPLY_TO_NODE(PROPERTY_FLAG_BORDER_RADIUS_TL)) node->public.generic.borderRadiusTl = item->borderRadiusTl;
-    if (STYLE_SHOULD_APPLY_TO_NODE(PROPERTY_FLAG_BORDER_RADIUS_TR)) node->public.generic.borderRadiusTr = item->borderRadiusTr;
-    if (STYLE_SHOULD_APPLY_TO_NODE(PROPERTY_FLAG_BORDER_RADIUS_BL)) node->public.generic.borderRadiusBl = item->borderRadiusBl;
-    if (STYLE_SHOULD_APPLY_TO_NODE(PROPERTY_FLAG_BORDER_RADIUS_BR)) node->public.generic.borderRadiusBr = item->borderRadiusBr;
-    if (STYLE_SHOULD_APPLY_TO_NODE(PROPERTY_FLAG_PAD_TOP)) node->public.generic.padTop = item->padTop;
-    if (STYLE_SHOULD_APPLY_TO_NODE(PROPERTY_FLAG_PAD_BOTTOM)) node->public.generic.padBottom = item->padBottom;
-    if (STYLE_SHOULD_APPLY_TO_NODE(PROPERTY_FLAG_PAD_LEFT)) node->public.generic.padLeft = item->padLeft;
-    if (STYLE_SHOULD_APPLY_TO_NODE(PROPERTY_FLAG_PAD_RIGHT)) node->public.generic.padRight = item->padRight;
-    if (STYLE_SHOULD_APPLY_TO_NODE(PROPERTY_FLAG_IMAGE) && node->type != NU_TYPE_CANVAS && node->type != NU_TYPE_INPUT) {
+    if (STYLE_SHOULD_APPLY_TO_NODE(PROPERTY_FLAG_BORDER_TOP)) node->base.borderTop = item->borderTop;
+    if (STYLE_SHOULD_APPLY_TO_NODE(PROPERTY_FLAG_BORDER_BOTTOM)) node->base.borderBottom = item->borderBottom;
+    if (STYLE_SHOULD_APPLY_TO_NODE(PROPERTY_FLAG_BORDER_LEFT)) node->base.borderLeft = item->borderLeft;
+    if (STYLE_SHOULD_APPLY_TO_NODE(PROPERTY_FLAG_BORDER_RIGHT)) node->base.borderRight = item->borderRight;
+    if (STYLE_SHOULD_APPLY_TO_NODE(PROPERTY_FLAG_BORDER_RADIUS_TL)) node->base.borderRadiusTl = item->borderRadiusTl;
+    if (STYLE_SHOULD_APPLY_TO_NODE(PROPERTY_FLAG_BORDER_RADIUS_TR)) node->base.borderRadiusTr = item->borderRadiusTr;
+    if (STYLE_SHOULD_APPLY_TO_NODE(PROPERTY_FLAG_BORDER_RADIUS_BL)) node->base.borderRadiusBl = item->borderRadiusBl;
+    if (STYLE_SHOULD_APPLY_TO_NODE(PROPERTY_FLAG_BORDER_RADIUS_BR)) node->base.borderRadiusBr = item->borderRadiusBr;
+    if (STYLE_SHOULD_APPLY_TO_NODE(PROPERTY_FLAG_PAD_TOP)) node->base.padTop = item->padTop;
+    if (STYLE_SHOULD_APPLY_TO_NODE(PROPERTY_FLAG_PAD_BOTTOM)) node->base.padBottom = item->padBottom;
+    if (STYLE_SHOULD_APPLY_TO_NODE(PROPERTY_FLAG_PAD_LEFT)) node->base.padLeft = item->padLeft;
+    if (STYLE_SHOULD_APPLY_TO_NODE(PROPERTY_FLAG_PAD_RIGHT)) node->base.padRight = item->padRight;
+    if (STYLE_SHOULD_APPLY_TO_NODE(PROPERTY_FLAG_IMAGE) && node->type == NU_TYPE_IMAGE) {
         node->special.image.imageHandle = item->imageHandle;
     }
     if (STYLE_SHOULD_APPLY_TO_NODE(PROPERTY_FLAG_IMAGE_WIDTH_DIM) && node->type == NU_TYPE_IMAGE) {

@@ -591,7 +591,6 @@ int Window_PrepareFrame(Window* window, DisplayManager* displayManager)
         return 0;
     }
 
-
     VkResult result = vkAcquireNextImageKHR(
         device,
         window->swapchain,

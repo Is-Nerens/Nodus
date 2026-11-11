@@ -721,6 +721,7 @@ _EXPORT void NU_SET_BACKGROUND_COLOR(NuNode* node, NuColor color) {
     nodeP->public.common.backgroundR = color.r;
     nodeP->public.common.backgroundG = color.g;
     nodeP->public.common.backgroundB = color.b;
+    nodeP->overrideStyleFlags |= PROPERTY_FLAG_BACKGROUND;
     GUI.awaiting_redraw = true;
 }
 
@@ -729,6 +730,7 @@ _EXPORT void NU_SET_BORDER_COLOR(NuNode* node, NuColor color) {
     nodeP->public.common.borderR = color.r;
     nodeP->public.common.borderG = color.g;
     nodeP->public.common.borderB = color.b;
+    nodeP->overrideStyleFlags |= PROPERTY_FLAG_BORDER_COLOUR;
     GUI.awaiting_redraw = true;
 }
 
@@ -737,6 +739,7 @@ _EXPORT void NU_SET_TEXT_COLOR(NuNode* node, NuColor color) {
     nodeP->public.common.textR = color.r;
     nodeP->public.common.textG = color.g;
     nodeP->public.common.textB = color.b;
+    nodeP->overrideStyleFlags |= PROPERTY_FLAG_TEXT_COLOUR;
     GUI.awaiting_redraw = true;
 }
 
@@ -861,12 +864,14 @@ _EXPORT NuNode* NU_HOVERED_NODE() {
 _EXPORT void NU_HIDE(NuNode* node) {
     Node* nodeP = (Node*)(node);
     nodeP->layoutFlags |= HIDDEN;
+    nodeP->overrideStyleFlags |= PROPERTY_FLAG_HIDDEN;
     GUI.awaiting_redraw = true;
 }
 
 _EXPORT void NU_SHOW(NuNode* node) {
     Node* nodeP = (Node*)(node);
     nodeP->layoutFlags &= ~HIDDEN;
+    nodeP->overrideStyleFlags |= PROPERTY_FLAG_HIDDEN;
     GUI.awaiting_redraw = true;
 }
 
@@ -878,12 +883,14 @@ _EXPORT int NU_IS_SHOWN(const NuNode* node) {
 _EXPORT void NU_GROW_VERTICAL(NuNode* node) {
     Node* nodeP = (Node*)(node);
     nodeP->layoutFlags |= GROW_VERTICAL;
+    nodeP->overrideStyleFlags |= PROPERTY_FLAG_GROW;
     GUI.awaiting_redraw = true;
 }
 
 _EXPORT void NU_GROW_HORIZONTAL(NuNode* node) {
     Node* nodeP = (Node*)(node);
     nodeP->layoutFlags |= GROW_HORIZONTAL;
+    nodeP->overrideStyleFlags |= PROPERTY_FLAG_GROW;
     GUI.awaiting_redraw = true;
 }
 
@@ -891,6 +898,7 @@ _EXPORT void NU_GROW_BOTH(NuNode* node) {
     Node* nodeP = (Node*)(node);
     nodeP->layoutFlags |= GROW_VERTICAL;
     nodeP->layoutFlags |= GROW_HORIZONTAL;
+    nodeP->overrideStyleFlags |= PROPERTY_FLAG_GROW;
     GUI.awaiting_redraw = true;
 }
 
@@ -898,11 +906,6 @@ _EXPORT void NU_GROW_NONE(NuNode* node) {
     Node* nodeP = (Node*)(node);
     nodeP->layoutFlags &= ~GROW_VERTICAL;
     nodeP->layoutFlags &= ~GROW_HORIZONTAL;
-    GUI.awaiting_redraw = true;
-}
-
-_EXPORT void NU_GROW_IGNORE_STYLESHEET(NuNode* node) {
-    Node* nodeP = (Node*)(node);
     nodeP->overrideStyleFlags |= PROPERTY_FLAG_GROW;
     GUI.awaiting_redraw = true;
 }
@@ -916,17 +919,13 @@ _EXPORT void NU_GROW_ENABLE_STYLESHEET(NuNode* node) {
 _EXPORT void NU_BACKGROUND_VISIBILITY_SHOWN(NuNode* node) {
     Node* nodeP = (Node*)(node);
     nodeP->layoutFlags &= ~HIDE_BACKGROUND;
+    nodeP->overrideStyleFlags |= PROPERTY_FLAG_HIDE_BACKGROUND;
     GUI.awaiting_redraw = true;
 }
 
 _EXPORT void NU_BACKGROUND_VISIBILITY_HIDDEN(NuNode* node) {
     Node* nodeP = (Node*)(node);
     nodeP->layoutFlags |= HIDE_BACKGROUND;
-    GUI.awaiting_redraw = true;
-}
-
-_EXPORT void NU_BACKGROUND_VISIBILITY_IGNORE_STYLESHEET(NuNode* node) {
-    Node* nodeP = (Node*)(node);
     nodeP->overrideStyleFlags |= PROPERTY_FLAG_HIDE_BACKGROUND;
     GUI.awaiting_redraw = true;
 }

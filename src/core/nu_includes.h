@@ -44,6 +44,7 @@ typedef void (*NU_Callback)(void* args);
 
 // Nodus includes
 #include <utils/nu_types.h>
+//#include <utils/nu_simd.h>
 #include <utils/nu_color.h>
 #include <utils/nu_type_parse.h>
 #include <utils/nu_performance.h>

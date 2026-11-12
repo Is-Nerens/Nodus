@@ -107,6 +107,10 @@ _EXPORT NuWindow* NU_CREATE_GUI(const char* xml_filepath, const char* css_filepa
     GUI.awaiting_redraw = true;
     GUI.recalculate_mouse_hover = true;
 
+    // Frame callback
+    GUI.frameCallback = NULL;
+    GUI.frameCallbackArgs = NULL;
+
     // Traversal
     GUI.dfs = DepthFirstSearch_Create(GUI.tree.root);
     GUI.bfs = BreadthFirstSearch_Create(GUI.tree.root);
@@ -172,32 +176,44 @@ _EXPORT NuWindow* NU_CREATE_GUI(const char* xml_filepath, const char* css_filepa
 
 int TimerHandler(void* args) {
 
-    while(GUI.running) {
-
-        uint64 shortestRemaining = 20;
+    while (GUI.running)
+    {
+        uint64 shortestRemainingDuration = 20;
 
         SDL_LockMutex(GUI.guiMutex);
 
         uint64 currentTimeMs = SDL_GetTicks();
-        for (int i=0; i<GUI.timers.size; i++) {
+        int timerCount = Container_Count(&GUI.timers);
+
+        for (int i=0; i<timerCount; i++)
+        {
             NU_Timer* timer = Container_GetAt(&GUI.timers, i);
-            if (!timer->willBeRemoved) {
+            if (!timer->willBeRemoved)
+            {
                 uint64 timeSinceLastFired = currentTimeMs - timer->lastFiredTime;
-                if (timeSinceLastFired >= timer->intervalMs) {
+
+                // Timer ticks now
+                if (timeSinceLastFired >= timer->intervalMs)
+                {
                     timer->lastFiredTime = currentTimeMs;
                     timer->callback(timer->args);
-                    if (timer->intervalMs < shortestRemaining) shortestRemaining = timer->intervalMs;
-                } else {
+                    currentTimeMs = SDL_GetTicks(); // Update current time to counteract drift during callback
+                    if (timer->intervalMs < shortestRemainingDuration) shortestRemainingDuration = timer->intervalMs;
+                }
+                // Timer waiting
+                else
+                {
                     uint64 remaining = timer->intervalMs - timeSinceLastFired;
-                    if (remaining < shortestRemaining) shortestRemaining = remaining;
+                    if (remaining < shortestRemainingDuration) shortestRemainingDuration = remaining;
                 }
             }
         }
 
         SDL_UnlockMutex(GUI.guiMutex);
 
-        if (shortestRemaining < 1) shortestRemaining = 1;
-        SDL_Delay((uint32)shortestRemaining);
+        // Sleep until next timer is due
+        if (shortestRemainingDuration < 1) shortestRemainingDuration = 1;
+        SDL_Delay((uint32)shortestRemainingDuration);
     }
 
     return 0;
@@ -230,12 +246,15 @@ _EXPORT void NU_RUN(void) {
         }
         TreeFreeDeleted(&GUI.tree);
 
-        // Delete unused timers
+        // Remove deferred removal timers
         for (int i=GUI.timers.size-1; i>=0; i--) {
             NU_Timer* timer = Container_GetAt(&GUI.timers, i);
             int id = Container_IdAt(&GUI.timers, i);
             if (timer->willBeRemoved) Container_Remove(&GUI.timers, id);
         }
+
+        // Call frame callback if there is one
+        if (GUI.frameCallback) GUI.frameCallback(GUI.frameCallbackArgs);
 
         // Re-render UI if necessary
         if (GUI.awaiting_redraw)
@@ -262,7 +281,7 @@ _EXPORT int NU_ADD_TIMER(uint32 intervalMs, NU_Callback callback, void* args) {
     timer.lastFiredTime = 0;
     timer.callback = callback;
     timer.args = args;
-    timer.willBeRemoved = false;
+    timer.syncState = false;
     int timerId = Container_Add(&GUI.timers, &timer);
     return timerId;
 }
@@ -270,6 +289,16 @@ _EXPORT int NU_ADD_TIMER(uint32 intervalMs, NU_Callback callback, void* args) {
 _EXPORT void NU_REMOVE_TIMER(int timer) {
     NU_Timer* _timer = Container_Get(&GUI.timers, timer);
     if (_timer) _timer->willBeRemoved = true;
+}
+
+_EXPORT void NU_SET_FRAME_CALLBACK(NU_Callback callback, void* args) {
+    GUI.frameCallback = callback;
+    GUI.frameCallbackArgs = args;
+}
+
+_EXPORT void NU_REMOVE_FRAME_CALLBACK() {
+    GUI.frameCallback = NULL;
+    GUI.frameCallbackArgs = NULL;
 }
 
 // -----------------------
@@ -408,9 +437,9 @@ _EXPORT uint8 NU_TYPE(const NuNode* node) {
     return nodeP->type;
 }
 
-_EXPORT int NU_CHILD_COUNT(const NuNode* node) {
+_EXPORT uint32 NU_CHILD_COUNT(const NuNode* node) {
     Node* nodeP = (Node*)(node);
-    return (int)nodeP->childCount;
+    return (uint32)nodeP->childCount;
 }
 
 _EXPORT NuNode* NU_NEXT_SIBLING(const NuNode* node) {
@@ -721,7 +750,7 @@ _EXPORT void NU_BUTTON_SET_TEXT_CONTENT(NuButton* button, char* string) {
     GUI.awaiting_redraw = true;
 }
 
-_EXPORT void NU_INPUT_SET_TEXT_CONTENT(NuNode* node, const char* string) {
+_EXPORT void NU_INPUT_SET_TEXT_CONTENT(NuNode* node, char* string) {
     Node* nodeP = (Node*)(node);
     Font* font = Stylesheet_Get_Font(&GUI.stylesheet, nodeP->fontIdx);
     InputText* inputText = Container_Get(&GUI.textInputs, nodeP->special.input.textInputHandle);
@@ -811,7 +840,7 @@ _EXPORT void NU_SHOW(NuNode* node) {
     GUI.awaiting_redraw = true;
 }
 
-_EXPORT int NU_IS_SHOWN(const NuNode* node) {
+_EXPORT bool NU_IS_SHOWN(const NuNode* node) {
     Node* nodeP = (Node*)(node);
     return !(nodeP->layoutFlags & HIDDEN);
 }
@@ -879,7 +908,7 @@ _EXPORT NuNode* NU_NODE_WITH_ID(const char* id) {
     return (NuNode*)(node);
 }
 
-_EXPORT NU_Nodelist NU_NODES_WITH_CLASS(const char* class) {
+_EXPORT NuNodelist NU_NODES_WITH_CLASS(const char* class) {
 
     NU_Nodelist_Internal result;
     NU_Nodelist_Init(&result, 8);
@@ -894,7 +923,7 @@ _EXPORT NU_Nodelist NU_NODES_WITH_CLASS(const char* class) {
     return result.nodelist;
 }
 
-_EXPORT NU_Nodelist NU_NODES_WITH_TYPE(const uint8 type) {
+_EXPORT NuNodelist NU_NODES_WITH_TYPE(const uint8 type) {
     NU_Nodelist_Internal result;
     NU_Nodelist_Init(&result, 8);
     DepthFirstSearch dfs = DepthFirstSearch_Create(GUI.tree.root);
@@ -908,7 +937,7 @@ _EXPORT NU_Nodelist NU_NODES_WITH_TYPE(const uint8 type) {
     return result.nodelist;
 }
 
-_EXPORT NU_Nodelist NU_DESCENDENTS_WITH_CLASS(const NuNode* node, const char* class) {
+_EXPORT NuNodelist NU_DESCENDENTS_WITH_CLASS(const NuNode* node, const char* class) {
     Node* nodeP = (Node*)(node);
     NU_Nodelist_Internal result;
     NU_Nodelist_Init(&result, 8);
@@ -923,7 +952,7 @@ _EXPORT NU_Nodelist NU_DESCENDENTS_WITH_CLASS(const NuNode* node, const char* cl
     return result.nodelist;
 }
 
-_EXPORT NU_Nodelist NU_DESCENDENTS_WITH_TYPE(const NuNode* node, uint8 type) {
+_EXPORT NuNodelist NU_DESCENDENTS_WITH_TYPE(const NuNode* node, uint8 type) {
     Node* nodeP = (Node*)(node);
     NU_Nodelist_Internal result;
     NU_Nodelist_Init(&result, 8);
@@ -938,7 +967,7 @@ _EXPORT NU_Nodelist NU_DESCENDENTS_WITH_TYPE(const NuNode* node, uint8 type) {
     return result.nodelist;
 }
 
-_EXPORT NU_Nodelist NU_CHILDREN(const NuNode* node) {
+_EXPORT NuNodelist NU_CHILDREN(const NuNode* node) {
     Node* nodeP = (Node*)(node);
     NU_Nodelist_Internal result;
     NU_Nodelist_Init(&result, nodeP->childCount);
@@ -990,7 +1019,7 @@ _EXPORT int NU_DOES_DESCEND(const NuNode* node, NuNode* ancestor) {
     return 0;
 }
 
-_EXPORT void NU_NODELIST_FREE(NU_Nodelist* nodelist) {
+_EXPORT void NU_NODELIST_FREE(NuNodelist* nodelist) {
     free(nodelist->nodes);
     nodelist->count = 0;
 }
@@ -1044,7 +1073,7 @@ _EXPORT void NU_REMOVE_CLASS(NuNode* node) {
     GUI.awaiting_redraw = true;
 }
 
-_EXPORT void NU_BIND_EVENT(NuNode* node, NU_EventCallback callback, void* args, NU_EventType event_type, int widgetID) {
+_EXPORT void NU_BIND_EVENT(NuNode* node, NU_EventType event_type, NU_EventCallback callback, void* args, int widgetID) {
     NU_Internal_Bind_Event((Node*)(node), args, callback, event_type, widgetID);
 }
 
@@ -1072,7 +1101,7 @@ _EXPORT void NU_WIDGET_UPDATE(int widgetID) {
     widget->updateCB((NuNode*)(widget), widget->updateCB_Args, NULL);
 }
 
-_EXPORT void NU_WIDGET_DELETE(int widgetID, int deleteRoot) {
+_EXPORT void NU_WIDGET_DELETE(int widgetID, bool deleteRoot) {
     NU_Widget* widget = Container_Get(&GUI.widgets, widgetID);
     widget->root->widgetID = -1; // unassign
     if (deleteRoot) TreeDeleteNode(&GUI.tree, widget->root, NU_DissociateNode);
@@ -1098,8 +1127,8 @@ _EXPORT int NU_CANVAS_CTX(const NuCanvas* canvasNode) {
     return ctxId;
 }
 
-_EXPORT void NU_CANVAS_CLEAR(int contextID) {
-    NU_Canvas_Context* ctx = Container_Get(&GUI.canvasContexts, contextID);
+_EXPORT void NU_CANVAS_CLEAR(int contextId) {
+    NU_Canvas_Context* ctx = Container_Get(&GUI.canvasContexts, contextId);
     if (ctx) Canvas_ClearContext(ctx, &GUI.displayManager, &GUI.imageResourceManager);
 }
 
@@ -1120,13 +1149,13 @@ _EXPORT float NU_CANVAS_HEIGHT(int contextId) {
 }
 
 _EXPORT void NU_CANVAS_DRAW_BORDER_RECT(
-    int contextID,
+    int contextId,
     float x, float y, float w, float h,
     float thickness,
     NuColor borderColor,
     NuColor fillColor)
 {
-    NU_Canvas_Context* ctx = Container_Get(&GUI.canvasContexts, contextID);
+    NU_Canvas_Context* ctx = Container_Get(&GUI.canvasContexts, contextId);
     if (ctx) {
         Canvas_DrawBorderRect(ctx, x, y, w, h, thickness, borderColor, fillColor);
         GUI.awaiting_redraw = true;
@@ -1134,7 +1163,7 @@ _EXPORT void NU_CANVAS_DRAW_BORDER_RECT(
 }
 
 _EXPORT void NU_CANVAS_DRAW_TRIANGLE(
-    int contextID,
+    int contextId,
     float x1, float y1,
     float x2, float y2,
     float x3, float y3,
@@ -1142,7 +1171,7 @@ _EXPORT void NU_CANVAS_DRAW_TRIANGLE(
     NuColor borderColor,
     NuColor fillColor)
 {
-    NU_Canvas_Context* ctx = Container_Get(&GUI.canvasContexts, contextID);
+    NU_Canvas_Context* ctx = Container_Get(&GUI.canvasContexts, contextId);
     if (ctx) {
         Canvas_DrawTriangle(ctx, x1, y1, x2, y2, x3, y3, thickness, borderColor, fillColor);
         GUI.awaiting_redraw = true;
@@ -1150,12 +1179,12 @@ _EXPORT void NU_CANVAS_DRAW_TRIANGLE(
 }
 
 _EXPORT void NU_CANVAS_DRAW_VLINE(
-    int contextID,
+    int contextId,
     float x, float y, float height,
     float thickness,
     NuColor color)
 {
-    NU_Canvas_Context* ctx = Container_Get(&GUI.canvasContexts, contextID);
+    NU_Canvas_Context* ctx = Container_Get(&GUI.canvasContexts, contextId);
     if (ctx) {
         Canvas_DrawVline(ctx, x, y, height, thickness, color);
         GUI.awaiting_redraw = true;
@@ -1163,12 +1192,12 @@ _EXPORT void NU_CANVAS_DRAW_VLINE(
 }
 
 _EXPORT void NU_CANVAS_DRAW_HLINE(
-    int contextID,
+    int contextId,
     float x, float y, float width,
     float thickness,
     NuColor color)
 {
-    NU_Canvas_Context* ctx = Container_Get(&GUI.canvasContexts, contextID);
+    NU_Canvas_Context* ctx = Container_Get(&GUI.canvasContexts, contextId);
     if (ctx) {
         Canvas_DrawHline(ctx, x, y, width, thickness, color);
         GUI.awaiting_redraw = true;
@@ -1176,13 +1205,13 @@ _EXPORT void NU_CANVAS_DRAW_HLINE(
 }
 
 _EXPORT void NU_CANVAS_DRAW_LINE(
-    int contextID,
+    int contextId,
     float x1, float y1,
     float x2, float y2,
     float thickness,
     NuColor color)
 {
-    NU_Canvas_Context* ctx = Container_Get(&GUI.canvasContexts, contextID);
+    NU_Canvas_Context* ctx = Container_Get(&GUI.canvasContexts, contextId);
     if (ctx) {
         Canvas_DrawLine(ctx, x1, y1, x2, y2, thickness, color);
         GUI.awaiting_redraw = true;
@@ -1190,22 +1219,22 @@ _EXPORT void NU_CANVAS_DRAW_LINE(
 }
 
 _EXPORT void NU_CANVAS_DRAW_DASHED_LINE(
-    int contextID,
+    int contextId,
     float x1, float y1,
     float x2, float y2,
     float thickness,
-    uint8* dash_pattern,
-    uint32 dash_pattern_len,
+    uint8* dashPattern,
+    uint32 dashPatternLen,
     NuColor color)
 {
-    NU_Canvas_Context* ctx = Container_Get(&GUI.canvasContexts, contextID);
+    NU_Canvas_Context* ctx = Container_Get(&GUI.canvasContexts, contextId);
     if (ctx) {
         Canvas_DrawDashedLine(
             ctx,
             x1, y1, x2, y2,
             thickness,
-            dash_pattern,
-            dash_pattern_len,
+            dashPattern,
+            dashPatternLen,
             color
         );
         GUI.awaiting_redraw = true;
@@ -1220,18 +1249,18 @@ _EXPORT void NU_CANVAS_SET_RENDER_TYPE(int contextId, CanvasRenderType renderTyp
 
 _EXPORT void NU_CANVAS_SET_FONT(
     int contextId,
-    const char* font_name)
+    const char* fontName)
 {
     NU_Canvas_Context* ctx = Container_Get(&GUI.canvasContexts, contextId);
-    if (ctx) Canvas_SetFont(ctx, font_name);
+    if (ctx) Canvas_SetFont(ctx, fontName);
 }
 
 _EXPORT void NU_CANVAS_DRAW_TEXT(
-    int contextID,
+    int contextId,
     float x, float y, float wrapWidth,
     NuColor color, const char* string)
 {
-    NU_Canvas_Context* ctx = Container_Get(&GUI.canvasContexts, contextID);
+    NU_Canvas_Context* ctx = Container_Get(&GUI.canvasContexts, contextId);
     if (ctx) {
         CanvasTextLayer* layer = Array_Get(&ctx->textLayers, ctx->selectedTextLayerIdx);
         Font* font = Stylesheet_Get_Font(&GUI.stylesheet, layer->fontIdx);
@@ -1241,11 +1270,11 @@ _EXPORT void NU_CANVAS_DRAW_TEXT(
 }
 
 _EXPORT float NU_CANVAS_TEXT_HEIGHT(
-    int contextID,
+    int contextId,
     float wrapWidth,
     const char* string)
 {
-    NU_Canvas_Context* ctx = Container_Get(&GUI.canvasContexts, contextID);
+    NU_Canvas_Context* ctx = Container_Get(&GUI.canvasContexts, contextId);
     if (ctx) {
         CanvasTextLayer* layer = Array_Get(&ctx->textLayers, ctx->selectedTextLayerIdx);
         Font* font = Stylesheet_Get_Font(&GUI.stylesheet, layer->fontIdx);
@@ -1254,8 +1283,8 @@ _EXPORT float NU_CANVAS_TEXT_HEIGHT(
     return 0.0f;
 }
 
-_EXPORT float NU_CANVAS_TEXT_WIDTH(int contextID, const char* string) {
-    NU_Canvas_Context* ctx = Container_Get(&GUI.canvasContexts, contextID);
+_EXPORT float NU_CANVAS_TEXT_WIDTH(int contextId, const char* string) {
+    NU_Canvas_Context* ctx = Container_Get(&GUI.canvasContexts, contextId);
     if (ctx) {
         CanvasTextLayer* layer = Array_Get(&ctx->textLayers, ctx->selectedTextLayerIdx);
         Font* font = Stylesheet_Get_Font(&GUI.stylesheet, layer->fontIdx);
@@ -1265,13 +1294,13 @@ _EXPORT float NU_CANVAS_TEXT_WIDTH(int contextID, const char* string) {
 }
 
 _EXPORT void NU_CANVAS_DRAW_LEN_TEXT(
-    int contextID,
+    int contextId,
     float x, float y,
     float wrapWidth,
     NuColor color,
     const char* string, size_t stringLen)
 {
-    NU_Canvas_Context* ctx = Container_Get(&GUI.canvasContexts, contextID);
+    NU_Canvas_Context* ctx = Container_Get(&GUI.canvasContexts, contextId);
     if (ctx) {
         CanvasTextLayer* layer = Array_Get(&ctx->textLayers, ctx->selectedTextLayerIdx);
         Font* font = Stylesheet_Get_Font(&GUI.stylesheet, layer->fontIdx);
@@ -1281,12 +1310,12 @@ _EXPORT void NU_CANVAS_DRAW_LEN_TEXT(
 }
 
 _EXPORT float NU_CANVAS_LEN_TEXT_HEIGHT(
-    int contextID,
+    int contextId,
     float wrapWidth,
     const char* string,
     size_t stringLen)
 {
-    NU_Canvas_Context* ctx = Container_Get(&GUI.canvasContexts, contextID);
+    NU_Canvas_Context* ctx = Container_Get(&GUI.canvasContexts, contextId);
     if (ctx) {
         CanvasTextLayer* layer = Array_Get(&ctx->textLayers, ctx->selectedTextLayerIdx);
         Font* font = Stylesheet_Get_Font(&GUI.stylesheet, layer->fontIdx);
@@ -1296,11 +1325,11 @@ _EXPORT float NU_CANVAS_LEN_TEXT_HEIGHT(
 }
 
 _EXPORT float NU_CANVAS_LEN_TEXT_WIDTH(
-    int contextID,
+    int contextId,
     const char* string,
     size_t stringLen)
 {
-    NU_Canvas_Context* ctx = Container_Get(&GUI.canvasContexts, contextID);
+    NU_Canvas_Context* ctx = Container_Get(&GUI.canvasContexts, contextId);
     if (ctx) {
         CanvasTextLayer* layer = Array_Get(&ctx->textLayers, ctx->selectedTextLayerIdx);
         Font* font = Stylesheet_Get_Font(&GUI.stylesheet, layer->fontIdx);
@@ -1309,12 +1338,41 @@ _EXPORT float NU_CANVAS_LEN_TEXT_WIDTH(
     return 0.0f;
 }
 
-_EXPORT float NU_CANVAS_TEXT_LINE_HEIGHT(int contextID) {
-    NU_Canvas_Context* ctx = Container_Get(&GUI.canvasContexts, contextID);
+_EXPORT float NU_CANVAS_TEXT_LINE_HEIGHT(int contextId) {
+    NU_Canvas_Context* ctx = Container_Get(&GUI.canvasContexts, contextId);
     if (ctx) {
         CanvasTextLayer* layer = Array_Get(&ctx->textLayers, ctx->selectedTextLayerIdx);
         Font* font = Stylesheet_Get_Font(&GUI.stylesheet, layer->fontIdx);
         return font->line_height;
     }
     return 0.0f;
+}
+
+_EXPORT bool NU_IS_MOUSE_DOWN(NuMousecode mouseCode) {
+    SDL_MouseButtonFlags state = SDL_GetMouseState(NULL, NULL);
+    return (state & SDL_BUTTON_MASK(mouseCode)) != 0;
+}
+
+_EXPORT bool NU_IS_MOUSE_UP(NuMousecode mouseCode) {
+    SDL_MouseButtonFlags state = SDL_GetMouseState(NULL, NULL);
+    return !((state & SDL_BUTTON_MASK(mouseCode)) != 0);
+}
+
+_EXPORT bool NU_IS_MOUSE_PRESSED(NuMousecode mouseCode) {
+    return false;
+}
+
+_EXPORT bool NU_IS_KEY_UP(NuKeycode keycode) {
+    SDL_Scancode sc = SDL_GetScancodeFromKey((SDL_Keycode)keycode, NULL);
+    return !(SDL_GetKeyboardState(NULL)[sc]);
+}
+
+_EXPORT bool NU_IS_KEY_DOWN(NuKeycode keycode) {
+    SDL_Scancode sc = SDL_GetScancodeFromKey((SDL_Keycode)keycode, NULL);
+    return SDL_GetKeyboardState(NULL)[sc];
+}
+
+_EXPORT bool NU_IS_KEY_PRESSED(NuKeycode keycode) {
+    SDL_Scancode sc = SDL_GetScancodeFromKey((SDL_Keycode)keycode, NULL);
+    return SDL_GetKeyboardState(NULL)[sc];
 }

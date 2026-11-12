@@ -49,17 +49,17 @@ typedef struct NuBaseReadonly {
     uint8_t textR, textG, textB;
 } NuBaseReadonly;
 
-typedef struct NU_Nodelist
+typedef struct NuNodelist
 {
     size_t size;
     NuNode** nodes;
-} NU_Nodelist;
+} NuNodelist;
 
-typedef struct {
+typedef struct NuColor {
     uint8_t r, g, b, a;
 } NuColor;
 
-typedef enum NU_EventType
+typedef enum NuEventType
 {
     NU_EVENT_ON_CLICK,
     NU_EVENT_ON_INPUT_CHANGED,
@@ -77,9 +77,9 @@ typedef enum NU_EventType
     NU_EVENT_ON_KEY_DOWN,
     NU_EVENT_ON_KEY_UP,
     NU_EVENT_ON_TYPE
-} NU_EventType;
+} NuEventType;
 
-typedef enum NU_Keycode
+typedef enum NuKeycode
 {
     NU_KEY_UNKNOWN = 0,
     NU_KEY_SPACE = 32,
@@ -231,7 +231,13 @@ typedef enum NU_Keycode
     NU_KEY_AC_STOP = 0x4000011cu,      // 1073742108
     NU_KEY_AC_REFRESH = 0x4000011du,   // 1073742109
     NU_KEY_AC_BOOKMARKS = 0x4000011eu, // 1073742110
-} NU_Keycode;
+} NuKeycode;
+
+typedef enum NuMouseCode {
+    NU_MOUSE_LEFT,
+    NU_MOUSE_RIGHT,
+    NU_MOUSE_MIDDLE
+} NuMousecode;
 
 #define NU_TYPE_WINDOW 0
 #define NU_TYPE_BOX    1
@@ -244,66 +250,60 @@ typedef enum NU_Keycode
 #define NU_TYPE_ROW    8
 #define NU_TYPE_FRAME  9
 
-typedef struct NU_EventInfoMouse
+typedef struct NuEventInfoMouse
 {
     int mouseBtn;
     int mouseX, mouseY;
     float deltaX, deltaY;
     float wheelDelta;
-} NU_EventInfoMouse;
+} NuEventInfoMouse;
 
-typedef struct NU_EventInfoInput
+typedef struct NuEventInfoInput
 {
     char text[5];
-} NU_EventInfoInput;
+} NuEventInfoInput;
 
-typedef struct NU_EventInfoKeypress
+typedef struct NuEventInfoKeypress
 {
-    enum NU_Keycode keycode;
+    NuKeycode keycode;
     bool repeat;
-} NU_EventInfoKeypress;
+} NuEventInfoKeypress;
 
-typedef struct NU_EventInfoType
+typedef struct NuEventInfoType
 {
     char text[5];
-} NU_EventInfoType;
+} NuEventInfoType;
 
-typedef struct NU_Event
+typedef struct NuEvent
 {
     NuNode* node;
-    NU_EventInfoMouse mouse;
-    NU_EventInfoInput input;
-    NU_EventInfoKeypress keypress;
-    NU_EventInfoType type;
-    enum NU_EventType eventType;
-} NU_Event;
+    NuEventInfoMouse mouse;
+    NuEventInfoInput input;
+    NuEventInfoKeypress keypress;
+    NuEventInfoType type;
+    NuEventType eventType;
+} NuEvent;
 
-typedef enum {
+typedef enum NuCanvasRenderType {
     NU_CANVAS_TYPE_UNBUFFERED,
     NU_CANVAS_TYPE_BUFFERED_NO_MSAA,
     NU_CANVAS_TYPE_BUFFERED_MSAA_4X,
-} CanvasRenderType;
+} NuCanvasRenderType;
 
-typedef void (*NU_EventCallback)(NU_Event event, void* args);
-typedef void (*NU_Callback)(void* args);
-typedef void (*NU_WidgetCreateCallback)(NuNode* root, int widgetID, void* args);
-typedef void (*NU_WidgetUpdateCallback)(NuNode* root, void* args, const NU_Event* event);
-
-struct NU_EventCallbackInfo
-{
-    NU_Event event;
-    void* args;
-    NU_EventCallback callback;
-};
-
+typedef void (*NuEventCallback)(NuEvent event, void* args);
+typedef void (*NuCallback)(void* args);
+typedef void (*NuWidgetCreateCallback)(NuNode* root, int widgetID, void* args);
+typedef void (*NuWidgetUpdateCallback)(NuNode* root, void* args, const NuEvent* event);
 
 
 // UI functions
 _IMPORT NuWindow* NU_CREATE_GUI(const char* xml_filepath, const char* css_filepath);
 _IMPORT void NU_QUIT(void);
 _IMPORT void NU_RUN(void);
-_IMPORT int NU_ADD_TIMER(uint32_t intervalMs, NU_Callback callback, void* args);
+_IMPORT int NU_ADD_TIMER(uint32_t intervalMs, NuCallback callback, void* args);
 _IMPORT void NU_REMOVE_TIMER(int timer);
+_IMPORT void NU_SET_FRAME_CALLBACK(NuCallback callback, void* args);
+_IMPORT void NU_REMOVE_FRAME_CALLBACK();
 
 // Error functions
 _IMPORT void NU_CLEAR_ERRORS(void);
@@ -325,33 +325,114 @@ _IMPORT void NU_SET_CURSOR_NWSE_RESIZE(void);
 _IMPORT void NU_SET_CURSOR_NESW_RESIZE(void);
 
 // Node traversal
+/** Returns the parent of a node. */
 _IMPORT NuNode* NU_PARENT(const NuNode* node);
+
+/**
+ * Returns the child of a node at a given index.
+ * The return value will be NULL if the child does not exist.
+ */
 _IMPORT NuNode* NU_CHILD(const NuNode* node, uint32_t childIndex);
+
+/**
+ * Returns the next adjacent sibling of a node within its parent.
+ * The return value will be NULL if the next sibling does not exist.
+ */
 _IMPORT NuNode* NU_NEXT_SIBLING(const NuNode* node);
+
+/**
+ * Returns the previous adjacent sibling of a node within its parent.
+ * The return value will be NULL if the previous sibling does not exist.
+ */
 _IMPORT NuNode* NU_PREVIOUS_SIBLING(const NuNode* node);
 
 // Node queries
+/**
+ * Returns a node's type.
+ * e.g. NU_TYPE_WINDOW for a window node.
+ */
 _IMPORT uint8_t NU_TYPE(const NuNode* node);
-_IMPORT int NU_CHILD_COUNT(const NuNode* node);
-_IMPORT int NU_IS_SHOWN(const NuNode* node);
+
+/**
+ * Returns the number of children that a node has.
+ */
+_IMPORT uint32_t NU_CHILD_COUNT(const NuNode* node);
+
+/**
+ * Returns a boolean indicating the visibility of a node.
+ */
+_IMPORT bool NU_IS_SHOWN(const NuNode* node);
 
 // Node creation functions
+
+/**
+ * Creates a window node.
+ * It is appended as the last child of parent.
+ */
 _IMPORT NuWindow* NU_WINDOW(NuNode* parent);
+
+/**
+ * Creates a box node.
+ * It is appended as the last child of parent.
+ */
 _IMPORT NuBox* NU_BOX(NuNode* parent);
+
+/**
+ * Creates a frame node.
+ * It is appended as the last child of parent.
+ */
 _IMPORT NuFrame* NU_FRAME(NuNode* parent);
+
+/**
+ * Creates a button node.
+ * It is appended as the last child of parent.
+ */
 _IMPORT NuButton* NU_BUTTON(NuNode* parent);
+
+/**
+ * Creates an input node.
+ * It is appended as the last child of parent.
+ */
 _IMPORT NuInput* NU_INPUT(NuNode* parent);
+
+/**
+ * Creates a canvas node.
+ * It is appended as the last child of parent.
+ */
 _IMPORT NuCanvas* NU_CANVAS(NuNode* parent);
+
+/**
+ * Creates an image node.
+ * It is appended as the last child of parent.
+ */
 _IMPORT NuImage* NU_IMAGE(NuNode* parent);
+
+/**
+ * Creates a table node.
+ * It is appended as the last child of parent.
+ */
 _IMPORT NuTable* NU_TABLE(NuNode* parent);
+
+/**
+ * Creates a table header node.
+ * It is appended as the last child of parent.
+ */
 _IMPORT NuThead* NU_THEAD(NuNode* parent);
+
+/**
+ * Creates a row node.
+ * It is appended as the last child of parent.
+ */
 _IMPORT NuRow* NU_ROW(NuNode* parent);
 
-// Node deletion
+/**
+ * Deletes a node in place.
+ * Maintains the order of siblings.
+ */
 _IMPORT void NU_DELETE_NODE(NuNode* node);
 
-// Base node member variable read access
-_IMPORT const NuBaseReadonly* NU_BASE_GET(NuNode* node);
+// Stable base node member variable read access
+_IMPORT const NuBaseReadonly* NU_BASE_GET(const NuNode* node);
 
 // Generic node set functions
 _IMPORT void NU_SET_PREFERRED_WIDTH(NuNode* node, uint16_t preferredWidth);
@@ -360,10 +441,10 @@ _IMPORT void NU_SET_MIN_WIDTH(NuNode* node, uint16_t minWidth);
 _IMPORT void NU_SET_MAX_WIDTH(NuNode* node, uint16_t maxWidth);
 _IMPORT void NU_SET_MIN_HEIGHT(NuNode* node, uint16_t minHeight);
 _IMPORT void NU_SET_MAX_HEIGHT(NuNode* node, uint16_t maxHeight);
-_IMPORT void NU_SET_LEFT(NuNode* node, uint16_t left);
-_IMPORT void NU_SET_RIGHT(NuNode* node, uint16_t right);
-_IMPORT void NU_SET_TOP(NuNode* node, uint16_t top);
-_IMPORT void NU_SET_BOTTOM(NuNode* node, uint16_t bottom);
+_IMPORT void NU_SET_LEFT(NuNode* node, int16_t left);
+_IMPORT void NU_SET_RIGHT(NuNode* node, int16_t right);
+_IMPORT void NU_SET_TOP(NuNode* node, int16_t top);
+_IMPORT void NU_SET_BOTTOM(NuNode* node, int16_t bottom);
 _IMPORT void NU_SET_GAP(NuNode* node, uint8_t gap);
 _IMPORT void NU_SET_PAD_TOP(NuNode* node, uint8_t padTop);
 _IMPORT void NU_SET_PAD_BOTTOM(NuNode* node, uint8_t padBottom);
@@ -382,16 +463,15 @@ _IMPORT void NU_SET_BORDER_COLOR(NuNode* node, NuColor color);
 _IMPORT void NU_SET_TEXT_COLOR(NuNode* node, NuColor color);
 
 // Node type specific set functions
-_IMPORT void NU_WINDOW_SET_TEXT_CONTENT(NuWindow* window, char* string);
 _IMPORT void NU_BOX_SET_TEXT_CONTENT(NuBox* box, char* string);
 _IMPORT void NU_BUTTON_SET_TEXT_CONTENT(NuButton* button, char* string);
-_IMPORT void NU_INPUT_SET_TEXT_CONTENT(NuInput* input, const char* string);
+_IMPORT void NU_INPUT_SET_TEXT_CONTENT(NuInput* input, char* string);
 _IMPORT void NU_WINDOW_SET_TITLE(NuWindow* window, const char* string);
 _IMPORT void NU_WINDOW_SET_FULLSCREEN(NuWindow* window);
 _IMPORT void NU_WINDOW_SET_WINDOWED(NuWindow* window);
 
 // Special node type functions
-_IMPORT void NU_INPUT_FOCUS(NuNode* node);
+_IMPORT void NU_INPUT_FOCUS(NuInput* node);
 _IMPORT const char* NU_INPUT_GET_TEXT_CONTENT(const NuInput* input);
 
 
@@ -416,48 +496,48 @@ _IMPORT void NU_SHIFT_NODE_IN_PARENT(NuNode* node, int index);
 _IMPORT void NU_REPARENT_NODE(NuNode* node, NuNode* newParent);
 _IMPORT void NU_BIND_EVENT(
   NuNode* node,
-  NU_EventCallback callback,
+  NuEventType event,
+  NuEventCallback callback,
   void* args,
-  enum NU_EventType event,
   int widgetID
 );
 
 // Node retrieval functions
 _IMPORT NuNode* NU_NODE_WITH_ID(const char* id);
-_IMPORT NU_Nodelist NU_NODES_WITH_CLASS(char* const class);
-_IMPORT NU_Nodelist NU_NODES_WITH_TYPE(uint8_t type);
-_IMPORT NU_Nodelist NU_DESCENDENTS_WITH_CLASS(const NuNode* node, const char* const class);
-_IMPORT NU_Nodelist NU_DESCENDENTS_WITH_TYPE(const NuNode* node, uint8_t type);
+_IMPORT NuNodelist NU_NODES_WITH_CLASS(const char* const class);
+_IMPORT NuNodelist NU_NODES_WITH_TYPE(uint8_t type);
+_IMPORT NuNodelist NU_DESCENDENTS_WITH_CLASS(const NuNode* node, const char* const class);
+_IMPORT NuNodelist NU_DESCENDENTS_WITH_TYPE(const NuNode* node, uint8_t type);
 _IMPORT NuNode* NU_FIRST_DESCENDENT_WITH_CLASS(const NuNode* node, const char* class);
 _IMPORT NuNode* NU_FIRST_DESCENDENT_WITH_TYPE(const NuNode* node, uint8_t type);
-_IMPORT NU_Nodelist NU_CHILDREN(const NuNode* node);
-_IMPORT void NU_NODELIST_FREE(NU_Nodelist* nodelist);
+_IMPORT NuNodelist NU_CHILDREN(const NuNode* node);
+_IMPORT void NU_NODELIST_FREE(NuNodelist* nodelist);
 
 // Widget functions
 _IMPORT int NU_WIDGET(NuNode* widgetRoot,
-    NU_WidgetCreateCallback createCB,
-    NU_WidgetUpdateCallback updateCB,
+    NuWidgetCreateCallback createCB,
+    NuWidgetUpdateCallback updateCB,
     void* createCB_Args,
     void* updateCB_Args
 );
 _IMPORT void NU_WIDGET_UPDATE(int widgetID);
-_IMPORT void NU_WIDGET_DELETE(int widgetID, int deleteRoot);
+_IMPORT void NU_WIDGET_DELETE(int widgetID, bool deleteRoot);
 
 // Canvas functions
 _IMPORT int NU_CANVAS_CTX(const NuCanvas* canvasNode);
-_IMPORT void NU_CANVAS_CLEAR(int contextId);
-_IMPORT float NU_CANVAS_WIDTH(int contextId);
-_IMPORT float NU_CANVAS_HEIGHT(int contextId);
+_IMPORT void NU_CANVAS_CLEAR(int contextID);
+_IMPORT float NU_CANVAS_WIDTH(int contextID);
+_IMPORT float NU_CANVAS_HEIGHT(int contextID);
 _IMPORT NuColor NU_COLOR_FROM_HEXCODE(const char* hexcode);
 _IMPORT void NU_CANVAS_DRAW_BORDER_RECT(
-    int contextID,
+    int context,
     float x, float y, float w, float h,
     float thickness,
     NuColor borderColor,
     NuColor fillColor
 );
 _IMPORT void NU_CANVAS_DRAW_TRIANGLE(
-    int contextID,
+    int context,
     float x1, float y1,
     float x2, float y2,
     float x3, float y3,
@@ -466,57 +546,51 @@ _IMPORT void NU_CANVAS_DRAW_TRIANGLE(
     NuColor fillColor
 );
 _IMPORT void NU_CANVAS_DRAW_VLINE(
-    int contextID,
+    int context,
     float x, float y, float height,
     float thickness,
     NuColor color
 );
 _IMPORT void NU_CANVAS_DRAW_HLINE(
-    int contextID,
+    int context,
     float x, float y, float width,
     float thickness,
     NuColor color
 );
 _IMPORT void NU_CANVAS_DRAW_LINE(
-    int contextID,
+    int context,
     float x1, float y1, float x2, float y2,
     float thickness,
     NuColor color
 );
 _IMPORT void NU_CANVAS_DRAW_DASHED_LINE(
-    int contextID,
+    int context,
     float x1, float y1, float x2, float y2,
     float thickness,
-    uint8_t* dash_pattern,
-    uint32_t dash_pattern_len,
+    uint8_t* dashPattern,
+    uint32_t dashPatternLen,
     NuColor color
 );
-_IMPORT void NU_CANVAS_SET_RENDER_TYPE(int contextId, CanvasRenderType renderType);
-_IMPORT void NU_CANVAS_SET_FONT(int contextID, const char* font_name);
+_IMPORT void NU_CANVAS_SET_RENDER_TYPE(int contextID, NuCanvasRenderType renderType);
+_IMPORT void NU_CANVAS_SET_FONT(int context, const char* fontName);
 _IMPORT void NU_CANVAS_DRAW_TEXT(
-    int contextID,
+    int context,
     float x, float y,
     float wrapWidth,
     NuColor color,
     const char* string
 );
 _IMPORT float NU_CANVAS_TEXT_HEIGHT(
-    int contextID,
+    int context,
     float wrapWidth,
     const char* string
 );
 _IMPORT float NU_CANVAS_TEXT_WIDTH(
-    int contextID,
+    int context,
     const char* string
 );
-_IMPORT void NU_LText(
-    int contextID,
-    float x, float y, float wrapWidth,
-    NuColor color, const char* string,
-    size_t stringLen
-);
 _IMPORT float NU_CANVAS_DRAW_LEN_TEXT(
-    int contextID,
+    int context,
     float x, float y,
     float wrapWidth,
     NuColor color,
@@ -524,11 +598,25 @@ _IMPORT float NU_CANVAS_DRAW_LEN_TEXT(
     size_t stringLen
 );
 _IMPORT float NU_CANVAS_LEN_TEXT_WIDTH(
-    int contextID,
+    int context,
     const char* string,
     size_t stringLen
 );
-_IMPORT float NU_CANVAS_TEXT_LINE_HEIGHT(int contextID);
+_IMPORT float NU_CANVAS_TEXT_LINE_HEIGHT(int context);
+
+
+
+
+
+
+_IMPORT bool NU_IS_MOUSE_DOWN(NuMousecode mousecode);
+_IMPORT bool NU_IS_MOUSE_UP(NuMousecode mousecode);
+_IMPORT bool NU_IS_MOUSE_PRESSED(NuMousecode mousecode);
+_IMPORT bool NU_IS_KEY_DOWN(NuKeycode keycode);
+_IMPORT bool NU_IS_KEY_UP(NuKeycode keycode);
+_IMPORT bool NU_IS_KEY_PRESSED(NuKeycode keycode);
+
+
 
 #ifdef __cplusplus
 }

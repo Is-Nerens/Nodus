@@ -1,14 +1,14 @@
 #pragma once
 #define MAX(a, b) ((a) > (b) ? (a) : (b))
 
-typedef struct NU_Nodelist {
+typedef struct NuNodelist {
     size_t count;
     NuNode** nodes;
-} NU_Nodelist;
+} NuNodelist;
 
 typedef struct NU_Nodelist_Internal
 {
-    NU_Nodelist nodelist;
+    NuNodelist nodelist;
     size_t capacity;
 } NU_Nodelist_Internal;
 
@@ -42,12 +42,12 @@ void NU_Nodelist_Push(NU_Nodelist_Internal* nodelist, NuNode* node)
     nodelist->nodelist.count += 1;
 }
 
-inline NuNode* NU_Nodelist_Get(NU_Nodelist* nodelist, size_t index)
+inline NuNode* NU_Nodelist_Get(NuNodelist* nodelist, size_t index)
 {
     return nodelist->nodes[index];
 }
 
-void NU_Nodelist_Set(NU_Nodelist* nodelist, size_t index, NuNode* node)
+void NU_Nodelist_Set(NuNodelist* nodelist, size_t index, NuNode* node)
 {
     // Out of bounds
     if (index >= nodelist->count) return;
@@ -89,7 +89,7 @@ void NU_Nodelist_Insert(NU_Nodelist_Internal* nodelist, size_t index, NuNode* no
     nodelist->nodelist.count += 1;
 }
 
-void NU_Nodelist_Swap(NU_Nodelist* nodelist, size_t index_a, size_t index_b)
+void NU_Nodelist_Swap(NuNodelist* nodelist, size_t index_a, size_t index_b)
 {
     // Out of bounds or same index — do nothing
     if (index_a >= nodelist->count || index_b >= nodelist->count || index_a == index_b) {
@@ -101,7 +101,7 @@ void NU_Nodelist_Swap(NU_Nodelist* nodelist, size_t index_a, size_t index_b)
     nodelist->nodes[index_b] = temp;
 }
 
-void NU_Nodelist_Delete_Backfill(NU_Nodelist* nodelist, size_t index)
+void NU_Nodelist_Delete_Backfill(NuNodelist* nodelist, size_t index)
 {
     // Out of bounds
     if (index >= nodelist->count) {
@@ -120,7 +120,7 @@ void NU_Nodelist_Delete_Backfill(NU_Nodelist* nodelist, size_t index)
     nodelist->count -= 1;
 }
 
-void NU_Nodelist_Delete_Backshift(NU_Nodelist* nodelist, size_t index)
+void NU_Nodelist_Delete_Backshift(NuNodelist* nodelist, size_t index)
 {
     // Out of bounds
     if (index >= nodelist->count) {

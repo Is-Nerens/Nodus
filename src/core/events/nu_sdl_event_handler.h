@@ -259,11 +259,12 @@ bool EventWatcher(void* data, SDL_Event* event)
         case SDL_EVENT_MOUSE_BUTTON_DOWN: {
 
             // Update last clicked window
-            GUI.displayManager.lastClickedWindow = SDL_GetWindowFromID(event->button.windowID);
+            SDL_Window* sdlWin = SDL_GetWindowFromID(event->button.windowID);
+            GUI.displayManager.lastClickedWindow = sdlWin;
 
             // If mouse hasn't moved yet the hovered window and node will not have been set -> set both of these
             if (!GUI.displayManager.hoveredWindowNode) {
-                DisplayManager_SetHoveredWindow(&GUI.displayManager, SDL_GetWindowFromID(event->button.windowID));
+                DisplayManager_SetHoveredWindow(&GUI.displayManager, sdlWin);
             }
 
             // Get mouse down coordinates
@@ -294,10 +295,12 @@ bool EventWatcher(void* data, SDL_Event* event)
             // Update focused node and prev focused node
             Node* prevFocusedNode = GUI.focused_node;
             if (GUI.hovered_node && GUI.hovered_node->type == NU_TYPE_INPUT) {
+                SDL_StartTextInput(sdlWin);
                 GUI.focused_node = GUI.hovered_node;
             }
             else {
                 GUI.focused_node = NULL;
+                SDL_StopTextInput(sdlWin);
             }
 
             // Place cursor on input node

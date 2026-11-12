@@ -165,3 +165,8 @@ static inline int Container_IdAt(Container* container, int i)
     int id   = (gen << 16) | slot;        // reconstruct full ID
     return id;
 }
+
+static inline int Container_Count(Container* container)
+{
+    return container->size;
+}

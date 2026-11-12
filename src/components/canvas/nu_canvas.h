@@ -2,8 +2,6 @@
 
 #include "nu_canvas_render_target.h"
 
-#define NORMALIZE(dx, dy) do { float32 len = sqrtf((dx)*(dx) + (dy)*(dy)); if (len > 0.0001f) { dx /= len; dy /= len; } } while(0)
-
 typedef enum {
     NU_CANVAS_TYPE_UNBUFFERED,
     NU_CANVAS_TYPE_BUFFERED_NO_MSAA,
@@ -340,162 +338,6 @@ void Canvas_DrawBorderRect(
     vertexList->indexCount += additionalIndices;
 }
 
-// void Canvas_DrawTriangle(
-//     NU_Canvas_Context* ctx,
-//     float32 x1, float32 y1,
-//     float32 x2, float32 y2,
-//     float32 x3, float32 y3,
-//     float32 thickness,
-//     NuColor borderColor,
-//     NuColor fillColor)
-// {
-//     // Skip if triangle is offscreen
-//     float32 minX = fminf(x1, fminf(x2, x3));
-//     float32 maxX = fmaxf(x1, fmaxf(x2, x3));
-//     float32 minY = fminf(y1, fminf(y2, y3));
-//     float32 maxY = fmaxf(y1, fmaxf(y2, y3));
-//     if (maxX < 0.0f || minX > ctx->canvasWidth || maxY < 0.0f || minY > ctx->canvasHeight) return;
-
-//     // Switching from text layer -> switch to mesh layer and increment z layer
-//     if (!ctx->isMeshLayer) {
-//         ctx->isMeshLayer = true;
-//         ctx->zLayer += 1.0f;
-//     }
-
-//     // Get vertexList
-//     VertexSDFList* vertexList = &ctx->meshLayer.vertexList;
-
-//     // Ensure vertex and index capacity
-//     uint32 additionalVertices = 9;
-//     uint32 additionalIndices = 21;
-//     VertexSDFList_EnsureVertexCapacity(vertexList, additionalVertices);
-//     VertexSDFList_EnsureIndexCapacity(vertexList, additionalIndices);
-
-//     // Cache z
-//     float32 z = ctx->zLayer;
-
-//     // Pack colors into uint32
-//     float32 packedBorderColor = PackColorIntoFloat32(borderColor);
-//     float32 packedFillColor = PackColorIntoFloat32(fillColor);
-
-//     // Vertices
-//     uint32 vertexOffset = VertexSDFList_VertexCount(vertexList);
-
-//     // No AA needed on this flat triangle -> deep inside sentinel for sdf, unused sentinel for sdf2
-//     float32 sdfInside = -1e9f;
-//     float32 sdfUnused =  1e9f;
-
-//     // Outer triangle (border)
-//     vertexList->vertices[vertexOffset + 0] = (vertexSDF){ x1, y1, z, sdfInside, sdfUnused, packedBorderColor };
-//     vertexList->vertices[vertexOffset + 1] = (vertexSDF){ x2, y2, z, sdfInside, sdfUnused, packedBorderColor };
-//     vertexList->vertices[vertexOffset + 2] = (vertexSDF){ x3, y3, z, sdfInside, sdfUnused, packedBorderColor };
-
-//     // Compute inward offset (very simple approximation using centroid)
-//     float32 dx1 = x2 - x1, dy1 = y2 - y1;
-//     float32 dx2 = x3 - x2, dy2 = y3 - y2;
-//     float32 dx3 = x1 - x3, dy3 = y1 - y3;
-
-//     float32 len1 = sqrtf(dx1 * dx1 + dy1 * dy1);
-//     float32 len2 = sqrtf(dx2 * dx2 + dy2 * dy2);
-//     float32 len3 = sqrtf(dx3 * dx3 + dy3 * dy3);
-
-//     float32 area = (x2 - x1) * (y3 - y1) - (y2 - y1) * (x3 - x1);
-//     float32 sign = (area > 0.0f) ? 1.0f : -1.0f;
-
-//     float32 nx1 = sign * dy1 / len1, ny1 = -sign * dx1 / len1;
-//     float32 nx2 = sign * dy2 / len2, ny2 = -sign * dx2 / len2;
-//     float32 nx3 = sign * dy3 / len3, ny3 = -sign * dx3 / len3;
-
-//     float32 inset = thickness;
-
-//     float32 d1 = nx1 * x1 + ny1 * y1 - inset;
-//     float32 d2 = nx2 * x2 + ny2 * y2 - inset;
-//     float32 d3 = nx3 * x3 + ny3 * y3 - inset;
-
-//     float32 det = nx1 * ny2 - ny1 * nx2;
-
-//     float32 ix1 = (d1 * ny2 - ny1 * d2) / det;
-//     float32 iy1 = (nx1 * d2 - d1 * nx2) / det;
-
-//     float32 det2 = nx2 * ny3 - ny2 * nx3;
-
-//     float32 ix2 = (d2 * ny3 - ny2 * d3) / det2;
-//     float32 iy2 = (nx2 * d3 - d2 * nx3) / det2;
-
-//     float32 det3 = nx3 * ny1 - ny3 * nx1;
-
-//     float32 ix3 = (d3 * ny1 - ny3 * d1) / det3;
-//     float32 iy3 = (nx3 * d1 - d3 * nx1) / det3;
-
-//     // Inner triangle points
-//     // Inner triangle (border)
-//     vertexList->vertices[vertexOffset + 3] = (vertexSDF){
-//         ix1, iy1, z,
-//         sdfInside, sdfUnused,
-//         packedBorderColor
-//     };
-//     vertexList->vertices[vertexOffset + 4] = (vertexSDF){
-//         ix2, iy2, z,
-//         sdfInside, sdfUnused,
-//         packedBorderColor
-//     };
-//     vertexList->vertices[vertexOffset + 5] = (vertexSDF){
-//         ix3, iy3, z,
-//         sdfInside, sdfUnused,
-//         packedBorderColor
-//     };
-
-//     // Inner triangle (fill)
-//     vertexList->vertices[vertexOffset + 6] = (vertexSDF){
-//         ix1, iy1, z,
-//         sdfInside, sdfUnused,
-//         packedFillColor
-//     };
-//     vertexList->vertices[vertexOffset + 7] = (vertexSDF){
-//         ix2, iy2, z,
-//         sdfInside, sdfUnused,
-//         packedFillColor
-//     };
-//     vertexList->vertices[vertexOffset + 8] = (vertexSDF){
-//         ix3, iy3, z,
-//         sdfInside, sdfUnused,
-//         packedFillColor
-//     };
-
-//     // Indices
-//     uint32* indicesWrite = vertexList->indices + VertexSDFList_IndexCount(vertexList);
-
-//     // Edge 1
-//     *indicesWrite++ = vertexOffset + 0;
-//     *indicesWrite++ = vertexOffset + 1;
-//     *indicesWrite++ = vertexOffset + 3;
-//     *indicesWrite++ = vertexOffset + 1;
-//     *indicesWrite++ = vertexOffset + 3;
-//     *indicesWrite++ = vertexOffset + 4;
-//     // Edge 2
-//     *indicesWrite++ = vertexOffset + 1;
-//     *indicesWrite++ = vertexOffset + 2;
-//     *indicesWrite++ = vertexOffset + 4;
-//     *indicesWrite++ = vertexOffset + 2;
-//     *indicesWrite++ = vertexOffset + 4;
-//     *indicesWrite++ = vertexOffset + 5;
-//     // Edge 3
-//     *indicesWrite++ = vertexOffset + 2;
-//     *indicesWrite++ = vertexOffset + 0;
-//     *indicesWrite++ = vertexOffset + 5;
-//     *indicesWrite++ = vertexOffset + 0;
-//     *indicesWrite++ = vertexOffset + 5;
-//     *indicesWrite++ = vertexOffset + 3;
-//     // Center
-//     *indicesWrite++ = vertexOffset + 6;
-//     *indicesWrite++ = vertexOffset + 7;
-//     *indicesWrite++ = vertexOffset + 8;
-
-//     // Increment vertex and index count
-//     vertexList->vertexCount += additionalVertices;
-//     vertexList->indexCount += additionalIndices;
-// }
-
 void Canvas_DrawTriangle(
     NU_Canvas_Context* ctx,
     float32 x1, float32 y1,
@@ -554,13 +396,18 @@ void Canvas_DrawTriangle(
     float32 len1 = sqrtf(dx1 * dx1 + dy1 * dy1);
     float32 len2 = sqrtf(dx2 * dx2 + dy2 * dy2);
     float32 len3 = sqrtf(dx3 * dx3 + dy3 * dy3);
+    if (len1 < 1e-5f || len2 < 1e-5f || len3 < 1e-5f) return;
 
-    float32 area = (x2 - x1) * (y3 - y1) - (y2 - y1) * (x3 - x1);
+    float inv_len1 = 1.0f / len1;
+    float inv_len2 = 1.0f / len2;
+    float inv_len3 = 1.0f / len3;
+
+    float32 area = dx1 * (y3 - y1) - dy1 * (x3 - x1); if (fabsf(area) < 1e-6f) return;
     float32 sign = (area > 0.0f) ? 1.0f : -1.0f;
 
-    float32 nx1 = sign * dy1 / len1, ny1 = -sign * dx1 / len1;
-    float32 nx2 = sign * dy2 / len2, ny2 = -sign * dx2 / len2;
-    float32 nx3 = sign * dy3 / len3, ny3 = -sign * dx3 / len3;
+    float32 nx1 = sign * dy1 * inv_len1, ny1 = -sign * dx1 * inv_len1;
+    float32 nx2 = sign * dy2 * inv_len2, ny2 = -sign * dx2 * inv_len2;
+    float32 nx3 = sign * dy3 * inv_len3, ny3 = -sign * dx3 * inv_len3;
 
     float32 inset = thickness;
 
@@ -569,19 +416,20 @@ void Canvas_DrawTriangle(
     float32 d3 = nx3 * x3 + ny3 * y3 - inset;
 
     float32 det = nx1 * ny2 - ny1 * nx2;
-
-    float32 ix1 = (d1 * ny2 - ny1 * d2) / det;
-    float32 iy1 = (nx1 * d2 - d1 * nx2) / det;
-
     float32 det2 = nx2 * ny3 - ny2 * nx3;
-
-    float32 ix2 = (d2 * ny3 - ny2 * d3) / det2;
-    float32 iy2 = (nx2 * d3 - d2 * nx3) / det2;
-
     float32 det3 = nx3 * ny1 - ny3 * nx1;
+    float32 inv_det  = 1.0f / det;
+    float32 inv_det2 = 1.0f / det2;
+    float32 inv_det3 = 1.0f / det3;
 
-    float32 ix3 = (d3 * ny1 - ny3 * d1) / det3;
-    float32 iy3 = (nx3 * d1 - d3 * nx1) / det3;
+    float32 ix1 = (d1 * ny2 - ny1 * d2) * inv_det;
+    float32 iy1 = (nx1 * d2 - d1 * nx2) * inv_det;
+
+    float32 ix2 = (d2 * ny3 - ny2 * d3) * inv_det2;
+    float32 iy2 = (nx2 * d3 - d2 * nx3) * inv_det2;
+
+    float32 ix3 = (d3 * ny1 - ny3 * d1) * inv_det3;
+    float32 iy3 = (nx3 * d1 - d3 * nx1) * inv_det3;
 
     // Inner triangle points
     // Inner triangle (border)

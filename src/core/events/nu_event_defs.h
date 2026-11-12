@@ -53,7 +53,7 @@ typedef struct NU_Event_Info_Input
 
 typedef struct NU_Event_Info_Keypress
 {
-    NU_Keycode keycode;
+    NuKeycode keycode;
     bool repeat;
 } NU_Event_Info_Keypress;
 

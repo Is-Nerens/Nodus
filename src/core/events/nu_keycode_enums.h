@@ -1,6 +1,6 @@
 #pragma once
 
-typedef enum NU_Keycode
+typedef enum NuKeycode
 {
     NU_KEY_UNKNOWN = 0,
 
@@ -174,4 +174,10 @@ typedef enum NU_Keycode
     NU_KEY_AC_STOP = 0x4000011cu,      // 1073742108
     NU_KEY_AC_REFRESH = 0x4000011du,   // 1073742109
     NU_KEY_AC_BOOKMARKS = 0x4000011eu, // 1073742110
-} NU_Keycode;
+} NuKeycode;
+
+typedef enum NuMouseCode {
+    NU_MOUSE_LEFT,
+    NU_MOUSE_RIGHT,
+    NU_MOUSE_MIDDLE
+} NuMousecode;

@@ -4,6 +4,7 @@
  * to reduce image render data allocations
  * and draw calls
  */
+#include "nu_includes.h"
 typedef struct {
     Array imagesRenderData;
     int groupIndex;
@@ -73,4 +74,8 @@ struct NU_GUI
 
     // Timer mutex
     SDL_Mutex *guiMutex;
+
+    // Frame callback
+    NU_Callback frameCallback;
+    void* frameCallbackArgs;
 };

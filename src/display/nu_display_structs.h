@@ -77,7 +77,6 @@ typedef struct {
     VkImage        depthImage;
     VkDeviceMemory depthImageMemory;
     VkImageView    depthImageView;
-    VkRenderPass   renderPass;
 
     // Sync
     VkSemaphore imageAvailable[NU_FRAMES_IN_FLIGHT];

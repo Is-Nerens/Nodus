@@ -164,7 +164,7 @@ _EXPORT NuWindow* NU_CREATE_GUI(const char* xml_filepath, const char* css_filepa
     SDL_AddEventWatch(EventWatcher, NULL);
 
     // Timer mutex
-    GUI.timerMutex = SDL_CreateMutex();
+    GUI.guiMutex = SDL_CreateMutex();
 
     // Success
     return (NuWindow*)(rootNode);
@@ -174,11 +174,10 @@ int TimerHandler(void* args) {
 
     while(GUI.running) {
 
-        uint64 shortestTimerInterval = 20;
+        uint64 shortestRemaining = 20;
 
-        SDL_LockMutex(GUI.timerMutex);
+        SDL_LockMutex(GUI.guiMutex);
 
-        // Trigger timer callbacks
         uint64 currentTimeMs = SDL_GetTicks();
         for (int i=0; i<GUI.timers.size; i++) {
             NU_Timer* timer = Container_GetAt(&GUI.timers, i);
@@ -186,31 +185,19 @@ int TimerHandler(void* args) {
                 uint64 timeSinceLastFired = currentTimeMs - timer->lastFiredTime;
                 if (timeSinceLastFired >= timer->intervalMs) {
                     timer->lastFiredTime = currentTimeMs;
-
-                    // Push timer event
-                    SDL_Event event = {0};
-                    event.type = SDL_EVENT_USER;
-                    event.user.code = NU_EVENT_TIMER;
-                    event.user.data1 = timer->callback;
-                    event.user.data2 = timer->args;
-                    SDL_PushEvent(&event);
-                }
-                if (timer->intervalMs < shortestTimerInterval) {
-                    shortestTimerInterval = timer->intervalMs;
+                    timer->callback(timer->args);
+                    if (timer->intervalMs < shortestRemaining) shortestRemaining = timer->intervalMs;
+                } else {
+                    uint64 remaining = timer->intervalMs - timeSinceLastFired;
+                    if (remaining < shortestRemaining) shortestRemaining = remaining;
                 }
             }
         }
 
-        // Safely delete removed timers
-        for (int i=GUI.timers.size-1; i>=0; i--) {
-            NU_Timer* timer = Container_GetAt(&GUI.timers, i);
-            int id = Container_IdAt(&GUI.timers, i);
-            if (timer->willBeRemoved) Container_Remove(&GUI.timers, id);
-        }
+        SDL_UnlockMutex(GUI.guiMutex);
 
-        SDL_UnlockMutex(GUI.timerMutex);
-
-        SDL_Delay(shortestTimerInterval);
+        if (shortestRemaining < 1) shortestRemaining = 1;
+        SDL_Delay((uint32)shortestRemaining);
     }
 
     return 0;
@@ -230,6 +217,8 @@ _EXPORT void NU_RUN(void) {
 
     while(GUI.running) {
 
+        SDL_LockMutex(GUI.guiMutex);
+
         // Handle events
         SDL_Event event;
         while (SDL_PollEvent(&event)) {}
@@ -241,6 +230,13 @@ _EXPORT void NU_RUN(void) {
         }
         TreeFreeDeleted(&GUI.tree);
 
+        // Delete unused timers
+        for (int i=GUI.timers.size-1; i>=0; i--) {
+            NU_Timer* timer = Container_GetAt(&GUI.timers, i);
+            int id = Container_IdAt(&GUI.timers, i);
+            if (timer->willBeRemoved) Container_Remove(&GUI.timers, id);
+        }
+
         // Re-render UI if necessary
         if (GUI.awaiting_redraw)
         {
@@ -249,6 +245,8 @@ _EXPORT void NU_RUN(void) {
             NU_Draw();
             CheckForResizeEvents();
         }
+
+        SDL_UnlockMutex(GUI.guiMutex);
 
         // Wait for next event, with timeout to save CPU
         SDL_WaitEventTimeout(&event, GetFrametime());
@@ -265,19 +263,13 @@ _EXPORT int NU_ADD_TIMER(uint32 intervalMs, NU_Callback callback, void* args) {
     timer.callback = callback;
     timer.args = args;
     timer.willBeRemoved = false;
-    SDL_LockMutex(GUI.timerMutex);
     int timerId = Container_Add(&GUI.timers, &timer);
-    SDL_UnlockMutex(GUI.timerMutex);
     return timerId;
 }
 
 _EXPORT void NU_REMOVE_TIMER(int timer) {
-    SDL_LockMutex(GUI.timerMutex);
     NU_Timer* _timer = Container_Get(&GUI.timers, timer);
-    if (_timer) {
-        _timer->willBeRemoved = true;
-    }
-    SDL_UnlockMutex(GUI.timerMutex);
+    if (_timer) _timer->willBeRemoved = true;
 }
 
 // -----------------------

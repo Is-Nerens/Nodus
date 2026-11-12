@@ -13,20 +13,13 @@ bool EventWatcher(void* data, SDL_Event* event)
             GUI.running = false;
             break;
         }
-        // ------------------------------------------------------------------------------------
-        // --- Timer event -> trigger user callback -------------------------------------------
-        // ------------------------------------------------------------------------------------
-        case SDL_EVENT_USER: {
-            if (event->user.code == NU_EVENT_TIMER) {
-                ((NU_Callback)event->user.data1)(event->user.data2);
-            }
-            break;
-        }
 
         case SDL_EVENT_WINDOW_RESIZED: {
+            SDL_LockMutex(GUI.guiMutex);
             NU_Layout();
-            CheckForResizeEvents();
             NU_Draw();
+            CheckForResizeEvents();
+            SDL_UnlockMutex(GUI.guiMutex);
             break;
         }
         // ------------------------------------------------------------------------------------

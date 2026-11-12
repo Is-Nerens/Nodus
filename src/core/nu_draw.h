@@ -719,13 +719,17 @@ void NU_Draw()
         float winH = (float)winH_int;
 
         // For each canvas in window
-        for (uint32 n=0; n<Array_Length(&drawList->canvasNodes); n++) {
+        for (uint32 n=0; n<Array_Length(&drawList->canvasNodes); n++)
+        {
             Node* node = *(Node**)Array_Get(&drawList->canvasNodes, n);
             NU_Canvas_Context* ctx = Container_Get(&GUI.canvasContexts, node->special.canvas.ctxHandle);
-            if (ctx) {
-                 // Update / destroy render target if settings changed -> returns true if changed
-                 bool changed = Canvas_CommitDesiredRenderType(ctx, &GUI.displayManager, &GUI.imageResourceManager);
-                 if (ctx->currentRenderType != NU_CANVAS_TYPE_UNBUFFERED && (changed || !ctx->renderTargetUpToDate)) {
+            if (ctx)
+            {
+                // Update / destroy render target if settings changed -> returns true if changed
+                bool changed = Canvas_CommitDesiredRenderType(ctx, &GUI.displayManager, &GUI.imageResourceManager);
+
+                // If there is a render target and the render target changed -> redraw
+                if (ctx->currentRenderType != NU_CANVAS_TYPE_UNBUFFERED && (changed || !ctx->renderTargetUpToDate)) {
                      NU_BeginCanvasRenderTargetPass(ctx, win);
                      NU_CanvasDraw(ctx, win);
                      NU_EndCanvasRenderTargetPass(ctx, win);
@@ -736,22 +740,18 @@ void NU_Draw()
         // Begin render pass
         Window_BeginRenderPass(win, &GUI.displayManager);
 
-        // Clear border rect render data array
+        // Clear border rect renderdata array
         Array_Clear(&GUI.borderRectsRenderData);
 
-        // Clear text render data arrays
+        // Clear per-font text renderdata arrays
         for (int j=0; j<Array_Length(&GUI.perFontTextRenderData); j++) {
             Array* textRenderData = Array_Get(&GUI.perFontTextRenderData, j);
             Array_Clear(textRenderData);
-        }
-
-        // Clear clipped text render data arrays
-        for (int j=0; j<Array_Length(&GUI.perFontClippedTextRenderData); j++) {
             Array* clippedTextRenderData = Array_Get(&GUI.perFontClippedTextRenderData, j);
             Array_Clear(clippedTextRenderData);
         }
 
-        // Lazily append new image render groups
+        // Lazily create image render groups
         int renderGroupImageCapacity = Array_Length(&GUI.imageRenderGroups) * 8;
         int numGroupsToAdd = 0;
         if (renderGroupImageCapacity < Array_Length(&GUI.imageResourceManager.imageResources)) {
@@ -763,13 +763,13 @@ void NU_Draw()
             }
         }
 
-        // Clear image group render data arrays <[Performance]> does not clear groups that were just added
+        // Clear image group renderdata arrays (excluding groups that were just added)
         for (int j=0; j<Array_Length(&GUI.imageRenderGroups) - numGroupsToAdd; j++) {
             ImageRenderGroup* imageRenderGroup = Array_Get(&GUI.imageRenderGroups, j);
             Array_Clear(&imageRenderGroup->imagesRenderData);
         }
 
-        // Construct render data for non-clipped nodes
+        // Construct renderdata for non-clipped nodes
         for (uint32 n=0; n<drawList->drawNodes.size; n++)
         {
             Node* node = *(Node**)Array_Get(&drawList->drawNodes, n);

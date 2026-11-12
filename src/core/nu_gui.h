@@ -72,5 +72,5 @@ struct NU_GUI
     SDL_Cursor* cursorNeswResize;
 
     // Timer mutex
-    SDL_Mutex *timerMutex;
+    SDL_Mutex *guiMutex;
 };

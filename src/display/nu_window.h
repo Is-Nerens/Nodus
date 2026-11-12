@@ -1,59 +1,45 @@
 #pragma once
 
+void Window_DestroySwapchain(Window* window, DisplayManager* displayManager)
+{
+    VkDevice device = displayManager->device;
+
+    // Destroy old framebuffers and image views
+    for (uint32 i=0; i<window->imageCount; i++) {
+        if (window->framebuffers[i] != VK_NULL_HANDLE) vkDestroyFramebuffer(device, window->framebuffers[i], NULL);
+        if (window->imageViews[i] != VK_NULL_HANDLE) vkDestroyImageView(device, window->imageViews[i], NULL);
+        window->framebuffers[i] = VK_NULL_HANDLE;
+        window->imageViews[i] = VK_NULL_HANDLE;
+        window->images[i] = VK_NULL_HANDLE;
+    }
+    window->imageCount = 0;
+
+    // Destroy depth buffer
+    if (window->depthImageView != VK_NULL_HANDLE) vkDestroyImageView(device, window->depthImageView, NULL);
+    if (window->depthImage != VK_NULL_HANDLE) vkDestroyImage(device, window->depthImage, NULL);
+    if (window->depthImageMemory != VK_NULL_HANDLE) vkFreeMemory(device, window->depthImageMemory, NULL);
+    window->depthImage = VK_NULL_HANDLE;
+    window->depthImageView = VK_NULL_HANDLE;
+    window->depthImageMemory = VK_NULL_HANDLE;
+
+    // Destroy the old swapchain
+    if (window->swapchain != VK_NULL_HANDLE) vkDestroySwapchainKHR(device, window->swapchain, NULL);
+    window->swapchain = VK_NULL_HANDLE;
+}
+
 int Window_CreateSwapchain(Window* window, DisplayManager* displayManager)
 {
     VkDevice device = displayManager->device;
 
     // Wait for all rendering and presentation work to finish.
-    if (vkDeviceWaitIdle(device) != VK_SUCCESS) {
-        ErrorSystem_AddError(&GUI.errorSystem, "<Vulkan Error> vkDeviceWaitIdle failed");
-        return 0;
-    }
+    if (vkDeviceWaitIdle(device) != VK_SUCCESS) return 0; // catastrophic error
 
     // Defer recreation while the window has no drawable area.
-    int width, height;
-    SDL_GetWindowSizeInPixels(window->sdlWin, &width, &height);
+    int width, height; SDL_GetWindowSizeInPixels(window->sdlWin, &width, &height);
     if (width == 0 || height == 0) return 0;
 
-    // Destroy old framebuffers and image views.
-    for (uint32 i=0; i<window->imageCount; i++) {
-        if (window->framebuffers[i] != VK_NULL_HANDLE) {
-            vkDestroyFramebuffer(device, window->framebuffers[i], NULL);
-            window->framebuffers[i] = VK_NULL_HANDLE;
-        }
-        if (window->imageViews[i] != VK_NULL_HANDLE) {
-            vkDestroyImageView(device, window->imageViews[i], NULL);
-            window->imageViews[i] = VK_NULL_HANDLE;
-        }
-    }
-
-    // Destroy depth buffer
-    if (window->depthImageView != VK_NULL_HANDLE) {
-        vkDestroyImageView(device, window->depthImageView, NULL);
-        window->depthImageView = VK_NULL_HANDLE;
-    }
-    if (window->depthImage != VK_NULL_HANDLE) {
-        vkDestroyImage(device, window->depthImage, NULL);
-        window->depthImage = VK_NULL_HANDLE;
-    }
-    if (window->depthImageMemory != VK_NULL_HANDLE) {
-        vkFreeMemory(device, window->depthImageMemory, NULL);
-        window->depthImageMemory = VK_NULL_HANDLE;
-    }
-
-    // Destroy the old swapchain.
-    if (window->swapchain != VK_NULL_HANDLE) {
-        vkDestroySwapchainKHR(device, window->swapchain, NULL);
-        window->swapchain = VK_NULL_HANDLE;
-    }
-
-    // Clear per-image handles so a failure leaves no stale state.
-    for (uint32 i=0; i<NU_MAX_SWAPCHAIN_IMAGES; i++) {
-        window->images[i] = VK_NULL_HANDLE;
-        window->imageViews[i] = VK_NULL_HANDLE;
-        window->framebuffers[i] = VK_NULL_HANDLE;
-    }
-    window->imageCount = 0;
+    // Destroy swapchain
+    Window_DestroySwapchain(window, displayManager);
 
     // Query surface capabilities.
     VkSurfaceCapabilitiesKHR caps;
@@ -410,7 +396,6 @@ int Window_CreateVulkanDevices(Window* window, DisplayManager* displayManager)
     window->swapchain = VK_NULL_HANDLE;
     window->swapchainFormat = VK_FORMAT_UNDEFINED;
     window->swapchainExtent = (VkExtent2D){0};
-    window->renderPass = VK_NULL_HANDLE;
     window->commandPool = VK_NULL_HANDLE;
     for (uint32 i=0; i<NU_MAX_SWAPCHAIN_IMAGES; i++) {
         window->images[i] = VK_NULL_HANDLE;
@@ -498,9 +483,6 @@ int Window_CreateVulkanDevices(Window* window, DisplayManager* displayManager)
         return 0;
     }
 
-    // Set current frame
-    window->currentFrame = 0;
-
     // Success
     return 1;
 }
@@ -510,80 +492,56 @@ void Window_DestroyVulkanDevices(Window* window, DisplayManager* displayManager)
     VkDevice device = displayManager->device;
     if (device == VK_NULL_HANDLE) return;
 
-    // 1. Command pool (frees the command buffers allocated from it)
-    if (window->commandPool != VK_NULL_HANDLE) {
-        vkDestroyCommandPool(device, window->commandPool, NULL);
-        window->commandPool = VK_NULL_HANDLE;
-    }
+    // Command pool (frees the command buffers allocated from it)
+    if (window->commandPool != VK_NULL_HANDLE) vkDestroyCommandPool(device, window->commandPool, NULL);
+    window->commandPool = VK_NULL_HANDLE;
 
-    // 2. Sync objects
+    // Sync objects
     for (uint32 i=0; i<NU_FRAMES_IN_FLIGHT; i++) {
-        if (window->inFlightFences[i] != VK_NULL_HANDLE) {
-            vkDestroyFence(device, window->inFlightFences[i], NULL);
-            window->inFlightFences[i] = VK_NULL_HANDLE;
-        }
-        if (window->imageAvailable[i] != VK_NULL_HANDLE) {
-            vkDestroySemaphore(device, window->imageAvailable[i], NULL);
-            window->imageAvailable[i] = VK_NULL_HANDLE;
-        }
-        if (window->renderFinished[i] != VK_NULL_HANDLE) {
-            vkDestroySemaphore(device, window->renderFinished[i], NULL);
-            window->renderFinished[i] = VK_NULL_HANDLE;
-        }
+        if (window->inFlightFences[i] != VK_NULL_HANDLE) vkDestroyFence(device, window->inFlightFences[i], NULL);
+        if (window->imageAvailable[i] != VK_NULL_HANDLE) vkDestroySemaphore(device, window->imageAvailable[i], NULL);
+        if (window->renderFinished[i] != VK_NULL_HANDLE) vkDestroySemaphore(device, window->renderFinished[i], NULL);
+        window->inFlightFences[i] = VK_NULL_HANDLE;
+        window->imageAvailable[i] = VK_NULL_HANDLE;
+        window->renderFinished[i] = VK_NULL_HANDLE;
     }
 
-    // 3. Framebuffers
-    for (uint32 i=0; i<window->imageCount; i++) {
-        if (window->framebuffers[i] != VK_NULL_HANDLE) {
-            vkDestroyFramebuffer(device, window->framebuffers[i], NULL);
-            window->framebuffers[i] = VK_NULL_HANDLE;
-        }
-    }
+    // Swapchain
+    Window_DestroySwapchain(window, displayManager);
 
-    // 4. Image views
-    for (uint32 i=0; i<window->imageCount; i++) {
-        if (window->imageViews[i] != VK_NULL_HANDLE) {
-            vkDestroyImageView(device, window->imageViews[i], NULL);
-            window->imageViews[i] = VK_NULL_HANDLE;
-        }
-    }
-
-    // 5. Depth buffer
-    if (window->depthImageView != VK_NULL_HANDLE) {
-        vkDestroyImageView(device, window->depthImageView, NULL);
-        window->depthImageView = VK_NULL_HANDLE;
-    }
-    if (window->depthImage != VK_NULL_HANDLE) {
-        vkDestroyImage(device, window->depthImage, NULL);
-        window->depthImage = VK_NULL_HANDLE;
-    }
-    if (window->depthImageMemory != VK_NULL_HANDLE) {
-        vkFreeMemory(device, window->depthImageMemory, NULL);
-        window->depthImageMemory = VK_NULL_HANDLE;
-    }
-
-    // 6. Swapchain
-    if (window->swapchain != VK_NULL_HANDLE) {
-        vkDestroySwapchainKHR(device, window->swapchain, NULL);
-        window->swapchain = VK_NULL_HANDLE;
-    }
-
-    // 7. Surface — takes INSTANCE, not device
+    // Surface — takes INSTANCE, not device
     if (window->surface != VK_NULL_HANDLE) {
         vkDestroySurfaceKHR(displayManager->instance, window->surface, NULL);
         window->surface = VK_NULL_HANDLE;
     }
-
-    // 8. Reset counters so accidental reuse doesn't hit stale handles
-    window->imageCount = 0;
-    window->currentFrame = 0;
 }
 
 int Window_PrepareFrame(Window* window, DisplayManager* displayManager)
 {
     VkDevice device = displayManager->device;
 
-    // Wait until this frame slot is available.
+    // -- Check for surface size change BEFORE acquiring --
+    VkSurfaceCapabilitiesKHR caps;
+    if (vkGetPhysicalDeviceSurfaceCapabilitiesKHR(displayManager->physicalDevice, window->surface, &caps) == VK_SUCCESS)
+    {
+        int w, h;
+        SDL_GetWindowSizeInPixels(window->sdlWin, &w, &h);
+        if (w > 0 && h > 0) {
+            VkExtent2D desired;
+            if (caps.currentExtent.width != 0xFFFFFFFFu) {
+                desired = caps.currentExtent;
+            } else {
+                desired.width  = (uint32)w < caps.minImageExtent.width  ? caps.minImageExtent.width  : ((uint32)w > caps.maxImageExtent.width  ? caps.maxImageExtent.width  : (uint32)w);
+                desired.height = (uint32)h < caps.minImageExtent.height ? caps.minImageExtent.height : ((uint32)h > caps.maxImageExtent.height ? caps.maxImageExtent.height : (uint32)h);
+            }
+            if (desired.width  != window->swapchainExtent.width || desired.height != window->swapchainExtent.height)
+            {
+                if (!Window_CreateSwapchain(window, displayManager)) return 0;
+            }
+        }
+    }
+
+    // Wait until this frame slot is available
     if (vkWaitForFences(
         device, 1,
         &window->inFlightFences[window->currentFrame],
@@ -591,6 +549,7 @@ int Window_PrepareFrame(Window* window, DisplayManager* displayManager)
         return 0;
     }
 
+    // Get frame buffer to render to
     VkResult result = vkAcquireNextImageKHR(
         device,
         window->swapchain,
@@ -599,15 +558,8 @@ int Window_PrepareFrame(Window* window, DisplayManager* displayManager)
         VK_NULL_HANDLE,
         &window->imageIndex
     );
-    if (result == VK_ERROR_OUT_OF_DATE_KHR) {
-        Window_CreateSwapchain(window, displayManager);
-        return 0;
-    }
-    if (result != VK_SUCCESS && result != VK_SUBOPTIMAL_KHR) {
-        return 0;
-    }
-
-    // Begin recording the command buffer for this frame
+    if (result != VK_SUCCESS) return 0;
+    // Start recording commands for this frame
     VkCommandBuffer cmd = window->commandBuffers[window->currentFrame];
     vkResetCommandBuffer(cmd, 0);
     VkCommandBufferBeginInfo beginInfo = {0};
@@ -679,15 +631,8 @@ int Window_Present(Window* window, DisplayManager* displayManager)
     presentInfo.pSwapchains = &window->swapchain;
     presentInfo.pImageIndices = &window->imageIndex;
     VkResult result = vkQueuePresentKHR(displayManager->graphicsQueue, &presentInfo);
-    if (result == VK_ERROR_OUT_OF_DATE_KHR || result == VK_SUBOPTIMAL_KHR) {
-        Window_CreateSwapchain(window, displayManager);
-        return 0;
-    }
-    if (result != VK_SUCCESS) {
-        ErrorSystem_AddError(&GUI.errorSystem, "<Vulkan Error> Failed to swap window buffers");
-        return 0;
-    }
 
+    // Change frame
     window->currentFrame = (window->currentFrame + 1) % NU_FRAMES_IN_FLIGHT;
 
     // Success

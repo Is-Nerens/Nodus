@@ -1,6 +1,6 @@
 #pragma once
 
-bool EventWatcher(void* data, SDL_Event* event)
+bool HandleEvent(SDL_Event* event)
 {
     switch(event->type) {
 
@@ -15,11 +15,27 @@ bool EventWatcher(void* data, SDL_Event* event)
         }
 
         case SDL_EVENT_WINDOW_RESIZED: {
-            SDL_LockMutex(GUI.guiMutex);
-            NU_Layout();
-            NU_Draw();
-            CheckForResizeEvents();
-            SDL_UnlockMutex(GUI.guiMutex);
+            GUI.awaiting_redraw = true;
+            break;
+        }
+
+        case SDL_EVENT_GAMEPAD_ADDED: {
+            printf("gamepad joined\n");
+            SDL_JoystickID new_id = event->gdevice.which;
+            GUI.gamepad = SDL_OpenGamepad(new_id);
+            break;
+        }
+
+        case SDL_EVENT_GAMEPAD_REMOVED: {
+            printf("gamepad left\n");
+            SDL_JoystickID removed_id = event->gdevice.which;
+            if (GUI.gamepad != NULL) {
+                SDL_JoystickID current_id = SDL_GetGamepadID(GUI.gamepad);
+                if (current_id == removed_id) {
+                    SDL_CloseGamepad(GUI.gamepad);
+                    GUI.gamepad = NULL;
+                }
+            }
             break;
         }
         // ------------------------------------------------------------------------------------

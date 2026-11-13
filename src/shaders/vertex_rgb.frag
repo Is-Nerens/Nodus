@@ -39,5 +39,5 @@ void main()
 
     if (coverage <= 0.0) discard;
 
-    FragColor = vec4(vColor.rgb, vColor.a * coverage);
+    FragColor = vColor;
 }

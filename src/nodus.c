@@ -1,3 +1,4 @@
+#include "utils/nu_types.h"
 #include <core/nu_includes.h>
 
 // Export macro
@@ -49,9 +50,10 @@ _EXPORT void NU_QUIT(void) {
     SDL_Quit();
 }
 
-_EXPORT NuWindow* NU_CREATE_GUI(const char* xml_filepath, const char* css_filepath) {
+_EXPORT NuWindow* NU_CREATE_GUI(const char* xml_filepath, const char* css_filepath)
+{
     // Init SDL
-    if (!SDL_Init(SDL_INIT_VIDEO)) return NULL;
+    if (!SDL_Init(SDL_INIT_VIDEO | SDL_INIT_GAMEPAD)) return NULL;
     SDL_SetHint("SDL_MOUSE_FOCUS_CLICKTHROUGH", "1");
     SDL_SetHint(SDL_HINT_MAC_SCROLL_MOMENTUM, "1");
 
@@ -118,6 +120,8 @@ _EXPORT NuWindow* NU_CREATE_GUI(const char* xml_filepath, const char* css_filepa
 
     Node* rootNode = NULL;
 
+    GUI.gamepad = NULL;
+
     // Create from xml template
     if (xml_filepath) {
         if (!NU_Internal_Load_XML(xml_filepath, &GUI.imageResourceManager, &GUI.displayManager)) {
@@ -163,9 +167,6 @@ _EXPORT NuWindow* NU_CREATE_GUI(const char* xml_filepath, const char* css_filepa
 
     // Initial layout calculation
     NU_Layout();
-
-    // Event watcher
-    SDL_AddEventWatch(EventWatcher, NULL);
 
     // Timer mutex
     GUI.guiMutex = SDL_CreateMutex();
@@ -219,25 +220,21 @@ int TimerHandler(void* args) {
     return 0;
 }
 
-_EXPORT void NU_RUN(void) {
-    if (GUI.running) return;
-    GUI.running = true;
+int AppThread(void* args)
+{
+    SDL_Event events[64];
 
-    // Create timer thread
-    SDL_Thread* timerThread;
-    timerThread = SDL_CreateThread(
-        TimerHandler,
-        "TimerThread",
-        NULL
-    );
-
-    while(GUI.running) {
+    while(GUI.running)
+    {
+        uint64 frameStartTime = nu_time();
 
         SDL_LockMutex(GUI.guiMutex);
 
-        // Handle events
-        SDL_Event event;
-        while (SDL_PollEvent(&event)) {}
+        // 1. Actively retrieve all pending events from the queue (thread-safe)
+        int count = SDL_PeepEvents(events, 64, SDL_GETEVENT, SDL_EVENT_FIRST, SDL_EVENT_LAST);
+        for (int i=0; i<count; i++) {
+            HandleEvent(&events[i]);
+        }
 
         // Safely unregister deleted nodes from iterated hashmaps and free node memory
         for (int i=0; i<GUI.tree.deletedButNotFreedNodes.size; i++) {
@@ -267,11 +264,48 @@ _EXPORT void NU_RUN(void) {
 
         SDL_UnlockMutex(GUI.guiMutex);
 
-        // Wait for next event, with timeout to save CPU
-        SDL_WaitEventTimeout(&event, GetFrametime());
+        // Wait until the next frame deadline
+        uint64 frameTimeMicroseconds = nu_time() - frameStartTime;
+        uint64 targetTimeMicroseconds = GetFrametime() * 1000;
+        if (frameTimeMicroseconds < targetTimeMicroseconds) {
+            uint64 remainingUs = targetTimeMicroseconds - frameTimeMicroseconds;
+            uint32 sleepDurationMs = (uint32)((remainingUs + 999ull) / 1000ull);
+            if (sleepDurationMs > 0) sleepDurationMs -= 1;
+            SDL_Delay(sleepDurationMs);
+        }
     }
 
-    // Wait for the second thread to close
+    return 0;
+}
+
+_EXPORT void NU_RUN(void)
+{
+    if (GUI.running) return;
+    GUI.running = true;
+
+    // Create app thread
+    SDL_Thread* appThread;
+    appThread = SDL_CreateThread(
+        AppThread,
+        "AppThread",
+        NULL
+    );
+
+    // Create timer thread
+    SDL_Thread* timerThread;
+    timerThread = SDL_CreateThread(
+        TimerHandler,
+        "TimerThread",
+        NULL
+    );
+
+    while(GUI.running)
+    {
+        // Wait for next event, with timeout to save CPU
+        SDL_WaitEventTimeout(NULL, 100);
+    }
+
+    SDL_WaitThread(appThread, NULL);
     SDL_WaitThread(timerThread, NULL);
 }
 
@@ -1370,6 +1404,11 @@ _EXPORT bool NU_IS_KEY_UP(NuKeycode keycode) {
 _EXPORT bool NU_IS_KEY_DOWN(NuKeycode keycode) {
     SDL_Scancode sc = SDL_GetScancodeFromKey((SDL_Keycode)keycode, NULL);
     return SDL_GetKeyboardState(NULL)[sc];
+}
+
+_EXPORT bool NU_IS_GAMEPAD_DOWN(NuGamepadcode gamepadcode) {
+    if (GUI.gamepad == NULL) return false;
+    return SDL_GetGamepadButton(GUI.gamepad, (SDL_GamepadButton)gamepadcode);
 }
 
 _EXPORT bool NU_IS_KEY_PRESSED(NuKeycode keycode) {

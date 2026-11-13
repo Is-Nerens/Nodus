@@ -68,7 +68,7 @@ typedef struct {
     VkSwapchainKHR swapchain;
     VkFormat       swapchainFormat;
     VkExtent2D     swapchainExtent;
-    uint32            imageCount;
+    uint32         imageCount;
     VkImage        images[NU_MAX_SWAPCHAIN_IMAGES];
     VkImageView    imageViews[NU_MAX_SWAPCHAIN_IMAGES];
     VkFramebuffer  framebuffers[NU_MAX_SWAPCHAIN_IMAGES];

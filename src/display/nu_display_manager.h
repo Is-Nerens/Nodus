@@ -184,6 +184,8 @@ int DisplayManager_CreateVulkanDevices(DisplayManager* displayManager)
     displayManager->sharedRenderPass = NULL; // Will be created lazily when the first window is created
     displayManager->sharedRenderPassMSAA4X = NULL; // This too
 
+
+
     // Success
     return 1;
 }

@@ -75,6 +75,8 @@ struct NU_GUI
     // Timer mutex
     SDL_Mutex *guiMutex;
 
+    SDL_Gamepad* gamepad;
+
     // Frame callback
     NU_Callback frameCallback;
     void* frameCallbackArgs;

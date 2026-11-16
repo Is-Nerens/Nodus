@@ -36,7 +36,8 @@ int Window_CreateSwapchain(Window* window, DisplayManager* displayManager)
 
     // Defer recreation while the window has no drawable area.
     int width, height; SDL_GetWindowSizeInPixels(window->sdlWin, &width, &height);
-    if (width == 0 || height == 0) return 0;
+    width = max(width, 1);
+    height = max(height, 1);
 
     // Destroy swapchain
     Window_DestroySwapchain(window, displayManager);
@@ -338,13 +339,9 @@ int Window_CreateSwapchain(Window* window, DisplayManager* displayManager)
     // Get the image count
     uint32 actualImageCount = 0;
     VkResult result = vkGetSwapchainImagesKHR(device, window->swapchain, &actualImageCount, NULL);
-    if (result != VK_SUCCESS || actualImageCount == 0 || actualImageCount > NU_MAX_SWAPCHAIN_IMAGES) {
-        return 0;
-    }
+    if (result != VK_SUCCESS || actualImageCount == 0 || actualImageCount > NU_MAX_SWAPCHAIN_IMAGES) return 0;
     result = vkGetSwapchainImagesKHR(device, window->swapchain, &actualImageCount, window->images);
-    if (result != VK_SUCCESS) {
-        return 0;
-    }
+    if (result != VK_SUCCESS) return 0;
     window->imageCount = actualImageCount;
 
     // Create image views
@@ -382,9 +379,6 @@ int Window_CreateSwapchain(Window* window, DisplayManager* displayManager)
         }
     }
 
-    // Reset frame tracking
-    window->currentFrame = 0;
-
     // Success
     return 1;
 }
@@ -416,6 +410,7 @@ int Window_CreateVulkanDevices(Window* window, DisplayManager* displayManager)
     window->currentFrame = 0;
     window->imageCount = 0;
     window->imageIndex = 0;
+    window->presentId = 0;
 
 
     // Cache device
@@ -516,30 +511,30 @@ void Window_DestroyVulkanDevices(Window* window, DisplayManager* displayManager)
     }
 }
 
-int Window_PrepareFrame(Window* window, DisplayManager* displayManager)
+int Window_StartFrame(Window* window, DisplayManager* displayManager)
 {
     VkDevice device = displayManager->device;
 
     // -- Check for surface size change BEFORE acquiring --
-    VkSurfaceCapabilitiesKHR caps;
-    if (vkGetPhysicalDeviceSurfaceCapabilitiesKHR(displayManager->physicalDevice, window->surface, &caps) == VK_SUCCESS)
-    {
-        int w, h;
-        SDL_GetWindowSizeInPixels(window->sdlWin, &w, &h);
-        if (w > 0 && h > 0) {
-            VkExtent2D desired;
-            if (caps.currentExtent.width != 0xFFFFFFFFu) {
-                desired = caps.currentExtent;
-            } else {
-                desired.width  = (uint32)w < caps.minImageExtent.width  ? caps.minImageExtent.width  : ((uint32)w > caps.maxImageExtent.width  ? caps.maxImageExtent.width  : (uint32)w);
-                desired.height = (uint32)h < caps.minImageExtent.height ? caps.minImageExtent.height : ((uint32)h > caps.maxImageExtent.height ? caps.maxImageExtent.height : (uint32)h);
-            }
-            if (desired.width  != window->swapchainExtent.width || desired.height != window->swapchainExtent.height)
-            {
-                if (!Window_CreateSwapchain(window, displayManager)) return 0;
+        VkSurfaceCapabilitiesKHR caps;
+        if (vkGetPhysicalDeviceSurfaceCapabilitiesKHR(displayManager->physicalDevice, window->surface, &caps) == VK_SUCCESS)
+        {
+            int w, h;
+            SDL_GetWindowSizeInPixels(window->sdlWin, &w, &h);
+            if (w > 0 && h > 0) {
+                VkExtent2D desired;
+                if (caps.currentExtent.width != 0xFFFFFFFFu) {
+                    desired = caps.currentExtent;
+                } else {
+                    desired.width  = (uint32)w < caps.minImageExtent.width  ? caps.minImageExtent.width  : ((uint32)w > caps.maxImageExtent.width  ? caps.maxImageExtent.width  : (uint32)w);
+                    desired.height = (uint32)h < caps.minImageExtent.height ? caps.minImageExtent.height : ((uint32)h > caps.maxImageExtent.height ? caps.maxImageExtent.height : (uint32)h);
+                }
+                if (desired.width  != window->swapchainExtent.width || desired.height != window->swapchainExtent.height)
+                {
+                    if (!Window_CreateSwapchain(window, displayManager)) return 0;
+                }
             }
         }
-    }
 
     // Wait until this frame slot is available
     if (vkWaitForFences(
@@ -549,7 +544,7 @@ int Window_PrepareFrame(Window* window, DisplayManager* displayManager)
         return 0;
     }
 
-    // Get frame buffer to render to
+    // Try to acquire image
     VkResult result = vkAcquireNextImageKHR(
         device,
         window->swapchain,
@@ -558,7 +553,15 @@ int Window_PrepareFrame(Window* window, DisplayManager* displayManager)
         VK_NULL_HANDLE,
         &window->imageIndex
     );
+    if (result == VK_ERROR_OUT_OF_DATE_KHR) {
+        Window_CreateSwapchain(window, displayManager);
+        return 0;
+    }
+    if (result == VK_SUBOPTIMAL_KHR) {
+        Window_CreateSwapchain(window, displayManager);
+    }
     if (result != VK_SUCCESS) return 0;
+
     // Start recording commands for this frame
     VkCommandBuffer cmd = window->commandBuffers[window->currentFrame];
     vkResetCommandBuffer(cmd, 0);
@@ -570,7 +573,7 @@ int Window_PrepareFrame(Window* window, DisplayManager* displayManager)
     return 1;
 }
 
-void Window_BeginRenderPass(Window* window, DisplayManager* displayManager)
+void Window_StartRenderpass(Window* window, DisplayManager* displayManager)
 {
     // Begin render pass
     VkClearValue clearValues[2] = {0};
@@ -588,7 +591,7 @@ void Window_BeginRenderPass(Window* window, DisplayManager* displayManager)
     vkCmdBeginRenderPass(cmd, &renderInfo, VK_SUBPASS_CONTENTS_INLINE);
 }
 
-int Window_Present(Window* window, DisplayManager* displayManager)
+int Window_EndFrame(Window* window, DisplayManager* displayManager)
 {
     // Finish recording commands
     VkCommandBuffer cmd = window->commandBuffers[window->currentFrame];
@@ -617,12 +620,16 @@ int Window_Present(Window* window, DisplayManager* displayManager)
     submitInfo.pCommandBuffers = &cmd;
     submitInfo.signalSemaphoreCount = 1;
     submitInfo.pSignalSemaphores = &signalSemaphore;
-    if (vkQueueSubmit( displayManager->graphicsQueue, 1, &submitInfo, window->inFlightFences[window->currentFrame]) != VK_SUCCESS) {
+    if (vkQueueSubmit(displayManager->graphicsQueue, 1, &submitInfo, window->inFlightFences[window->currentFrame]) != VK_SUCCESS) {
         ErrorSystem_AddError(&GUI.errorSystem, "<Vulkan Error> vkQueueSubmit failed");
         return 0;
     }
 
     // Present frame
+    VkPresentIdKHR presentIdInfo = {0};
+    presentIdInfo.sType = VK_STRUCTURE_TYPE_PRESENT_ID_KHR;
+    presentIdInfo.swapchainCount = 1;
+    presentIdInfo.pPresentIds = &window->presentId;
     VkPresentInfoKHR presentInfo = {0};
     presentInfo.sType = VK_STRUCTURE_TYPE_PRESENT_INFO_KHR;
     presentInfo.waitSemaphoreCount = 1;
@@ -630,9 +637,10 @@ int Window_Present(Window* window, DisplayManager* displayManager)
     presentInfo.swapchainCount = 1;
     presentInfo.pSwapchains = &window->swapchain;
     presentInfo.pImageIndices = &window->imageIndex;
+    presentInfo.pNext = displayManager->presentWaitSupported ? &presentIdInfo : NULL;
     VkResult result = vkQueuePresentKHR(displayManager->graphicsQueue, &presentInfo);
 
-    // Change frame
+    // Advance frame before any early-return below so we don't get stuck
     window->currentFrame = (window->currentFrame + 1) % NU_FRAMES_IN_FLIGHT;
 
     // Success

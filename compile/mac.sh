@@ -6,12 +6,24 @@ sdlLib="src/libraries/sdl3/mac"
 sdlInclude="src/libraries/sdl3/include"
 freetypeInclude="src/libraries/freetype/include"
 freetypeLib="src/libraries/freetype/mac"
+objectiveC="src/platform/nu_macos.o"
 vulkanSdk="/Users/$(whoami)/VulkanSDK/1.4.363.0/macOS"
+
+# Force the Vulkan Loader to use KosmicKrisp (added section)
+export VK_DRIVER_FILES="$vulkanSdk/share/vulkan/icd.d/libkosmickrisp_icd.json"
+unset VK_ICD_FILENAMES
+
+# Compile macos objective C bridge
+clang -O3 -g -c \
+-I"$sdlInclude" \
+-I"$srcInclude" \
+"src/platform/nu_macos.m" -o "$objectiveC"
 
 # Compile
 clang -std=c99 -O3 -g -ftrivial-auto-var-init=zero\
     "src/nodus.c" \
     "src/mmap/nu_memory_map.c" \
+    "$objectiveC" \
     -I"$srcInclude" \
     -I"$sdlInclude" \
     -I"$freetypeInclude" \

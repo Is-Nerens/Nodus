@@ -14,26 +14,26 @@ bool HandleEvent(SDL_Event* event)
             break;
         }
 
-        case SDL_EVENT_WINDOW_RESIZED: {
-            GUI.awaiting_redraw = true;
-            break;
-        }
-
         case SDL_EVENT_GAMEPAD_ADDED: {
-            printf("gamepad joined\n");
-            SDL_JoystickID new_id = event->gdevice.which;
-            GUI.gamepad = SDL_OpenGamepad(new_id);
+            for (uint8 i=0; i<GUI.gamepadCapacity; i++) {
+                if (GUI.gamepads[i] == NULL) {
+                    GUI.gamepads[i] = SDL_OpenGamepad(event->gdevice.which);
+                    TriggerAllGamepadConnectEvents(i);
+                    break;
+                }
+            }
             break;
         }
 
         case SDL_EVENT_GAMEPAD_REMOVED: {
-            printf("gamepad left\n");
-            SDL_JoystickID removed_id = event->gdevice.which;
-            if (GUI.gamepad != NULL) {
-                SDL_JoystickID current_id = SDL_GetGamepadID(GUI.gamepad);
-                if (current_id == removed_id) {
-                    SDL_CloseGamepad(GUI.gamepad);
-                    GUI.gamepad = NULL;
+            SDL_JoystickID removedId = event->gdevice.which;
+            for (uint8 i=0; i<GUI.gamepadCapacity; i++) {
+                SDL_Gamepad* gamepad = GUI.gamepads[i];
+                if (gamepad != NULL && SDL_GetGamepadID(gamepad) == removedId) {
+                    SDL_CloseGamepad(gamepad);
+                    GUI.gamepads[i] = NULL;
+                    TriggerAllGamepadDisconnectEvents(i);
+                    break;
                 }
             }
             break;

@@ -1,24 +1,26 @@
 #pragma once
 #include "nu_keycode_enums.h"
 
-#define NU_EVENT_FLAG_ON_CLICK              0x01     // 0b0000000000000001
-#define NU_EVENT_FLAG_ON_INPUT_CHANGED      0x02     // 0b0000000000000010
-#define NU_EVENT_FLAG_ON_SCROLL             0x04     // 0b0000000000000100
-#define NU_EVENT_FLAG_ON_RESIZE             0x08     // 0b0000000000001000
-#define NU_EVENT_FLAG_ON_MOUSE_DOWN         0x10     // 0b0000000000010000
-#define NU_EVENT_FLAG_ON_MOUSE_UP           0x20     // 0b0000000000100000
-#define NU_EVENT_FLAG_ON_MOUSE_DOWN_OUTSIDE 0x40     // 0b0000000001000000
-#define NU_EVENT_FLAG_ON_MOUSE_MOVED        0x80     // 0b0000000010000000
-#define NU_EVENT_FLAG_ON_MOUSE_IN           0x100    // 0b0000000100000000
-#define NU_EVENT_FLAG_ON_MOUSE_OUT          0x200    // 0b0000001000000000
-#define NU_EVENT_FLAG_ON_MOUSE_WHEEL        0x400    // 0b0000010000000000
-#define NU_EVENT_FLAG_ON_INPUT_FOCUS        0x800    // 0b0000100000000000
-#define NU_EVENT_FLAG_ON_INPUT_DEFOCUS      0x1000   // 0b0001000000000000
-#define NU_EVENT_FLAG_ON_KEY_DOWN           0x2000   // 0b0010000000000000
-#define NU_EVENT_FLAG_ON_KEY_UP             0x4000   // 0b0100000000000000
-#define NU_EVENT_FLAG_ON_TYPE               0x8000   // 0b1000000000000000
+#define NU_EVENT_FLAG_ON_CLICK                  (1U << 0)
+#define NU_EVENT_FLAG_ON_INPUT_CHANGED          (1U << 1)
+#define NU_EVENT_FLAG_ON_SCROLL                 (1U << 2)
+#define NU_EVENT_FLAG_ON_RESIZE                 (1U << 3)
+#define NU_EVENT_FLAG_ON_MOUSE_DOWN             (1U << 4)
+#define NU_EVENT_FLAG_ON_MOUSE_UP               (1U << 5)
+#define NU_EVENT_FLAG_ON_MOUSE_DOWN_OUTSIDE     (1U << 6)
+#define NU_EVENT_FLAG_ON_MOUSE_MOVED            (1U << 7)
+#define NU_EVENT_FLAG_ON_MOUSE_IN               (1U << 8)
+#define NU_EVENT_FLAG_ON_MOUSE_OUT              (1U << 9)
+#define NU_EVENT_FLAG_ON_MOUSE_WHEEL            (1U << 10)
+#define NU_EVENT_FLAG_ON_INPUT_FOCUS            (1U << 11)
+#define NU_EVENT_FLAG_ON_INPUT_DEFOCUS          (1U << 12)
+#define NU_EVENT_FLAG_ON_KEY_DOWN               (1U << 13)
+#define NU_EVENT_FLAG_ON_KEY_UP                 (1U << 14)
+#define NU_EVENT_FLAG_ON_TYPE                   (1U << 15)
+#define NU_EVENT_FLAG_ON_GAMEPAD_CONNECT        (1U << 16)
+#define NU_EVENT_FLAG_ON_GAMEPAD_DISCONNECT     (1U << 17)
 
-typedef enum NU_EventType
+typedef enum NuEventType
 {
     NU_EVENT_ON_CLICK,
     NU_EVENT_ON_INPUT_CHANGED,
@@ -35,8 +37,10 @@ typedef enum NU_EventType
     NU_EVENT_ON_SCROLL,
     NU_EVENT_ON_KEY_DOWN,
     NU_EVENT_ON_KEY_UP,
-    NU_EVENT_ON_TYPE
-} NU_EventType;
+    NU_EVENT_ON_TYPE,
+    NU_EVENT_ON_GAMEPAD_CONNECT,
+    NU_EVENT_ON_GAMEPAD_DISCONNECT
+} NuEventType;
 
 typedef struct NU_Event_Info_Mouse
 {
@@ -45,6 +49,11 @@ typedef struct NU_Event_Info_Mouse
     float deltaX, deltaY;
     float wheelDelta;
 } NU_Event_Info_Mouse;
+
+typedef struct NU_Event_Info_Gamepad
+{
+    uint8 gamepadID;
+} NU_Event_Info_Gamepad;
 
 typedef struct NU_Event_Info_Input
 {
@@ -66,21 +75,22 @@ typedef struct NU_Event
 {
     NuNode* node;
     NU_Event_Info_Mouse mouse;
+    NU_Event_Info_Gamepad gamepad;
     NU_Event_Info_Input input;
     NU_Event_Info_Keypress keypress;
     NU_Event_Info_Type type;
-    NU_EventType eventType;
+    NuEventType eventType;
 } NU_Event;
 
 typedef void (*NU_EventCallback)(NU_Event event, void* args);
 
-struct NU_EventCallbackInfo
+typedef struct NU_EventCallbackInfo
 {
     NU_Event event;
     void* args;
     NU_EventCallback callback;
     int widgetID;
-};
+} NU_EventCallbackInfo;
 
 typedef struct EventSystem {
     Hashmap on_click_events;
@@ -101,6 +111,8 @@ typedef struct EventSystem {
     Hashmap on_key_down_events;
     Hashmap on_key_up_events;
     Hashmap on_type_events;
+    Hashmap on_gamepad_connect_events;
+    Hashmap on_gamepad_disconnect_events;
 } EventSystem;
 
 // ----------------------------
@@ -114,7 +126,7 @@ void NU_Internal_Register_Event(
     NuNode* node,
     void* args,
     NU_EventCallback callback,
-    enum NU_EventType event_type
+    enum NuEventType event_type
 );
 
 void NU_Unregister_All_Events(Node* node);
@@ -152,3 +164,7 @@ void TriggerAllOnKeyUpEvents(SDL_Keycode keycode, bool repeat);
 void TriggerAllOnTypeEvents(const char* text);
 
 void NU_Unregister_All_Iterated_Events(Node* node);
+
+void TriggerAllGamepadConnectEvents(uint8 gamepadID);
+
+void TriggerAllGamepadDisconnectEvents(uint8 gamepadID);

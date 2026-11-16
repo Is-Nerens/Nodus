@@ -1,9 +1,11 @@
 #pragma once
 
 // Library includes
+#define SDL_MAIN_USE_CALLBACKS
 #include <vulkan/vulkan.h>
 #include <SDL3/SDL.h>
 #include <SDL3/SDL_vulkan.h>
+#include <SDL3/SDL_main.h>
 #include <ft2build.h>
 #include <math.h>
 #include <stdlib.h>
@@ -12,23 +14,7 @@
 #include FT_FREETYPE_H
 #include FT_MULTIPLE_MASTERS_H
 
-#include "utils/nu_platform.h"
-
-// MacOS MoltenVK portability
-#ifdef PLATFORM_MACOS
-    #define NU_VK_REQUIRED_INSTANCE_EXTENSIONS \
-        VK_KHR_PORTABILITY_ENUMERATION_EXTENSION_NAME
-    #define NU_VK_INSTANCE_FLAGS \
-        VK_INSTANCE_CREATE_ENUMERATE_PORTABILITY_BIT_KHR
-    #define NU_VK_REQUIRED_DEVICE_EXTENSIONS \
-        VK_KHR_SWAPCHAIN_EXTENSION_NAME, \
-        "VK_KHR_portability_subset"
-#else
-    #define NU_VK_REQUIRED_INSTANCE_EXTENSIONS
-    #define NU_VK_INSTANCE_FLAGS 0
-    #define NU_VK_REQUIRED_DEVICE_EXTENSIONS \
-        VK_KHR_SWAPCHAIN_EXTENSION_NAME
-#endif
+#include <platform/nu_platform.h>
 
 // Math compatability macros
 #ifndef min

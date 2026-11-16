@@ -179,8 +179,8 @@ typedef struct Node
     uint64 overrideStyleFlags;     // Bitflags determine which style properties ignore the stylesheet
     int32 widgetID;
     uint32 subtreeSize;
+    uint32 eventFlags;             // Bit flags indicating bound events
     uint16 childCount;
-    uint16 eventFlags;             // Bit flags indicating bound events
     uint16 layoutFlags;            // Bit flags controlling layout and rendering
     bool isPartitionRoot;
     uint8 type;

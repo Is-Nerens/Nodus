@@ -708,8 +708,7 @@ void NU_Draw()
         // Get the window
         Window* win = Container_GetAt(&GUI.displayManager.windows, i);
 
-        // Prepare the frame, Failure -> skip frame (should not happen)
-        if (!Window_PrepareFrame(win, &GUI.displayManager)) continue;
+        if (!Window_StartFrame(win, &GUI.displayManager)) continue;
 
         // Get window dimensions and drawlist
         NuWindowDrawlist* drawList = &win->drawlist;
@@ -737,8 +736,9 @@ void NU_Draw()
             }
         }
 
+
         // Begin render pass
-        Window_BeginRenderPass(win, &GUI.displayManager);
+        Window_StartRenderpass(win, &GUI.displayManager);
 
         // Clear border rect renderdata array
         Array_Clear(&GUI.borderRectsRenderData);
@@ -954,8 +954,7 @@ void NU_Draw()
             NU_DrawImages(win, &GUI.displayManager, &GUI.imageResourceManager, imageRenderGroup, false);
         }
 
-        // Display
-        Window_Present(win, &GUI.displayManager);
+        Window_EndFrame(win, &GUI.displayManager);
     }
 
     GUI.awaiting_redraw = false;

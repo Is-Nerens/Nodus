@@ -1,27 +1,30 @@
 #pragma once
+#include "nu_event_defs.h"
 #include <core/events/nu_event_defs.h>
 #include <core/events/nu_mouse_detection.h>
 #include <core/events/nu_sdl_event_handler.h>
 
 void EventSystem_Init()
 {
-    Hashmap_Init(&GUI.eventSystem.on_click_events,              sizeof(Node*), sizeof(struct NU_EventCallbackInfo), 128);
-    Hashmap_Init(&GUI.eventSystem.on_input_changed_events,      sizeof(Node*), sizeof(struct NU_EventCallbackInfo), 10);
-    Hashmap_Init(&GUI.eventSystem.on_scroll_events,             sizeof(Node*), sizeof(struct NU_EventCallbackInfo), 10);
-    Hashmap_Init(&GUI.eventSystem.on_resize_events,             sizeof(Node*), sizeof(struct NU_EventCallbackInfo), 10);
-    Hashmap_Init(&GUI.eventSystem.node_resize_tracking,         sizeof(Node*), sizeof(NU_NodeDimensions)      , 10);
-    Hashmap_Init(&GUI.eventSystem.on_mouse_down_events,         sizeof(Node*), sizeof(struct NU_EventCallbackInfo), 10);
-    Hashmap_Init(&GUI.eventSystem.on_mouse_up_events,           sizeof(Node*), sizeof(struct NU_EventCallbackInfo), 10);
-    Hashmap_Init(&GUI.eventSystem.on_mouse_down_outside_events, sizeof(Node*), sizeof(struct NU_EventCallbackInfo), 10);
-    Hashmap_Init(&GUI.eventSystem.on_mouse_move_events,         sizeof(Node*), sizeof(struct NU_EventCallbackInfo), 10);
-    Hashmap_Init(&GUI.eventSystem.on_mouse_in_events,           sizeof(Node*), sizeof(struct NU_EventCallbackInfo), 10);
-    Hashmap_Init(&GUI.eventSystem.on_mouse_out_events,          sizeof(Node*), sizeof(struct NU_EventCallbackInfo), 10);
-    Hashmap_Init(&GUI.eventSystem.on_mouse_wheel_events,        sizeof(Node*), sizeof(struct NU_EventCallbackInfo), 10);
-    Hashmap_Init(&GUI.eventSystem.on_input_focus_events,        sizeof(Node*), sizeof(struct NU_EventCallbackInfo), 10);
-    Hashmap_Init(&GUI.eventSystem.on_input_defocus_events,      sizeof(Node*), sizeof(struct NU_EventCallbackInfo), 10);
-    Hashmap_Init(&GUI.eventSystem.on_key_down_events,           sizeof(Node*), sizeof(struct NU_EventCallbackInfo), 10);
-    Hashmap_Init(&GUI.eventSystem.on_key_up_events,             sizeof(Node*), sizeof(struct NU_EventCallbackInfo), 10);
-    Hashmap_Init(&GUI.eventSystem.on_type_events,               sizeof(Node*), sizeof(struct NU_EventCallbackInfo), 10);
+    Hashmap_Init(&GUI.eventSystem.on_click_events,              sizeof(Node*), sizeof(NU_EventCallbackInfo), 128);
+    Hashmap_Init(&GUI.eventSystem.on_input_changed_events,      sizeof(Node*), sizeof(NU_EventCallbackInfo), 10);
+    Hashmap_Init(&GUI.eventSystem.on_scroll_events,             sizeof(Node*), sizeof(NU_EventCallbackInfo), 10);
+    Hashmap_Init(&GUI.eventSystem.on_resize_events,             sizeof(Node*), sizeof(NU_EventCallbackInfo), 10);
+    Hashmap_Init(&GUI.eventSystem.node_resize_tracking,         sizeof(Node*), sizeof(NU_NodeDimensions)   , 10);
+    Hashmap_Init(&GUI.eventSystem.on_mouse_down_events,         sizeof(Node*), sizeof(NU_EventCallbackInfo), 10);
+    Hashmap_Init(&GUI.eventSystem.on_mouse_up_events,           sizeof(Node*), sizeof(NU_EventCallbackInfo), 10);
+    Hashmap_Init(&GUI.eventSystem.on_mouse_down_outside_events, sizeof(Node*), sizeof(NU_EventCallbackInfo), 10);
+    Hashmap_Init(&GUI.eventSystem.on_mouse_move_events,         sizeof(Node*), sizeof(NU_EventCallbackInfo), 10);
+    Hashmap_Init(&GUI.eventSystem.on_mouse_in_events,           sizeof(Node*), sizeof(NU_EventCallbackInfo), 10);
+    Hashmap_Init(&GUI.eventSystem.on_mouse_out_events,          sizeof(Node*), sizeof(NU_EventCallbackInfo), 10);
+    Hashmap_Init(&GUI.eventSystem.on_mouse_wheel_events,        sizeof(Node*), sizeof(NU_EventCallbackInfo), 10);
+    Hashmap_Init(&GUI.eventSystem.on_input_focus_events,        sizeof(Node*), sizeof(NU_EventCallbackInfo), 10);
+    Hashmap_Init(&GUI.eventSystem.on_input_defocus_events,      sizeof(Node*), sizeof(NU_EventCallbackInfo), 10);
+    Hashmap_Init(&GUI.eventSystem.on_key_down_events,           sizeof(Node*), sizeof(NU_EventCallbackInfo), 10);
+    Hashmap_Init(&GUI.eventSystem.on_key_up_events,             sizeof(Node*), sizeof(NU_EventCallbackInfo), 10);
+    Hashmap_Init(&GUI.eventSystem.on_type_events,               sizeof(Node*), sizeof(NU_EventCallbackInfo), 10);
+    Hashmap_Init(&GUI.eventSystem.on_gamepad_connect_events,    sizeof(Node*), sizeof(NU_EventCallbackInfo), 10);
+    Hashmap_Init(&GUI.eventSystem.on_gamepad_disconnect_events,  sizeof(Node*), sizeof(NU_EventCallbackInfo), 10);
 }
 
 void EventSystem_Free()
@@ -43,14 +46,16 @@ void EventSystem_Free()
     Hashmap_Free(&GUI.eventSystem.on_key_down_events);
     Hashmap_Free(&GUI.eventSystem.on_key_up_events);
     Hashmap_Free(&GUI.eventSystem.on_type_events);
+    Hashmap_Free(&GUI.eventSystem.on_gamepad_connect_events);
+    Hashmap_Free(&GUI.eventSystem.on_gamepad_disconnect_events);
 }
 
 
 
-void NU_Internal_Bind_Event(Node* node, void* args, NU_EventCallback callback, enum NU_EventType event_type, int widgetID)
+void NU_Internal_Bind_Event(Node* node, void* args, NU_EventCallback callback, enum NuEventType event_type, int widgetID)
 {
     struct NU_Event event = {0}; event.node = (NuNode*)node;
-    struct NU_EventCallbackInfo cb_info = { event, args, callback, widgetID };
+    NU_EventCallbackInfo cb_info = { event, args, callback, widgetID };
 
     switch (event_type) {
         case NU_EVENT_ON_CLICK:
@@ -119,6 +124,14 @@ void NU_Internal_Bind_Event(Node* node, void* args, NU_EventCallback callback, e
             node->eventFlags |= NU_EVENT_FLAG_ON_TYPE;
             Hashmap_Set(&GUI.eventSystem.on_type_events, &node, &cb_info);
             break;
+        case NU_EVENT_ON_GAMEPAD_CONNECT:
+            node->eventFlags |= NU_EVENT_FLAG_ON_GAMEPAD_CONNECT;
+            Hashmap_Set(&GUI.eventSystem.on_gamepad_connect_events, &node, &cb_info);
+            break;
+        case NU_EVENT_ON_GAMEPAD_DISCONNECT:
+            node->eventFlags |= NU_EVENT_FLAG_ON_GAMEPAD_DISCONNECT;
+            Hashmap_Set(&GUI.eventSystem.on_gamepad_disconnect_events, &node, &cb_info);
+            break;
     }
 }
 
@@ -180,6 +193,12 @@ void NU_Unregister_All_Iterated_Events(Node* node)
     if (node->eventFlags & NU_EVENT_FLAG_ON_TYPE) {
         Hashmap_Delete(&GUI.eventSystem.on_type_events, &node);
     }
+    if (node->eventFlags & NU_EVENT_FLAG_ON_GAMEPAD_CONNECT) {
+        Hashmap_Delete(&GUI.eventSystem.on_gamepad_connect_events, &node);
+    }
+    if (node->eventFlags & NU_EVENT_FLAG_ON_GAMEPAD_DISCONNECT) {
+        Hashmap_Delete(&GUI.eventSystem.on_gamepad_disconnect_events, &node);
+    }
 }
 
 void NU_DissociateNode(Node* node)
@@ -204,31 +223,15 @@ void NU_DissociateNode(Node* node)
             Container_Remove(&GUI.textInputs, node->special.input.textInputHandle);
             break;
         }
-        default:
-            break;
+        default: break;
     }
-    if (node->id != NULL) {
-        Stringmap_Delete(&GUI.id_node_map, node->id);
-    }
-    if (node == GUI.hovered_node) {
-        GUI.hovered_node = NULL;
-    }
-    if (node == GUI.mouse_down_node) {
-        GUI.mouse_down_node = NULL;
-    }
-    if (node == GUI.scroll_hovered_node) {
-        GUI.scroll_hovered_node = NULL;
-    }
-    if (node == GUI.scroll_mouse_down_node) {
-        GUI.scroll_mouse_down_node = NULL;
-    }
-    if (node == GUI.focused_node) {
-        GUI.focused_node = NULL;
-    }
-
-    if (node->widgetID != -1) {
-        Container_Remove(&GUI.widgets, node->widgetID);
-    }
+    if (node->id != NULL) Stringmap_Delete(&GUI.id_node_map, node->id);
+    if (node == GUI.hovered_node) GUI.hovered_node = NULL;
+    if (node == GUI.mouse_down_node)  GUI.mouse_down_node = NULL;
+    if (node == GUI.scroll_hovered_node) GUI.scroll_hovered_node = NULL;
+    if (node == GUI.scroll_mouse_down_node) GUI.scroll_mouse_down_node = NULL;
+    if (node == GUI.focused_node) GUI.focused_node = NULL;
+    if (node->widgetID != -1) Container_Remove(&GUI.widgets, node->widgetID);
 }
 
 void TriggerOnMouseOutEvent(Node* node, float mouseX, float mouseY)
@@ -236,7 +239,7 @@ void TriggerOnMouseOutEvent(Node* node, float mouseX, float mouseY)
     if (node->eventFlags & NU_EVENT_FLAG_ON_MOUSE_OUT) {
         void* found_cb = Hashmap_Get(&GUI.eventSystem.on_mouse_out_events, &node);
         if (found_cb != NULL) {
-            struct NU_EventCallbackInfo* cb_info = (struct NU_EventCallbackInfo*)found_cb;
+            NU_EventCallbackInfo* cb_info = (NU_EventCallbackInfo*)found_cb;
             cb_info->event.mouse.mouseBtn = -1;
             cb_info->event.mouse.mouseX = mouseX;
             cb_info->event.mouse.mouseY = mouseY;
@@ -259,7 +262,7 @@ void TriggerOnMouseInEvent(Node* node, float mouseX, float mouseY)
     if (node->eventFlags & NU_EVENT_FLAG_ON_MOUSE_IN) {
         void* found_cb = Hashmap_Get(&GUI.eventSystem.on_mouse_in_events, &node);
         if (found_cb != NULL) {
-            struct NU_EventCallbackInfo* cb_info = (struct NU_EventCallbackInfo*)found_cb;
+            NU_EventCallbackInfo* cb_info = (NU_EventCallbackInfo*)found_cb;
             cb_info->event.mouse.mouseBtn = -1;
             cb_info->event.mouse.mouseX = mouseX;
             cb_info->event.mouse.mouseY = mouseY;
@@ -284,7 +287,7 @@ void TriggerOnMouseDownEvent(Node* node, float mouseX, float mouseY, int mouseBt
         void* found_cb = Hashmap_Get(&GUI.eventSystem.on_mouse_down_events, &node);
         if (found_cb != NULL)
         {
-            struct NU_EventCallbackInfo* cb_info = (struct NU_EventCallbackInfo*)found_cb;
+            NU_EventCallbackInfo* cb_info = (NU_EventCallbackInfo*)found_cb;
             cb_info->event.mouse.mouseBtn = mouseBtn;
             cb_info->event.mouse.mouseX = mouseX;
             cb_info->event.mouse.mouseY = mouseY;
@@ -304,7 +307,7 @@ void TriggerOnClickEvent(Node* node, float mouseX, float mouseY, int mouseBtn)
     if (node->eventFlags & NU_EVENT_FLAG_ON_CLICK) {
         void* found_cb = Hashmap_Get(&GUI.eventSystem.on_click_events, &node);
         if (found_cb != NULL) {
-            struct NU_EventCallbackInfo* cb_info = (struct NU_EventCallbackInfo*)found_cb;
+            NU_EventCallbackInfo* cb_info = (NU_EventCallbackInfo*)found_cb;
             cb_info->event.mouse.mouseBtn = mouseBtn;
             cb_info->event.mouse.mouseX = mouseX;
             cb_info->event.mouse.mouseY = mouseY;
@@ -324,7 +327,7 @@ void TriggerOnScrollEvent(Node* node)
     if (node->eventFlags & NU_EVENT_FLAG_ON_SCROLL) {
         void* found_cb = Hashmap_Get(&GUI.eventSystem.on_scroll_events, &node);
         if (found_cb != NULL) {
-            struct NU_EventCallbackInfo* cb_info = (struct NU_EventCallbackInfo*)found_cb;
+            NU_EventCallbackInfo* cb_info = (NU_EventCallbackInfo*)found_cb;
             if (cb_info->callback) cb_info->callback(cb_info->event, cb_info->args);
 
             // Run widget update function (if widget is bound)
@@ -341,7 +344,7 @@ void TriggerOnInputFocusEvent(Node* node)
     if (node->eventFlags & NU_EVENT_FLAG_ON_INPUT_FOCUS) {
         void* found_cb = Hashmap_Get(&GUI.eventSystem.on_input_focus_events, &node);
         if (found_cb != NULL) {
-            struct NU_EventCallbackInfo* cb_info = (struct NU_EventCallbackInfo*)found_cb;
+            NU_EventCallbackInfo* cb_info = (NU_EventCallbackInfo*)found_cb;
             if (cb_info->callback) cb_info->callback(cb_info->event, cb_info->args);
 
             // Run widget update function (if widget is bound)
@@ -358,7 +361,7 @@ void TriggerOnInputDefocusEvent(Node* node)
     if (node->eventFlags & NU_EVENT_FLAG_ON_INPUT_DEFOCUS) {
         void* found_cb = Hashmap_Get(&GUI.eventSystem.on_input_defocus_events, &node);
         if (found_cb != NULL) {
-            struct NU_EventCallbackInfo* cb_info = (struct NU_EventCallbackInfo*)found_cb;
+            NU_EventCallbackInfo* cb_info = (NU_EventCallbackInfo*)found_cb;
             if (cb_info->callback) cb_info->callback(cb_info->event, cb_info->args);
 
             // Run widget update function (if widget is bound)
@@ -375,7 +378,7 @@ void TriggerOnInputChangedEvent(Node* node, const char* text)
     if (node->eventFlags & NU_EVENT_FLAG_ON_INPUT_CHANGED) {
         void* found_cb = Hashmap_Get(&GUI.eventSystem.on_input_changed_events, &node);
         if (found_cb != NULL) {
-            struct NU_EventCallbackInfo* cb_info = (struct NU_EventCallbackInfo*)found_cb;
+            NU_EventCallbackInfo* cb_info = (NU_EventCallbackInfo*)found_cb;
             strcpy(cb_info->event.input.text, text);
             if (cb_info->callback) cb_info->callback(cb_info->event, cb_info->args);
 
@@ -405,7 +408,7 @@ void CheckForResizeEvents()
         {
             // Cast key, val to correct types
             Node* node = *(Node**)key;
-            struct NU_EventCallbackInfo* cb_info = (struct NU_EventCallbackInfo*)val;
+            NU_EventCallbackInfo* cb_info = (NU_EventCallbackInfo*)val;
 
             // Skip if node was recently deleted
             if (NodeStateDeleted(node)) continue;
@@ -449,7 +452,7 @@ void TriggerAllMouseupEvents(float mouseX, float mouseY, int mouseBtn)
         {
             // Cast key, value to correct types
             Node* node = *(Node**)key;
-            struct NU_EventCallbackInfo* cb_info = (struct NU_EventCallbackInfo*)val;
+            NU_EventCallbackInfo* cb_info = (NU_EventCallbackInfo*)val;
 
             // Skip if node was recently deleted
             if (NodeStateDeleted(node)) continue;
@@ -484,7 +487,7 @@ void TriggerAllMouseMoveEvents(float mouseX, float mouseY, float mouseDeltaX, fl
         {
             // Cast key, value to correct types
             Node* node = *(Node**)key;
-            struct NU_EventCallbackInfo* cb_info = (struct NU_EventCallbackInfo*)val;
+            NU_EventCallbackInfo* cb_info = (NU_EventCallbackInfo*)val;
 
             // Skip if node was recently deleted
             if (NodeStateDeleted(node)) continue;
@@ -519,7 +522,7 @@ void TriggerAllMouseWheelEvents(float wheelDelta)
         {
             // Cast key, value to correct types
             Node* node = *(Node**)key;
-            struct NU_EventCallbackInfo* cb_info = (struct NU_EventCallbackInfo*)val;
+            NU_EventCallbackInfo* cb_info = (NU_EventCallbackInfo*)val;
 
             // Skip if node was recently deleted
             if (NodeStateDeleted(node)) continue;
@@ -549,7 +552,7 @@ void TriggerAllMouseDownOutsideEvents(float mouseX, float mouseY, int mouseBtn)
         {
             // Cast key, value to correct types
             Node* node = *(Node**)key;
-            struct NU_EventCallbackInfo* cb_info = (struct NU_EventCallbackInfo*)val;
+            NU_EventCallbackInfo* cb_info = (NU_EventCallbackInfo*)val;
 
             // Skip if node was recently deleted OR node is hovered
             if (NodeStateDeleted(node) || node == GUI.hovered_node) continue;
@@ -584,7 +587,7 @@ void TriggerAllOnKeyDownEvents(SDL_Keycode keycode, bool repeat)
         {
             // Cast key, value to correct types
             Node* node = *(Node**)key;
-            struct NU_EventCallbackInfo* cb_info = (struct NU_EventCallbackInfo*)val;
+            NU_EventCallbackInfo* cb_info = (NU_EventCallbackInfo*)val;
 
             // Skip if node was recently deleted
             if (NodeStateDeleted(node)) continue;
@@ -615,7 +618,7 @@ void TriggerAllOnKeyUpEvents(SDL_Keycode keycode, bool repeat)
         {
             // Cast key, value to correct types
             Node* node = *(Node**)key;
-            struct NU_EventCallbackInfo* cb_info = (struct NU_EventCallbackInfo*)val;
+            NU_EventCallbackInfo* cb_info = (NU_EventCallbackInfo*)val;
 
             // Skip if node was recently deleted
             if (NodeStateDeleted(node)) continue;
@@ -646,13 +649,73 @@ void TriggerAllOnTypeEvents(const char* text)
         {
             // Cast key, value to correct types
             Node* node = *(Node**)key;
-            struct NU_EventCallbackInfo* cb_info = (struct NU_EventCallbackInfo*)val;
+            NU_EventCallbackInfo* cb_info = (NU_EventCallbackInfo*)val;
 
             // Skip if node was recently deleted
             if (NodeStateDeleted(node)) continue;
 
             // Set calback event values and trigger
             strcpy(cb_info->event.type.text, text);
+            if (cb_info->callback) cb_info->callback(cb_info->event, cb_info->args);
+
+            // Run widget update function (if widget is bound)
+            if (cb_info->widgetID >= 0) {
+                NU_Widget* widget = Container_Get(&GUI.widgets, cb_info->widgetID);
+                widget->updateCB((NuNode*)(widget->root), widget->updateCB_Args, &cb_info->event);
+            }
+        }
+    }
+}
+
+void TriggerAllGamepadConnectEvents(uint8 gamepadID)
+{
+    if (GUI.eventSystem.on_gamepad_connect_events.itemCount > 0)
+    {
+        Hashmap* hmap = &GUI.eventSystem.on_gamepad_connect_events;
+        HashmapIterator it = Hashmap_CreateIterator(hmap);
+        void* key; void* val;
+
+        while(Hashmap_IteratorNext(&it, &key, &val))
+        {
+            // Cast key, value to correct types
+            Node* node = *(Node**)key;
+            NU_EventCallbackInfo* cb_info = (NU_EventCallbackInfo*)val;
+
+            // Skip if node was recently deleted
+            if (NodeStateDeleted(node)) continue;
+
+            // Set calback event values and trigger
+            cb_info->event.gamepad.gamepadID = gamepadID;
+            if (cb_info->callback) cb_info->callback(cb_info->event, cb_info->args);
+
+            // Run widget update function (if widget is bound)
+            if (cb_info->widgetID >= 0) {
+                NU_Widget* widget = Container_Get(&GUI.widgets, cb_info->widgetID);
+                widget->updateCB((NuNode*)(widget->root), widget->updateCB_Args, &cb_info->event);
+            }
+        }
+    }
+}
+
+void TriggerAllGamepadDisconnectEvents(uint8 gamepadID)
+{
+    if (GUI.eventSystem.on_gamepad_disconnect_events.itemCount > 0)
+    {
+        Hashmap* hmap = &GUI.eventSystem.on_gamepad_disconnect_events;
+        HashmapIterator it = Hashmap_CreateIterator(hmap);
+        void* key; void* val;
+
+        while(Hashmap_IteratorNext(&it, &key, &val))
+        {
+            // Cast key, value to correct types
+            Node* node = *(Node**)key;
+            NU_EventCallbackInfo* cb_info = (NU_EventCallbackInfo*)val;
+
+            // Skip if node was recently deleted
+            if (NodeStateDeleted(node)) continue;
+
+            // Set calback event values and trigger
+            cb_info->event.gamepad.gamepadID = gamepadID;
             if (cb_info->callback) cb_info->callback(cb_info->event, cb_info->args);
 
             // Run widget update function (if widget is bound)

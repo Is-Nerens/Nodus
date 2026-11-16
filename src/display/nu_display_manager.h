@@ -5,9 +5,10 @@
 #include <display/nu_gpu_arena_alloc.h>
 #include <display/nu_window.h>
 
+
 int DisplayManager_CreateVulkanDevices(DisplayManager* displayManager)
 {
-#ifdef PLATFORM_MACOS
+#if defined(PLATFORM_MACOS) && VULKAN_BACKEND_MOLTENVK
     setenv("MVK_CONFIG_SYNCHRONOUS_QUEUE_SUBMITS", "0", 1);
 #endif
 
@@ -32,20 +33,36 @@ int DisplayManager_CreateVulkanDevices(DisplayManager* displayManager)
         ErrorSystem_AddError(&GUI.errorSystem, "<Vulkan Error> Failed to get SDL Vulkan extensions");
         return 0;
     }
-    // Allocate a list containing SDL extensions + portability enumeration
-    const char** instanceExts = malloc(sizeof(const char*) * (sdlExtensionCount + 1));
+
+    // Get instance extensions
+#if defined(PLATFORM_MACOS) && VULKAN_BACKEND_MOLTENVK
+    const Uint32 extraExtCount = 1;
+#else
+    const Uint32 extraExtCount = 0;
+#endif
+
+    const char** instanceExts = malloc(sizeof(const char*) * (sdlExtensionCount + extraExtCount));
     if (!instanceExts) {
         ErrorSystem_AddError(&GUI.errorSystem, "<Vulkan Error> Failed to allocate instance extensions");
         return 0;
     }
-    for (Uint32 i=0; i<sdlExtensionCount; i++) {
-        instanceExts[i] = sdlExtensions[i];
+
+    Uint32 instanceExtCount = 0;
+    for (Uint32 i = 0; i < sdlExtensionCount; i++) {
+#if defined(PLATFORM_MACOS) && VULKAN_BACKEND_KOSMICKRISP
+        if (strcmp(sdlExtensions[i], VK_KHR_PORTABILITY_ENUMERATION_EXTENSION_NAME) == 0) continue;
+#endif
+        instanceExts[instanceExtCount++] = sdlExtensions[i];
     }
-    instanceExts[sdlExtensionCount] = VK_KHR_PORTABILITY_ENUMERATION_EXTENSION_NAME;
+
+#if defined(PLATFORM_MACOS) && VULKAN_BACKEND_MOLTENVK
+    instanceExts[instanceExtCount++] = VK_KHR_PORTABILITY_ENUMERATION_EXTENSION_NAME;
     ci.flags = VK_INSTANCE_CREATE_ENUMERATE_PORTABILITY_BIT_KHR;
+#endif
+
     ci.enabledLayerCount = 1;
     ci.ppEnabledLayerNames = validationLayers;
-    ci.enabledExtensionCount = sdlExtensionCount + 1;
+    ci.enabledExtensionCount = instanceExtCount;
     ci.ppEnabledExtensionNames = instanceExts;
 
     // Create Vulkan instance
@@ -91,6 +108,37 @@ int DisplayManager_CreateVulkanDevices(DisplayManager* displayManager)
         return 0;
     }
 
+    // Check present wait support
+    VkBool32 presentWaitSupported = VK_FALSE;
+#if !(defined(PLATFORM_MACOS) && VULKAN_BACKEND_MOLTENVK)
+    uint32 extensionCount = 0;
+    vkEnumerateDeviceExtensionProperties(physicalDevice, NULL, &extensionCount, NULL);
+    VkExtensionProperties* extensions = malloc(sizeof(VkExtensionProperties) * extensionCount);
+    if (extensions) {
+        vkEnumerateDeviceExtensionProperties(physicalDevice, NULL, &extensionCount, extensions);
+        VkBool32 hasPresentId = VK_FALSE;
+        VkBool32 hasPresentWait = VK_FALSE;
+        for (uint32 i=0; i<extensionCount; i++) {
+            if (strcmp(extensions[i].extensionName, VK_KHR_PRESENT_ID_EXTENSION_NAME) == 0) hasPresentId = VK_TRUE;
+            if (strcmp(extensions[i].extensionName, VK_KHR_PRESENT_WAIT_EXTENSION_NAME) == 0) hasPresentWait = VK_TRUE;
+        }
+        free(extensions);
+
+        if (hasPresentId && hasPresentWait) {
+            VkPhysicalDevicePresentWaitFeaturesKHR presentWaitFeatures = {0};
+            presentWaitFeatures.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_PRESENT_WAIT_FEATURES_KHR;
+            VkPhysicalDevicePresentIdFeaturesKHR presentIdFeatures = {0};
+            presentIdFeatures.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_PRESENT_ID_FEATURES_KHR;
+            presentIdFeatures.pNext = &presentWaitFeatures;
+            VkPhysicalDeviceFeatures2 features2 = {0};
+            features2.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_FEATURES_2;
+            features2.pNext = &presentIdFeatures;
+            vkGetPhysicalDeviceFeatures2(physicalDevice, &features2);
+            presentWaitSupported = presentIdFeatures.presentId && presentWaitFeatures.presentWait;
+        }
+    }
+#endif
+
     // Create a logical device
     float priority = 1.0f;
     VkDeviceQueueCreateInfo qci = {0};
@@ -99,13 +147,27 @@ int DisplayManager_CreateVulkanDevices(DisplayManager* displayManager)
     qci.queueCount = 1;
     qci.pQueuePriorities = &priority;
 
-    const char* deviceExts[2];
+    const char* deviceExts[4];
     uint32 deviceExtCount = 0;
     deviceExts[deviceExtCount++] = VK_KHR_SWAPCHAIN_EXTENSION_NAME;
-    #ifdef PLATFORM_MACOS
+#if defined(PLATFORM_MACOS) && VULKAN_BACKEND_MOLTENVK
     deviceExts[deviceExtCount++] = "VK_KHR_portability_subset";
-    #endif
+#endif
+    if (presentWaitSupported) {
+        deviceExts[deviceExtCount++] = VK_KHR_PRESENT_ID_EXTENSION_NAME;
+        deviceExts[deviceExtCount++] = VK_KHR_PRESENT_WAIT_EXTENSION_NAME;
+    }
 
+    // Vsync await feature
+    VkPhysicalDevicePresentWaitFeaturesKHR presentWaitFeatures = {0};
+    presentWaitFeatures.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_PRESENT_WAIT_FEATURES_KHR;
+    presentWaitFeatures.presentWait = presentWaitSupported;
+    VkPhysicalDevicePresentIdFeaturesKHR presentIdFeatures = {0};
+    presentIdFeatures.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_PRESENT_ID_FEATURES_KHR;
+    presentIdFeatures.presentId = presentWaitSupported;
+    presentIdFeatures.pNext = &presentWaitFeatures;
+
+    // Dual source blend feature
     VkPhysicalDeviceFeatures features = {0};
     features.dualSrcBlend = VK_TRUE;
 
@@ -117,6 +179,7 @@ int DisplayManager_CreateVulkanDevices(DisplayManager* displayManager)
     dci.enabledExtensionCount = deviceExtCount;
     dci.ppEnabledExtensionNames = deviceExts;
     dci.pEnabledFeatures = &features;
+    dci.pNext = presentWaitSupported ? &presentIdFeatures : NULL;
 
     // Create device
     VkDevice device = VK_NULL_HANDLE;
@@ -124,8 +187,14 @@ int DisplayManager_CreateVulkanDevices(DisplayManager* displayManager)
         ErrorSystem_AddError(&GUI.errorSystem, "<Vulkan Error> Failed to create a device");
         return 0;
     }
+    displayManager->presentWaitSupported = presentWaitSupported;
     VkQueue graphicsQueue = VK_NULL_HANDLE;
     vkGetDeviceQueue(device, graphicsFamily, 0, &graphicsQueue);
+
+    displayManager->vkWaitForPresentKHR = (PFN_vkWaitForPresentKHR)vkGetDeviceProcAddr(
+        device,
+        "vkWaitForPresentKHR"
+    );
 
     // Command pool create info
     VkCommandPoolCreateInfo poolInfo = {
@@ -181,12 +250,9 @@ int DisplayManager_CreateVulkanDevices(DisplayManager* displayManager)
     displayManager->graphicsQueue = graphicsQueue;
     displayManager->graphicsFamily = graphicsFamily;
     displayManager->commandPool = commandPool;
-    displayManager->sharedRenderPass = NULL; // Will be created lazily when the first window is created
-    displayManager->sharedRenderPassMSAA4X = NULL; // This too
+    displayManager->sharedRenderPass = NULL;
+    displayManager->sharedRenderPassMSAA4X = NULL;
 
-
-
-    // Success
     return 1;
 }
 
@@ -323,6 +389,22 @@ void DisplayManager_UpdateWindowScreenDimensions(DisplayManager* displayManager,
     }
 }
 
+bool DisplayManager_WaitForPresentation(DisplayManager* displayManager)
+{
+    Window* paceWindow = Container_GetAt(&GUI.displayManager.windows, GUI.displayManager.windows.size - 1);
+    if (displayManager->presentWaitSupported) {
+        paceWindow->presentId++;
+        displayManager->vkWaitForPresentKHR(
+            displayManager->device,
+            paceWindow->swapchain,
+            paceWindow->presentId,
+            16
+        );
+        return true;
+    }
+    return false;
+}
+
 int DisplayManager_CreateWindow(DisplayManager* displayManager, Node* node, const char* title, int width, int height)
 {
     // Create / recycle SDL window
@@ -332,6 +414,7 @@ int DisplayManager_CreateWindow(DisplayManager* displayManager, Node* node, cons
     }
     else {
         sdlWin = SDL_CreateWindow(title, width, height, SDL_WINDOW_VULKAN | SDL_WINDOW_RESIZABLE | SDL_WINDOW_HIGH_PIXEL_DENSITY);
+        NU_MacOS_EnableWindowCrossfade(sdlWin);
     }
 
     // Create a new Window

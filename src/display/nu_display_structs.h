@@ -19,6 +19,8 @@ typedef struct DisplayManager
     VkRenderPass          sharedRenderPassMSAA4X;
     VkDescriptorSetLayout fontSetLayout;   // binding 0, COMBINED_IMAGE_SAMPLER, count 1, fragment
     VkDescriptorPool      fontPool;
+    PFN_vkWaitForPresentKHR vkWaitForPresentKHR;
+    VkBool32 presentWaitSupported;
 
     // GPU arena allocator
     ArenaAllocatorGPU gpuArenaAlloc;
@@ -72,6 +74,7 @@ typedef struct {
     VkImage        images[NU_MAX_SWAPCHAIN_IMAGES];
     VkImageView    imageViews[NU_MAX_SWAPCHAIN_IMAGES];
     VkFramebuffer  framebuffers[NU_MAX_SWAPCHAIN_IMAGES];
+    uint64 presentId;
 
     // Depth buffer
     VkImage        depthImage;

@@ -1,4 +1,3 @@
-#include "utils/nu_types.h"
 #include <core/nu_includes.h>
 
 // Export macro
@@ -120,7 +119,11 @@ _EXPORT NuWindow* NU_CREATE_GUI(const char* xml_filepath, const char* css_filepa
 
     Node* rootNode = NULL;
 
-    GUI.gamepad = NULL;
+    // Gamepads
+    GUI.gamepadCapacity = 8;
+    for (uint8 i=0; i<GUI.gamepadCapacity; i++) {
+        GUI.gamepads[i] = NULL;
+    }
 
     // Create from xml template
     if (xml_filepath) {
@@ -179,7 +182,7 @@ int TimerHandler(void* args) {
 
     while (GUI.running)
     {
-        uint64 shortestRemainingDuration = 20;
+        uint64 shortestRemainingDuration = 100;
 
         SDL_LockMutex(GUI.guiMutex);
 
@@ -260,48 +263,116 @@ int AppThread(void* args)
             NU_Mouse_Hover();
             NU_Draw();
             CheckForResizeEvents();
+
+            // Wait for vsync (put app thread to sleep if feature is supported -> avoid CPU burn)
+            if (DisplayManager_WaitForPresentation(&GUI.displayManager))
+            {
+                // Unlock mutex afterwards (protect pace window)
+                SDL_UnlockMutex(GUI.guiMutex);
+            }
+            // If this is not supported -> perform manual wait
+            else
+            {
+                // Safe to unlock mutex now so that timer thread can work during sleep
+                SDL_UnlockMutex(GUI.guiMutex);
+
+                // Put app thread to sleep
+                uint64 frameTimeMicroseconds = nu_time() - frameStartTime;
+                uint64 targetTimeMicroseconds = GetFrametime() * 1000;
+                if (frameTimeMicroseconds < targetTimeMicroseconds) {
+                    uint64 remainingUs = targetTimeMicroseconds - frameTimeMicroseconds;
+                    uint32 sleepDurationMs = (uint32)((remainingUs + 999ull) / 1000ull);
+                    if (sleepDurationMs > 1) sleepDurationMs -= 2;
+                    SDL_Delay(sleepDurationMs);
+                }
+            }
         }
+        else
+        {
+            // Safe to unlock mutex now so that timer thread can work during sleep
+            SDL_UnlockMutex(GUI.guiMutex);
 
-        SDL_UnlockMutex(GUI.guiMutex);
+            // Put app thread to sleep
+            SDL_Delay(GetFrametime() - 1);
 
-        // Wait until the next frame deadline
-        uint64 frameTimeMicroseconds = nu_time() - frameStartTime;
-        uint64 targetTimeMicroseconds = GetFrametime() * 1000;
-        if (frameTimeMicroseconds < targetTimeMicroseconds) {
-            uint64 remainingUs = targetTimeMicroseconds - frameTimeMicroseconds;
-            uint32 sleepDurationMs = (uint32)((remainingUs + 999ull) / 1000ull);
-            if (sleepDurationMs > 0) sleepDurationMs -= 1;
-            SDL_Delay(sleepDurationMs);
         }
     }
 
     return 0;
 }
 
+// _EXPORT void NU_RUN(void)
+// {
+//     if (GUI.running) return;
+//     GUI.running = true;
+
+//     // Create app thread
+//     SDL_Thread* appThread;
+//     appThread = SDL_CreateThread(
+//         AppThread,
+//         "AppThread",
+//         NULL
+//     );
+
+//     // Create timer thread
+//     SDL_Thread* timerThread;
+//     timerThread = SDL_CreateThread(
+//         TimerHandler,
+//         "TimerThread",
+//         NULL
+//     );
+
+//     // Pump events
+//     while(GUI.running)
+//     {
+//         SDL_WaitEventTimeout(NULL, 100);
+//     }
+
+//     SDL_WaitThread(appThread, NULL);
+//     SDL_WaitThread(timerThread, NULL);
+// }
+
+SDL_AppResult SDL_AppInit(void** appstate, int argc, char* argv[])
+{
+    if (!SDL_Init(SDL_INIT_VIDEO)) {
+        SDL_Log("SDL_Init failed: %s", SDL_GetError());
+        return SDL_APP_FAILURE;
+    }
+
+    window = SDL_CreateWindow(
+        "Nodus",
+        1280,
+        720,
+        SDL_WINDOW_RESIZABLE
+    );
+
+    if (window == NULL) {
+        SDL_Log("Window creation failed: %s", SDL_GetError());
+        return SDL_APP_FAILURE;
+    }
+
+    renderer = SDL_CreateRenderer(window, NULL);
+
+    if (renderer == NULL) {
+        SDL_Log("Renderer creation failed: %s", SDL_GetError());
+        return SDL_APP_FAILURE;
+    }
+
+    return SDL_APP_CONTINUE;
+}
+
+
 _EXPORT void NU_RUN(void)
 {
     if (GUI.running) return;
     GUI.running = true;
 
-    // Create app thread
-    SDL_Thread* appThread;
-    appThread = SDL_CreateThread(
-        AppThread,
-        "AppThread",
-        NULL
-    );
 
-    // Create timer thread
-    SDL_Thread* timerThread;
-    timerThread = SDL_CreateThread(
-        TimerHandler,
-        "TimerThread",
-        NULL
-    );
 
+
+    // Pump events
     while(GUI.running)
     {
-        // Wait for next event, with timeout to save CPU
         SDL_WaitEventTimeout(NULL, 100);
     }
 
@@ -1107,7 +1178,7 @@ _EXPORT void NU_REMOVE_CLASS(NuNode* node) {
     GUI.awaiting_redraw = true;
 }
 
-_EXPORT void NU_BIND_EVENT(NuNode* node, NU_EventType event_type, NU_EventCallback callback, void* args, int widgetID) {
+_EXPORT void NU_BIND_EVENT(NuNode* node, NuEventType event_type, NU_EventCallback callback, void* args, int widgetID) {
     NU_Internal_Bind_Event((Node*)(node), args, callback, event_type, widgetID);
 }
 
@@ -1382,33 +1453,61 @@ _EXPORT float NU_CANVAS_TEXT_LINE_HEIGHT(int contextId) {
     return 0.0f;
 }
 
-_EXPORT bool NU_IS_MOUSE_DOWN(NuMousecode mouseCode) {
+_EXPORT bool NU_MOUSE_DOWN(NuMousecode mouseCode) {
     SDL_MouseButtonFlags state = SDL_GetMouseState(NULL, NULL);
     return (state & SDL_BUTTON_MASK(mouseCode)) != 0;
 }
 
-_EXPORT bool NU_IS_MOUSE_UP(NuMousecode mouseCode) {
+_EXPORT bool NU_MOUSE_UP(NuMousecode mouseCode) {
     SDL_MouseButtonFlags state = SDL_GetMouseState(NULL, NULL);
     return !((state & SDL_BUTTON_MASK(mouseCode)) != 0);
 }
 
-_EXPORT bool NU_IS_MOUSE_PRESSED(NuMousecode mouseCode) {
-    return false;
+_EXPORT bool NU_MOUSE_PRESSED(NuMousecode mouseCode) {
+    SDL_MouseButtonFlags state = SDL_GetMouseState(NULL, NULL);
+    return (state & SDL_BUTTON_MASK(mouseCode)) != 0;
 }
 
-_EXPORT bool NU_IS_KEY_UP(NuKeycode keycode) {
-    SDL_Scancode sc = SDL_GetScancodeFromKey((SDL_Keycode)keycode, NULL);
-    return !(SDL_GetKeyboardState(NULL)[sc]);
-}
-
-_EXPORT bool NU_IS_KEY_DOWN(NuKeycode keycode) {
+_EXPORT bool NU_KEY_PRESSED(NuKeycode keycode) {
     SDL_Scancode sc = SDL_GetScancodeFromKey((SDL_Keycode)keycode, NULL);
     return SDL_GetKeyboardState(NULL)[sc];
 }
 
-_EXPORT bool NU_IS_GAMEPAD_DOWN(NuGamepadcode gamepadcode) {
-    if (GUI.gamepad == NULL) return false;
-    return SDL_GetGamepadButton(GUI.gamepad, (SDL_GamepadButton)gamepadcode);
+_EXPORT bool NU_GAMEPAD_PRESSED(uint8 gamepadIndex, NuGamepadcode gamepadcode) {
+    if (gamepadIndex > GUI.gamepadCapacity) return false;
+    SDL_Gamepad* gamepad = GUI.gamepads[gamepadIndex];
+    if (gamepad == NULL) return false;
+    return SDL_GetGamepadButton(gamepad, (SDL_GamepadButton)gamepadcode);
+}
+
+_EXPORT void NU_GAMEPAD_L_STICK(uint8 gamepadIndex, float* x, float* y) {
+    if (gamepadIndex >= GUI.gamepadCapacity) return;
+    SDL_Gamepad* gamepad = GUI.gamepads[gamepadIndex];
+    if (gamepad == NULL) return;
+    *x = (float)SDL_GetGamepadAxis(gamepad, SDL_GAMEPAD_AXIS_LEFTX) / 32768.0f;
+    *y = -(float)SDL_GetGamepadAxis(gamepad, SDL_GAMEPAD_AXIS_LEFTY) / 32768.0f;
+}
+
+_EXPORT void NU_GAMEPAD_R_STICK(uint8 gamepadIndex, float* x, float* y) {
+    if (gamepadIndex >= GUI.gamepadCapacity) return;
+    SDL_Gamepad* gamepad = GUI.gamepads[gamepadIndex];
+    if (gamepad == NULL) return;
+    *x = (float)SDL_GetGamepadAxis(gamepad, SDL_GAMEPAD_AXIS_RIGHTX) / 32768.0f;
+    *y = -(float)SDL_GetGamepadAxis(gamepad, SDL_GAMEPAD_AXIS_LEFTY) / 32768.0f;
+}
+
+_EXPORT float NU_GAMEPAD_L_TRIGGER(uint8 gamepadIndex) {
+    if (gamepadIndex >= GUI.gamepadCapacity) return 0.0f;
+    SDL_Gamepad* gamepad = GUI.gamepads[gamepadIndex];
+    if (gamepad == NULL) return 0.0f;
+    return (float)SDL_GetGamepadAxis(gamepad, SDL_GAMEPAD_AXIS_LEFT_TRIGGER) / 32767.0f;
+}
+
+_EXPORT float NU_GAMEPAD_R_TRIGGER(uint8 gamepadIndex) {
+    if (gamepadIndex >= GUI.gamepadCapacity) return 0.0f;
+    SDL_Gamepad* gamepad = GUI.gamepads[gamepadIndex];
+    if (gamepad == NULL) return 0.0f;
+    return (float)SDL_GetGamepadAxis(gamepad, SDL_GAMEPAD_AXIS_RIGHT_TRIGGER) / 32767.0f;
 }
 
 _EXPORT bool NU_IS_KEY_PRESSED(NuKeycode keycode) {

@@ -76,7 +76,9 @@ typedef enum NuEventType
     NU_EVENT_ON_SCROLL,
     NU_EVENT_ON_KEY_DOWN,
     NU_EVENT_ON_KEY_UP,
-    NU_EVENT_ON_TYPE
+    NU_EVENT_ON_TYPE,
+    NU_EVENT_ON_GAMEPAD_CONNECT,
+    NU_EVENT_ON_GAMEPAD_DISCONNECT
 } NuEventType;
 
 typedef enum NuKeycode
@@ -242,8 +244,6 @@ typedef enum NuGamepadcode
     NU_GAMEPAD_BUTTON_BACK          = 4,
     NU_GAMEPAD_BUTTON_GUIDE         = 5,
     NU_GAMEPAD_BUTTON_START         = 6,
-    NU_GAMEPAD_BUTTON_LEFTSTICK     = 7,
-    NU_GAMEPAD_BUTTON_RIGHTSTICK    = 8,
     NU_GAMEPAD_BUTTON_LEFTSHOULDER  = 9,
     NU_GAMEPAD_BUTTON_RIGHTSHOULDER = 10,
     NU_GAMEPAD_BUTTON_DPAD_UP       = 11,
@@ -254,17 +254,9 @@ typedef enum NuGamepadcode
     NU_GAMEPAD_BUTTON_PADDLE1       = 16,
     NU_GAMEPAD_BUTTON_PADDLE2       = 17,
     NU_GAMEPAD_BUTTON_PADDLE3       = 18,
-    NU_GAMEPAD_BUTTON_PADDLE4       = 19,
     NU_GAMEPAD_BUTTON_TOUCHPAD      = 20,
-    NU_GAMEPAD_BUTTON_MAX           = 21,
-    NU_GAMEPAD_AXIS_INVALID         = -1,
-    NU_GAMEPAD_AXIS_LEFTX           = 0,
-    NU_GAMEPAD_AXIS_LEFTY           = 1,
-    NU_GAMEPAD_AXIS_RIGHTX          = 2,
-    NU_GAMEPAD_AXIS_RIGHTY          = 3,
     NU_GAMEPAD_AXIS_TRIGGERLEFT     = 4,
     NU_GAMEPAD_AXIS_TRIGGERRIGHT    = 5,
-    NU_GAMEPAD_AXIS_MAX             = 6,
 } NuGamepadcode;
 
 typedef enum NuMouseCode {
@@ -296,6 +288,11 @@ typedef struct NuEventInfoInput
 {
     char text[5];
 } NuEventInfoInput;
+
+typedef struct NuEventInfoGamepad
+{
+    uint8_t gamepadID;
+} NuEventInfoGamepad;
 
 typedef struct NuEventInfoKeypress
 {
@@ -643,14 +640,15 @@ _IMPORT float NU_CANVAS_TEXT_LINE_HEIGHT(int context);
 
 
 
-_IMPORT bool NU_IS_MOUSE_DOWN(NuMousecode mousecode);
-_IMPORT bool NU_IS_MOUSE_UP(NuMousecode mousecode);
-_IMPORT bool NU_IS_MOUSE_PRESSED(NuMousecode mousecode);
-_IMPORT bool NU_IS_KEY_DOWN(NuKeycode keycode);
-_IMPORT bool NU_IS_KEY_UP(NuKeycode keycode);
-_IMPORT bool NU_IS_KEY_PRESSED(NuKeycode keycode);
-_IMPORT bool NU_IS_GAMEPAD_DOWN(NuGamepadcode gamepadcode);
-
+_IMPORT bool NU_MOUSE_DOWN(NuMousecode mousecode);
+_IMPORT bool NU_MOUSE_UP(NuMousecode mousecode);
+_IMPORT bool NU_MOUSE_PRESSED(NuMousecode mousecode);
+_IMPORT bool NU_KEY_PRESSED(NuKeycode keycode);
+_IMPORT bool NU_GAMEPAD_PRESSED(uint8_t gamepadID, NuGamepadcode gamepadcode);
+_IMPORT void NU_GAMEPAD_L_STICK(uint8_t gamepadID, float* x, float* y);
+_IMPORT void NU_GAMEPAD_R_STICK(uint8_t gamepadID, float* x, float* y);
+_IMPORT float NU_GAMEPAD_L_TRIGGER(uint8_t gamepadID);
+_IMPORT float NU_GAMEPAD_R_TRIGGER(uint8_t gamepadID);
 
 
 #ifdef __cplusplus

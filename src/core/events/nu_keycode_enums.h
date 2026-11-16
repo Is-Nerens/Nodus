@@ -185,8 +185,6 @@ typedef enum NuGamepadcode
     NU_GAMEPAD_BUTTON_BACK          = 4,
     NU_GAMEPAD_BUTTON_GUIDE         = 5,
     NU_GAMEPAD_BUTTON_START         = 6,
-    NU_GAMEPAD_BUTTON_LEFTSTICK     = 7,
-    NU_GAMEPAD_BUTTON_RIGHTSTICK    = 8,
     NU_GAMEPAD_BUTTON_LEFTSHOULDER  = 9,
     NU_GAMEPAD_BUTTON_RIGHTSHOULDER = 10,
     NU_GAMEPAD_BUTTON_DPAD_UP       = 11,
@@ -197,17 +195,8 @@ typedef enum NuGamepadcode
     NU_GAMEPAD_BUTTON_PADDLE1       = 16,
     NU_GAMEPAD_BUTTON_PADDLE2       = 17,
     NU_GAMEPAD_BUTTON_PADDLE3       = 18,
-    NU_GAMEPAD_BUTTON_PADDLE4       = 19,
     NU_GAMEPAD_BUTTON_TOUCHPAD      = 20,
     NU_GAMEPAD_BUTTON_MAX           = 21,
-    NU_GAMEPAD_AXIS_INVALID         = -1,
-    NU_GAMEPAD_AXIS_LEFTX           = 0,
-    NU_GAMEPAD_AXIS_LEFTY           = 1,
-    NU_GAMEPAD_AXIS_RIGHTX          = 2,
-    NU_GAMEPAD_AXIS_RIGHTY          = 3,
-    NU_GAMEPAD_AXIS_TRIGGERLEFT     = 4,
-    NU_GAMEPAD_AXIS_TRIGGERRIGHT    = 5,
-    NU_GAMEPAD_AXIS_MAX             = 6,
 } NuGamepadcode;
 
 typedef enum NuMouseCode {

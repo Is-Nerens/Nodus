@@ -327,10 +327,17 @@ typedef void (*NuWidgetCreateCallback)(NuNode* root, int widgetID, void* args);
 typedef void (*NuWidgetUpdateCallback)(NuNode* root, void* args, const NuEvent* event);
 
 
+typedef struct {
+    const char* xmlPath;
+    const char* cssPath;
+    NuCallback InitCallback;
+    NuCallback QuitCallback;
+    void* InitArgs;
+    void* QuitArgs;
+} NuConfig;
+
 // UI functions
-_IMPORT NuWindow* NU_CREATE_GUI(const char* xml_filepath, const char* css_filepath);
-_IMPORT void NU_QUIT(void);
-_IMPORT void NU_RUN(void);
+_IMPORT int NU_CREATE_GUI(NuConfig* config);
 _IMPORT int NU_ADD_TIMER(uint32_t intervalMs, NuCallback callback, void* args);
 _IMPORT void NU_REMOVE_TIMER(int timer);
 _IMPORT void NU_SET_FRAME_CALLBACK(NuCallback callback, void* args);

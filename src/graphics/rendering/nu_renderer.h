@@ -17,7 +17,7 @@ void NU_DrawVertexSDFList(
     if (VertexSDFList_VertexCount(vertexList) == 0 || VertexSDFList_IndexCount(vertexList) == 0) return;
 
     // Get the command buffer
-    VkCommandBuffer cmd = window->commandBuffers[window->currentFrame];
+    VkCommandBuffer cmd = Window_CurrentCommandBuffer(window);
 
     // Bind pipeline
     vkCmdBindPipeline(
@@ -29,8 +29,8 @@ void NU_DrawVertexSDFList(
     // Viewport / scissor
     VkViewport vp = {
         0.0f, 0.0f,
-        (float)window->swapchainExtent.width,
-        (float)window->swapchainExtent.height,
+        Swapchain_Width(&window->swapchain),
+        Swapchain_Height(&window->swapchain),
         0.0f, 1.0f
     };
     VkRect2D sc = {
@@ -48,8 +48,8 @@ void NU_DrawVertexSDFList(
     // Push constants
     // 4 floats: screenW, screenH, offsetX, offsetY
     float push[4] = {
-        (float)window->swapchainExtent.width,
-        (float)window->swapchainExtent.height,
+        Swapchain_Width(&window->swapchain),
+        Swapchain_Height(&window->swapchain),
         offsetX,
         offsetY
     };
@@ -91,7 +91,7 @@ void NU_DrawBorderRects(
 {
     if (Array_Length(borderRects) == 0) return;
 
-    VkCommandBuffer cmd = window->commandBuffers[window->currentFrame];
+    VkCommandBuffer cmd = Window_CurrentCommandBuffer(window);
 
 
     // Bind pipeline
@@ -104,11 +104,17 @@ void NU_DrawBorderRects(
     // Dynamic viewport / scissor (full window)
     VkViewport vp = {
         0.0f, 0.0f,
-        (float)window->swapchainExtent.width,
-        (float)window->swapchainExtent.height,
+        Swapchain_Width(&window->swapchain),
+        Swapchain_Height(&window->swapchain),
         0.0f, 1.0f
     };
-    VkRect2D sc = {{0, 0}, window->swapchainExtent};
+    VkRect2D sc = {
+        {0, 0},
+        {
+            Swapchain_Width(&window->swapchain),
+            Swapchain_Height(&window->swapchain)
+        }
+    };
     vkCmdSetViewport(cmd, 0, 1, &vp);
     vkCmdSetScissor(cmd, 0, 1, &sc);
 
@@ -163,7 +169,7 @@ void NU_DrawCanvasRenderTarget(
     VkDescriptorSet renderTargetDescriptorSet,
     bool MSAA_4X)
 {
-    VkCommandBuffer cmd = window->commandBuffers[window->currentFrame];
+    VkCommandBuffer cmd = Window_CurrentCommandBuffer(window);
     NuPipeline pipeline = MSAA_4X ? displayManager->imagePipelineMSAA4X : displayManager->imagePipeline;
 
     vkCmdBindPipeline(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, pipeline.handle);
@@ -171,18 +177,24 @@ void NU_DrawCanvasRenderTarget(
     // Dynamic viewport / scissor (full window)
     VkViewport vp = {
         0.0f, 0.0f,
-        (float)window->swapchainExtent.width,
-        (float)window->swapchainExtent.height,
+        Swapchain_Width(&window->swapchain),
+        Swapchain_Height(&window->swapchain),
         0.0f, 1.0f
     };
-    VkRect2D sc = {{0, 0}, window->swapchainExtent};
+    VkRect2D sc = {
+        {0, 0},
+        {
+            Swapchain_Width(&window->swapchain),
+            Swapchain_Height(&window->swapchain)
+        }
+    };
     vkCmdSetViewport(cmd, 0, 1, &vp);
     vkCmdSetScissor(cmd, 0, 1, &sc);
 
     // Push constants: screen W/H + image offset
     float push[4] = {
-        (float)window->swapchainExtent.width,
-        (float)window->swapchainExtent.height,
+        Swapchain_Width(&window->swapchain),
+        Swapchain_Height(&window->swapchain),
         0.0f,
         0.0f
     };
@@ -227,7 +239,7 @@ void NU_DrawImages(
     }
 
     // Get command buffer
-    VkCommandBuffer cmd = window->commandBuffers[window->currentFrame];
+    VkCommandBuffer cmd = Window_CurrentCommandBuffer(window);
 
     // Image pipeline
     NuPipeline pipeline = MSAA_4X ? displayManager->imagePipelineMSAA4X : displayManager->imagePipeline;
@@ -238,18 +250,24 @@ void NU_DrawImages(
     // Dynamic viewport / scissor (full window)
     VkViewport vp = {
         0.0f, 0.0f,
-        (float)window->swapchainExtent.width,
-        (float)window->swapchainExtent.height,
+        Swapchain_Width(&window->swapchain),
+        Swapchain_Height(&window->swapchain),
         0.0f, 1.0f
     };
-    VkRect2D sc = {{0, 0}, window->swapchainExtent};
+    VkRect2D sc = {
+        {0, 0},
+        {
+            Swapchain_Width(&window->swapchain),
+            Swapchain_Height(&window->swapchain)
+        }
+    };
     vkCmdSetViewport(cmd, 0, 1, &vp);
     vkCmdSetScissor(cmd, 0, 1, &sc);
 
     // Push constants: screen W/H + image offset
     float push[4] = {
-        (float)window->swapchainExtent.width,
-        (float)window->swapchainExtent.height,
+        Swapchain_Width(&window->swapchain),
+        Swapchain_Height(&window->swapchain),
         0.0f,
         0.0f
     };
@@ -293,7 +311,7 @@ void NU_DrawText(
     if (Array_Length(textRenderData) == 0) return;
 
     // Get command buffer
-    VkCommandBuffer cmd = window->commandBuffers[window->currentFrame];
+    VkCommandBuffer cmd = Window_CurrentCommandBuffer(window);
 
     // Select pipeline
     NuPipeline pipeline = MSAA_4X ? displayManager->monoTextPipelineMSAA4X : displayManager->monoTextPipeline;
@@ -305,18 +323,24 @@ void NU_DrawText(
     // Dynamic viewport / scissor (full window)
     VkViewport vp = {
         0.0f, 0.0f,
-        (float)window->swapchainExtent.width,
-        (float)window->swapchainExtent.height,
+        Swapchain_Width(&window->swapchain),
+        Swapchain_Height(&window->swapchain),
         0.0f, 1.0f
     };
-    VkRect2D sc = {{0, 0}, window->swapchainExtent};
+    VkRect2D sc = {
+        {0, 0},
+        {
+            Swapchain_Width(&window->swapchain),
+            Swapchain_Height(&window->swapchain)
+        }
+    };
     vkCmdSetViewport(cmd, 0, 1, &vp);
     vkCmdSetScissor(cmd, 0, 1, &sc);
 
     // Push constants: screen W/H + text offset
     float push[4] = {
-        (float)window->swapchainExtent.width,
-        (float)window->swapchainExtent.height,
+        Swapchain_Width(&window->swapchain),
+        Swapchain_Height(&window->swapchain),
         offsetX,
         offsetY
     };
@@ -358,7 +382,7 @@ void NU_DrawClippedText(
     if (Array_Length(textRenderData) == 0) return;
 
     // Get command buffer
-    VkCommandBuffer cmd = window->commandBuffers[window->currentFrame];
+    VkCommandBuffer cmd = Window_CurrentCommandBuffer(window);
 
     // Select pipeline
     NuPipeline pipeline = MSAA_4X ? displayManager->clippedMonoTextPipelineMSAA4X : displayManager->clippedMonoTextPipeline;
@@ -370,18 +394,24 @@ void NU_DrawClippedText(
     // Dynamic viewport / scissor (full window)
     VkViewport vp = {
         0.0f, 0.0f,
-        (float)window->swapchainExtent.width,
-        (float)window->swapchainExtent.height,
+        Swapchain_Width(&window->swapchain),
+        Swapchain_Height(&window->swapchain),
         0.0f, 1.0f
     };
-    VkRect2D sc = {{0, 0}, window->swapchainExtent};
+    VkRect2D sc = {
+        {0, 0},
+        {
+            Swapchain_Width(&window->swapchain),
+            Swapchain_Height(&window->swapchain)
+        }
+    };
     vkCmdSetViewport(cmd, 0, 1, &vp);
     vkCmdSetScissor(cmd, 0, 1, &sc);
 
     // Push constants: screen W/H + text offset
     float push[4] = {
-        (float)window->swapchainExtent.width,
-        (float)window->swapchainExtent.height,
+        Swapchain_Width(&window->swapchain),
+        Swapchain_Height(&window->swapchain),
         offsetX,
         offsetY
     };

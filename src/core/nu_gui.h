@@ -1,5 +1,14 @@
 #pragma once
 
+typedef struct {
+    const char* xmlPath;
+    const char* cssPath;
+    NU_Callback InitCallback;
+    NU_Callback QuitCallback;
+    void* InitArgs;
+    void* QuitArgs;
+} NuConfig;
+
 /* Batches multiple images together
  * to reduce image render data allocations
  * and draw calls
@@ -74,6 +83,8 @@ struct NU_GUI
 
     // Timer mutex
     SDL_Mutex *guiMutex;
+
+    SDL_Thread* presentThread;
 
     // Gamepads
     SDL_Gamepad* gamepads[8];

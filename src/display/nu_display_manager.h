@@ -206,7 +206,7 @@ int DisplayManager_CreateVulkanDevices(DisplayManager* displayManager)
     // Create command pool
     VkCommandPool commandPool;
     if (vkCreateCommandPool(device, &poolInfo, NULL, &commandPool) != VK_SUCCESS) {
-        ErrorSystem_AddError(&GUI.errorSystem, "<Vulkan Error> Failed to create a device");
+        ErrorSystem_AddError(&GUI.errorSystem, "<Vulkan Error> Failed to create display manager command pool");
         return 0;
     }
 
@@ -234,6 +234,7 @@ int DisplayManager_CreateVulkanDevices(DisplayManager* displayManager)
     fontPoolSize.descriptorCount = maxFonts;
     VkDescriptorPoolCreateInfo fontPoolInfo = {0};
     fontPoolInfo.sType         = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO;
+    fontPoolInfo.flags         = VK_DESCRIPTOR_POOL_CREATE_FREE_DESCRIPTOR_SET_BIT;
     fontPoolInfo.maxSets       = maxFonts;
     fontPoolInfo.poolSizeCount = 1;
     fontPoolInfo.pPoolSizes    = &fontPoolSize;
@@ -258,34 +259,28 @@ int DisplayManager_CreateVulkanDevices(DisplayManager* displayManager)
 
 void DisplayManager_DestroyVulkanDevices(DisplayManager* displayManager)
 {
-    if (displayManager->device != VK_NULL_HANDLE) {
-        if (displayManager->fontPool != VK_NULL_HANDLE) {
-            vkDestroyDescriptorPool(displayManager->device, displayManager->fontPool, NULL);
-            displayManager->fontPool = VK_NULL_HANDLE;
-        }
-        if (displayManager->fontSetLayout != VK_NULL_HANDLE) {
-            vkDestroyDescriptorSetLayout(displayManager->device, displayManager->fontSetLayout, NULL);
-            displayManager->fontSetLayout = VK_NULL_HANDLE;
-        }
-        vkDeviceWaitIdle(displayManager->device);
-        vkDestroyDevice(displayManager->device, NULL);
-        displayManager->device = VK_NULL_HANDLE;
-    }
-    if (displayManager->instance != VK_NULL_HANDLE) {
-        vkDestroyInstance(displayManager->instance, NULL);
-        displayManager->instance = VK_NULL_HANDLE;
-    }
     if (displayManager->sharedRenderPass != VK_NULL_HANDLE) {
         vkDestroyRenderPass(displayManager->device, displayManager->sharedRenderPass, NULL);
-        displayManager->sharedRenderPass = VK_NULL_HANDLE;
     }
     if (displayManager->sharedRenderPassMSAA4X != VK_NULL_HANDLE) {
         vkDestroyRenderPass(displayManager->device, displayManager->sharedRenderPassMSAA4X, NULL);
-        displayManager->sharedRenderPassMSAA4X = VK_NULL_HANDLE;
     }
-    displayManager->physicalDevice = VK_NULL_HANDLE;
-    displayManager->graphicsQueue = VK_NULL_HANDLE;
-    displayManager->graphicsFamily = 0;
+    if (displayManager->device != VK_NULL_HANDLE) {
+        if (displayManager->commandPool != VK_NULL_HANDLE) {
+            vkDestroyCommandPool(displayManager->device, displayManager->commandPool, NULL);
+        }
+        if (displayManager->fontPool != VK_NULL_HANDLE) {
+            vkDestroyDescriptorPool(displayManager->device, displayManager->fontPool, NULL);
+        }
+        if (displayManager->fontSetLayout != VK_NULL_HANDLE) {
+            vkDestroyDescriptorSetLayout(displayManager->device, displayManager->fontSetLayout, NULL);
+        }
+        vkDeviceWaitIdle(displayManager->device);
+        vkDestroyDevice(displayManager->device, NULL);
+    }
+    if (displayManager->instance != VK_NULL_HANDLE) {
+        vkDestroyInstance(displayManager->instance, NULL);
+    }
 }
 
 int DisplayManager_Init(DisplayManager* displayManager)
@@ -306,8 +301,17 @@ int DisplayManager_Init(DisplayManager* displayManager)
     displayManager->recycledSDLWindowCount = 0;
     displayManager->lastClickedWindow = NULL;
     displayManager->windows = Container_Create(sizeof(Window));
+    displayManager->displays = Container_Create(sizeof(Display));
     Array_Init(&displayManager->absoluteRootNodes, sizeof(Node*), 8);
     Hashmap_Init(&displayManager->clipMap, sizeof(Node*), sizeof(NU_ClipBounds), 16);
+
+    // Init presentation stuff
+    Set_Init(&displayManager->windowsWaitingVblank, sizeof(Window*), 16);
+    displayManager->setCount = 0;
+    displayManager->windowSetMu = SDL_CreateMutex();
+    displayManager->setNotEmptyCondition = SDL_CreateCondition();
+    displayManager->paceSemaphore = SDL_CreateSemaphore(1);
+    displayManager->paceWindowID = -1;
 
     // Success
     return 1;
@@ -363,46 +367,16 @@ void DisplayManager_Free(DisplayManager* displayManager)
 
     // 8. Free display manager allocations
     Container_Free(&displayManager->windows);
+    Container_Free(&displayManager->displays);
     Array_Free(&displayManager->absoluteRootNodes);
     Hashmap_Free(&displayManager->clipMap);
     displayManager->hoveredWindowNode = NULL;
-}
 
-void DisplayManager_UpdateWindowRenderScale(DisplayManager* displayManager, int windowID)
-{
-    Window* win = Container_Get(&displayManager->windows, windowID);
-    int winPtsW, winPtsH;
-    int winPxW, winPxH;
-    SDL_GetWindowSize(win->sdlWin, &winPtsW, &winPtsH);
-    SDL_GetWindowSizeInPixels(win->sdlWin, &winPxW, &winPxH);
-    win->renderScale = (float)winPxW / (float)winPtsW;
-}
-
-void DisplayManager_UpdateWindowScreenDimensions(DisplayManager* displayManager, int windowID)
-{
-    Window* win = Container_Get(&displayManager->windows, windowID);
-    SDL_DisplayID displayID = SDL_GetDisplayForWindow(win->sdlWin);
-    const SDL_DisplayMode* mode = SDL_GetCurrentDisplayMode(displayID);
-    if (mode != NULL) {
-        win->screenWidth = mode->w * win->renderScale;
-        win->screenHeight = mode->h * win->renderScale;
-    }
-}
-
-bool DisplayManager_WaitForPresentation(DisplayManager* displayManager)
-{
-    Window* paceWindow = Container_GetAt(&GUI.displayManager.windows, GUI.displayManager.windows.size - 1);
-    if (displayManager->presentWaitSupported) {
-        paceWindow->presentId++;
-        displayManager->vkWaitForPresentKHR(
-            displayManager->device,
-            paceWindow->swapchain,
-            paceWindow->presentId,
-            16
-        );
-        return true;
-    }
-    return false;
+    // 9. Free presentation stuff
+    Set_Free(&displayManager->windowsWaitingVblank);
+    SDL_DestroyMutex(displayManager->windowSetMu);
+    SDL_DestroyCondition(displayManager->setNotEmptyCondition);
+    SDL_DestroySemaphore(displayManager->paceSemaphore);
 }
 
 int DisplayManager_CreateWindow(DisplayManager* displayManager, Node* node, const char* title, int width, int height)
@@ -420,6 +394,9 @@ int DisplayManager_CreateWindow(DisplayManager* displayManager, Node* node, cons
     // Create a new Window
     Window window = {0};
     window.sdlWin = sdlWin;
+    window.windowNode = node;
+    window.needsRepaint = true;
+    Window_UpdateRenderScaleAndDisplaySize(&window);
 
     // Create a swapchain, framebuffer and renderpass
     if (!Window_CreateVulkanDevices(&window, displayManager)) return 0;
@@ -451,14 +428,10 @@ int DisplayManager_CreateWindow(DisplayManager* displayManager, Node* node, cons
     Array_Init(&window.drawlist.clippedDrawNodes, sizeof(Node*), 64);
     Array_Init(&window.drawlist.canvasNodes, sizeof(Node*), 16);
 
-    // Set window node
-    window.windowNode = node;
-
     // Add window do display manager
     node->windowID = Container_Add(&displayManager->windows, &window);
-    DisplayManager_UpdateWindowRenderScale(displayManager, node->windowID);
-    DisplayManager_UpdateWindowScreenDimensions(displayManager, node->windowID);
 
+    if (displayManager->paceWindowID == -1) displayManager->paceWindowID = node->windowID;
 
     // Success
     return 1;
@@ -489,6 +462,13 @@ void DisplayManager_DestroyWindow(DisplayManager* displayManager, Node* node)
     Array_Free(&nuWin->drawlist.drawNodes);
     Array_Free(&nuWin->drawlist.clippedDrawNodes);
     Array_Free(&nuWin->drawlist.canvasNodes);
+
+    // // Decrement window count of display -> remove display if it has no windows
+    // Display* display = Container_Get(&displayManager->displays, nuWin->displayID);
+    // display->windowCount--;
+    // if (display->windowCount == 0) {
+    //     Container_Remove(&displayManager->displays, nuWin->displayID);
+    // }
 
     // Remove window from display manager
     Container_Remove(&displayManager->windows, node->windowID);
@@ -532,6 +512,9 @@ void DisplayManager_SetHoveredWindow(DisplayManager* displayManager, SDL_Window*
     }
     displayManager->hoveredWindowNode = NULL;
 }
+
+
+
 
 
 

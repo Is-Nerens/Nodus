@@ -48,7 +48,7 @@ void Set_Init(Set* set, uint32_t keySize, uint32_t capacity)
     uint32_t occupancyRemainder = capacity & 7;
     uint32_t occupancyBytes = capacity >> 3;
     occupancyBytes += 1 * (occupancyRemainder != 0);
-    set->occupancy = (uint8_t*)calloc(occupancyBytes, 1); 
+    set->occupancy = (uint8_t*)calloc(occupancyBytes, 1);
 
     // allocate space for keys only
     set->data = malloc(keySize * capacity);
@@ -163,7 +163,7 @@ int Set_Contains(Set* set, void* key)
 
 void Set_Insert(Set* set, void* key)
 {
-    // Resize if surpassed max load factor 
+    // Resize if surpassed max load factor
     if ((float)set->itemCount / (float)set->capacity > 0.5f) {
         Set_Resize(set);
     }
@@ -178,11 +178,11 @@ void Set_Insert(Set* set, void* key)
             if (memcmp(base, key, set->keySize) == 0) {
                 return; // already exists
             }
-        } 
-        else 
+        }
+        else
         {
             Set_SetOccupied(set, i);
-            
+
             // set key
             char* base = (char*)set->data + i * set->keySize;
             memcpy(base, key, set->keySize);
@@ -201,7 +201,7 @@ void Set_Delete(Set* set, void* key)
     uint32_t hash = Set_Hash(key, set->keySize);
 
     int holeIndex = -1;
-    while (probes < set->maxProbes) 
+    while (probes < set->maxProbes)
     {
         uint32_t i = (hash + probes) % set->capacity;
 
@@ -221,7 +221,7 @@ void Set_Delete(Set* set, void* key)
     if (holeIndex == -1) return; // key not found
 
     uint32_t i = (holeIndex + 1) % set->capacity;
-    while (Set_IsOccupied(set, i)) 
+    while (Set_IsOccupied(set, i))
     {
         char* candidateKey = (char*)set->data + i * set->keySize;
         uint32_t candidateHash = Set_Hash(candidateKey, set->keySize);
@@ -266,7 +266,7 @@ SetIterator Set_CreateIterator(Set* set)
 
 int Set_IteratorNext(SetIterator* it, void** keyOut)
 {
-    Set* set = it->set; 
+    Set* set = it->set;
 
     // no items -> done
     if (set->itemCount == 0) {
@@ -276,7 +276,7 @@ int Set_IteratorNext(SetIterator* it, void** keyOut)
     while (it->index < set->capacity) {
 
         // found item -> set key
-        if (Set_IsOccupied(set, it->index)) { 
+        if (Set_IsOccupied(set, it->index)) {
             char* base = (char*)set->data + it->index * set->keySize;
             it->index++;
             *keyOut = base;
@@ -309,4 +309,9 @@ void Set_Free(Set* set)
     set->data = NULL;
     set->capacity = 0;
     set->itemCount = 0;
+}
+
+static inline uint32_t Set_Count(Set* set)
+{
+    return set->itemCount;
 }

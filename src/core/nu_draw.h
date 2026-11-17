@@ -559,13 +559,13 @@ void NU_BeginCanvasRenderTargetPass(NU_Canvas_Context* ctx, Window* window)
     renderInfo.renderArea      = (VkRect2D){ {0,0}, { rt->width, rt->height } };
     renderInfo.clearValueCount = clearValueCount;
     renderInfo.pClearValues    = clearValues;
-    VkCommandBuffer cmd = window->commandBuffers[window->currentFrame];
+    VkCommandBuffer cmd = Window_CurrentCommandBuffer(window);
     vkCmdBeginRenderPass(cmd, &renderInfo, VK_SUBPASS_CONTENTS_INLINE);
 }
 
 inline void NU_EndCanvasRenderTargetPass(NU_Canvas_Context* ctx, Window* window)
 {
-    VkCommandBuffer cmd = window->commandBuffers[window->currentFrame];
+    VkCommandBuffer cmd = Window_CurrentCommandBuffer(window);
 
     vkCmdEndRenderPass(cmd);
 
@@ -707,8 +707,7 @@ void NU_Draw()
     {
         // Get the window
         Window* win = Container_GetAt(&GUI.displayManager.windows, i);
-
-        if (!Window_StartFrame(win, &GUI.displayManager)) continue;
+        if (!win->needsRepaint) continue;
 
         // Get window dimensions and drawlist
         NuWindowDrawlist* drawList = &win->drawlist;
@@ -718,6 +717,8 @@ void NU_Draw()
         float winH = (float)winH_int;
 
         // For each canvas in window
+        // Perform an off screen render
+        // to canvas render target if necessary
         for (uint32 n=0; n<Array_Length(&drawList->canvasNodes); n++)
         {
             Node* node = *(Node**)Array_Get(&drawList->canvasNodes, n);
@@ -736,9 +737,8 @@ void NU_Draw()
             }
         }
 
-
-        // Begin render pass
-        Window_StartRenderpass(win, &GUI.displayManager);
+        // Start frame -> start recording commands for the window framebuffer
+        if (!Window_StartFrame(win, &GUI.displayManager)) continue;
 
         // Clear border rect renderdata array
         Array_Clear(&GUI.borderRectsRenderData);
@@ -954,7 +954,20 @@ void NU_Draw()
             NU_DrawImages(win, &GUI.displayManager, &GUI.imageResourceManager, imageRenderGroup, false);
         }
 
+        // End frame -> stop recording commands for the window frame buffer
         Window_EndFrame(win, &GUI.displayManager);
+
+
+
+
+        SDL_LockMutex(GUI.displayManager.windowSetMu);
+        int windowID = Container_IdAt(&GUI.displayManager.windows, i);
+        Set_Insert(&GUI.displayManager.windowsWaitingVblank, &windowID);
+        GUI.displayManager.setCount = Set_Count(&GUI.displayManager.windowsWaitingVblank);
+        SDL_UnlockMutex(GUI.displayManager.windowSetMu);
+
+        Window_Present(win, &GUI.displayManager);
+        //Window_WaitForPresentation(win, &GUI.displayManager, 0);
     }
 
     GUI.awaiting_redraw = false;

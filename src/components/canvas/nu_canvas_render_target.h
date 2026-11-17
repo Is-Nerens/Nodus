@@ -198,9 +198,7 @@ static void CanvasRenderTarget_Destroy(
     ImageResourceManager* imageResourceManager,
     CanvasRenderTarget* renderTarget)
 {
-    if (renderTarget->descriptorSet && imageResourceManager)
-        vkFreeDescriptorSets(displayManager->device, imageResourceManager->pool,
-                             1, &renderTarget->descriptorSet);
+    if (renderTarget->descriptorSet && imageResourceManager) vkFreeDescriptorSets(displayManager->device, imageResourceManager->pool, 1, &renderTarget->descriptorSet);
     if (renderTarget->framebuffer)     vkDestroyFramebuffer(displayManager->device, renderTarget->framebuffer, NULL);
     if (renderTarget->msaaDepthView)   vkDestroyImageView(displayManager->device, renderTarget->msaaDepthView, NULL);
     if (renderTarget->msaaDepthImage)  vkDestroyImage(displayManager->device, renderTarget->msaaDepthImage, NULL);

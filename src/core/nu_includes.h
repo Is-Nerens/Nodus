@@ -1,6 +1,7 @@
 #pragma once
 
 // Library includes
+#define SDL_MAIN_HANDLED
 #define SDL_MAIN_USE_CALLBACKS
 #include <vulkan/vulkan.h>
 #include <SDL3/SDL.h>
@@ -72,8 +73,8 @@ struct NU_GUI GUI;
 // --------------------------------------------------
 #include <graphics/image/nu_image.h>
 #include <graphics/rendering/nu_pipeline_create.h>
-#include <graphics/rendering/nu_renderer.h>
 #include <display/nu_display_manager.h>
+#include <graphics/rendering/nu_renderer.h>
 #include <templates/stylesheet/nu_stylesheet.h>
 #include <components/canvas/nu_canvas.h>
 #include <components/text input/nu_text_input.h>

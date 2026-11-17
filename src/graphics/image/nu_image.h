@@ -212,6 +212,12 @@ fail:
     return 0;
 }
 
+void ImageResource_Destroy(ImageResource* imageResource, VkDevice device)
+{
+    if (imageResource->view) vkDestroyImageView(device, imageResource->view, NULL);
+    if (imageResource->image) vkDestroyImage(device, imageResource->image, NULL);
+    if (imageResource->memory) vkFreeMemory(device, imageResource->memory, NULL);
+}
 
 /* Creates the shared Vulkan infrastructure for image group descriptor sets:
  * layout, pool, sampler, and a 1x1 white dummy image used to fill unused
@@ -496,6 +502,7 @@ void ImageResourceManager_Free(ImageResourceManager* resourceManager, DisplayMan
     // Free Image Resources
     for (size_t i=0; i<Array_Length(&resourceManager->imageResources); i++) {
         ImageResource* image = Array_Get(&resourceManager->imageResources, i);
+        ImageResource_Destroy(image, displayManager->device);
     }
     Array_Free(&resourceManager->imageResources);
 

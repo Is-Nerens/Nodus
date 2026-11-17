@@ -1,113 +1,33 @@
 #pragma once
 
-void Window_DestroySwapchain(Window* window, DisplayManager* displayManager)
+#include "nu_swapchain.h"
+#include "vulkan/vulkan_core.h"
+
+int Window_CreateVulkanDevices(Window* window, DisplayManager* displayManager)
 {
-    VkDevice device = displayManager->device;
-
-    // Destroy old framebuffers and image views
-    for (uint32 i=0; i<window->imageCount; i++) {
-        if (window->framebuffers[i] != VK_NULL_HANDLE) vkDestroyFramebuffer(device, window->framebuffers[i], NULL);
-        if (window->imageViews[i] != VK_NULL_HANDLE) vkDestroyImageView(device, window->imageViews[i], NULL);
-        window->framebuffers[i] = VK_NULL_HANDLE;
-        window->imageViews[i] = VK_NULL_HANDLE;
-        window->images[i] = VK_NULL_HANDLE;
+    // Init Vulkan member variables
+    window->commandPool = VK_NULL_HANDLE;
+    for (uint32 i=0; i<NU_FRAMES_IN_FLIGHT; i++) {
+        window->commandBuffers[i] = VK_NULL_HANDLE;
     }
-    window->imageCount = 0;
 
-    // Destroy depth buffer
-    if (window->depthImageView != VK_NULL_HANDLE) vkDestroyImageView(device, window->depthImageView, NULL);
-    if (window->depthImage != VK_NULL_HANDLE) vkDestroyImage(device, window->depthImage, NULL);
-    if (window->depthImageMemory != VK_NULL_HANDLE) vkFreeMemory(device, window->depthImageMemory, NULL);
-    window->depthImage = VK_NULL_HANDLE;
-    window->depthImageView = VK_NULL_HANDLE;
-    window->depthImageMemory = VK_NULL_HANDLE;
-
-    // Destroy the old swapchain
-    if (window->swapchain != VK_NULL_HANDLE) vkDestroySwapchainKHR(device, window->swapchain, NULL);
-    window->swapchain = VK_NULL_HANDLE;
-}
-
-int Window_CreateSwapchain(Window* window, DisplayManager* displayManager)
-{
-    VkDevice device = displayManager->device;
-
-    // Wait for all rendering and presentation work to finish.
-    if (vkDeviceWaitIdle(device) != VK_SUCCESS) return 0; // catastrophic error
-
-    // Defer recreation while the window has no drawable area.
-    int width, height; SDL_GetWindowSizeInPixels(window->sdlWin, &width, &height);
-    width = max(width, 1);
-    height = max(height, 1);
-
-    // Destroy swapchain
-    Window_DestroySwapchain(window, displayManager);
-
-    // Query surface capabilities.
-    VkSurfaceCapabilitiesKHR caps;
-    if (vkGetPhysicalDeviceSurfaceCapabilitiesKHR(
+    // Create surface from SDL window
+    if (!Surface_Create(
+        &window->surface,
+        window->sdlWin,
+        displayManager->instance,
         displayManager->physicalDevice,
-        window->surface,
-        &caps) != VK_SUCCESS) {
+        displayManager->graphicsFamily))
+    {
+        ErrorSystem_AddError(&GUI.errorSystem, "<Vulkan Error> failed to create surface");
         return 0;
     }
-
-    // Query supported surface formats.
-    uint32 formatCount = 0;
-    if (vkGetPhysicalDeviceSurfaceFormatsKHR(
-        displayManager->physicalDevice,
-        window->surface,
-        &formatCount,
-        NULL) != VK_SUCCESS || formatCount == 0) {
-        return 0;
-    }
-
-    // Select a format
-    uint32 fmtCount = 0;
-    if (vkGetPhysicalDeviceSurfaceFormatsKHR(
-        displayManager->physicalDevice,
-        window->surface,
-        &fmtCount,
-        NULL) != VK_SUCCESS || fmtCount == 0) {
-        return 0;
-    }
-    VkSurfaceFormatKHR* formats = malloc(sizeof(VkSurfaceFormatKHR) * fmtCount);
-    if (!formats) return 0;
-    VkResult formatResult = vkGetPhysicalDeviceSurfaceFormatsKHR(
-            displayManager->physicalDevice,
-            window->surface,
-            &fmtCount,
-            formats);
-    if (formatResult != VK_SUCCESS && formatResult != VK_INCOMPLETE) {
-        free(formats);
-        return 0;
-    }
-    VkSurfaceFormatKHR chosen = formats[0];
-    for (uint32 i=0; i<fmtCount; i++) {
-        if (formats[i].format == VK_FORMAT_B8G8R8A8_UNORM &&
-            formats[i].colorSpace == VK_COLOR_SPACE_SRGB_NONLINEAR_KHR) {
-            chosen = formats[i];
-            break;
-        }
-    }
-    free(formats);
-
-    // The existing shared render pass uses the old format.
-    if (window->swapchainFormat != VK_FORMAT_UNDEFINED &&
-        chosen.format != window->swapchainFormat) {
-        ErrorSystem_AddError(&GUI.errorSystem, "<Vulkan Error> Swapchain format changed; "
-            "render pass and graphics pipelines need recreation");
-        return 0;
-    }
-
-    // Commit the format before building anything that depends on it.
-    window->swapchainFormat = chosen.format;
 
     // Lazily create shared render passes
     if (displayManager->sharedRenderPass == VK_NULL_HANDLE) {
-        // ---- 1x (UI / swapchain) pass: colour + depth, no resolve ----
         {
             VkAttachmentDescription colorAttachment = {0};
-            colorAttachment.format = chosen.format;
+            colorAttachment.format = window->surface.surfaceFormat.format;
             colorAttachment.samples = VK_SAMPLE_COUNT_1_BIT;
             colorAttachment.loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR;
             colorAttachment.storeOp = VK_ATTACHMENT_STORE_OP_STORE;
@@ -127,7 +47,6 @@ int Window_CreateSwapchain(Window* window, DisplayManager* displayManager)
             depthAttachment.finalLayout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
 
             VkAttachmentDescription attachments[] = { colorAttachment, depthAttachment };
-
             VkAttachmentReference colorRef = { 0, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL };
             VkAttachmentReference depthRef = { 1, VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL };
 
@@ -157,7 +76,7 @@ int Window_CreateSwapchain(Window* window, DisplayManager* displayManager)
             rpci.dependencyCount = 1;
             rpci.pDependencies = &dependency;
 
-            if (vkCreateRenderPass(device, &rpci, NULL, &displayManager->sharedRenderPass) != VK_SUCCESS) {
+            if (vkCreateRenderPass(displayManager->device, &rpci, NULL, &displayManager->sharedRenderPass) != VK_SUCCESS) {
                 ErrorSystem_AddError(&GUI.errorSystem, "<Vulkan Error> vkCreateRenderPass (shared) failed");
                 return 0;
             }
@@ -230,231 +149,35 @@ int Window_CreateSwapchain(Window* window, DisplayManager* displayManager)
             rpci.dependencyCount = 1;
             rpci.pDependencies = &dependency;
 
-            if (vkCreateRenderPass(device, &rpci, NULL, &displayManager->sharedRenderPassMSAA4X) != VK_SUCCESS) {
+            if (vkCreateRenderPass(displayManager->device, &rpci, NULL, &displayManager->sharedRenderPassMSAA4X) != VK_SUCCESS) {
                 ErrorSystem_AddError(&GUI.errorSystem, "<Vulkan Error> vkCreateRenderPass (sharedRenderPassMSAA4X) failed");
                 return 0;
             }
         }
     }
 
-    // Choose the extent
-    VkExtent2D extent;
-    if (caps.currentExtent.width != 0xFFFFFFFFu) {
-        extent = caps.currentExtent;
-    } else {
-        extent.width = (uint32)width < caps.minImageExtent.width? caps.minImageExtent.width : ((uint32)width > caps.maxImageExtent.width ? caps.maxImageExtent.width : (uint32)width);
-        extent.height = (uint32)height < caps.minImageExtent.height ? caps.minImageExtent.height : ((uint32)height > caps.maxImageExtent.height ? caps.maxImageExtent.height : (uint32)height);
-    }
-    if (extent.width == 0 || extent.height == 0) {
-        return 0;
-    }
-    window->swapchainExtent = extent;
-
-    // Depth buffer (one, shared across all framebuffers) ----
-    VkImageCreateInfo dci = {0};
-    dci.sType = VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO;
-    dci.imageType = VK_IMAGE_TYPE_2D;
-    dci.format = VK_FORMAT_D32_SFLOAT;
-    dci.extent.width = extent.width;
-    dci.extent.height = extent.height;
-    dci.extent.depth = 1;
-    dci.mipLevels = 1;
-    dci.arrayLayers = 1;
-    dci.samples = VK_SAMPLE_COUNT_1_BIT;
-    dci.tiling = VK_IMAGE_TILING_OPTIMAL;
-    dci.usage = VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT;
-    dci.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
-    dci.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
-    if (vkCreateImage(device, &dci, NULL, &window->depthImage) != VK_SUCCESS) {
-        ErrorSystem_AddError(&GUI.errorSystem, "<Vulkan Error> vkCreateImage (depth) failed");
-        return 0;
-    }
-    VkMemoryRequirements memReq;
-    vkGetImageMemoryRequirements(device, window->depthImage, &memReq);
-    VkPhysicalDeviceMemoryProperties memProps;
-    vkGetPhysicalDeviceMemoryProperties(displayManager->physicalDevice, &memProps);
-    uint32 typeIndex = 0;
-    for (uint32 i=0; i<memProps.memoryTypeCount; i++) {
-        if ((memReq.memoryTypeBits & (1u << i)) &&
-            (memProps.memoryTypes[i].propertyFlags & VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT)) {
-            typeIndex = i;
-            break;
-        }
-    }
-    VkMemoryAllocateInfo mai = {0};
-    mai.sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO;
-    mai.allocationSize = memReq.size;
-    mai.memoryTypeIndex = typeIndex;
-    if (vkAllocateMemory(device, &mai, NULL, &window->depthImageMemory) != VK_SUCCESS) {
-        ErrorSystem_AddError(&GUI.errorSystem, "<Vulkan Error> vkAllocateMemory (depth) failed");
-        return 0;
-    }
-    vkBindImageMemory(device, window->depthImage, window->depthImageMemory, 0);
-    VkImageViewCreateInfo dvci = {0};
-    dvci.sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO;
-    dvci.image = window->depthImage;
-    dvci.viewType = VK_IMAGE_VIEW_TYPE_2D;
-    dvci.format = VK_FORMAT_D32_SFLOAT;
-    dvci.subresourceRange.aspectMask = VK_IMAGE_ASPECT_DEPTH_BIT;
-    dvci.subresourceRange.baseMipLevel = 0;
-    dvci.subresourceRange.levelCount = 1;
-    dvci.subresourceRange.baseArrayLayer = 0;
-    dvci.subresourceRange.layerCount = 1;
-    if (vkCreateImageView(device, &dvci, NULL, &window->depthImageView) != VK_SUCCESS) {
-        ErrorSystem_AddError(&GUI.errorSystem, "<Vulkan Error> vkCreateImageView (depth) failed");
-        return 0;
-    }
-
-    // Choose the minimum number of swapchain images to request
-    uint32 requestedImageCount = 2;
-    if (requestedImageCount < caps.minImageCount) requestedImageCount = caps.minImageCount;
-    if (caps.maxImageCount != 0 && requestedImageCount > caps.maxImageCount) {
-        requestedImageCount = caps.maxImageCount;
-    }
-
-    // Create the swapchain
-    VkSwapchainCreateInfoKHR sci = {0};
-    sci.sType = VK_STRUCTURE_TYPE_SWAPCHAIN_CREATE_INFO_KHR;
-    sci.surface = window->surface;
-    sci.minImageCount = requestedImageCount;
-    sci.imageFormat = chosen.format;
-    sci.imageColorSpace = chosen.colorSpace;
-    sci.imageExtent = extent;
-    sci.imageArrayLayers = 1;
-    sci.imageUsage = VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT;
-    sci.imageSharingMode = VK_SHARING_MODE_EXCLUSIVE;
-    sci.preTransform = caps.currentTransform;
-    sci.compositeAlpha = VK_COMPOSITE_ALPHA_OPAQUE_BIT_KHR;
-    //sci.presentMode = VK_PRESENT_MODE_IMMEDIATE_KHR;
-    sci.presentMode = VK_PRESENT_MODE_FIFO_KHR;
-    sci.clipped = VK_TRUE;
-    sci.oldSwapchain = VK_NULL_HANDLE;
-    VkSwapchainKHR swapchain = VK_NULL_HANDLE;
-    if (vkCreateSwapchainKHR(device, &sci, NULL, &swapchain) != VK_SUCCESS) {
-        ErrorSystem_AddError(&GUI.errorSystem, "<Vulkan Error> vkCreateSwapchainKHR failed");
-        return 0;
-    }
-    window->swapchain = swapchain;
-
-    // Get the image count
-    uint32 actualImageCount = 0;
-    VkResult result = vkGetSwapchainImagesKHR(device, window->swapchain, &actualImageCount, NULL);
-    if (result != VK_SUCCESS || actualImageCount == 0 || actualImageCount > NU_MAX_SWAPCHAIN_IMAGES) return 0;
-    result = vkGetSwapchainImagesKHR(device, window->swapchain, &actualImageCount, window->images);
-    if (result != VK_SUCCESS) return 0;
-    window->imageCount = actualImageCount;
-
-    // Create image views
-    for (uint32 i=0; i<window->imageCount; i++) {
-        VkImageViewCreateInfo vci = {0};
-        vci.sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO;
-        vci.image = window->images[i];
-        vci.viewType = VK_IMAGE_VIEW_TYPE_2D;
-        vci.format = chosen.format;
-        vci.components.r = VK_COMPONENT_SWIZZLE_IDENTITY;
-        vci.components.g = VK_COMPONENT_SWIZZLE_IDENTITY;
-        vci.components.b = VK_COMPONENT_SWIZZLE_IDENTITY;
-        vci.components.a = VK_COMPONENT_SWIZZLE_IDENTITY;
-        vci.subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
-        vci.subresourceRange.baseMipLevel = 0;
-        vci.subresourceRange.levelCount = 1;
-        vci.subresourceRange.baseArrayLayer = 0;
-        vci.subresourceRange.layerCount = 1;
-        if (vkCreateImageView(device, &vci, NULL, &window->imageViews[i]) != VK_SUCCESS) {
-            return 0;
-        }
-
-        // Create frame buffers
-        VkImageView fbAttachments[2] = { window->imageViews[i], window->depthImageView };
-        VkFramebufferCreateInfo fci = {0};
-        fci.sType = VK_STRUCTURE_TYPE_FRAMEBUFFER_CREATE_INFO;
-        fci.renderPass = displayManager->sharedRenderPass;
-        fci.attachmentCount = 2;
-        fci.pAttachments = fbAttachments;
-        fci.width = extent.width;
-        fci.height = extent.height;
-        fci.layers = 1;
-        if (vkCreateFramebuffer(device, &fci, NULL, &window->framebuffers[i]) != VK_SUCCESS) {
-            return 0;
-        }
-    }
-
-    // Success
-    return 1;
-}
-
-int Window_CreateVulkanDevices(Window* window, DisplayManager* displayManager)
-{
-    // Init Vulkan member variables
-    window->surface = VK_NULL_HANDLE;
-    window->swapchain = VK_NULL_HANDLE;
-    window->swapchainFormat = VK_FORMAT_UNDEFINED;
-    window->swapchainExtent = (VkExtent2D){0};
-    window->commandPool = VK_NULL_HANDLE;
-    for (uint32 i=0; i<NU_MAX_SWAPCHAIN_IMAGES; i++) {
-        window->images[i] = VK_NULL_HANDLE;
-        window->imageViews[i] = VK_NULL_HANDLE;
-        window->framebuffers[i] = VK_NULL_HANDLE;
-    }
-    for (uint32 i=0; i<NU_FRAMES_IN_FLIGHT; i++) {
-        window->imageAvailable[i] = VK_NULL_HANDLE;
-        window->renderFinished[i] = VK_NULL_HANDLE;
-        window->inFlightFences[i] = VK_NULL_HANDLE;
-    }
-    for (uint32 i=0; i<NU_FRAMES_IN_FLIGHT; i++) {
-        window->commandBuffers[i] = VK_NULL_HANDLE;
-    }
-    window->depthImage = VK_NULL_HANDLE;
-    window->depthImageMemory = VK_NULL_HANDLE;
-    window->depthImageView = VK_NULL_HANDLE;
-    window->currentFrame = 0;
-    window->imageCount = 0;
-    window->imageIndex = 0;
-    window->presentId = 0;
-
-
-    // Cache device
-    VkDevice device = displayManager->device;
-
-    // Create render surface
-    if (!SDL_Vulkan_CreateSurface(window->sdlWin, displayManager->instance, NULL, &window->surface)) {
-        ErrorSystem_AddError(&GUI.errorSystem, "<Vulkan Error> SDL_Vulkan_CreateSurface failed");
-        return 0;
-    }
-
-    // Ensure graphics queue can present
-    VkBool32 presentSupported = VK_FALSE;
-
-    if (vkGetPhysicalDeviceSurfaceSupportKHR(
-        displayManager->physicalDevice,
-        displayManager->graphicsFamily,
-        window->surface,
-        &presentSupported) != VK_SUCCESS ||
-        !presentSupported)
-    {
-        ErrorSystem_AddError(&GUI.errorSystem,"<Vulkan Error> graphics queue cannot present");
-        return 0;
-    }
+    // Get window width and height
+    int width, height; SDL_GetWindowSizeInPixels(window->sdlWin, &width, &height);
+    width = max(width, 1); height = max(height, 1);
 
     // Create swapchain
-    if (!Window_CreateSwapchain(window, displayManager)) {
+    if (!Swapchain_Create(&window->swapchain, displayManager->device)) {
+        ErrorSystem_AddError(&GUI.errorSystem,"<Vulkan Error> Failed to create swapchain");
         return 0;
     }
 
-    // Create frame synchronization objects
-    VkSemaphoreCreateInfo semci = {0};
-    semci.sType = VK_STRUCTURE_TYPE_SEMAPHORE_CREATE_INFO;
-    VkFenceCreateInfo fci = {0};
-    fci.sType = VK_STRUCTURE_TYPE_FENCE_CREATE_INFO;
-    fci.flags = VK_FENCE_CREATE_SIGNALED_BIT;
-    for (uint32 i = 0; i < NU_FRAMES_IN_FLIGHT; i++) {
-        if (vkCreateSemaphore(device, &semci, NULL, &window->imageAvailable[i]) != VK_SUCCESS ||
-            vkCreateSemaphore(device, &semci, NULL, &window->renderFinished[i]) != VK_SUCCESS ||
-            vkCreateFence(device, &fci, NULL, &window->inFlightFences[i]) != VK_SUCCESS)
-        {
-            ErrorSystem_AddError(&GUI.errorSystem,"<Vulkan Error> Failed to create frame sync objects");
-            return 0;
-        }
+    // Create swapchain images
+    if (!Swapchain_CreateImages(
+        &window->swapchain,
+        displayManager->device,
+        displayManager->physicalDevice,
+        displayManager->sharedRenderPass,
+        window->surface,
+        width,
+        height))
+    {
+        ErrorSystem_AddError(&GUI.errorSystem,"<Vulkan Error> Failed to create swapchain images");
+        return 0;
     }
 
     // Create command pool
@@ -462,7 +185,7 @@ int Window_CreateVulkanDevices(Window* window, DisplayManager* displayManager)
     pci.sType = VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO;
     pci.flags = VK_COMMAND_POOL_CREATE_RESET_COMMAND_BUFFER_BIT;
     pci.queueFamilyIndex = displayManager->graphicsFamily;
-    if (vkCreateCommandPool(device, &pci, NULL, &window->commandPool) != VK_SUCCESS) {
+    if (vkCreateCommandPool(displayManager->device, &pci, NULL, &window->commandPool) != VK_SUCCESS) {
         ErrorSystem_AddError(&GUI.errorSystem, "<Vulkan Error> vkCreateCommandPool failed");
         return 0;
     }
@@ -473,7 +196,7 @@ int Window_CreateVulkanDevices(Window* window, DisplayManager* displayManager)
     aci.commandPool = window->commandPool;
     aci.level = VK_COMMAND_BUFFER_LEVEL_PRIMARY;
     aci.commandBufferCount = NU_FRAMES_IN_FLIGHT;
-    if (vkAllocateCommandBuffers(device, &aci, window->commandBuffers) != VK_SUCCESS) {
+    if (vkAllocateCommandBuffers(displayManager->device, &aci, window->commandBuffers) != VK_SUCCESS) {
         ErrorSystem_AddError(&GUI.errorSystem, "<Vulkan Error> vkAllocateCommandBuffers failed");
         return 0;
     }
@@ -484,97 +207,87 @@ int Window_CreateVulkanDevices(Window* window, DisplayManager* displayManager)
 
 void Window_DestroyVulkanDevices(Window* window, DisplayManager* displayManager)
 {
-    VkDevice device = displayManager->device;
-    if (device == VK_NULL_HANDLE) return;
+    // Destroy command pool (destroys command buffers)
+    if (window->commandPool != VK_NULL_HANDLE) vkDestroyCommandPool(displayManager->device, window->commandPool, NULL);
 
-    // Command pool (frees the command buffers allocated from it)
-    if (window->commandPool != VK_NULL_HANDLE) vkDestroyCommandPool(device, window->commandPool, NULL);
-    window->commandPool = VK_NULL_HANDLE;
+    // Destroy swapchain
+    Swapchain_Destroy(&window->swapchain, displayManager->device);
 
-    // Sync objects
-    for (uint32 i=0; i<NU_FRAMES_IN_FLIGHT; i++) {
-        if (window->inFlightFences[i] != VK_NULL_HANDLE) vkDestroyFence(device, window->inFlightFences[i], NULL);
-        if (window->imageAvailable[i] != VK_NULL_HANDLE) vkDestroySemaphore(device, window->imageAvailable[i], NULL);
-        if (window->renderFinished[i] != VK_NULL_HANDLE) vkDestroySemaphore(device, window->renderFinished[i], NULL);
-        window->inFlightFences[i] = VK_NULL_HANDLE;
-        window->imageAvailable[i] = VK_NULL_HANDLE;
-        window->renderFinished[i] = VK_NULL_HANDLE;
+    // Destroy surface
+    if (window->surface.surface != VK_NULL_HANDLE) vkDestroySurfaceKHR(displayManager->instance, window->surface.surface, NULL);
+}
+
+void Window_UpdateRenderScaleAndDisplaySize(Window* window)
+{
+    // Update display size and render scale
+    int winPtsW, winPtsH;
+    int winPxW, winPxH;
+    SDL_GetWindowSize(window->sdlWin, &winPtsW, &winPtsH);
+    SDL_GetWindowSizeInPixels(window->sdlWin, &winPxW, &winPxH);
+    window->renderScale = (float)winPxW / (float)winPtsW;
+    window->screenWidth = winPxW;
+    window->screenHeight = winPxH;
+
+    // Update refresh duration
+    SDL_DisplayID displayID = SDL_GetDisplayForWindow(window->sdlWin);
+    const SDL_DisplayMode* mode = SDL_GetCurrentDisplayMode(displayID);
+    if (mode && mode->refresh_rate_numerator > 0 && mode->refresh_rate_denominator > 0)
+    {
+        window->refreshDuration = 1000000000ULL * (uint64)mode->refresh_rate_denominator / (uint64)mode->refresh_rate_numerator;
+        window->nextPresentTime = 0;
     }
+}
 
-    // Swapchain
-    Window_DestroySwapchain(window, displayManager);
-
-    // Surface — takes INSTANCE, not device
-    if (window->surface != VK_NULL_HANDLE) {
-        vkDestroySurfaceKHR(displayManager->instance, window->surface, NULL);
-        window->surface = VK_NULL_HANDLE;
-    }
+void Window_DisplayChanged(Window* window, DisplayManager* displayManager)
+{
+    // Update display size and render scale
+    Window_UpdateRenderScaleAndDisplaySize(window);
 }
 
 int Window_StartFrame(Window* window, DisplayManager* displayManager)
 {
     VkDevice device = displayManager->device;
 
-    // -- Check for surface size change BEFORE acquiring --
-        VkSurfaceCapabilitiesKHR caps;
-        if (vkGetPhysicalDeviceSurfaceCapabilitiesKHR(displayManager->physicalDevice, window->surface, &caps) == VK_SUCCESS)
+    // If the window was resized OR the swapchain was suboptimal last frame -> recreate
+    int width, height;
+    SDL_GetWindowSizeInPixels(window->sdlWin, &width, &height); width = max(width, 1); height = max(height, 1);
+    if (width != Swapchain_Width(&window->swapchain) || height != Swapchain_Height(&window->swapchain) || window->swapchain.suboptimal)
+    {
+        if (!Swapchain_CreateImages(
+            &window->swapchain,
+            displayManager->device,
+            displayManager->physicalDevice,
+            displayManager->sharedRenderPass,
+            window->surface,
+            width, height))
         {
-            int w, h;
-            SDL_GetWindowSizeInPixels(window->sdlWin, &w, &h);
-            if (w > 0 && h > 0) {
-                VkExtent2D desired;
-                if (caps.currentExtent.width != 0xFFFFFFFFu) {
-                    desired = caps.currentExtent;
-                } else {
-                    desired.width  = (uint32)w < caps.minImageExtent.width  ? caps.minImageExtent.width  : ((uint32)w > caps.maxImageExtent.width  ? caps.maxImageExtent.width  : (uint32)w);
-                    desired.height = (uint32)h < caps.minImageExtent.height ? caps.minImageExtent.height : ((uint32)h > caps.maxImageExtent.height ? caps.maxImageExtent.height : (uint32)h);
-                }
-                if (desired.width  != window->swapchainExtent.width || desired.height != window->swapchainExtent.height)
-                {
-                    if (!Window_CreateSwapchain(window, displayManager)) return 0;
-                }
-            }
+            return 0;
         }
-
-    // Wait until this frame slot is available
-    if (vkWaitForFences(
-        device, 1,
-        &window->inFlightFences[window->currentFrame],
-        VK_TRUE, UINT64_MAX) != VK_SUCCESS) {
-        return 0;
     }
 
-    // Try to acquire image
-    VkResult result = vkAcquireNextImageKHR(
-        device,
-        window->swapchain,
-        UINT64_MAX,
-        window->imageAvailable[window->currentFrame],
-        VK_NULL_HANDLE,
-        &window->imageIndex
-    );
-    if (result == VK_ERROR_OUT_OF_DATE_KHR) {
-        Window_CreateSwapchain(window, displayManager);
-        return 0;
+    // Acquire next image
+    int acquireResult = Swapchain_AquireNextImage(&window->swapchain, displayManager->device);
+    if (acquireResult == 2) {
+        if (!Swapchain_CreateImages(
+            &window->swapchain,
+            displayManager->device,
+            displayManager->physicalDevice,
+            displayManager->sharedRenderPass,
+            window->surface,
+            width, height))
+        {
+            return 0;
+        }
     }
-    if (result == VK_SUBOPTIMAL_KHR) {
-        Window_CreateSwapchain(window, displayManager);
-    }
-    if (result != VK_SUCCESS) return 0;
+    if (acquireResult == 2 || acquireResult == 0) return 0;
 
     // Start recording commands for this frame
-    VkCommandBuffer cmd = window->commandBuffers[window->currentFrame];
+    VkCommandBuffer cmd = window->commandBuffers[Swapchain_CurrentFrame(&window->swapchain)];
     vkResetCommandBuffer(cmd, 0);
     VkCommandBufferBeginInfo beginInfo = {0};
     beginInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
     if (vkBeginCommandBuffer(cmd, &beginInfo) != VK_SUCCESS) return 0;
 
-    // Success
-    return 1;
-}
-
-void Window_StartRenderpass(Window* window, DisplayManager* displayManager)
-{
     // Begin render pass
     VkClearValue clearValues[2] = {0};
     clearValues[0].color = (VkClearColorValue){{0.0f, 0.0f, 0.0f, 1.0f}};
@@ -582,67 +295,93 @@ void Window_StartRenderpass(Window* window, DisplayManager* displayManager)
     VkRenderPassBeginInfo renderInfo = {0};
     renderInfo.sType = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO;
     renderInfo.renderPass = displayManager->sharedRenderPass;
-    renderInfo.framebuffer = window->framebuffers[window->imageIndex];
+    renderInfo.framebuffer = Swapchain_CurrentFramebuffer(&window->swapchain);
     renderInfo.renderArea.offset = (VkOffset2D){0, 0};
-    renderInfo.renderArea.extent = window->swapchainExtent;
+    renderInfo.renderArea.extent = window->swapchain.swapchainExtent;
     renderInfo.clearValueCount = 2;
     renderInfo.pClearValues = clearValues;
-    VkCommandBuffer cmd = window->commandBuffers[window->currentFrame];
     vkCmdBeginRenderPass(cmd, &renderInfo, VK_SUBPASS_CONTENTS_INLINE);
+
+    // Success
+    return 1;
+
+}
+
+inline VkCommandBuffer Window_CurrentCommandBuffer(Window* window)
+{
+    return window->commandBuffers[Swapchain_CurrentFrame(&window->swapchain)];
 }
 
 int Window_EndFrame(Window* window, DisplayManager* displayManager)
 {
     // Finish recording commands
-    VkCommandBuffer cmd = window->commandBuffers[window->currentFrame];
+    VkCommandBuffer cmd = window->commandBuffers[Swapchain_CurrentFrame(&window->swapchain)];
     vkCmdEndRenderPass(cmd);
     if (vkEndCommandBuffer(cmd) != VK_SUCCESS) return 0;
 
-    // Wait for the image-acquired semaphore
-    VkSemaphore waitSemaphore = window->imageAvailable[window->currentFrame];
-
-    // Signal when rendering to this swapchain image is finished.
-    VkSemaphore signalSemaphore = window->renderFinished[window->currentFrame];
-    VkPipelineStageFlags waitStage = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
-
-    // Reset fence
-    if (vkResetFences(displayManager->device, 1, &window->inFlightFences[window->currentFrame]) != VK_SUCCESS) {
-        return 0;
-    }
+    // Prepare swapchain
+    Swapchain_PrepareSubmission(&window->swapchain, displayManager->device);
 
     // Submit draw commands
     VkSubmitInfo submitInfo = {0};
     submitInfo.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
     submitInfo.waitSemaphoreCount = 1;
-    submitInfo.pWaitSemaphores = &waitSemaphore;
+    VkSemaphore waitSemaphores[1];
+    waitSemaphores[0] = Swapchain_CurrentImageSemaphore(&window->swapchain);
+    submitInfo.pWaitSemaphores = &waitSemaphores[0];
+    VkPipelineStageFlags waitStage = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
     submitInfo.pWaitDstStageMask = &waitStage;
     submitInfo.commandBufferCount = 1;
     submitInfo.pCommandBuffers = &cmd;
     submitInfo.signalSemaphoreCount = 1;
-    submitInfo.pSignalSemaphores = &signalSemaphore;
-    if (vkQueueSubmit(displayManager->graphicsQueue, 1, &submitInfo, window->inFlightFences[window->currentFrame]) != VK_SUCCESS) {
-        ErrorSystem_AddError(&GUI.errorSystem, "<Vulkan Error> vkQueueSubmit failed");
-        return 0;
+    VkSemaphore signalSemaphores[1];
+    signalSemaphores[0] = Swapchain_CurrentRenderSemaphore(&window->swapchain);
+    submitInfo.pSignalSemaphores = &signalSemaphores[0];
+    if (vkQueueSubmit(displayManager->graphicsQueue, 1, &submitInfo, window->swapchain.inFlightFences[Swapchain_CurrentFrame(&window->swapchain)]) != VK_SUCCESS) {
+        return 0; // Catastrophic -> quit
     }
 
+    // Success
+    return 1;
+}
+
+void Window_Present(Window* window, DisplayManager* displayManager)
+{
     // Present frame
     VkPresentIdKHR presentIdInfo = {0};
     presentIdInfo.sType = VK_STRUCTURE_TYPE_PRESENT_ID_KHR;
     presentIdInfo.swapchainCount = 1;
-    presentIdInfo.pPresentIds = &window->presentId;
+    presentIdInfo.pPresentIds = &window->swapchain.presentId;
     VkPresentInfoKHR presentInfo = {0};
     presentInfo.sType = VK_STRUCTURE_TYPE_PRESENT_INFO_KHR;
     presentInfo.waitSemaphoreCount = 1;
-    presentInfo.pWaitSemaphores = &window->renderFinished[window->currentFrame];
+    VkSemaphore waitSemaphores[1];
+    waitSemaphores[0] = Swapchain_CurrentRenderSemaphore(&window->swapchain);
+    presentInfo.pWaitSemaphores = &waitSemaphores[0];
     presentInfo.swapchainCount = 1;
-    presentInfo.pSwapchains = &window->swapchain;
-    presentInfo.pImageIndices = &window->imageIndex;
+    presentInfo.pSwapchains = &window->swapchain.swapchain;
+    uint32 imageIndices[1];
+    imageIndices[0] = Swapchain_CurrentImageIndex(&window->swapchain);
+    presentInfo.pImageIndices = &imageIndices[0];
     presentInfo.pNext = displayManager->presentWaitSupported ? &presentIdInfo : NULL;
     VkResult result = vkQueuePresentKHR(displayManager->graphicsQueue, &presentInfo);
 
-    // Advance frame before any early-return below so we don't get stuck
-    window->currentFrame = (window->currentFrame + 1) % NU_FRAMES_IN_FLIGHT;
+    // Advance frame
+    Swapchain_AdvanceFrame(&window->swapchain);
 
-    // Success
-    return 1;
+    // Advance present ID
+    window->swapchain.presentId++;
+
+    // Window updated
+    window->needsRepaint = true;
+}
+
+void Window_WaitForPresentation(Window* window, DisplayManager* displayManager, uint64 expirationTimeNS)
+{
+    displayManager->vkWaitForPresentKHR(
+        displayManager->device,
+        window->swapchain.swapchain,
+        window->swapchain.presentId,
+        expirationTimeNS
+    );
 }

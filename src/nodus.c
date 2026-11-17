@@ -1,3 +1,5 @@
+
+
 #include <core/nu_includes.h>
 
 // Export macro
@@ -11,13 +13,18 @@
     #define _EXPORT
 #endif
 
+
 // --------------------------
 // --- Nodus UI functions ---
 // --------------------------
-
-_EXPORT void NU_QUIT(void) {
+void NU_FREE()
+{
     TreeFree(&GUI.tree);
     ThreadPool_Destroy(&GUI.threadPool);
+    for (int i=0; i<GUI.canvasContexts.size; i++) {
+        NU_Canvas_Context* ctx = Container_GetAt(&GUI.canvasContexts, i);
+        Canvas_FreeContext(ctx, &GUI.displayManager, &GUI.imageResourceManager);
+    }
     ImageResourceManager_Free(&GUI.imageResourceManager, &GUI.displayManager);
     ErrorSystem_Free(&GUI.errorSystem);
     Stringmap_Free(&GUI.id_node_map);
@@ -46,15 +53,88 @@ _EXPORT void NU_QUIT(void) {
     BreadthFirstSearch_Free(&GUI.bfs);
     ReverseBreadthFirstSearch_Free(&GUI.rbfs);
     EventSystem_Free();
-    SDL_Quit();
 }
 
-_EXPORT NuWindow* NU_CREATE_GUI(const char* xml_filepath, const char* css_filepath)
+static NuConfig* g_Config = NULL;
+
+int PresentThread(void* args)
 {
+    int windowIDs[64];
+    int windowIdCount = 0;
+
+    while (GUI.running)
+    {
+        uint64 loopStart = nu_time();
+
+        // Wait for main thread to hand over a batch
+        SDL_LockMutex(GUI.displayManager.windowSetMu);
+
+        while (Set_Count(&GUI.displayManager.windowsWaitingVblank) == 0 && GUI.running) {
+            SDL_WaitCondition(
+                GUI.displayManager.setNotEmptyCondition,
+                GUI.displayManager.windowSetMu
+            );
+        }
+
+        if (!GUI.running) {
+            SDL_UnlockMutex(GUI.displayManager.windowSetMu);
+            break;
+        }
+
+        // Copy window IDs into local array
+        uint64 copyStart = nu_time();
+
+        windowIdCount = 0;
+        SetIterator iter = Set_CreateIterator(&GUI.displayManager.windowsWaitingVblank);
+        void* key;
+
+        while (Set_IteratorNext(&iter, &key) && windowIdCount < 64) {
+            windowIDs[windowIdCount++] = *(int*)key;
+        }
+
+        Set_Clear(&GUI.displayManager.windowsWaitingVblank);
+        SDL_UnlockMutex(GUI.displayManager.windowSetMu);
+
+        // printf("[PRESENT] Batch: %d windows | Copy: %.3f ms\n",
+        //     windowIdCount, (nu_time() - copyStart) / 1000000.0);
+
+        // Wait for presentation
+        for (int i = 0; i < windowIdCount; i++) {
+            int windowID = windowIDs[i];
+            Window* window = Container_Get(&GUI.displayManager.windows, windowID);
+
+            if (!window) continue;
+
+            uint64 waitStart = nu_time();
+
+            Window_WaitForPresentation(window, &GUI.displayManager, 0);
+
+            // printf("[PRESENT] Window %d wait: %.3f ms\n",
+            //     windowID, (nu_time() - waitStart) / 1000000.0);
+
+            window->nextPresentTime = nu_time() + window->refreshDuration - 10000;
+        }
+
+        uint64 signalStart = nu_time();
+        SDL_SignalSemaphore(GUI.displayManager.paceSemaphore);
+
+        // printf("[PRESENT] Semaphore signal: %.3f ms | Total processing: %.3f ms\n",
+        //     (nu_time() - signalStart) / 1000000.0,
+        //     (nu_time() - loopStart) / 1000000.0);
+    }
+
+    return 0;
+}
+
+static SDL_AppResult SDLCALL NU_Internal_Init(void **appstate, int argc, char *argv[])
+{
+    if (!g_Config) return SDL_APP_FAILURE; // No config, cannot initialize
+
     // Init SDL
-    if (!SDL_Init(SDL_INIT_VIDEO | SDL_INIT_GAMEPAD)) return NULL;
+    if (!SDL_Init(SDL_INIT_VIDEO | SDL_INIT_GAMEPAD)) return SDL_APP_FAILURE;
     SDL_SetHint("SDL_MOUSE_FOCUS_CLICKTHROUGH", "1");
     SDL_SetHint(SDL_HINT_MAC_SCROLL_MOMENTUM, "1");
+    SDL_SetHint(SDL_HINT_MAIN_CALLBACK_RATE, "0");
 
     // Init Freetype
     FT_Init_FreeType(&nu_global_freetype);
@@ -126,9 +206,9 @@ _EXPORT NuWindow* NU_CREATE_GUI(const char* xml_filepath, const char* css_filepa
     }
 
     // Create from xml template
-    if (xml_filepath) {
-        if (!NU_Internal_Load_XML(xml_filepath, &GUI.imageResourceManager, &GUI.displayManager)) {
-            NU_QUIT(); return NULL;
+    if (g_Config->xmlPath) {
+        if (!NU_Internal_Load_XML(g_Config->xmlPath, &GUI.imageResourceManager, &GUI.displayManager)) {
+            NU_FREE(); return SDL_APP_FAILURE;
         }
         rootNode = GUI.tree.root;
     }
@@ -139,8 +219,8 @@ _EXPORT NuWindow* NU_CREATE_GUI(const char* xml_filepath, const char* css_filepa
     }
 
     // Create stylesheet from css
-    if (!Stylesheet_Create(&GUI.stylesheet, &GUI.threadPool, css_filepath, &GUI.imageResourceManager, &GUI.displayManager)) {
-        NU_QUIT(); return NULL;
+    if (!Stylesheet_Create(&GUI.stylesheet, &GUI.threadPool, g_Config->cssPath, &GUI.imageResourceManager, &GUI.displayManager)) {
+        NU_FREE(); return SDL_APP_FAILURE;
     }
 
     // Commit partial atlas builds to images
@@ -165,7 +245,7 @@ _EXPORT NuWindow* NU_CREATE_GUI(const char* xml_filepath, const char* css_filepa
 
     // Apply css
     if (!NU_Internal_Apply_Stylesheet_Parallel(&GUI.stylesheet, &GUI.threadPool)) {
-        NU_QUIT(); return NULL;
+        NU_FREE(); return SDL_APP_FAILURE;
     }
 
     // Initial layout calculation
@@ -174,10 +254,90 @@ _EXPORT NuWindow* NU_CREATE_GUI(const char* xml_filepath, const char* css_filepa
     // Timer mutex
     GUI.guiMutex = SDL_CreateMutex();
 
-    // Success
-    return (NuWindow*)(rootNode);
+    GUI.running = true;
+
+    // Call the user's InitCallback (if provided)
+    if (g_Config->InitCallback) g_Config->InitCallback(g_Config->InitArgs);
+
+    // Spawn the present thread
+    GUI.presentThread = SDL_CreateThread(
+        PresentThread,
+        "Presentation Thread",
+        NULL
+    );
+
+    return SDL_APP_CONTINUE;
 }
 
+static SDL_AppResult SDLCALL NU_Internal_Iterate(void *appstate)
+{
+    if (!GUI.running) return SDL_APP_SUCCESS;
+
+    // Wait for window presentation
+    SDL_WaitSemaphore(GUI.displayManager.paceSemaphore);
+
+    // Safely unregister deleted nodes from iterated hashmaps and free node memory
+    for (int i=0; i<GUI.tree.deletedButNotFreedNodes.size; i++) {
+        Node* node = *(Node**)Array_Get(&GUI.tree.deletedButNotFreedNodes, i);
+        NU_Unregister_All_Iterated_Events(node);
+    }
+    TreeFreeDeleted(&GUI.tree);
+
+    // Remove deferred removal timers
+    for (int i=GUI.timers.size-1; i>=0; i--) {
+        NU_Timer* timer = Container_GetAt(&GUI.timers, i);
+        int id = Container_IdAt(&GUI.timers, i);
+        if (timer->willBeRemoved) Container_Remove(&GUI.timers, id);
+    }
+
+    // Call frame callback if there is one
+    if (GUI.frameCallback) GUI.frameCallback(GUI.frameCallbackArgs);
+
+    // Re-render UI if necessary
+    if (GUI.awaiting_redraw)
+    {
+        NU_Layout();
+        NU_Mouse_Hover();
+        NU_Draw();
+        CheckForResizeEvents();
+        SDL_SignalCondition(GUI.displayManager.setNotEmptyCondition);
+    }
+
+    return SDL_APP_CONTINUE;
+}
+
+static SDL_AppResult SDLCALL NU_Internal_Event(void *appstate, SDL_Event *event)
+{
+    HandleEvent(event);
+    return SDL_APP_CONTINUE;
+}
+
+static void SDLCALL NU_Internal_Quit(void *appstate, SDL_AppResult result)
+{
+
+    if (g_Config && g_Config->QuitCallback) g_Config->QuitCallback(g_Config->QuitArgs);
+    NU_FREE();
+}
+
+static int SDLCALL NU_RunAppBridge(int argc, char *argv[])
+{
+    return SDL_EnterAppMainCallbacks(argc, argv,
+                                     NU_Internal_Init,
+                                     NU_Internal_Iterate,
+                                     NU_Internal_Event,
+                                     NU_Internal_Quit);
+}
+
+_EXPORT int NU_CREATE_GUI(NuConfig* config)
+{
+    g_Config = config;
+    return SDL_RunApp(0, NULL, NU_RunAppBridge, NULL);
+}
+
+
+// -----------------------
+// --- Timer functions ---
+// -----------------------
 int TimerHandler(void* args) {
 
     while (GUI.running)
@@ -221,163 +381,6 @@ int TimerHandler(void* args) {
     }
 
     return 0;
-}
-
-int AppThread(void* args)
-{
-    SDL_Event events[64];
-
-    while(GUI.running)
-    {
-        uint64 frameStartTime = nu_time();
-
-        SDL_LockMutex(GUI.guiMutex);
-
-        // 1. Actively retrieve all pending events from the queue (thread-safe)
-        int count = SDL_PeepEvents(events, 64, SDL_GETEVENT, SDL_EVENT_FIRST, SDL_EVENT_LAST);
-        for (int i=0; i<count; i++) {
-            HandleEvent(&events[i]);
-        }
-
-        // Safely unregister deleted nodes from iterated hashmaps and free node memory
-        for (int i=0; i<GUI.tree.deletedButNotFreedNodes.size; i++) {
-            Node* node = *(Node**)Array_Get(&GUI.tree.deletedButNotFreedNodes, i);
-            NU_Unregister_All_Iterated_Events(node);
-        }
-        TreeFreeDeleted(&GUI.tree);
-
-        // Remove deferred removal timers
-        for (int i=GUI.timers.size-1; i>=0; i--) {
-            NU_Timer* timer = Container_GetAt(&GUI.timers, i);
-            int id = Container_IdAt(&GUI.timers, i);
-            if (timer->willBeRemoved) Container_Remove(&GUI.timers, id);
-        }
-
-        // Call frame callback if there is one
-        if (GUI.frameCallback) GUI.frameCallback(GUI.frameCallbackArgs);
-
-        // Re-render UI if necessary
-        if (GUI.awaiting_redraw)
-        {
-            NU_Layout();
-            NU_Mouse_Hover();
-            NU_Draw();
-            CheckForResizeEvents();
-
-            // Wait for vsync (put app thread to sleep if feature is supported -> avoid CPU burn)
-            if (DisplayManager_WaitForPresentation(&GUI.displayManager))
-            {
-                // Unlock mutex afterwards (protect pace window)
-                SDL_UnlockMutex(GUI.guiMutex);
-            }
-            // If this is not supported -> perform manual wait
-            else
-            {
-                // Safe to unlock mutex now so that timer thread can work during sleep
-                SDL_UnlockMutex(GUI.guiMutex);
-
-                // Put app thread to sleep
-                uint64 frameTimeMicroseconds = nu_time() - frameStartTime;
-                uint64 targetTimeMicroseconds = GetFrametime() * 1000;
-                if (frameTimeMicroseconds < targetTimeMicroseconds) {
-                    uint64 remainingUs = targetTimeMicroseconds - frameTimeMicroseconds;
-                    uint32 sleepDurationMs = (uint32)((remainingUs + 999ull) / 1000ull);
-                    if (sleepDurationMs > 1) sleepDurationMs -= 2;
-                    SDL_Delay(sleepDurationMs);
-                }
-            }
-        }
-        else
-        {
-            // Safe to unlock mutex now so that timer thread can work during sleep
-            SDL_UnlockMutex(GUI.guiMutex);
-
-            // Put app thread to sleep
-            SDL_Delay(GetFrametime() - 1);
-
-        }
-    }
-
-    return 0;
-}
-
-// _EXPORT void NU_RUN(void)
-// {
-//     if (GUI.running) return;
-//     GUI.running = true;
-
-//     // Create app thread
-//     SDL_Thread* appThread;
-//     appThread = SDL_CreateThread(
-//         AppThread,
-//         "AppThread",
-//         NULL
-//     );
-
-//     // Create timer thread
-//     SDL_Thread* timerThread;
-//     timerThread = SDL_CreateThread(
-//         TimerHandler,
-//         "TimerThread",
-//         NULL
-//     );
-
-//     // Pump events
-//     while(GUI.running)
-//     {
-//         SDL_WaitEventTimeout(NULL, 100);
-//     }
-
-//     SDL_WaitThread(appThread, NULL);
-//     SDL_WaitThread(timerThread, NULL);
-// }
-
-SDL_AppResult SDL_AppInit(void** appstate, int argc, char* argv[])
-{
-    if (!SDL_Init(SDL_INIT_VIDEO)) {
-        SDL_Log("SDL_Init failed: %s", SDL_GetError());
-        return SDL_APP_FAILURE;
-    }
-
-    window = SDL_CreateWindow(
-        "Nodus",
-        1280,
-        720,
-        SDL_WINDOW_RESIZABLE
-    );
-
-    if (window == NULL) {
-        SDL_Log("Window creation failed: %s", SDL_GetError());
-        return SDL_APP_FAILURE;
-    }
-
-    renderer = SDL_CreateRenderer(window, NULL);
-
-    if (renderer == NULL) {
-        SDL_Log("Renderer creation failed: %s", SDL_GetError());
-        return SDL_APP_FAILURE;
-    }
-
-    return SDL_APP_CONTINUE;
-}
-
-
-_EXPORT void NU_RUN(void)
-{
-    if (GUI.running) return;
-    GUI.running = true;
-
-
-
-
-    // Pump events
-    while(GUI.running)
-    {
-        SDL_WaitEventTimeout(NULL, 100);
-    }
-
-    SDL_WaitThread(appThread, NULL);
-    SDL_WaitThread(timerThread, NULL);
 }
 
 _EXPORT int NU_ADD_TIMER(uint32 intervalMs, NU_Callback callback, void* args) {

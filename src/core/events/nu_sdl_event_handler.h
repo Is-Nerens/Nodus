@@ -14,6 +14,13 @@ bool HandleEvent(SDL_Event* event)
             break;
         }
 
+        case SDL_EVENT_WINDOW_EXPOSED: {
+            NU_Layout();
+            NU_Mouse_Hover();
+            NU_Draw();
+            CheckForResizeEvents();
+        }
+
         case SDL_EVENT_GAMEPAD_ADDED: {
             for (uint8 i=0; i<GUI.gamepadCapacity; i++) {
                 if (GUI.gamepads[i] == NULL) {
@@ -58,15 +65,16 @@ bool HandleEvent(SDL_Event* event)
         // --- Window moved to a different display -> re-evaluate style -----------------------
         // ------------------------------------------------------------------------------------
         case SDL_EVENT_WINDOW_DISPLAY_CHANGED: {
-            SDL_Window* window = SDL_GetWindowFromID(event->window.windowID);
-            Node* windowNode = GetWindowNodeFromSDL_Window(&GUI.displayManager, window);
-            Window* win = DisplayManager_GetNodeWindow(&GUI.displayManager, windowNode);
+            SDL_Window* sdlWin = SDL_GetWindowFromID(event->window.windowID);
+            Node* windowNode = GetWindowNodeFromSDL_Window(&GUI.displayManager, sdlWin);
+            Window* window = DisplayManager_GetNodeWindow(&GUI.displayManager, windowNode);
 
-            int prevScreenWidth = win->screenWidth;
-            //WindowManager_UpdateWindowRenderScale(&GUI.displayManager, windowNode->windowID);
-            //WindowManager_UpdateWindowScreenDimensions(&GUI.displayManager, windowNode->windowID);
+            int prevScreenWidth = window->screenWidth;
+            Window_DisplayChanged(window, &GUI.displayManager);
 
-            if (prevScreenWidth != win->screenWidth) {
+            // If screen width changed -> reapply stylesheet
+            // This allows screen queries to be re-evaluated
+            if (prevScreenWidth != window->screenWidth) {
                 Stylesheet_ApplyToBranch(&GUI.stylesheet, windowNode);
                 GUI.awaiting_redraw = true;
             }

@@ -2,9 +2,9 @@
 
 
 #include "nu_gpu_arena_alloc.h"
+#include "nu_surface.h"
+#include "nu_swapchain.h"
 #define NU_RECYCLED_WINDOWS_CAPACITY 8
-#define NU_FRAMES_IN_FLIGHT 2
-#define NU_MAX_SWAPCHAIN_IMAGES 4
 
 typedef struct DisplayManager
 {
@@ -41,10 +41,20 @@ typedef struct DisplayManager
     NuPipeline clippedSubpixelTextPipelineMSAA4X;
     NuPipeline vertexRGBPipelineMSAA4X;
 
-
-
     // Nodus stuff
     Container windows;
+    Container displays;
+
+    // Presentation stuff
+    Set windowsWaitingVblank;
+    int setCount;
+    SDL_Mutex* windowSetMu;
+    SDL_Condition* setNotEmptyCondition;
+    SDL_Semaphore* paceSemaphore;
+    int paceWindowID;
+
+
+
     SDL_Window* recycledSDLWindows[NU_RECYCLED_WINDOWS_CAPACITY];
     int recycledSDLWindowCount;
     Array absoluteRootNodes;
@@ -54,6 +64,14 @@ typedef struct DisplayManager
     int rootWindowID;
 } DisplayManager;
 
+typedef struct {
+    uint64 refreshDuration;
+    uint64 presentDeadline;
+    SDL_DisplayID displayID;
+    uint8 windowCount;
+} Display;
+
+
 typedef struct NuWindowDrawlist
 {
     Array drawNodes;
@@ -61,41 +79,30 @@ typedef struct NuWindowDrawlist
     Array canvasNodes;
 } NuWindowDrawlist;
 
+typedef struct
+{
+    uint64 nextPresentTime;
+    uint64 refreshDuration;
+} WindowPresentSchedule;
+
 typedef struct {
 
     SDL_Window* sdlWin;
 
-    // Swapchain
-    VkSurfaceKHR   surface;
-    VkSwapchainKHR swapchain;
-    VkFormat       swapchainFormat;
-    VkExtent2D     swapchainExtent;
-    uint32         imageCount;
-    VkImage        images[NU_MAX_SWAPCHAIN_IMAGES];
-    VkImageView    imageViews[NU_MAX_SWAPCHAIN_IMAGES];
-    VkFramebuffer  framebuffers[NU_MAX_SWAPCHAIN_IMAGES];
-    uint64 presentId;
+    Surface surface;
+    Swapchain swapchain;
 
-    // Depth buffer
-    VkImage        depthImage;
-    VkDeviceMemory depthImageMemory;
-    VkImageView    depthImageView;
-
-    // Sync
-    VkSemaphore imageAvailable[NU_FRAMES_IN_FLIGHT];
-    VkFence     inFlightFences[NU_FRAMES_IN_FLIGHT];
-    VkSemaphore renderFinished[NU_FRAMES_IN_FLIGHT];
-
-    // Command buffers
     VkCommandPool   commandPool;
     VkCommandBuffer commandBuffers[NU_FRAMES_IN_FLIGHT];
-    uint32 currentFrame;
-    uint32 imageIndex;
+    uint64 nextPresentTime;
+    uint64 refreshDuration;
 
     // Draw info
     NuWindowDrawlist drawlist;
     Node* windowNode;
+    int displayID;
     int screenWidth;
     int screenHeight;
     float renderScale;
+    bool needsRepaint;
 } Window;

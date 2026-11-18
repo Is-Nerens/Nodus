@@ -187,7 +187,7 @@ typedef struct Node
     uint8 layer;                   // Depth of this node in the tree [0, 1, ..n]
     uint8 stateFlags;              // State bitflags (eg. "STATE_FLAG_HIDDEN")
     uint8 fontIdx;                 // Index of a font stored in an array
-    uint8 windowID;                // Index of a window stored in a container
+    int8  windowID;                // Index of a window stored in a container
     uint8 horizontalAlignment;     // Left, Center, Right [0, 1, 2]
     uint8 verticalAlignment;       // Top, Center, Bottom [0, 1, 2]
     uint8 horizontalTextAlignment; // Left, Center, Right [0, 1, 2]

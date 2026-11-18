@@ -49,34 +49,32 @@ bool HandleEvent(SDL_Event* event)
         // --- Window display scale changed -> redraw window content --------------------------
         // ------------------------------------------------------------------------------------
         case SDL_EVENT_WINDOW_DISPLAY_SCALE_CHANGED: {
-            break;
             SDL_Window* window = SDL_GetWindowFromID(event->window.windowID);
             float displayScale = SDL_GetDisplayContentScale(event->window.windowID);
 
             // Get the window node and corresponding Window
             Node* windowNode = GetWindowNodeFromSDL_Window(&GUI.displayManager, window);
             Window* win = DisplayManager_GetNodeWindow(&GUI.displayManager, windowNode);
-
-            // Redraw window content
-            GUI.awaiting_redraw = true;
+            win->repaint = true;
             break;
         }
         // ------------------------------------------------------------------------------------
         // --- Window moved to a different display -> re-evaluate style -----------------------
         // ------------------------------------------------------------------------------------
         case SDL_EVENT_WINDOW_DISPLAY_CHANGED: {
+
             SDL_Window* sdlWin = SDL_GetWindowFromID(event->window.windowID);
             Node* windowNode = GetWindowNodeFromSDL_Window(&GUI.displayManager, sdlWin);
             Window* window = DisplayManager_GetNodeWindow(&GUI.displayManager, windowNode);
 
             int prevScreenWidth = window->screenWidth;
-            Window_DisplayChanged(window, &GUI.displayManager);
+            Window_UpdateRenderScaleAndDisplaySize(window);
 
             // If screen width changed -> reapply stylesheet
             // This allows screen queries to be re-evaluated
             if (prevScreenWidth != window->screenWidth) {
                 Stylesheet_ApplyToBranch(&GUI.stylesheet, windowNode);
-                GUI.awaiting_redraw = true;
+                window->repaint = true;
             }
 
             break;
@@ -99,32 +97,35 @@ bool HandleEvent(SDL_Event* event)
                     // highlight + backspace
                     if (InputText_IsHighlighting(inputText)) {
                         InputText_RemoveHighlightedText(inputText, inputNode, font);
-                        textChanged = true; GUI.awaiting_redraw = true;
+                        SetNodeWindowRepaint(inputNode);
+                        textChanged = true;
                     }
                     // control + backspace
                     else if (mods & SDL_KMOD_CTRL && InputText_BackspaceWord(inputText, inputNode, font)) {
-                        textChanged = true; GUI.awaiting_redraw = true;
+                        SetNodeWindowRepaint(inputNode);
+                        textChanged = true;
                     }
                     // backspace
                     else if (InputText_Backspace(inputText, inputNode, font)) {
-                        textChanged = true; GUI.awaiting_redraw = true;
+                        SetNodeWindowRepaint(inputNode);
+                        textChanged = true;
                     }
                 }
 
                 // left arrow pressed
                 else if (event->key.key == SDLK_LEFT) {
                     // control = left arrow
-                    if (mods & SDL_KMOD_CTRL && InputText_MoveCursorLeftSpan(inputText, inputNode, font)) GUI.awaiting_redraw = true;
+                    if (mods & SDL_KMOD_CTRL && InputText_MoveCursorLeftSpan(inputText, inputNode, font)) SetNodeWindowRepaint(inputNode);
                     // only backspace
-                    else if (InputText_MoveCursorLeft(inputText, inputNode, font)) GUI.awaiting_redraw = true;
+                    else if (InputText_MoveCursorLeft(inputText, inputNode, font)) SetNodeWindowRepaint(inputNode);
                 }
 
                 // right arrow pressed
                 else if (event->key.key == SDLK_RIGHT) {
                     // control = right arrow
-                    if (mods & SDL_KMOD_CTRL && InputText_MoveCursorRightSpan(inputText, inputNode, font)) GUI.awaiting_redraw = true;
+                    if (mods & SDL_KMOD_CTRL && InputText_MoveCursorRightSpan(inputText, inputNode, font)) SetNodeWindowRepaint(inputNode);
                     // only backspace
-                    else if (InputText_MoveCursorRight(inputText, inputNode, font)) GUI.awaiting_redraw = true;
+                    else if (InputText_MoveCursorRight(inputText, inputNode, font)) SetNodeWindowRepaint(inputNode);
                 }
 
                 // if control|command + c AND highliting text -> copy to clipboard
@@ -143,13 +144,14 @@ bool HandleEvent(SDL_Event* event)
                     else {
                         InputText_PasteFromClipboard(inputText, inputNode, font);
                     }
-                    textChanged = true; GUI.awaiting_redraw = true;
+                    SetNodeWindowRepaint(inputNode);
+                    textChanged = true;
                 }
 
                 // if control|command + a -> select all
                 if (event->key.key == SDLK_A && (mods & (SDL_KMOD_CTRL | SDL_KMOD_GUI))) {
                     InputText_SelectAll(inputText, font);
-                    GUI.awaiting_redraw = true;
+                    SetNodeWindowRepaint(inputNode);
                 }
 
                 if (textChanged) {
@@ -164,7 +166,6 @@ bool HandleEvent(SDL_Event* event)
             {
                 bool fullscreen = (SDL_GetWindowFlags(GUI.displayManager.lastClickedWindow) & SDL_WINDOW_FULLSCREEN) != 0;
                 SDL_SetWindowFullscreen(GUI.displayManager.lastClickedWindow, !fullscreen);
-                GUI.awaiting_redraw = true;
             }
 
             // toggle fullscreen with control + command + f (on macOS)
@@ -175,7 +176,6 @@ bool HandleEvent(SDL_Event* event)
             {
                 bool fullscreen = (SDL_GetWindowFlags(GUI.displayManager.lastClickedWindow) & SDL_WINDOW_FULLSCREEN) != 0;
                 SDL_SetWindowFullscreen(GUI.displayManager.lastClickedWindow, !fullscreen);
-                GUI.awaiting_redraw = true;
             }
 
             TriggerAllOnKeyDownEvents(event->key.key, event->key.repeat);
@@ -199,7 +199,6 @@ bool HandleEvent(SDL_Event* event)
                 if (InputText_IsHighlighting(inputText)) {
                     InputText_RemoveHighlightedText(inputText, GUI.focused_node, font);
                     InputText_Write(inputText, GUI.focused_node, font, event->text.text);
-                    printf("typed %s\n", event->text.text);
                     updated = 1;
                 }
                 else {
@@ -211,7 +210,7 @@ bool HandleEvent(SDL_Event* event)
                     Stylesheet_ApplyPseudoStyleToNode(&GUI.stylesheet, GUI.focused_node, PSEUDO_FOCUS);
                 }
 
-                GUI.awaiting_redraw |= updated;
+                SetNodeWindowRepaint(GUI.focused_node);
             }
 
             break;
@@ -251,8 +250,7 @@ bool HandleEvent(SDL_Event* event)
                 node->base.scrollV = min(max(node->base.scrollV, 0.0f), 1.0f); // Clamp to range [0,1]
                 TriggerOnScrollEvent(node);
 
-                // must redraw later
-                GUI.awaiting_redraw = true;
+                SetNodeWindowRepaint(GUI.scroll_mouse_down_node);
             }
 
             // Check for mouse move events
@@ -264,7 +262,7 @@ bool HandleEvent(SDL_Event* event)
                 Font* font = Stylesheet_Get_Font(&GUI.stylesheet, node->fontIdx);
                 InputText* inputText = Container_Get(&GUI.textInputs, node->special.input.textInputHandle);
                 if (InputText_MouseDrag(inputText, node, font, mouseX)) {
-                    GUI.awaiting_redraw = true;
+                    SetNodeWindowRepaint(node);
                 }
             }
             break;
@@ -274,9 +272,7 @@ bool HandleEvent(SDL_Event* event)
             break;
             // Update last clicked window
             GUI.displayManager.lastClickedWindow = SDL_GetWindowFromID(event->button.windowID);
-
             GUI.mouse_down_node = GUI.hovered_node;
-            GUI.awaiting_redraw = true;
             break;
         }
 
@@ -342,7 +338,7 @@ bool HandleEvent(SDL_Event* event)
                 else {
                     InputText_MousePlaceCursor(inputText, GUI.focused_node, font, mouseX);
                 }
-                GUI.awaiting_redraw = true;
+                SetNodeWindowRepaint(GUI.focused_node);
             }
 
             // Defocus prev focused input node
@@ -357,14 +353,13 @@ bool HandleEvent(SDL_Event* event)
 
                 // Remove focus pseudo from prev focused node
                 Stylesheet_ApplyStyleToNode(&GUI.stylesheet, prevFocusedNode);
-
-                GUI.awaiting_redraw = true;
+                SetNodeWindowRepaint(prevFocusedNode);
             }
 
             // Apply PRESS pseudo style
             if (GUI.mouse_down_node && GUI.mouse_down_node != GUI.focused_node) {
                 Stylesheet_ApplyPseudoStyleToNode(&GUI.stylesheet, GUI.mouse_down_node, PSEUDO_PRESS);
-                GUI.awaiting_redraw = true;
+                SetNodeWindowRepaint(GUI.mouse_down_node);
             }
 
             TriggerAllMouseDownOutsideEvents(mouseX, mouseY, (int)event->button.button);
@@ -389,7 +384,7 @@ bool HandleEvent(SDL_Event* event)
                 // If the mouse is hovering over pressed node
                 if (GUI.mouse_down_node == GUI.hovered_node)
                 {
-                    GUI.awaiting_redraw = true;
+                    SetNodeWindowRepaint(GUI.hovered_node);
 
                     // If there is a click event assigned to the pressed node
                     TriggerOnClickEvent(GUI.hovered_node, mouseX, mouseY, (int)event->button.button);
@@ -400,13 +395,13 @@ bool HandleEvent(SDL_Event* event)
                     // Apply psuedo HOVER
                     if (GUI.mouse_down_node == GUI.hovered_node) {
                         Stylesheet_ApplyPseudoStyleToNode(&GUI.stylesheet, GUI.hovered_node, PSEUDO_HOVER);
+                        SetNodeWindowRepaint(GUI.hovered_node);
                     }
                     // Reset style
                     else {
                          Stylesheet_ApplyStyleToNode(&GUI.stylesheet, GUI.mouse_down_node);
+                         SetNodeWindowRepaint(GUI.mouse_down_node);
                     }
-
-                    GUI.awaiting_redraw = true;
                 }
 
                 // There is no longer a pressed node
@@ -417,7 +412,7 @@ bool HandleEvent(SDL_Event* event)
             if (GUI.focused_node != NULL) {
                 InputText* inputText = Container_Get(&GUI.textInputs, GUI.focused_node->special.input.textInputHandle);
                 InputText_MouseUp(inputText);
-                GUI.awaiting_redraw = true;
+                SetNodeWindowRepaint(GUI.focused_node);
             }
             break;
         }
@@ -438,7 +433,7 @@ bool HandleEvent(SDL_Event* event)
                 node->base.scrollV -= event->wheel.y * (usableTrackHeight / node->base.contentHeight) * 0.12f;
                 node->base.scrollV = min(max(node->base.scrollV, 0.0f), 1.0f); // Clamp to range [0,1]
                 TriggerOnScrollEvent(node);
-                GUI.awaiting_redraw = true;
+                SetNodeWindowRepaint(node);
             }
 
             // Triggger mouse wheel events

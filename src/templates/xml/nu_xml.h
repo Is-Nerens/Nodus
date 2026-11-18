@@ -659,7 +659,7 @@ int NU_Parse_Component(
                 // --- Handle scenarios for different tags
                 // ----------------------------------------
                 if (currentNode->type == NU_TYPE_WINDOW) { // If node is a window -> create SDL window
-                    DisplayManager_CreateWindow(&GUI.displayManager, currentNode, "", 100, 100);
+                    DisplayManager_CreateWindow(&GUI.displayManager, currentNode, "", 400, 400);
                 }
                 else if (currentNode->type == NU_TYPE_INPUT) {
                     InputText inputText; InputText_Init(&inputText);

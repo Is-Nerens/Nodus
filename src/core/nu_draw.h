@@ -397,8 +397,8 @@ void Add_ScrollbarRenderData(
 void NU_GenerateDrawlists()
 {
     // Clear drawlists
-    for (int i=0; i<GUI.displayManager.windows.size; i++) {
-        Window* win = Container_GetAt(&GUI.displayManager.windows, i);
+    for (int i=0; i<Winalloc_Count(&GUI.displayManager.winalloc); i++) {
+        Window* win = Winalloc_WindowAt(&GUI.displayManager.winalloc, i);
         Array_Clear(&win->drawlist.drawNodes);
         Array_Clear(&win->drawlist.clippedDrawNodes);
         Array_Clear(&win->drawlist.canvasNodes);
@@ -703,11 +703,11 @@ void NU_Draw()
     Node* focusedInputNode = NULL;
 
     // For each window
-    for (uint32 i=0; i<GUI.displayManager.windows.size; i++)
+    for (uint32 i=0; i<Winalloc_Count(&GUI.displayManager.winalloc); i++)
     {
         // Get the window
-        Window* win = Container_GetAt(&GUI.displayManager.windows, i);
-        if (!win->needsRepaint) continue;
+        Window* win = Winalloc_WindowAt(&GUI.displayManager.winalloc, i);
+        if (!win->repaint || win->waitingPresent) continue;
 
         // Get window dimensions and drawlist
         NuWindowDrawlist* drawList = &win->drawlist;
@@ -956,19 +956,15 @@ void NU_Draw()
 
         // End frame -> stop recording commands for the window frame buffer
         Window_EndFrame(win, &GUI.displayManager);
+        win->repaint = false;
+        win->waitingPresent = true;
 
+        // Add window to the present set
+        int windowID = Winalloc_IDAt(&GUI.displayManager.winalloc, i);
+        Set_Insert(&GUI.displayManager.presetWindowIds, &windowID);
+        GUI.displayManager.setCount = Set_Count(&GUI.displayManager.presetWindowIds);
 
-
-
-        SDL_LockMutex(GUI.displayManager.windowSetMu);
-        int windowID = Container_IdAt(&GUI.displayManager.windows, i);
-        Set_Insert(&GUI.displayManager.windowsWaitingVblank, &windowID);
-        GUI.displayManager.setCount = Set_Count(&GUI.displayManager.windowsWaitingVblank);
-        SDL_UnlockMutex(GUI.displayManager.windowSetMu);
-
+        // Present
         Window_Present(win, &GUI.displayManager);
-        //Window_WaitForPresentation(win, &GUI.displayManager, 0);
     }
-
-    GUI.awaiting_redraw = false;
 }

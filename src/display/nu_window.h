@@ -236,12 +236,7 @@ void Window_UpdateRenderScaleAndDisplaySize(Window* window)
         window->refreshDuration = 1000000000ULL * (uint64)mode->refresh_rate_denominator / (uint64)mode->refresh_rate_numerator;
         window->nextPresentTime = 0;
     }
-}
-
-void Window_DisplayChanged(Window* window, DisplayManager* displayManager)
-{
-    // Update display size and render scale
-    Window_UpdateRenderScaleAndDisplaySize(window);
+    window->displayID = displayID;
 }
 
 int Window_StartFrame(Window* window, DisplayManager* displayManager)
@@ -348,10 +343,11 @@ int Window_EndFrame(Window* window, DisplayManager* displayManager)
 void Window_Present(Window* window, DisplayManager* displayManager)
 {
     // Present frame
+    uint64 submittedPresentId = window->swapchain.presentId;
     VkPresentIdKHR presentIdInfo = {0};
     presentIdInfo.sType = VK_STRUCTURE_TYPE_PRESENT_ID_KHR;
     presentIdInfo.swapchainCount = 1;
-    presentIdInfo.pPresentIds = &window->swapchain.presentId;
+    presentIdInfo.pPresentIds = &submittedPresentId;
     VkPresentInfoKHR presentInfo = {0};
     presentInfo.sType = VK_STRUCTURE_TYPE_PRESENT_INFO_KHR;
     presentInfo.waitSemaphoreCount = 1;
@@ -370,18 +366,17 @@ void Window_Present(Window* window, DisplayManager* displayManager)
     Swapchain_AdvanceFrame(&window->swapchain);
 
     // Advance present ID
+    window->swapchain.lastPresentedId = submittedPresentId;
     window->swapchain.presentId++;
-
-    // Window updated
-    window->needsRepaint = true;
 }
 
 void Window_WaitForPresentation(Window* window, DisplayManager* displayManager, uint64 expirationTimeNS)
 {
+    if (!displayManager->presentWaitSupported) return;
     displayManager->vkWaitForPresentKHR(
         displayManager->device,
         window->swapchain.swapchain,
-        window->swapchain.presentId,
+        window->swapchain.lastPresentedId,
         expirationTimeNS
     );
 }

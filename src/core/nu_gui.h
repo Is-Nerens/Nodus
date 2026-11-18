@@ -66,8 +66,7 @@ struct NU_GUI
 
     // Application state
     bool running;
-    bool awaiting_redraw;
-    bool recalculate_mouse_hover;
+    bool repaint;
 
     // Cursors
     SDL_Cursor* cursorDefault;
@@ -83,8 +82,6 @@ struct NU_GUI
 
     // Timer mutex
     SDL_Mutex *guiMutex;
-
-    SDL_Thread* presentThread;
 
     // Gamepads
     SDL_Gamepad* gamepads[8];

@@ -20,6 +20,7 @@ typedef struct {
     uint32          currentFrame;
     uint32          imageIndex;
     uint64          presentId;
+    uint64          lastPresentedId;
     bool            suboptimal;
 } Swapchain;
 
@@ -78,6 +79,7 @@ int Swapchain_Create(Swapchain* swapchain, VkDevice device)
     swapchain->imageCount = 0;
     swapchain->imageIndex = 0;
     swapchain->presentId = 0;
+    swapchain->lastPresentedId = 0;
     swapchain->suboptimal = false;
 
     // Create fences

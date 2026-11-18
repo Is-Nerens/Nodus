@@ -6,6 +6,38 @@
 #include "nu_swapchain.h"
 #define NU_RECYCLED_WINDOWS_CAPACITY 8
 
+typedef struct NuWindowDrawlist
+{
+    Array drawNodes;
+    Array clippedDrawNodes;
+    Array canvasNodes;
+} NuWindowDrawlist;
+
+typedef struct {
+
+    SDL_Window* sdlWin;
+
+    Surface surface;
+    Swapchain swapchain;
+
+    VkCommandPool   commandPool;
+    VkCommandBuffer commandBuffers[NU_FRAMES_IN_FLIGHT];
+    uint64 nextPresentTime;
+    uint64 refreshDuration;
+
+    // Draw info
+    NuWindowDrawlist drawlist;
+    Node* windowNode;
+    int displayID;
+    int screenWidth;
+    int screenHeight;
+    float renderScale;
+    bool repaint;
+    bool waitingPresent;
+} Window;
+
+#include "nu_window_allocator.h"
+
 typedef struct DisplayManager
 {
     // Vulkan stuff
@@ -42,16 +74,16 @@ typedef struct DisplayManager
     NuPipeline vertexRGBPipelineMSAA4X;
 
     // Nodus stuff
-    Container windows;
+    Winalloc winalloc;
     Container displays;
 
     // Presentation stuff
-    Set windowsWaitingVblank;
+    Set presetWindowIds;
     int setCount;
     SDL_Mutex* windowSetMu;
     SDL_Condition* setNotEmptyCondition;
     SDL_Semaphore* paceSemaphore;
-    int paceWindowID;
+    int8 paceWindowID;
 
 
 
@@ -61,48 +93,5 @@ typedef struct DisplayManager
     Hashmap clipMap;
     Node* hoveredWindowNode;
     SDL_Window* lastClickedWindow;
-    int rootWindowID;
+    int8 rootWindowID;
 } DisplayManager;
-
-typedef struct {
-    uint64 refreshDuration;
-    uint64 presentDeadline;
-    SDL_DisplayID displayID;
-    uint8 windowCount;
-} Display;
-
-
-typedef struct NuWindowDrawlist
-{
-    Array drawNodes;
-    Array clippedDrawNodes;
-    Array canvasNodes;
-} NuWindowDrawlist;
-
-typedef struct
-{
-    uint64 nextPresentTime;
-    uint64 refreshDuration;
-} WindowPresentSchedule;
-
-typedef struct {
-
-    SDL_Window* sdlWin;
-
-    Surface surface;
-    Swapchain swapchain;
-
-    VkCommandPool   commandPool;
-    VkCommandBuffer commandBuffers[NU_FRAMES_IN_FLIGHT];
-    uint64 nextPresentTime;
-    uint64 refreshDuration;
-
-    // Draw info
-    NuWindowDrawlist drawlist;
-    Node* windowNode;
-    int displayID;
-    int screenWidth;
-    int screenHeight;
-    float renderScale;
-    bool needsRepaint;
-} Window;

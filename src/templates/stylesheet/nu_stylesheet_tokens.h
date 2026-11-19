@@ -364,3 +364,8 @@ static inline int NU_Is_Pseudo_Token(StylesheetToken token)
 {
     return token >= STYLE_PSEUDO_FIRST && token <= STYLE_PSEUDO_LAST;
 }
+
+int Stylesheet_TagStyleItemIndex(int tag, StylePseudoClass pseudo)
+{
+    return 1 + (tag * 4 + pseudo);
+}

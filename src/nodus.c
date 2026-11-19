@@ -134,6 +134,11 @@ static SDL_AppResult SDLCALL NU_Internal_Init(void **appstate, int argc, char *a
         GUI.gamepads[i] = NULL;
     }
 
+    // Create stylesheet from css
+    if (!Stylesheet_Create(&GUI.stylesheet, &GUI.threadPool, g_Config->cssPath, &GUI.imageResourceManager, &GUI.displayManager)) {
+        NU_FREE(); return SDL_APP_FAILURE;
+    }
+
     // Create from xml template
     if (g_Config->xmlPath) {
         if (!NU_Internal_Load_XML(g_Config->xmlPath, &GUI.imageResourceManager, &GUI.displayManager)) {
@@ -145,11 +150,6 @@ static SDL_AppResult SDLCALL NU_Internal_Init(void **appstate, int argc, char *a
     else {
         rootNode = TreeCreate(&GUI.tree);
         DisplayManager_CreateWindow(&GUI.displayManager, rootNode, "", 100, 100);
-    }
-
-    // Create stylesheet from css
-    if (!Stylesheet_Create(&GUI.stylesheet, &GUI.threadPool, g_Config->cssPath, &GUI.imageResourceManager, &GUI.displayManager)) {
-        NU_FREE(); return SDL_APP_FAILURE;
     }
 
     // Commit partial atlas builds to images
@@ -521,7 +521,7 @@ _EXPORT NuWindow* NU_WINDOW(NuNode* parent) {
     if (parent == NULL) return NULL;
     Node* parentP = (Node*)(parent);
     Node* node = TreeCreateNode(&GUI.tree, parentP, NU_TYPE_WINDOW);
-    Stylesheet_ApplyStyleToNode(&GUI.stylesheet, node);
+    Stylesheet_ApplyStyleToNode(&GUI.stylesheet, node, PSEUDO_NONE);
     DisplayManager_CreateWindow(&GUI.displayManager, node, "",
         max(node->base.width, 100),
         max(node->base.height, 100)
@@ -533,7 +533,7 @@ _EXPORT NuBox* NU_BOX(NuNode* parent) {
     if (parent == NULL) return NULL;
     Node* parentP = (Node*)(parent);
     Node* node = TreeCreateNode(&GUI.tree, parentP, NU_TYPE_BOX);
-    Stylesheet_ApplyStyleToNode(&GUI.stylesheet, node);
+    Stylesheet_ApplyStyleToNode(&GUI.stylesheet, node, PSEUDO_NONE);
     SetNodeWindowRepaint(node);
     return (NuBox*)(node);
 }
@@ -542,7 +542,7 @@ _EXPORT NuFrame* NU_FRAME(NuNode* parent) {
     if (parent == NULL) return NULL;
     Node* parentP = (Node*)(parent);
     Node* node = TreeCreateNode(&GUI.tree, parentP, NU_TYPE_FRAME);
-    Stylesheet_ApplyStyleToNode(&GUI.stylesheet, node);
+    Stylesheet_ApplyStyleToNode(&GUI.stylesheet, node, PSEUDO_NONE);
     SetNodeWindowRepaint(node);
     return (NuFrame*)(node);
 }
@@ -551,7 +551,7 @@ _EXPORT NuButton* NU_BUTTON(NuNode* parent) {
     if (parent == NULL) return NULL;
     Node* parentP = (Node*)(parent);
     Node* node = TreeCreateNode(&GUI.tree, parentP, NU_TYPE_BUTTON);
-    Stylesheet_ApplyStyleToNode(&GUI.stylesheet, node);
+    Stylesheet_ApplyStyleToNode(&GUI.stylesheet, node, PSEUDO_NONE);
     SetNodeWindowRepaint(node);
     return (NuButton*)(node);
 }
@@ -563,7 +563,7 @@ _EXPORT NuInput* NU_INPUT(NuNode* parent) {
     InputText inputText;
     InputText_Init(&inputText);
     node->special.input.textInputHandle = Container_Add(&GUI.textInputs, &inputText);
-    Stylesheet_ApplyStyleToNode(&GUI.stylesheet, node);
+    Stylesheet_ApplyStyleToNode(&GUI.stylesheet, node, PSEUDO_NONE);
     SetNodeWindowRepaint(node);
     return (NuInput*)(node);
 }
@@ -572,7 +572,7 @@ _EXPORT NuCanvas* NU_CANVAS(NuNode* parent) {
     if (parent == NULL) return NULL;
     Node* parentP = (Node*)(parent);
     Node* node = TreeCreateNode(&GUI.tree, parentP, NU_TYPE_CANVAS);
-    Stylesheet_ApplyStyleToNode(&GUI.stylesheet, node);
+    Stylesheet_ApplyStyleToNode(&GUI.stylesheet, node, PSEUDO_NONE);
     SetNodeWindowRepaint(node);
     return (NuCanvas*)(node);
 }
@@ -581,7 +581,7 @@ _EXPORT NuImage* NU_IMAGE(NuNode* parent) {
     if (parent == NULL) return NULL;
     Node* parentP = (Node*)(parent);
     Node* node = TreeCreateNode(&GUI.tree, parentP, NU_TYPE_IMAGE);
-    Stylesheet_ApplyStyleToNode(&GUI.stylesheet, node);
+    Stylesheet_ApplyStyleToNode(&GUI.stylesheet, node, PSEUDO_NONE);
     SetNodeWindowRepaint(node);
     return (NuImage*)(node);
 }
@@ -590,7 +590,7 @@ _EXPORT NuTable* NU_TABLE(NuNode* parent) {
     if (parent == NULL) return NULL;
     Node* parentP = (Node*)(parent);
     Node* node = TreeCreateNode(&GUI.tree, parentP, NU_TYPE_TABLE);
-    Stylesheet_ApplyStyleToNode(&GUI.stylesheet, node);
+    Stylesheet_ApplyStyleToNode(&GUI.stylesheet, node, PSEUDO_NONE);
     SetNodeWindowRepaint(node);
     return (NuTable*)(node);
 }
@@ -599,7 +599,7 @@ _EXPORT NuThead* NU_THEAD(NuNode* parent) {
     if (parent == NULL) return NULL;
     Node* parentP = (Node*)(parent);
     Node* node = TreeCreateNode(&GUI.tree, parentP, NU_TYPE_THEAD);
-    Stylesheet_ApplyStyleToNode(&GUI.stylesheet, node);
+    Stylesheet_ApplyStyleToNode(&GUI.stylesheet, node, PSEUDO_NONE);
     SetNodeWindowRepaint(node);
     return (NuThead*)(node);
 }
@@ -608,7 +608,7 @@ _EXPORT NuRow* NU_ROW(NuNode* parent) {
     if (parent == NULL) return NULL;
     Node* parentP = (Node*)(parent);
     Node* node = TreeCreateNode(&GUI.tree, parentP, NU_TYPE_ROW);
-    Stylesheet_ApplyStyleToNode(&GUI.stylesheet, node);
+    Stylesheet_ApplyStyleToNode(&GUI.stylesheet, node, PSEUDO_NONE);
     SetNodeWindowRepaint(node);
     return (NuRow*)(node);
 }
@@ -876,18 +876,20 @@ _EXPORT void NU_INPUT_FOCUS(NuInput* input) {
             TriggerOnInputDefocusEvent(prevFocusedNode);
 
             // Remove focus style prev focused node
-            Stylesheet_ApplyStyleToNode(&GUI.stylesheet, prevFocusedNode);
             if (prevFocusedNode == GUI.hovered_node) {
-                Stylesheet_ApplyPseudoStyleToNode(&GUI.stylesheet, GUI.focused_node, PSEUDO_HOVER);
+                Stylesheet_ApplyStyleToNode(&GUI.stylesheet, GUI.focused_node, PSEUDO_HOVER);
             }
             else if (prevFocusedNode == GUI.mouse_down_node) {
-                Stylesheet_ApplyPseudoStyleToNode(&GUI.stylesheet, GUI.focused_node, PSEUDO_PRESS);
+                Stylesheet_ApplyStyleToNode(&GUI.stylesheet, GUI.focused_node, PSEUDO_PRESS);
+            }
+            else {
+                Stylesheet_ApplyStyleToNode(&GUI.stylesheet, prevFocusedNode, PSEUDO_NONE);
             }
             SetNodeWindowRepaint(prevFocusedNode);
         }
 
         // Focus on input node
-        Stylesheet_ApplyPseudoStyleToNode(&GUI.stylesheet, GUI.focused_node, PSEUDO_FOCUS);
+        Stylesheet_ApplyStyleToNode(&GUI.stylesheet, GUI.focused_node, PSEUDO_FOCUS);
         Font* font = Stylesheet_Get_Font(&GUI.stylesheet, GUI.focused_node->fontIdx);
         InputText* inputText = Container_Get(&GUI.textInputs, GUI.focused_node->special.input.textInputHandle);
         InputText_MousePlaceCursor(inputText, GUI.focused_node, font, 1000000.0f);
@@ -1136,7 +1138,7 @@ _EXPORT void NU_SET_CLASS(NuNode* node, const char* class) {
     }
     // Not found? Look in the stylesheet
     else {
-        void* found = LinearStringmap_Get(&GUI.stylesheet.classIdMap, class);
+        void* found = LinearStringmap_Get(&GUI.stylesheet.classIndexMap, class);
         if (found) {
             // Add it to the gui class set
             nodeP->class = Stringset_Add(&GUI.class_string_set, class);
@@ -1148,11 +1150,14 @@ _EXPORT void NU_SET_CLASS(NuNode* node, const char* class) {
     }
 
     // Update styling
-    Stylesheet_ApplyStyleToNode(&GUI.stylesheet, nodeP);
     if (nodeP == GUI.scroll_mouse_down_node) {
-        Stylesheet_ApplyPseudoStyleToNode(&GUI.stylesheet, nodeP, PSEUDO_PRESS);
+        Stylesheet_ApplyStyleToNode(&GUI.stylesheet, nodeP, PSEUDO_PRESS);
     } else if (nodeP == GUI.hovered_node) {
-        Stylesheet_ApplyPseudoStyleToNode(&GUI.stylesheet, nodeP, PSEUDO_HOVER);
+        Stylesheet_ApplyStyleToNode(&GUI.stylesheet, nodeP, PSEUDO_HOVER);
+    } else if (nodeP == GUI.focused_node) {
+        Stylesheet_ApplyStyleToNode(&GUI.stylesheet, nodeP, PSEUDO_FOCUS);
+    } else {
+        Stylesheet_ApplyStyleToNode(&GUI.stylesheet, nodeP, PSEUDO_NONE);
     }
     SetNodeWindowRepaint(nodeP);
 }
@@ -1163,11 +1168,11 @@ _EXPORT void NU_REMOVE_CLASS(NuNode* node) {
     nodeP->class = NULL;
 
     // Update styling
-    Stylesheet_ApplyStyleToNode(&GUI.stylesheet, nodeP);
+    Stylesheet_ApplyStyleToNode(&GUI.stylesheet, nodeP, PSEUDO_NONE);
     if (nodeP == GUI.scroll_mouse_down_node) {
-        Stylesheet_ApplyPseudoStyleToNode(&GUI.stylesheet, nodeP, PSEUDO_PRESS);
+        Stylesheet_ApplyStyleToNode(&GUI.stylesheet, nodeP, PSEUDO_PRESS);
     } else if (nodeP == GUI.hovered_node) {
-        Stylesheet_ApplyPseudoStyleToNode(&GUI.stylesheet, nodeP, PSEUDO_HOVER);
+        Stylesheet_ApplyStyleToNode(&GUI.stylesheet, nodeP, PSEUDO_HOVER);
     }
     SetNodeWindowRepaint(nodeP);
 }

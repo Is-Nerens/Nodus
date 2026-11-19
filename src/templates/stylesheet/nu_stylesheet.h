@@ -12,10 +12,9 @@ void Stylesheet_Init(Stylesheet* ss)
     Array_Init(&ss->variables, sizeof(StylesheetVariable), 128);
     Array_Init(&ss->screenQueries, sizeof(StylesheetScreenQuery), 8);
     Array_Init(&ss->fonts, sizeof(Font), 8);
-    LinearStringmap_Init(&ss->classIdMap, sizeof(int), 256, 2048);
-    LinearStringmap_Init(&ss->idIdMap, sizeof(int), 256, 2048);
+    LinearStringmap_Init(&ss->classIndexMap, sizeof(int), 256, 2048);
+    LinearStringmap_Init(&ss->idIndexMap, sizeof(int), 256, 2048);
     LinearStringmap_Init(&ss->fontNameIndexMap, sizeof(int), 16, 256);
-    Hashmap_Init(&ss->itemIndexMap, sizeof(StyleItemKey), sizeof(int), 512);
 
     // Create default style item (at index 0)
     StyleItem* item = Array_PushEmpty(&ss->items);
@@ -47,6 +46,70 @@ void Stylesheet_Init(Stylesheet* ss)
     item->horizontalTextAlignment = 1; // alignment
     item->verticalTextAlignment = 1;
 
+    // Create tag styles and pseudos
+    // These can trivially be indexed
+    // using maths for fast lookup
+    // index = 1 + ((node->type | tag) * 4 + pseudo)
+    StyleItem* windowBaseStyle = Array_PushEmptyZero(&ss->items);
+    StyleItem* windowHoverStyle = Array_PushEmptyZero(&ss->items);
+    StyleItem* windowPressStyle = Array_PushEmptyZero(&ss->items);
+    StyleItem* windowFocusStyle = Array_PushEmptyZero(&ss->items);
+
+    StyleItem* boxBaseStyle = Array_PushEmptyZero(&ss->items);
+    StyleItem* boxHoverStyle = Array_PushEmptyZero(&ss->items);
+    StyleItem* boxPressStyle = Array_PushEmptyZero(&ss->items);
+    StyleItem* boxFocusStyle = Array_PushEmptyZero(&ss->items);
+
+    StyleItem* buttonBaseStyle = Array_PushEmptyZero(&ss->items);
+    StyleItem* buttonHoverStyle = Array_PushEmptyZero(&ss->items);
+    StyleItem* buttonPressStyle = Array_PushEmptyZero(&ss->items);
+    StyleItem* buttonFocusStyle = Array_PushEmptyZero(&ss->items);
+
+    StyleItem* inputBaseStyle = Array_PushEmptyZero(&ss->items);
+    StyleItem* inputHoverStyle = Array_PushEmptyZero(&ss->items);
+    StyleItem* inputPressStyle = Array_PushEmptyZero(&ss->items);
+    StyleItem* inputFocusStyle = Array_PushEmptyZero(&ss->items);
+
+    StyleItem* canvasBaseStyle = Array_PushEmptyZero(&ss->items);
+    StyleItem* canvasHoverStyle = Array_PushEmptyZero(&ss->items);
+    StyleItem* canvasPressStyle = Array_PushEmptyZero(&ss->items);
+    StyleItem* canvasFocusStyle = Array_PushEmptyZero(&ss->items);
+
+    StyleItem* imageBaseStyle = Array_PushEmptyZero(&ss->items);
+    StyleItem* imageHoverStyle = Array_PushEmptyZero(&ss->items);
+    StyleItem* imagePressStyle = Array_PushEmptyZero(&ss->items);
+    StyleItem* imageFocusStyle = Array_PushEmptyZero(&ss->items);
+
+    StyleItem* tableBaseStyle = Array_PushEmptyZero(&ss->items);
+    StyleItem* tableHoverStyle = Array_PushEmptyZero(&ss->items);
+    StyleItem* tablePressStyle = Array_PushEmptyZero(&ss->items);
+    StyleItem* tableFocusStyle = Array_PushEmptyZero(&ss->items);
+
+    StyleItem* theadBaseStyle = Array_PushEmptyZero(&ss->items);
+    StyleItem* theadHoverStyle = Array_PushEmptyZero(&ss->items);
+    StyleItem* theadPressStyle = Array_PushEmptyZero(&ss->items);
+    StyleItem* theadFocusStyle = Array_PushEmptyZero(&ss->items);
+
+    StyleItem* rowBaseStyle = Array_PushEmptyZero(&ss->items);
+    StyleItem* rowHoverStyle = Array_PushEmptyZero(&ss->items);
+    StyleItem* rowPressStyle = Array_PushEmptyZero(&ss->items);
+    StyleItem* rowFocusStyle = Array_PushEmptyZero(&ss->items);
+
+    StyleItem* frameBaseStyle = Array_PushEmptyZero(&ss->items);
+    StyleItem* frameHoverStyle = Array_PushEmptyZero(&ss->items);
+    StyleItem* framePressStyle = Array_PushEmptyZero(&ss->items);
+    StyleItem* frameFocusStyle = Array_PushEmptyZero(&ss->items);
+
+    // Set variation chain to none
+    for (int i=0; i<Array_Length(&ss->items); i++) {
+        StyleItem* item = Array_Get(&ss->items, i);
+        item->nextVariationIndex = -1;
+        item->screenQueryIndex = -1;
+        item->hoverPseudoItemIndex = -1;
+        item->pressPseudoItemIndex = -1;
+        item->focusPseudoItemIndex = -1;
+    }
+
     // Set default scrollbar styles
     memset(&ss->scrollbarStyle, 0, sizeof(Stylesheet_Scrollbar_Style)); // zero base
     ss->scrollbarStyle.width = 8;
@@ -72,9 +135,8 @@ void Stylesheet_Free(Stylesheet* ss, VkDevice device, VkDescriptorPool fontPool)
     Array_Free(&ss->items);
     Array_Free(&ss->variables);
     Array_Free(&ss->screenQueries);
-    LinearStringmap_Free(&ss->classIdMap);
-    LinearStringmap_Free(&ss->idIdMap);
-    Hashmap_Free(&ss->itemIndexMap);
+    LinearStringmap_Free(&ss->classIndexMap);
+    LinearStringmap_Free(&ss->idIndexMap);
     LinearStringmap_Free(&ss->fontNameIndexMap);
     for (int i=0; i<ss->fonts.size; i++) {
         Font* font = Array_Get(&ss->fonts, i);

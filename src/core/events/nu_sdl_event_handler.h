@@ -15,6 +15,9 @@ bool HandleEvent(SDL_Event* event)
         }
 
         case SDL_EVENT_WINDOW_EXPOSED: {
+            SDL_Window* sdlWindow = SDL_GetWindowFromID(event->window.windowID);
+            Node* windowNode = DisplayManager_GetWindowNodeWithSDLWindow(&GUI.displayManager, sdlWindow);
+            SetNodeWindowRepaint(windowNode);
             NU_Layout();
             NU_Mouse_Hover();
             NU_Draw();
@@ -156,7 +159,7 @@ bool HandleEvent(SDL_Event* event)
 
                 if (textChanged) {
                     TriggerOnInputChangedEvent(inputNode, "");
-                    Stylesheet_ApplyPseudoStyleToNode(&GUI.stylesheet, GUI.focused_node, PSEUDO_FOCUS);
+                    Stylesheet_ApplyStyleToNode(&GUI.stylesheet, GUI.focused_node, PSEUDO_FOCUS);
                 }
             }
 
@@ -207,7 +210,7 @@ bool HandleEvent(SDL_Event* event)
 
                 if (updated) {
                     TriggerOnInputChangedEvent(GUI.focused_node, event->text.text);
-                    Stylesheet_ApplyPseudoStyleToNode(&GUI.stylesheet, GUI.focused_node, PSEUDO_FOCUS);
+                    Stylesheet_ApplyStyleToNode(&GUI.stylesheet, GUI.focused_node, PSEUDO_FOCUS);
                 }
 
                 SetNodeWindowRepaint(GUI.focused_node);
@@ -352,13 +355,13 @@ bool HandleEvent(SDL_Event* event)
                 TriggerOnInputDefocusEvent(prevFocusedNode);
 
                 // Remove focus pseudo from prev focused node
-                Stylesheet_ApplyStyleToNode(&GUI.stylesheet, prevFocusedNode);
+                Stylesheet_ApplyStyleToNode(&GUI.stylesheet, prevFocusedNode, PSEUDO_NONE);
                 SetNodeWindowRepaint(prevFocusedNode);
             }
 
             // Apply PRESS pseudo style
             if (GUI.mouse_down_node && GUI.mouse_down_node != GUI.focused_node) {
-                Stylesheet_ApplyPseudoStyleToNode(&GUI.stylesheet, GUI.mouse_down_node, PSEUDO_PRESS);
+                Stylesheet_ApplyStyleToNode(&GUI.stylesheet, GUI.mouse_down_node, PSEUDO_PRESS);
                 SetNodeWindowRepaint(GUI.mouse_down_node);
             }
 
@@ -394,12 +397,12 @@ bool HandleEvent(SDL_Event* event)
 
                     // Apply psuedo HOVER
                     if (GUI.mouse_down_node == GUI.hovered_node) {
-                        Stylesheet_ApplyPseudoStyleToNode(&GUI.stylesheet, GUI.hovered_node, PSEUDO_HOVER);
+                        Stylesheet_ApplyStyleToNode(&GUI.stylesheet, GUI.hovered_node, PSEUDO_HOVER);
                         SetNodeWindowRepaint(GUI.hovered_node);
                     }
                     // Reset style
                     else {
-                         Stylesheet_ApplyStyleToNode(&GUI.stylesheet, GUI.mouse_down_node);
+                         Stylesheet_ApplyStyleToNode(&GUI.stylesheet, GUI.mouse_down_node, PSEUDO_NONE);
                          SetNodeWindowRepaint(GUI.mouse_down_node);
                     }
                 }

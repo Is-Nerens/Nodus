@@ -207,8 +207,11 @@ void NU_Mouse_Hover()
 
     // Apply hover pseudo style
     if (GUI.hovered_node != GUI.prev_hovered_node) {
-        if (GUI.prev_hovered_node != NULL && GUI.prev_hovered_node != GUI.mouse_down_node && GUI.prev_hovered_node != GUI.focused_node) Stylesheet_ApplyStyleToNode(&GUI.stylesheet, GUI.prev_hovered_node);
-        if (GUI.hovered_node != GUI.mouse_down_node && GUI.hovered_node != GUI.focused_node) Stylesheet_ApplyPseudoStyleToNode(&GUI.stylesheet, GUI.hovered_node, PSEUDO_HOVER);
+        if (GUI.prev_hovered_node != NULL && GUI.prev_hovered_node != GUI.mouse_down_node && GUI.prev_hovered_node != GUI.focused_node) Stylesheet_ApplyStyleToNode(&GUI.stylesheet, GUI.prev_hovered_node, PSEUDO_NONE);
+        if (GUI.hovered_node != GUI.mouse_down_node && GUI.hovered_node != GUI.focused_node) {
+            printf("applying hover style to: %p\n", GUI.hovered_node);
+            Stylesheet_ApplyStyleToNode(&GUI.stylesheet, GUI.hovered_node, PSEUDO_HOVER);
+        }
         if (GUI.prev_hovered_node) SetNodeWindowRepaint(GUI.prev_hovered_node);
         SetNodeWindowRepaint(GUI.hovered_node);
     }

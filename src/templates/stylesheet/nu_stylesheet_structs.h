@@ -2,26 +2,22 @@
 
 typedef enum StylePseudoClass
 {
+    PSEUDO_NONE,
     PSEUDO_HOVER,
     PSEUDO_PRESS,
-    PSEUDO_FOCUS,
-    PSEUDO_NONE
+    PSEUDO_FOCUS
 } StylePseudoClass;
 
 #include "nu_stylesheet_tokens.h"
-
-typedef struct StyleItemKey {
-    int classID;
-    int idID;
-    int tag;
-    int pseudoClass;
-} StyleItemKey;
 
 typedef struct StyleItem
 {
     uint64 propertyFlags;
     int nextVariationIndex;
     int screenQueryIndex;
+    int hoverPseudoItemIndex;
+    int pressPseudoItemIndex;
+    int focusPseudoItemIndex;
     int imageHandle;
     uint16 preferredWidth, preferredHeight;
     uint16 minWidth, maxWidth, minHeight, maxHeight;
@@ -79,13 +75,11 @@ typedef struct Stylesheet_Scrollbar_Style
 typedef struct Stylesheet
 {
     Array items;
-    Array pseudoItems;
     Array variables;
     Array screenQueries;
     Array fonts;
-    LinearStringmap classIdMap;
-    LinearStringmap idIdMap;
-    Hashmap itemIndexMap;
+    LinearStringmap classIndexMap; // Maps class (str) -> item index
+    LinearStringmap idIndexMap;    // Maps id    (str) -> item index
     LinearStringmap fontNameIndexMap;
     Stylesheet_Scrollbar_Style scrollbarStyle;
 } Stylesheet;

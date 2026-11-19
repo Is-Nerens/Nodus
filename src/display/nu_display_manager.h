@@ -461,6 +461,17 @@ inline Window* DisplayManager_GetNodeWindow(DisplayManager* displayManager, Node
     return Windows_Window(&displayManager->windows, node->windowID);
 }
 
+Window* DisplayManager_GetWindowWithSDLWindow(DisplayManager* displayManager, SDL_Window* window)
+{
+    for (int i=0; i<Windows_Count(&displayManager->windows); i++) {
+        Window* win = Windows_WindowAt(&displayManager->windows, i);
+        if (win->sdlWin == window) {
+            return win;
+        }
+    }
+    return NULL;
+}
+
 inline SDL_Window* DisplayManager_GetNodeSDLWindow(DisplayManager* displayManager, Node* node)
 {
     Window* win = Windows_Window(&displayManager->windows, node->windowID);

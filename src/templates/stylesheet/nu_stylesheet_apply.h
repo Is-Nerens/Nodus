@@ -152,61 +152,65 @@ void Stylesheet_ApplyVariations(Stylesheet* ss, StyleItem* item, Node* node, int
     }
 }
 
-void Stylesheet_ApplyToNode(Styleshee* ss, Node* node)
-
 void Stylesheet_ApplyStyleToNode(Stylesheet* ss, Node* node, StylePseudoClass pseudo)
 {
+    if (node == NULL) return;
+
     // Get containing screen width
     Window* win = DisplayManager_GetNodeWindow(&GUI.displayManager, node);
     int screenWidth = win->screenWidth;
-
-    // Create keys
-    StyleItemKey tagItemKey = {
-        .classID = -1,
-        .idID = -1,
-        .tag = node->type,
-        .pseudoClass = -1
-    };
-    StyleItemKey classItemKey = {
-        .classID = -1,
-        .idID = -1,
-        .tag = -1,
-        .pseudoClass = -1
-    };
-    StyleItemKey idItemKey = {
-        .classID = -1,
-        .idID = -1,
-        .tag = -1,
-        .pseudoClass = -1
-    };
 
     // Get the style items
     StyleItem* defaultItem = Array_Get(&ss->items, 0);
     StyleItem* tagItem = NULL;
     StyleItem* classItem = NULL;
     StyleItem* idItem = NULL;
+    StyleItem* tagPseudoItem = NULL;
+    StyleItem* classPseudoItem = NULL;
+    StyleItem* idPseudoItem = NULL;
 
-    int* itemIndex = Hashmap_Get(&ss->itemIndexMap, &tagItemKey);
-    if (itemIndex) {
-        tagItem = Array_Get(&ss->items, *itemIndex);
+    // Get tag style items
+    int tagItemIndex = Stylesheet_TagStyleItemIndex(node->type, PSEUDO_NONE);
+    tagItem = Array_Get(&ss->items, tagItemIndex);
+    if (pseudo != PSEUDO_NONE) {
+        int itemIndex = Stylesheet_TagStyleItemIndex(node->type, pseudo);
+        tagPseudoItem = Array_Get(&ss->items, itemIndex);
     }
-    if (node->class) {
-        int* classID = LinearStringmap_Get(&ss->classIdMap, node->class);
-        if (classID) {
-            classItemKey.classID = *classID;
-            itemIndex = Hashmap_Get(&ss->itemIndexMap, &classItemKey);
-            if (itemIndex) {
-                classItem = Array_Get(&ss->items, *itemIndex);
+
+    // Get class style items
+    if (node->class)
+    {
+        uint32* itemIndex = LinearStringmap_Get(&ss->classIndexMap, node->class);
+        if (itemIndex)
+        {
+            classItem = Array_Get(&ss->items, *itemIndex);
+            if (pseudo == PSEUDO_HOVER) {
+                classPseudoItem = Array_Get(&ss->items, classItem->hoverPseudoItemIndex);
+            }
+            else if (pseudo == PSEUDO_PRESS) {
+                classPseudoItem = Array_Get(&ss->items, classItem->pressPseudoItemIndex);
+            }
+            else if (pseudo == PSEUDO_FOCUS) {
+                classPseudoItem = Array_Get(&ss->items, classItem->focusPseudoItemIndex);
             }
         }
     }
-    if (node->id) {
-        int* idID = LinearStringmap_Get(&ss->idIdMap, node->id);
-        if (idID) {
-            idItemKey.idID = *idID;
-            itemIndex = Hashmap_Get(&ss->itemIndexMap, &idItemKey);
-            if (itemIndex) {
-                idItem = Array_Get(&ss->items, *itemIndex);
+
+    // Get id style items
+    if (node->id)
+    {
+        int* itemIndex = LinearStringmap_Get(&ss->idIndexMap, node->id);
+        if (itemIndex)
+        {
+            idItem = Array_Get(&ss->items, *itemIndex);
+            if (pseudo == PSEUDO_HOVER) {
+                idPseudoItem = Array_Get(&ss->items, idItem->hoverPseudoItemIndex);
+            }
+            else if (pseudo == PSEUDO_PRESS) {
+                idPseudoItem = Array_Get(&ss->items, idItem->pressPseudoItemIndex);
+            }
+            else if (pseudo == PSEUDO_FOCUS) {
+                idPseudoItem = Array_Get(&ss->items, idItem->focusPseudoItemIndex);
             }
         }
     }
@@ -215,90 +219,43 @@ void Stylesheet_ApplyStyleToNode(Stylesheet* ss, Node* node, StylePseudoClass ps
     Stylesheet_ApplyStyleItemToNode(defaultItem, node);
     Stylesheet_ApplyVariations(ss, defaultItem, node, screenWidth);
     if (tagItem) {
+
+        // Base tag item
         Stylesheet_ApplyStyleItemToNode(tagItem, node);
         Stylesheet_ApplyVariations(ss, tagItem, node, screenWidth);
+
+        // Pseudo tag item
+        if (pseudo != PSEUDO_NONE) {
+            Stylesheet_ApplyStyleItemToNode(tagPseudoItem, node);
+            Stylesheet_ApplyVariations(ss, tagPseudoItem, node, screenWidth);
+        }
     }
     if (classItem) {
+
+        // Base class item
         Stylesheet_ApplyStyleItemToNode(classItem, node);
         Stylesheet_ApplyVariations(ss, classItem, node, screenWidth);
+
+        printf("applying class item. the pseudo is: %d\n", pseudo);
+
+        // Pseudo class item
+        if (classPseudoItem) {
+            printf("applying class pseudo item\n");
+            Stylesheet_ApplyStyleItemToNode(classPseudoItem, node);
+            Stylesheet_ApplyVariations(ss, classPseudoItem, node, screenWidth);
+        }
     }
     if (idItem) {
+
+        // Base id item
         Stylesheet_ApplyStyleItemToNode(idItem, node);
         Stylesheet_ApplyVariations(ss, idItem, node, screenWidth);
-    }
-}
 
-void Stylesheet_ApplyPseudoStyleToNode(Stylesheet* ss, Node* node, StylePseudoClass pseudo)
-{
-    if (node == NULL) return;
-    Stylesheet_ApplyStyleToNode(ss, node);
-
-    // Get containing screen width
-    Window* win = DisplayManager_GetNodeWindow(&GUI.displayManager, node);
-    int screenWidth = win->screenWidth;
-
-    // Create keys
-    StyleItemKey tagItemKey = {
-        .classID = -1,
-        .idID = -1,
-        .tag = node->type,
-        .pseudoClass = pseudo
-    };
-    StyleItemKey classItemKey = {
-        .classID = -1,
-        .idID = -1,
-        .tag = -1,
-        .pseudoClass = pseudo
-    };
-    StyleItemKey idItemKey = {
-        .classID = -1,
-        .idID = -1,
-        .tag = -1,
-        .pseudoClass = pseudo
-    };
-
-    // Get the style items
-    StyleItem* tagPseudoItem = NULL;
-    StyleItem* classPseudoItem = NULL;
-    StyleItem* idPseudoItem = NULL;
-
-    int* itemIndex = Hashmap_Get(&ss->itemIndexMap, &tagItemKey);
-    if (itemIndex) {
-        tagPseudoItem = Array_Get(&ss->items, *itemIndex);
-    }
-    if (node->class) {
-        int* classID = LinearStringmap_Get(&ss->classIdMap, node->class);
-        if (classID) {
-            classItemKey.classID = *classID;
-            itemIndex = Hashmap_Get(&ss->itemIndexMap, &classItemKey);
-            if (itemIndex) {
-                classPseudoItem = Array_Get(&ss->items, *itemIndex);
-            }
+        // Pseudo id item
+        if (idPseudoItem) {
+            Stylesheet_ApplyStyleItemToNode(idPseudoItem, node);
+            Stylesheet_ApplyVariations(ss, idPseudoItem, node, screenWidth);
         }
-    }
-    if (node->id) {
-        int* idID = LinearStringmap_Get(&ss->idIdMap, node->id);
-        if (idID) {
-            idItemKey.idID = *idID;
-            itemIndex = Hashmap_Get(&ss->itemIndexMap, &idItemKey);
-            if (itemIndex) {
-                idPseudoItem = Array_Get(&ss->items, *itemIndex);
-            }
-        }
-    }
-
-    // Apply pseudo style items in order
-    if (tagPseudoItem) {
-        Stylesheet_ApplyStyleItemToNode(tagPseudoItem, node);
-        Stylesheet_ApplyVariations(ss, tagPseudoItem, node, screenWidth);
-    }
-    if (classPseudoItem) {
-        Stylesheet_ApplyStyleItemToNode(classPseudoItem, node);
-        Stylesheet_ApplyVariations(ss, classPseudoItem, node, screenWidth);
-    }
-    if (idPseudoItem) {
-        Stylesheet_ApplyStyleItemToNode(idPseudoItem, node);
-        Stylesheet_ApplyVariations(ss, idPseudoItem, node, screenWidth);
     }
 }
 
@@ -308,7 +265,7 @@ int Stylesheet_ApplyToBranch(Stylesheet* stylesheet, Node* root)
     BreadthFirstSearch_Reset(&GUI.bfs, root);
     Node* node;
     while (BreadthFirstSearch_Next(&GUI.bfs, &node)) {
-        Stylesheet_ApplyStyleToNode(stylesheet, node);
+        Stylesheet_ApplyStyleToNode(stylesheet, node, PSEUDO_NONE);
     }
     return 1; // success
 }
@@ -319,7 +276,7 @@ int NU_Internal_Apply_Stylesheet(Stylesheet* stylesheet)
     BreadthFirstSearch_Reset(&GUI.bfs, GUI.tree.root);
     Node* node;
     while (BreadthFirstSearch_Next(&GUI.bfs, &node)) {
-        Stylesheet_ApplyStyleToNode(stylesheet, node);
+        Stylesheet_ApplyStyleToNode(stylesheet, node, PSEUDO_NONE);
     }
     return 1; // success
 }
@@ -338,7 +295,7 @@ struct StylesheetPartitionApplyJob {
 
 static void ApplyStylesDFS(Stylesheet* stylesheet, Node* node)
 {
-    Stylesheet_ApplyStyleToNode(stylesheet, node);
+    Stylesheet_ApplyStyleToNode(stylesheet, node, PSEUDO_NONE);
     Node* child = node->firstChild;
     while (child) {
         Node* next = child->nextSibling;

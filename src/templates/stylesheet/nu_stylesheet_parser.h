@@ -1724,8 +1724,6 @@ int Stylesheet_Parse(
     // State
     uint32 selectorIndexes[256];
     int selectorCount = 0;
-    int classIdAutoIncr = 0;
-    int idIdAutoIncr = 0;
     uint32 textRefIndex = 0;
     StyleTextRef* textRef;
 
@@ -1748,59 +1746,88 @@ int Stylesheet_Parse(
 
                     // Get class string
                     textRef = (StyleTextRef*)Array_Get(textRefs, textRefIndex++);
-                    char* src_class = &src[textRef->srcIndex];
+                    char* classStr = &src[textRef->srcIndex];
 
-                    StyleItemKey key;
-                    key.idID = -1;
-                    key.tag = -1;
-                    key.pseudoClass = -1;
+                    // Search for item belonging to class
+                    StyleItem* baseItem; int32 baseItemIndex;
+                    int32* itemIndexGet = LinearStringmap_Get(&ss->classIndexMap, classStr);
 
-                    // If regular class selector
+                    // Found
+                    if (itemIndexGet) {
+                        baseItemIndex = *itemIndexGet;
+                    }
+                    // Not found -> create it
+                    else {
+                        baseItem = Array_PushEmptyZero(&ss->items);
+                        baseItem->nextVariationIndex = -1;
+                        baseItem->screenQueryIndex = -1;
+                        baseItem->hoverPseudoItemIndex = -1;
+                        baseItem->pressPseudoItemIndex = -1;
+                        baseItem->focusPseudoItemIndex = -1;
+                        baseItemIndex = Array_Length(&ss->items) - 1;
+                        LinearStringmap_Set(&ss->classIndexMap, classStr, &baseItemIndex);
+                    }
+
+                    // If base class selector
                     if (next_token == STYLE_SELECTOR_COMMA || next_token == STYLE_SELECTOR_OPEN_BRACE)
                     {
+                        // Set advance
                         iAdvance = 1;
+
+                        // Add base item index to selector list
+                        selectorIndexes[selectorCount++] = baseItemIndex;
                     }
                     // If class pseudo selector
                     else if (next_token == STYLE_PSEUDO_COLON && i < tokens->size - 3)
                     {
+                        // Get pseudo class and set advance
+                        StylePseudoClass pseudoClass;
                         enum StylesheetToken following_token = TokenArray_Get(tokens, i+2);
                         enum StylesheetToken third_token = TokenArray_Get(tokens, i+3);
                         if (NU_Is_Pseudo_Token(following_token) && (third_token == STYLE_SELECTOR_COMMA || third_token == STYLE_SELECTOR_OPEN_BRACE)) {
-                            key.pseudoClass = Token_To_Pseudo_Class(following_token);
+                            pseudoClass = Token_To_Pseudo_Class(following_token);
                         }
                         else return 0;
                         iAdvance = 3;
+
+                        printf("pseudo class: %d\n", pseudoClass);
+
+                        // Get pseudo item index from base item if pseudo item exists
+                        int pseudoItemIndex = -1;
+                        if (pseudoClass == PSEUDO_HOVER) pseudoItemIndex = baseItem->hoverPseudoItemIndex;
+                        else if (pseudoClass == PSEUDO_PRESS) pseudoItemIndex = baseItem->pressPseudoItemIndex;
+                        else if (pseudoClass == PSEUDO_FOCUS) pseudoItemIndex = baseItem->focusPseudoItemIndex;
+                        else break;
+
+                        // Pseudo item does not exist yet -> create it
+                        if (pseudoItemIndex == -1) {
+
+                            printf("creating pseudo item\n");
+
+                            // Create item
+                            StyleItem* pseudoItem = Array_PushEmptyZero(&ss->items);
+                            pseudoItem->nextVariationIndex = -1;
+                            pseudoItem->screenQueryIndex = -1;
+                            pseudoItem->hoverPseudoItemIndex = -1;
+                            pseudoItem->pressPseudoItemIndex = -1;
+                            pseudoItem->focusPseudoItemIndex = -1;
+                            int32 itemIndex = Array_Length(&ss->items) - 1;
+
+                            // Give pseudo item index to base item
+                            if (pseudoClass == PSEUDO_HOVER) baseItem->hoverPseudoItemIndex = itemIndex;
+                            else if (pseudoClass == PSEUDO_PRESS) baseItem->pressPseudoItemIndex = itemIndex;
+                            else if (pseudoClass == PSEUDO_FOCUS) baseItem->focusPseudoItemIndex = itemIndex;
+
+                            // Add item index to selectors
+                            selectorIndexes[selectorCount++] = itemIndex;
+                        }
+                        else {
+                            printf("adding pseudo item to selectors\n");
+                            // Add item index to selectors
+                            selectorIndexes[selectorCount++] = pseudoItemIndex;
+                        }
                     }
                     else return 0;
-
-                    // Get or create class ID
-                    int* classID = LinearStringmap_Get(&ss->classIdMap, src_class);
-                    if (classID) {
-                        key.classID = *classID;
-                    }
-                    else {
-                        // Generate and add class ID
-                        int classID = classIdAutoIncr++;
-                        LinearStringmap_Set(&ss->classIdMap, src_class, &classID);
-                        key.classID = classID;
-                    }
-
-                    // Get or create Item
-                    int* itemIndex = Hashmap_Get(&ss->itemIndexMap, &key);
-                    if (itemIndex) {
-                        selectorIndexes[selectorCount] = *itemIndex;
-                    }
-                    else {
-                        // Create and add item
-                        StyleItem newItem;
-                        newItem.propertyFlags = 0;
-                        newItem.nextVariationIndex = -1;
-                        newItem.screenQueryIndex = -1;
-                        Array_Push(&ss->items, &newItem);
-                        selectorIndexes[selectorCount] = ss->items.size - 1;
-                        Hashmap_Set(&ss->itemIndexMap , &key, &selectorIndexes[selectorCount]);
-                    }
-                    selectorCount++;
                 }
                 else return 0;
                 break;
@@ -1812,59 +1839,83 @@ int Stylesheet_Parse(
 
                     // Get id string
                     textRef = (StyleTextRef*)Array_Get(textRefs, textRefIndex++);
-                    char* src_id = &src[textRef->srcIndex];
+                    char* idStr = &src[textRef->srcIndex];
 
-                    StyleItemKey key;
-                    key.classID = -1;
-                    key.tag = -1;
-                    key.pseudoClass = -1;
+                    // Search for item belonging to id
+                    StyleItem* baseItem; int32 baseItemIndex;
+                    int32* itemIndexGet = LinearStringmap_Get(&ss->idIndexMap, idStr);
+
+                    // Found
+                    if (itemIndexGet) {
+                        baseItemIndex = *itemIndexGet;
+                    }
+                    // Not found -> create it
+                    else {
+                        baseItem = Array_PushEmptyZero(&ss->items);
+                        baseItem->nextVariationIndex = -1;
+                        baseItem->screenQueryIndex = -1;
+                        baseItem->hoverPseudoItemIndex = -1;
+                        baseItem->pressPseudoItemIndex = -1;
+                        baseItem->focusPseudoItemIndex = -1;
+                        baseItemIndex = Array_Length(&ss->items) - 1;
+                        LinearStringmap_Set(&ss->idIndexMap, idStr, &baseItemIndex);
+                    }
 
                     // If regular id selector
                     if (next_token == STYLE_SELECTOR_COMMA || next_token == STYLE_SELECTOR_OPEN_BRACE)
                     {
+                        // Set advance
                         iAdvance = 1;
+
+                        // Add base item index to selector list
+                        selectorIndexes[selectorCount++] = baseItemIndex;
                     }
                     // If id pseudo selector
                     else if (next_token == STYLE_PSEUDO_COLON && i < tokens->size - 3)
                     {
+                        // Get pseudo class and set advance
+                        StylePseudoClass pseudoClass;
                         enum StylesheetToken following_token = TokenArray_Get(tokens, i+2);
                         enum StylesheetToken third_token = TokenArray_Get(tokens, i+3);
                         if (NU_Is_Pseudo_Token(following_token) && (third_token == STYLE_SELECTOR_COMMA || third_token == STYLE_SELECTOR_OPEN_BRACE)) {
-                            key.pseudoClass = Token_To_Pseudo_Class(following_token);
+                            pseudoClass = Token_To_Pseudo_Class(following_token);
                         }
                         else return 0;
                         iAdvance = 3;
+
+                        // Get pseudo item index from base item if pseudo item exists
+                        int pseudoItemIndex = -1;
+                        if (pseudoClass == PSEUDO_HOVER) pseudoItemIndex = baseItem->hoverPseudoItemIndex;
+                        else if (pseudoClass == PSEUDO_PRESS) pseudoItemIndex = baseItem->pressPseudoItemIndex;
+                        else if (pseudoClass == PSEUDO_FOCUS) pseudoItemIndex = baseItem->focusPseudoItemIndex;
+                        else break; // Failure case?
+
+                        // Pseudo item does not exist yet -> create it
+                        if (pseudoItemIndex == -1) {
+
+                            // Create item
+                            StyleItem* pseudoItem = Array_PushEmptyZero(&ss->items);
+                            pseudoItem->nextVariationIndex = -1;
+                            pseudoItem->screenQueryIndex = -1;
+                            pseudoItem->hoverPseudoItemIndex = -1;
+                            pseudoItem->pressPseudoItemIndex = -1;
+                            pseudoItem->focusPseudoItemIndex = -1;
+                            int32 itemIndex = Array_Length(&ss->items) - 1;
+
+                            // Give pseudo item index to base item
+                            if (pseudoClass == PSEUDO_HOVER) baseItem->hoverPseudoItemIndex = itemIndex;
+                            else if (pseudoClass == PSEUDO_HOVER) baseItem->pressPseudoItemIndex = itemIndex;
+                            else if (pseudoClass == PSEUDO_HOVER) baseItem->focusPseudoItemIndex = itemIndex;
+
+                            // Add item index to selectors
+                            selectorIndexes[selectorCount++] = itemIndex;
+                        }
+                        else {
+                            // Add item index to selectors
+                            selectorIndexes[selectorCount++] = pseudoItemIndex;
+                        }
                     }
                     else return 0;
-
-                    // Get or create id ID
-                    int* idID = LinearStringmap_Get(&ss->idIdMap, src_id);
-                    if (idID) {
-                        key.idID = *idID;
-                    }
-                    else {
-                        // Generate and add class ID
-                        int idID = idIdAutoIncr++;
-                        LinearStringmap_Set(&ss->idIdMap, src_id, &idID);
-                        key.idID = idID;
-                    }
-
-                    // Get or create Item
-                    int* itemIndex = Hashmap_Get(&ss->itemIndexMap, &key);
-                    if (itemIndex) {
-                        selectorIndexes[selectorCount] = *itemIndex;
-                    }
-                    else {
-                        // Create and add item
-                        StyleItem newItem;
-                        newItem.propertyFlags = 0;
-                        newItem.nextVariationIndex = -1;
-                        newItem.screenQueryIndex = -1;
-                        Array_Push(&ss->items, &newItem);
-                        selectorIndexes[selectorCount] = ss->items.size - 1;
-                        Hashmap_Set(&ss->itemIndexMap , &key, &selectorIndexes[selectorCount]);
-                    }
-                    selectorCount++;
                 }
                 else return 0;
                 break;
@@ -2028,11 +2079,8 @@ int Stylesheet_Parse(
                     {
                         enum StylesheetToken next_token = TokenArray_Get(tokens, i+1);
 
-                        StyleItemKey key;
-                        key.classID = -1;
-                        key.idID = -1;
-                        key.tag = NU_Token_To_Tag(token);
-                        key.pseudoClass = -1;
+                        int tag = NU_Token_To_Tag(token);
+                        StylePseudoClass pseudoClass = PSEUDO_NONE;
 
                         // Regular tag item key
                         if (next_token == STYLE_SELECTOR_COMMA || next_token == STYLE_SELECTOR_OPEN_BRACE)
@@ -2046,7 +2094,7 @@ int Stylesheet_Parse(
                             enum StylesheetToken third_token = TokenArray_Get(tokens, i+3);
                             if (NU_Is_Pseudo_Token(following_token) && (third_token == STYLE_SELECTOR_COMMA || third_token == STYLE_SELECTOR_OPEN_BRACE))
                             {
-                                key.pseudoClass = Token_To_Pseudo_Class(following_token);
+                                pseudoClass = Token_To_Pseudo_Class(following_token);
                             }
                             else return 0;
                             iAdvance = 3;
@@ -2054,21 +2102,9 @@ int Stylesheet_Parse(
                         else return 0;
 
                         // If style item exists
-                        int* itemIndex = Hashmap_Get(&ss->itemIndexMap, &key);
-                        if (itemIndex) {
-                            selectorIndexes[selectorCount] = *itemIndex;
-                        }
-                        // Create style item
-                        else {
-                            // Create and add item
-                            StyleItem newItem;
-                            newItem.propertyFlags = 0;
-                            newItem.nextVariationIndex = -1;
-                            newItem.screenQueryIndex = -1;
-                            Array_Push(&ss->items, &newItem);
-                            selectorIndexes[selectorCount] = ss->items.size - 1;
-                            Hashmap_Set(&ss->itemIndexMap , &key, &selectorIndexes[selectorCount]);
-                        }
+                        int itemIndex = Stylesheet_TagStyleItemIndex(tag, pseudoClass);
+                        StyleItem* tagItem = Array_Get(&ss->items, itemIndex);
+                        selectorIndexes[selectorCount] = itemIndex;
                         selectorCount++;
                     }
                     else return 0;

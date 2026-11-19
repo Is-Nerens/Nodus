@@ -55,6 +55,21 @@ void* Array_PushEmpty(Array* array)
     return dst;
 }
 
+void* Array_PushEmptyZero(Array* array)
+{
+    if (array->size >= array->capacity) {
+        array->capacity *= 2;
+        array->data = realloc(array->data, array->capacity * array->elementSize);
+        if (!array->data) {
+            return NULL;
+        }
+    }
+    char* dst = (char*)array->data + (array->size * array->elementSize);
+    memset(dst, 0, array->elementSize);
+    array->size++;
+    return dst;
+}
+
 void Array_DeleteBackfill(Array* array, size_t index)
 {
     if (index == array->size - 1) {

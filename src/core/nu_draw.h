@@ -397,8 +397,8 @@ void Add_ScrollbarRenderData(
 void NU_GenerateDrawlists()
 {
     // Clear drawlists
-    for (int i=0; i<Winalloc_Count(&GUI.displayManager.winalloc); i++) {
-        Window* win = Winalloc_WindowAt(&GUI.displayManager.winalloc, i);
+    for (int i=0; i<Windows_Count(&GUI.displayManager.windows); i++) {
+        Window* win = Windows_WindowAt(&GUI.displayManager.windows, i);
         Array_Clear(&win->drawlist.drawNodes);
         Array_Clear(&win->drawlist.clippedDrawNodes);
         Array_Clear(&win->drawlist.canvasNodes);
@@ -703,11 +703,12 @@ void NU_Draw()
     Node* focusedInputNode = NULL;
 
     // For each window
-    for (uint32 i=0; i<Winalloc_Count(&GUI.displayManager.winalloc); i++)
+    for (uint32 i=0; i<Windows_Count(&GUI.displayManager.windows); i++)
     {
         // Get the window
-        Window* win = Winalloc_WindowAt(&GUI.displayManager.winalloc, i);
-        if (!win->repaint || win->waitingPresent) continue;
+        Window* win = Windows_WindowAt(&GUI.displayManager.windows, i);
+        int windowID = Windows_IDAt(&GUI.displayManager.windows, i);
+        if (!win->repaint || win->waitingToPresent) continue;
 
         // Get window dimensions and drawlist
         NuWindowDrawlist* drawList = &win->drawlist;
@@ -957,14 +958,10 @@ void NU_Draw()
         // End frame -> stop recording commands for the window frame buffer
         Window_EndFrame(win, &GUI.displayManager);
         win->repaint = false;
-        win->waitingPresent = true;
-
-        // Add window to the present set
-        int windowID = Winalloc_IDAt(&GUI.displayManager.winalloc, i);
-        Set_Insert(&GUI.displayManager.presetWindowIds, &windowID);
-        GUI.displayManager.setCount = Set_Count(&GUI.displayManager.presetWindowIds);
 
         // Present
         Window_Present(win, &GUI.displayManager);
+        GUI.displayManager.numWindowsWaitingToPresent++;
+        win->waitingToPresent = true;
     }
 }

@@ -82,49 +82,45 @@ void NU_Parse_Property(const enum NU_XML_TOKEN token, Node* currentNode, char* p
 
         // Set layout direction
         case LAYOUT_DIRECTION_PROPERTY:
-            if (c == 'v') {
+            if (stringEquals(ptext, "vertical")) {
                 currentNode->layoutFlags |= LAYOUT_VERTICAL;
                 currentNode->overrideStyleFlags |= PROPERTY_FLAG_LAYOUT_DIR;
             }
-            else if (c == 'h') {
+            else if (stringEquals(ptext, "horizontal")) {
                 currentNode->overrideStyleFlags |= PROPERTY_FLAG_LAYOUT_DIR;
             }
             break;
 
         // Set growth
         case GROW_PROPERTY:
-            switch(c)
-            {
-                case 'v':
-                    currentNode->overrideStyleFlags |= PROPERTY_FLAG_GROW;
-                    currentNode->layoutFlags |= GROW_VERTICAL;
-                    break;
-                case 'h':
-                    currentNode->overrideStyleFlags |= PROPERTY_FLAG_GROW;
-                    currentNode->layoutFlags |= GROW_HORIZONTAL;
-                    break;
-                case 'b':
-                    currentNode->overrideStyleFlags |= PROPERTY_FLAG_GROW;
-                    currentNode->layoutFlags |= (GROW_HORIZONTAL | GROW_VERTICAL);
-                default:
-                    if (stringEquals(ptext, "none")) {
-                        currentNode->overrideStyleFlags |= PROPERTY_FLAG_GROW;
-                        currentNode->layoutFlags &= ~(GROW_HORIZONTAL | GROW_VERTICAL);
-                    }
-                    break;
+            if (stringEquals(ptext, "vertical")) {
+                currentNode->overrideStyleFlags |= PROPERTY_FLAG_GROW;
+                currentNode->layoutFlags |= GROW_VERTICAL;
+            }
+            else if (stringEquals(ptext, "horizontal")) {
+                currentNode->overrideStyleFlags |= PROPERTY_FLAG_GROW;
+                currentNode->layoutFlags |= GROW_HORIZONTAL;
+            }
+            else if (stringEquals(ptext, "both")) {
+                currentNode->overrideStyleFlags |= PROPERTY_FLAG_GROW;
+                currentNode->layoutFlags |= (GROW_HORIZONTAL | GROW_VERTICAL);
+            }
+            else if (stringEquals(ptext, "none")) {
+                currentNode->overrideStyleFlags |= PROPERTY_FLAG_GROW;
+                currentNode->layoutFlags &= ~(GROW_HORIZONTAL | GROW_VERTICAL);
             }
             break;
 
         // Set overflow behaviour
         case OVERFLOW_V_PROPERTY:
-            if (c == 's') {
+            if (stringEquals(ptext, "scroll")) {
                 currentNode->overrideStyleFlags |= PROPERTY_FLAG_VERTICAL_SCROLL;
                 currentNode->layoutFlags |= OVERFLOW_VERTICAL_SCROLL;
             }
             break;
 
         case OVERFLOW_H_PROPERTY:
-            if (c == 's') {
+            if (stringEquals(ptext, "scroll")) {
                 currentNode->overrideStyleFlags |= PROPERTY_FLAG_HORIZONTAL_SCROLL;
                 currentNode->layoutFlags |= OVERFLOW_HORIZONTAL_SCROLL;
             }
@@ -132,7 +128,7 @@ void NU_Parse_Property(const enum NU_XML_TOKEN token, Node* currentNode, char* p
 
         // Relative/Absolute positiong
         case POSITION_PROPERTY:
-            if (strcmp(ptext, "absolute") == 0) {
+            if (stringEquals(ptext, "absolute")) {
                 currentNode->overrideStyleFlags |= PROPERTY_FLAG_POSITION_ABSOLUTE;
                 currentNode->layoutFlags |= POSITION_ABSOLUTE;
             }
@@ -140,7 +136,7 @@ void NU_Parse_Property(const enum NU_XML_TOKEN token, Node* currentNode, char* p
 
         // Show/hide
         case HIDE_PROPERTY:
-            if (strcmp(ptext, "true") == 0) {
+            if (stringEquals(ptext, "true")) {
                 currentNode->overrideStyleFlags |= PROPERTY_FLAG_HIDDEN;
                 currentNode->layoutFlags |= HIDDEN;
             }
@@ -148,7 +144,7 @@ void NU_Parse_Property(const enum NU_XML_TOKEN token, Node* currentNode, char* p
 
         // Ignore mouse
         case IGNORE_MOUSE_PROPERTY:
-            if (strcmp(ptext, "true") == 0) {
+            if (stringEquals(ptext, "true")) {
                 currentNode->overrideStyleFlags |= PROPERTY_FLAG_IGNORE_MOUSE;
                 currentNode->layoutFlags |= IGNORE_MOUSE;
             }
@@ -177,11 +173,11 @@ void NU_Parse_Property(const enum NU_XML_TOKEN token, Node* currentNode, char* p
                     currentNode->special.image.widthDimType = IMAGE_DIM_SPECIFIC;
                 }
             }
-            else if (currentNode->type == NU_TYPE_IMAGE && strcmp(ptext, "image") == 0) {
+            else if (currentNode->type == NU_TYPE_IMAGE && stringEquals(ptext, "image")) {
                 currentNode->overrideStyleFlags |= PROPERTY_FLAG_IMAGE_WIDTH_DIM;
                 currentNode->special.image.widthDimType = IMAGE_DIM_INTRINSIC;
             }
-            else if (currentNode->type == NU_TYPE_IMAGE && strcmp(ptext, "aspect") == 0) {
+            else if (currentNode->type == NU_TYPE_IMAGE && stringEquals(ptext, "aspect")) {
                 currentNode->overrideStyleFlags |= PROPERTY_FLAG_IMAGE_WIDTH_DIM;
                 currentNode->special.image.widthDimType = IMAGE_DIM_ASPECT;
             }
@@ -219,11 +215,11 @@ void NU_Parse_Property(const enum NU_XML_TOKEN token, Node* currentNode, char* p
                     currentNode->special.image.heightDimType = IMAGE_DIM_SPECIFIC;
                 }
             }
-            else if (currentNode->type == NU_TYPE_IMAGE && strcmp(ptext, "image") == 0) {
+            else if (currentNode->type == NU_TYPE_IMAGE && stringEquals(ptext, "image")) {
                 currentNode->overrideStyleFlags |= PROPERTY_FLAG_IMAGE_HEIGHT_DIM;
                 currentNode->special.image.heightDimType = IMAGE_DIM_INTRINSIC;
             }
-            else if (currentNode->type == NU_TYPE_IMAGE && strcmp(ptext, "aspect") == 0) {
+            else if (currentNode->type == NU_TYPE_IMAGE && stringEquals(ptext, "aspect")) {
                 currentNode->overrideStyleFlags |= PROPERTY_FLAG_IMAGE_HEIGHT_DIM;
                 currentNode->special.image.heightDimType = IMAGE_DIM_ASPECT;
             }
@@ -252,13 +248,13 @@ void NU_Parse_Property(const enum NU_XML_TOKEN token, Node* currentNode, char* p
 
         // Set horizontal alignment
         case ALIGN_H_PROPERTY:
-            if (strcmp(ptext, "left") == 0) {
+            if (stringEquals(ptext, "left")) {
                 currentNode->overrideStyleFlags |= PROPERTY_FLAG_ALIGN_H;
                 currentNode->horizontalAlignment = 0;
-            } else if (strcmp(ptext, "center") == 0) {
+            } else if (stringEquals(ptext, "center")) {
                 currentNode->overrideStyleFlags |= PROPERTY_FLAG_ALIGN_H;
                 currentNode->horizontalAlignment = 1;
-            } else if (strcmp(ptext, "right") == 0) {
+            } else if (stringEquals(ptext, "right")) {
                 currentNode->overrideStyleFlags |= PROPERTY_FLAG_ALIGN_H;
                 currentNode->horizontalAlignment = 2;
             }
@@ -266,13 +262,13 @@ void NU_Parse_Property(const enum NU_XML_TOKEN token, Node* currentNode, char* p
 
         // Set vertical alignment
         case ALIGN_V_PROPERTY:
-            if (strcmp(ptext, "top") == 0) {
+            if (stringEquals(ptext, "top")) {
                 currentNode->overrideStyleFlags |= PROPERTY_FLAG_ALIGN_V;
                 currentNode->verticalAlignment = 0;
-            } else if (strcmp(ptext, "center") == 0) {
+            } else if (stringEquals(ptext, "center")) {
                 currentNode->overrideStyleFlags |= PROPERTY_FLAG_ALIGN_V;
                 currentNode->verticalAlignment = 1;
-            } else if (strcmp(ptext, "bottom") == 0) {
+            } else if (stringEquals(ptext, "bottom")) {
                 currentNode->overrideStyleFlags |= PROPERTY_FLAG_ALIGN_V;
                 currentNode->verticalAlignment = 2;
             }
@@ -280,13 +276,13 @@ void NU_Parse_Property(const enum NU_XML_TOKEN token, Node* currentNode, char* p
 
         // Set horizontal text alignment
         case TEXT_ALIGN_H_PROPERTY:
-            if (strcmp(ptext, "left") == 0) {
+            if (stringEquals(ptext, "left")) {
                 currentNode->overrideStyleFlags |= PROPERTY_FLAG_TEXT_ALIGN_H;
                 currentNode->horizontalTextAlignment = 0;
-            } else if (strcmp(ptext, "center") == 0) {
+            } else if (stringEquals(ptext, "center")) {
                 currentNode->overrideStyleFlags |= PROPERTY_FLAG_TEXT_ALIGN_H;
                 currentNode->horizontalTextAlignment = 1;
-            } else if (strcmp(ptext, "right") == 0) {
+            } else if (stringEquals(ptext, "right")) {
                 currentNode->overrideStyleFlags |= PROPERTY_FLAG_TEXT_ALIGN_H;
                 currentNode->horizontalTextAlignment = 2;
             }
@@ -294,13 +290,13 @@ void NU_Parse_Property(const enum NU_XML_TOKEN token, Node* currentNode, char* p
 
         // Set vertical text alignment
         case TEXT_ALIGN_V_PROPERTY:
-            if (strcmp(ptext, "top") == 0) {
+            if (stringEquals(ptext, "top")) {
                 currentNode->overrideStyleFlags |= PROPERTY_FLAG_TEXT_ALIGN_V;
                 currentNode->verticalTextAlignment = 0;
-            } else if (strcmp(ptext, "center") == 0) {
+            } else if (stringEquals(ptext, "center")) {
                 currentNode->overrideStyleFlags |= PROPERTY_FLAG_TEXT_ALIGN_V;
                 currentNode->verticalTextAlignment = 1;
-            } else if (strcmp(ptext, "bottom") == 0) {
+            } else if (stringEquals(ptext, "bottom")) {
                 currentNode->overrideStyleFlags |= PROPERTY_FLAG_TEXT_ALIGN_V;
                 currentNode->verticalTextAlignment = 2;
             }
@@ -350,7 +346,7 @@ void NU_Parse_Property(const enum NU_XML_TOKEN token, Node* currentNode, char* p
                 currentNode->base.backgroundR = color.r;
                 currentNode->base.backgroundG = color.g;
                 currentNode->base.backgroundB = color.b;
-            } else if (strcmp(ptext, "none") == 0) {
+            } else if (stringEquals(ptext, "none")) {
                 currentNode->overrideStyleFlags |= PROPERTY_FLAG_HIDE_BACKGROUND;
                 currentNode->layoutFlags |= HIDE_BACKGROUND;
             }
@@ -537,34 +533,28 @@ void NU_Parse_Property(const enum NU_XML_TOKEN token, Node* currentNode, char* p
 
         case IMAGE_REPEAT_PROPERTY: {
             if (currentNode->type != NU_TYPE_IMAGE) break;
-            switch (c) {
-                case 'h': {
-                    currentNode->overrideStyleFlags |= PROPERTY_FLAG_IMAGE_REPEAT;
-                    currentNode->special.image.repeat = IMAGE_REPEAT_HORIZONTAL;
-                    break;
-                }
-                case 'v': {
-                    currentNode->overrideStyleFlags |= PROPERTY_FLAG_IMAGE_REPEAT;
-                    currentNode->special.image.repeat = IMAGE_REPEAT_VERTICAL;
-                    break;
-                }
-                case 'b': {
-                    currentNode->overrideStyleFlags |= PROPERTY_FLAG_IMAGE_REPEAT;
-                    currentNode->special.image.repeat = IMAGE_REPEAT_BOTH;
-                    break;
-                }
-                default: break;
+            if (stringEquals(ptext, "horizontal")) {
+                currentNode->overrideStyleFlags |= PROPERTY_FLAG_IMAGE_REPEAT;
+                currentNode->special.image.repeat = IMAGE_REPEAT_HORIZONTAL;
+            }
+            else if (stringEquals(ptext, "vertical")) {
+                currentNode->overrideStyleFlags |= PROPERTY_FLAG_IMAGE_REPEAT;
+                currentNode->special.image.repeat = IMAGE_REPEAT_VERTICAL;
+            }
+            else if (stringEquals(ptext, "both")) {
+                currentNode->overrideStyleFlags |= PROPERTY_FLAG_IMAGE_REPEAT;
+                currentNode->special.image.repeat = IMAGE_REPEAT_BOTH;
             }
             break;
         }
 
         case IMAGE_FILTER_PROPERTY: {
             if (currentNode->type != NU_TYPE_IMAGE) break;
-            if (strcmp(ptext, "linear") == 0) {
+            if (stringEquals(ptext, "linear")) {
                 currentNode->overrideStyleFlags |= PROPERTY_FLAG_IMAGE_FILTER;
                 currentNode->special.image.filter = IMAGE_FILTER_LINEAR;
             }
-            else if (strcmp(ptext, "nearest") == 0) {
+            else if (stringEquals(ptext, "nearest")) {
                 currentNode->overrideStyleFlags |= PROPERTY_FLAG_IMAGE_FILTER;
                 currentNode->special.image.filter = IMAGE_FILTER_NEAREST;
             }
@@ -576,7 +566,7 @@ void NU_Parse_Property(const enum NU_XML_TOKEN token, Node* currentNode, char* p
             if (currentNode->type != NU_TYPE_INPUT) break;
             currentNode->overrideStyleFlags |= PROPERTY_FLAG_INPUT_TYPE;
             InputText* inputText = Container_Get(&GUI.textInputs, currentNode->special.input.textInputHandle);
-            if (strcmp(ptext, "number") == 0) {
+            if (stringEquals(ptext, "number")) {
                 inputText->type = 1;
             } else {
                 inputText->type = 0;

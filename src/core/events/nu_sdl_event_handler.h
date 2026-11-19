@@ -49,13 +49,13 @@ bool HandleEvent(SDL_Event* event)
         // --- Window display scale changed -> redraw window content --------------------------
         // ------------------------------------------------------------------------------------
         case SDL_EVENT_WINDOW_DISPLAY_SCALE_CHANGED: {
-            SDL_Window* window = SDL_GetWindowFromID(event->window.windowID);
+            SDL_Window* sdlWindow = SDL_GetWindowFromID(event->window.windowID);
             float displayScale = SDL_GetDisplayContentScale(event->window.windowID);
 
             // Get the window node and corresponding Window
-            Node* windowNode = GetWindowNodeFromSDL_Window(&GUI.displayManager, window);
-            Window* win = DisplayManager_GetNodeWindow(&GUI.displayManager, windowNode);
-            win->repaint = true;
+            Node* windowNode = DisplayManager_GetWindowNodeWithSDLWindow(&GUI.displayManager, sdlWindow);
+            Window* window = DisplayManager_GetNodeWindow(&GUI.displayManager, windowNode);
+            SetWindowRepaint(window);
             break;
         }
         // ------------------------------------------------------------------------------------
@@ -64,7 +64,7 @@ bool HandleEvent(SDL_Event* event)
         case SDL_EVENT_WINDOW_DISPLAY_CHANGED: {
 
             SDL_Window* sdlWin = SDL_GetWindowFromID(event->window.windowID);
-            Node* windowNode = GetWindowNodeFromSDL_Window(&GUI.displayManager, sdlWin);
+            Node* windowNode = DisplayManager_GetWindowNodeWithSDLWindow(&GUI.displayManager, sdlWin);
             Window* window = DisplayManager_GetNodeWindow(&GUI.displayManager, windowNode);
 
             int prevScreenWidth = window->screenWidth;
@@ -74,7 +74,7 @@ bool HandleEvent(SDL_Event* event)
             // This allows screen queries to be re-evaluated
             if (prevScreenWidth != window->screenWidth) {
                 Stylesheet_ApplyToBranch(&GUI.stylesheet, windowNode);
-                window->repaint = true;
+                SetWindowRepaint(window);
             }
 
             break;

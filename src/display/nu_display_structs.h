@@ -33,10 +33,28 @@ typedef struct {
     int screenHeight;
     float renderScale;
     bool repaint;
-    bool waitingPresent;
+    bool waitingToPresent;
 } Window;
 
-#include "nu_window_allocator.h"
+#include "nu_windows.h"
+
+struct DisplayManagerPipelines
+{
+    NuPipeline borderRectPipeline;
+    NuPipeline imagePipeline;
+    NuPipeline monoTextPipeline;
+    NuPipeline clippedMonoTextPipeline;
+    NuPipeline subpixelTextPipeline;
+    NuPipeline clippedSubpixelTextPipeline;
+    NuPipeline vertexRGBPipeline;
+    NuPipeline borderRectPipelineMSAA4X;
+    NuPipeline imagePipelineMSAA4X;
+    NuPipeline monoTextPipelineMSAA4X;
+    NuPipeline clippedMonoTextPipelineMSAA4X;
+    NuPipeline subpixelTextPipelineMSAA4X;
+    NuPipeline clippedSubpixelTextPipelineMSAA4X;
+    NuPipeline vertexRGBPipelineMSAA4X;
+};
 
 typedef struct DisplayManager
 {
@@ -54,39 +72,13 @@ typedef struct DisplayManager
     PFN_vkWaitForPresentKHR vkWaitForPresentKHR;
     VkBool32 presentWaitSupported;
 
+    struct DisplayManagerPipelines pipelines;
+
     // GPU arena allocator
     ArenaAllocatorGPU gpuArenaAlloc;
 
-    // Render pipelines
-    NuPipeline borderRectPipeline;
-    NuPipeline imagePipeline;
-    NuPipeline monoTextPipeline;
-    NuPipeline clippedMonoTextPipeline;
-    NuPipeline subpixelTextPipeline;
-    NuPipeline clippedSubpixelTextPipeline;
-    NuPipeline vertexRGBPipeline;
-    NuPipeline borderRectPipelineMSAA4X;
-    NuPipeline imagePipelineMSAA4X;
-    NuPipeline monoTextPipelineMSAA4X;
-    NuPipeline clippedMonoTextPipelineMSAA4X;
-    NuPipeline subpixelTextPipelineMSAA4X;
-    NuPipeline clippedSubpixelTextPipelineMSAA4X;
-    NuPipeline vertexRGBPipelineMSAA4X;
-
     // Nodus stuff
-    Winalloc winalloc;
-    Container displays;
-
-    // Presentation stuff
-    Set presetWindowIds;
-    int setCount;
-    SDL_Mutex* windowSetMu;
-    SDL_Condition* setNotEmptyCondition;
-    SDL_Semaphore* paceSemaphore;
-    int8 paceWindowID;
-
-
-
+    Windows windows;
     SDL_Window* recycledSDLWindows[NU_RECYCLED_WINDOWS_CAPACITY];
     int recycledSDLWindowCount;
     Array absoluteRootNodes;
@@ -94,4 +86,6 @@ typedef struct DisplayManager
     Node* hoveredWindowNode;
     SDL_Window* lastClickedWindow;
     int8 rootWindowID;
+    bool uiChanged;
+    uint8 numWindowsWaitingToPresent;
 } DisplayManager;

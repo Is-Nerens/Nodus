@@ -1,11 +1,10 @@
 #pragma once
 
-#include "nu_window_allocator.h"
 #include "vulkan/vulkan_core.h"
 #include <display/nu_display_structs.h>
 #include <display/nu_gpu_arena_alloc.h>
 #include <display/nu_window.h>
-#include <display/nu_window_allocator.c>
+#include <display/nu_windows.c>
 
 int DisplayManager_CreateVulkanDevices(DisplayManager* displayManager)
 {
@@ -296,22 +295,16 @@ int DisplayManager_Init(DisplayManager* displayManager)
     NU_CreateQuadBuffer(displayManager->physicalDevice, displayManager->device);
 
     // Init render pipelines to NULL
-    displayManager->borderRectPipeline.handle = VK_NULL_HANDLE;
+    displayManager->pipelines.borderRectPipeline.handle = VK_NULL_HANDLE;
 
     // Init datastructures
+    displayManager->uiChanged = true;
+    displayManager->numWindowsWaitingToPresent = 0;
     displayManager->recycledSDLWindowCount = 0;
     displayManager->lastClickedWindow = NULL;
     Array_Init(&displayManager->absoluteRootNodes, sizeof(Node*), 8);
     Hashmap_Init(&displayManager->clipMap, sizeof(Node*), sizeof(NU_ClipBounds), 16);
-    Winalloc_Init(&displayManager->winalloc);
-
-    // Init presentation stuff
-    Set_Init(&displayManager->presetWindowIds, sizeof(int8), 16);
-    displayManager->setCount = 0;
-    displayManager->windowSetMu = SDL_CreateMutex();
-    displayManager->setNotEmptyCondition = SDL_CreateCondition();
-    displayManager->paceSemaphore = SDL_CreateSemaphore(1);
-    displayManager->paceWindowID = -1;
+    Windows_Init(&displayManager->windows);
 
     // Success
     return 1;
@@ -328,27 +321,27 @@ void DisplayManager_Free(DisplayManager* displayManager)
     ArenaAllocatorGPU_Destroy(&displayManager->gpuArenaAlloc);
 
     // 3. Destroy render pipelines
-    NU_DestroyPipeline(displayManager, &displayManager->borderRectPipeline);
-    NU_DestroyPipeline(displayManager, &displayManager->imagePipeline);
-    NU_DestroyPipeline(displayManager, &displayManager->monoTextPipeline);
-    NU_DestroyPipeline(displayManager, &displayManager->clippedMonoTextPipeline);
-    NU_DestroyPipeline(displayManager, &displayManager->subpixelTextPipeline);
-    NU_DestroyPipeline(displayManager, &displayManager->clippedSubpixelTextPipeline);
-    NU_DestroyPipeline(displayManager, &displayManager->vertexRGBPipeline);
-    NU_DestroyPipeline(displayManager, &displayManager->borderRectPipelineMSAA4X);
-    NU_DestroyPipeline(displayManager, &displayManager->imagePipelineMSAA4X);
-    NU_DestroyPipeline(displayManager, &displayManager->monoTextPipelineMSAA4X);
-    NU_DestroyPipeline(displayManager, &displayManager->clippedMonoTextPipelineMSAA4X);
-    NU_DestroyPipeline(displayManager, &displayManager->subpixelTextPipelineMSAA4X);
-    NU_DestroyPipeline(displayManager, &displayManager->clippedSubpixelTextPipelineMSAA4X);
-    NU_DestroyPipeline(displayManager, &displayManager->vertexRGBPipelineMSAA4X);
+    NU_DestroyPipeline(displayManager, &displayManager->pipelines.borderRectPipeline);
+    NU_DestroyPipeline(displayManager, &displayManager->pipelines.imagePipeline);
+    NU_DestroyPipeline(displayManager, &displayManager->pipelines.monoTextPipeline);
+    NU_DestroyPipeline(displayManager, &displayManager->pipelines.clippedMonoTextPipeline);
+    NU_DestroyPipeline(displayManager, &displayManager->pipelines.subpixelTextPipeline);
+    NU_DestroyPipeline(displayManager, &displayManager->pipelines.clippedSubpixelTextPipeline);
+    NU_DestroyPipeline(displayManager, &displayManager->pipelines.vertexRGBPipeline);
+    NU_DestroyPipeline(displayManager, &displayManager->pipelines.borderRectPipelineMSAA4X);
+    NU_DestroyPipeline(displayManager, &displayManager->pipelines.imagePipelineMSAA4X);
+    NU_DestroyPipeline(displayManager, &displayManager->pipelines.monoTextPipelineMSAA4X);
+    NU_DestroyPipeline(displayManager, &displayManager->pipelines.clippedMonoTextPipelineMSAA4X);
+    NU_DestroyPipeline(displayManager, &displayManager->pipelines.subpixelTextPipelineMSAA4X);
+    NU_DestroyPipeline(displayManager, &displayManager->pipelines.clippedSubpixelTextPipelineMSAA4X);
+    NU_DestroyPipeline(displayManager, &displayManager->pipelines.vertexRGBPipelineMSAA4X);
 
     // 4. Destroy quad buffer
     NU_DestroyQuadBuffer(displayManager->device);
 
     // 5. Destroy per-window Vulkan objects, then SDL window and free memory
-    for (int i=0; i<Winalloc_Count(&displayManager->winalloc); i++) {
-        Window* win = Winalloc_WindowAt(&displayManager->winalloc, i);
+    for (int i=0; i<Windows_Count(&displayManager->windows); i++) {
+        Window* win = Windows_WindowAt(&displayManager->windows, i);
         Window_DestroyVulkanDevices(win, displayManager);
         if (win->sdlWin) SDL_DestroyWindow(win->sdlWin);
         Array_Free(&win->drawlist.drawNodes);
@@ -369,12 +362,6 @@ void DisplayManager_Free(DisplayManager* displayManager)
     Array_Free(&displayManager->absoluteRootNodes);
     Hashmap_Free(&displayManager->clipMap);
     displayManager->hoveredWindowNode = NULL;
-
-    // 9. Free presentation stuff
-    Set_Free(&displayManager->presetWindowIds);
-    SDL_DestroyMutex(displayManager->windowSetMu);
-    SDL_DestroyCondition(displayManager->setNotEmptyCondition);
-    SDL_DestroySemaphore(displayManager->paceSemaphore);
 }
 
 int DisplayManager_CreateWindow(DisplayManager* displayManager, Node* node, const char* title, int width, int height)
@@ -390,42 +377,41 @@ int DisplayManager_CreateWindow(DisplayManager* displayManager, Node* node, cons
     }
 
     // Allocate a window
-    int8 windowID = Winalloc_AddWindow(&displayManager->winalloc);
+    int8 windowID = Windows_AddWindow(&displayManager->windows);
     if (windowID == -1) { // Allocation failed (too many windows)
         return 0;
     }
 
-    Window* newWindow = Winalloc_Window(&displayManager->winalloc, windowID);
+    Window* newWindow = Windows_Window(&displayManager->windows, windowID);
     newWindow->sdlWin = sdlWin;
     newWindow->windowNode = node;
-    printf("created window with node: %p\n", node);
     newWindow->repaint = true;
-    newWindow->waitingPresent = false;
+    newWindow->waitingToPresent = false;
     Window_UpdateRenderScaleAndDisplaySize(newWindow);
 
     // Create a swapchain, framebuffer and renderpass
     if (!Window_CreateVulkanDevices(newWindow, displayManager)) return 0;
 
     // Create render pipelines here lazily if not created already
-    if (displayManager->borderRectPipeline.handle == VK_NULL_HANDLE) {
+    if (displayManager->pipelines.borderRectPipeline.handle == VK_NULL_HANDLE) {
 
         // Non-MSAA
-        NU_CreateBorderRectPipeline(displayManager, &displayManager->borderRectPipeline, false);
-        NU_CreateVertexRGBPipeline(displayManager, &displayManager->vertexRGBPipeline, false);
-        NU_CreateImagePipeline(displayManager, &displayManager->imagePipeline, false);
-        NU_CreateMonoTextPipeline(displayManager, &displayManager->monoTextPipeline, false);
-        NU_CreateSubpixelTextPipeline(displayManager, &displayManager->subpixelTextPipeline, false);
-        NU_CreateClippedMonoTextPipeline(displayManager, &displayManager->clippedMonoTextPipeline, false);
-        NU_CreateClippedSubpixelTextPipeline(displayManager, &displayManager->clippedSubpixelTextPipeline, false);
+        NU_CreateBorderRectPipeline(displayManager, &displayManager->pipelines.borderRectPipeline, false);
+        NU_CreateVertexRGBPipeline(displayManager, &displayManager->pipelines.vertexRGBPipeline, false);
+        NU_CreateImagePipeline(displayManager, &displayManager->pipelines.imagePipeline, false);
+        NU_CreateMonoTextPipeline(displayManager, &displayManager->pipelines.monoTextPipeline, false);
+        NU_CreateSubpixelTextPipeline(displayManager, &displayManager->pipelines.subpixelTextPipeline, false);
+        NU_CreateClippedMonoTextPipeline(displayManager, &displayManager->pipelines.clippedMonoTextPipeline, false);
+        NU_CreateClippedSubpixelTextPipeline(displayManager, &displayManager->pipelines.clippedSubpixelTextPipeline, false);
 
         // MSAA4X
-        NU_CreateBorderRectPipeline(displayManager, &displayManager->borderRectPipelineMSAA4X, true);
-        NU_CreateVertexRGBPipeline(displayManager, &displayManager->vertexRGBPipelineMSAA4X, true);
-        NU_CreateImagePipeline(displayManager, &displayManager->imagePipelineMSAA4X, true);
-        NU_CreateMonoTextPipeline(displayManager, &displayManager->monoTextPipelineMSAA4X, true);
-        NU_CreateSubpixelTextPipeline(displayManager, &displayManager->subpixelTextPipelineMSAA4X, true);
-        NU_CreateClippedMonoTextPipeline(displayManager, &displayManager->clippedMonoTextPipelineMSAA4X, true);
-        NU_CreateClippedSubpixelTextPipeline(displayManager, &displayManager->clippedSubpixelTextPipelineMSAA4X, true);
+        NU_CreateBorderRectPipeline(displayManager, &displayManager->pipelines.borderRectPipelineMSAA4X, true);
+        NU_CreateVertexRGBPipeline(displayManager, &displayManager->pipelines.vertexRGBPipelineMSAA4X, true);
+        NU_CreateImagePipeline(displayManager, &displayManager->pipelines.imagePipelineMSAA4X, true);
+        NU_CreateMonoTextPipeline(displayManager, &displayManager->pipelines.monoTextPipelineMSAA4X, true);
+        NU_CreateSubpixelTextPipeline(displayManager, &displayManager->pipelines.subpixelTextPipelineMSAA4X, true);
+        NU_CreateClippedMonoTextPipeline(displayManager, &displayManager->pipelines.clippedMonoTextPipelineMSAA4X, true);
+        NU_CreateClippedSubpixelTextPipeline(displayManager, &displayManager->pipelines.clippedSubpixelTextPipelineMSAA4X, true);
     }
 
     // Init drawlist
@@ -442,7 +428,7 @@ int DisplayManager_CreateWindow(DisplayManager* displayManager, Node* node, cons
 
 void DisplayManager_DestroyWindow(DisplayManager* displayManager, Node* node)
 {
-    Window* nuWin = Winalloc_Window(&displayManager->winalloc, node->windowID);
+    Window* nuWin = Windows_Window(&displayManager->windows, node->windowID);
 
     // Set last clicked window to NULL if it was destroyed
     if (nuWin->sdlWin == displayManager->lastClickedWindow) {
@@ -467,18 +453,29 @@ void DisplayManager_DestroyWindow(DisplayManager* displayManager, Node* node)
     Array_Free(&nuWin->drawlist.canvasNodes);
 
     // Remove window from display manager
-    Winalloc_RemoveWindow(&displayManager->winalloc, node->windowID);
+    Windows_RemoveWindow(&displayManager->windows, node->windowID);
 }
 
 inline Window* DisplayManager_GetNodeWindow(DisplayManager* displayManager, Node* node)
 {
-    return Winalloc_Window(&displayManager->winalloc, node->windowID);
+    return Windows_Window(&displayManager->windows, node->windowID);
 }
 
 inline SDL_Window* DisplayManager_GetNodeSDLWindow(DisplayManager* displayManager, Node* node)
 {
-    Window* win = Winalloc_Window(&displayManager->winalloc, node->windowID);
+    Window* win = Windows_Window(&displayManager->windows, node->windowID);
     return win->sdlWin;
+}
+
+Node* DisplayManager_GetWindowNodeWithSDLWindow(DisplayManager* displayManager, SDL_Window* window)
+{
+    for (int i=0; i<Windows_Count(&displayManager->windows); i++) {
+        Window* win = Windows_WindowAt(&displayManager->windows, i);
+        if (win->sdlWin == window) {
+            return win->windowNode;
+        }
+    }
+    return NULL;
 }
 
 void DisplayManager_GetLocalMouseCoords(DisplayManager* displayManager, float* outX, float* outY)
@@ -488,7 +485,7 @@ void DisplayManager_GetLocalMouseCoords(DisplayManager* displayManager, float* o
         *outY = 0;
         return;
     }
-    Window* win = Winalloc_Window(&displayManager->winalloc, displayManager->hoveredWindowNode->windowID);
+    Window* win = Windows_Window(&displayManager->windows, displayManager->hoveredWindowNode->windowID);
     float globalPtsX, globalPtsY;
     int windowPtsX, windowPtsY;
     SDL_GetGlobalMouseState(&globalPtsX, &globalPtsY);
@@ -499,8 +496,8 @@ void DisplayManager_GetLocalMouseCoords(DisplayManager* displayManager, float* o
 
 void DisplayManager_SetHoveredWindow(DisplayManager* displayManager, SDL_Window* window)
 {
-    for (int i=0; i<Winalloc_Count(&displayManager->winalloc); i++) {
-        Window* win = Winalloc_WindowAt(&displayManager->winalloc, i);
+    for (int i=0; i<Windows_Count(&displayManager->windows); i++) {
+        Window* win = Windows_WindowAt(&displayManager->windows, i);
         if (win->sdlWin == window) {
             displayManager->hoveredWindowNode = win->windowNode;
             return;
@@ -511,18 +508,25 @@ void DisplayManager_SetHoveredWindow(DisplayManager* displayManager, SDL_Window*
 
 inline void SetNodeWindowRepaint(Node* node)
 {
-    if (!node) return; // must remove and find crashes -> fix them
-    Window* window = Winalloc_Window(&GUI.displayManager.winalloc, node->windowID);
+    Windows_Window(&GUI.displayManager.windows, node->windowID)->repaint = true;
+    GUI.displayManager.uiChanged = true;
+}
+
+inline void SetWindowRepaint(Window* window)
+{
     window->repaint = true;
+    GUI.displayManager.uiChanged = true;
 }
 
 inline Window* WindowWithID(int8 windowID)
 {
-    return Winalloc_Window(&GUI.displayManager.winalloc, windowID);
+    return Windows_Window(&GUI.displayManager.windows, windowID);
 }
 
 
-// Antiquated - to be updated / replaced:
+
+
+
 
 int GetFrametime()
 {
@@ -535,34 +539,23 @@ int GetFrametime()
     return frameTimeMs;
 }
 
-Node* GetWindowNodeFromSDL_Window(DisplayManager* displayManager, SDL_Window* window)
-{
-    for (int i=0; i<Winalloc_Count(&displayManager->winalloc); i++) {
-        Window* win = Winalloc_WindowAt(&displayManager->winalloc, i);
-        if (win->sdlWin == window) {
-            return win->windowNode;
-        }
-    }
-    return NULL;
-}
-
 inline void SetNodeDrawlist_Draw(DisplayManager* displayManager, Node* node)
 {
-    Window* win = Winalloc_Window(&displayManager->winalloc, node->windowID);
+    Window* win = Windows_Window(&displayManager->windows, node->windowID);
     NuWindowDrawlist* list = &win->drawlist;
     Array_Push(&list->drawNodes, &node);
 }
 
 inline void SetNodeDrawlist_Clipped(DisplayManager* displayManager, Node* node)
 {
-    Window* win = Winalloc_Window(&displayManager->winalloc, node->windowID);
+    Window* win = Windows_Window(&displayManager->windows, node->windowID);
     NuWindowDrawlist* list = &win->drawlist;
     Array_Push(&list->clippedDrawNodes, &node);
 }
 
 inline void SetNodeDrawlist_Canvas(DisplayManager* displayManager, Node* node)
 {
-    Window* win = Winalloc_Window(&displayManager->winalloc, node->windowID);
+    Window* win = Windows_Window(&displayManager->windows, node->windowID);
     NuWindowDrawlist* list = &win->drawlist;
     Array_Push(&list->canvasNodes, &node);
 }

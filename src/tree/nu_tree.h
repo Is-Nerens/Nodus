@@ -17,7 +17,7 @@ typedef struct Tree
     uint32 depth;
     uint32 nodeCount;
     Array deleteStack; // preallocated (reduce fragmentation)
-    Array deletedButNotFreedNodes;
+    Array deferredDeletedNodes;
 } Tree;
 
 typedef void (*TreeDeleteCallback)(Node* node);
@@ -27,7 +27,7 @@ Node* TreeCreate(Tree* tree)
     // create layer allocators
     Nalloc_Init(&tree->nodeAlloc);
 
-    Array_Init(&tree->deletedButNotFreedNodes, sizeof(Node*), 25);
+    Array_Init(&tree->deferredDeletedNodes, sizeof(Node*), 25);
     Array_Init(&tree->deleteStack, sizeof(Node*), 100);
 
     // create root node
@@ -44,7 +44,7 @@ Node* TreeCreate(Tree* tree)
 void TreeFree(Tree* tree)
 {
     Nalloc_Destroy(&tree->nodeAlloc);
-    Array_Free(&tree->deletedButNotFreedNodes);
+    Array_Free(&tree->deferredDeletedNodes);
     Array_Free(&tree->deleteStack);
     tree->depth = 0;
     tree->nodeCount = 0;
@@ -218,7 +218,7 @@ void TreeDeleteLeaf(Tree* tree, Node* leaf, TreeDeleteCallback deleteCB)
     if (deleteCB != NULL) deleteCB(leaf);
 
     // Add to list of deleted but not freed nodes
-    Array_Push(&tree->deletedButNotFreedNodes, &leaf);
+    Array_Push(&tree->deferredDeletedNodes, &leaf);
     leaf->stateFlags |= STATE_FLAG_DELETED;
 }
 
@@ -257,7 +257,7 @@ void TreeDeleteNode(Tree* tree, Node* node, TreeDeleteCallback deleteCB)
         if (deleteCB != NULL) deleteCB(curr);
 
         // Add to list of deleted but not freed nodes
-        Array_Push(&tree->deletedButNotFreedNodes, &curr); curr->stateFlags |= STATE_FLAG_DELETED;
+        Array_Push(&tree->deferredDeletedNodes, &curr); curr->stateFlags |= STATE_FLAG_DELETED;
         tree->nodeCount--;
     }
 
@@ -267,9 +267,9 @@ void TreeDeleteNode(Tree* tree, Node* node, TreeDeleteCallback deleteCB)
 
 void TreeFreeDeleted(Tree* tree)
 {
-    for (int i=0; i<tree->deletedButNotFreedNodes.size; i++) {
-        Node* deletedNode = *(Node**)Array_Get(&tree->deletedButNotFreedNodes, i);
+    for (int i=0; i<tree->deferredDeletedNodes.size; i++) {
+        Node* deletedNode = *(Node**)Array_Get(&tree->deferredDeletedNodes, i);
         Nalloc_Free(&tree->nodeAlloc, deletedNode);
     }
-    Array_Clear(&tree->deletedButNotFreedNodes);
+    Array_Clear(&tree->deferredDeletedNodes);
 }

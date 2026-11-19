@@ -5,7 +5,7 @@ typedef enum StylePseudoClass
     PSEUDO_HOVER,
     PSEUDO_PRESS,
     PSEUDO_FOCUS,
-    PSEUDO_UNDEFINED
+    PSEUDO_NONE
 } StylePseudoClass;
 
 #include "nu_stylesheet_tokens.h"

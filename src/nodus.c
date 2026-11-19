@@ -56,19 +56,6 @@ void NU_FREE()
 
 static NuConfig* g_Config = NULL;
 
-static uint64 NU_FastestLivePeriod_NS(void)
-{
-    uint64 fastest = UINT64_MAX;
-    int n = Winalloc_Count(&GUI.displayManager.winalloc);
-    for (int i = 0; i < n; i++) {
-        Window* w = Winalloc_WindowAt(&GUI.displayManager.winalloc, i);
-        if (!w) continue;
-        if (w->refreshDuration > 0 && w->refreshDuration < fastest) fastest = w->refreshDuration;
-    }
-    if (fastest == UINT64_MAX) fastest = 16666666ULL; // ~60Hz fallback
-    return fastest;
-}
-
 static SDL_AppResult SDLCALL NU_Internal_Init(void **appstate, int argc, char *argv[])
 {
     if (!g_Config) return SDL_APP_FAILURE; // No config, cannot initialize
@@ -209,8 +196,8 @@ static SDL_AppResult SDLCALL NU_Internal_Iterate(void *appstate)
     if (!GUI.running) return SDL_APP_SUCCESS;
 
     // Safely unregister deleted nodes from iterated hashmaps and free node memory
-    for (int i=0; i<GUI.tree.deletedButNotFreedNodes.size; i++) {
-        Node* node = *(Node**)Array_Get(&GUI.tree.deletedButNotFreedNodes, i);
+    for (int i=0; i<GUI.tree.deferredDeletedNodes.size; i++) {
+        Node* node = *(Node**)Array_Get(&GUI.tree.deferredDeletedNodes, i);
         NU_Unregister_All_Iterated_Events(node);
     }
     TreeFreeDeleted(&GUI.tree);
@@ -225,88 +212,52 @@ static SDL_AppResult SDLCALL NU_Internal_Iterate(void *appstate)
     // Call frame callback if there is one
     if (GUI.frameCallback) GUI.frameCallback(GUI.frameCallbackArgs);
 
-    // Re-render UI if necessary
-    bool repaint = false;
-    for (int i=0; i<Winalloc_Count(&GUI.displayManager.winalloc); i++) {
-        Window* window = Winalloc_WindowAt(&GUI.displayManager.winalloc, i);
-        repaint |= window->repaint;
-    }
-    if (repaint)
+    // Render UI if something changed
+    if (GUI.displayManager.uiChanged)
     {
         NU_Layout();
         NU_Mouse_Hover();
         NU_Draw();
         CheckForResizeEvents();
+        GUI.displayManager.uiChanged = false;
     }
 
     // Present windows that must be presented this frame
-    if (Set_Count(&GUI.displayManager.presetWindowIds) > 0)
+    if (GUI.displayManager.numWindowsWaitingToPresent > 0)
     {
         // Find the nearest deadline and the window that owns it
         Window* nearestWindow = NULL;
-        int     nearestWindowID = 0;
-        uint64  nearestDeadline = UINT64_MAX;
-        {
-            SetIterator iter = Set_CreateIterator(&GUI.displayManager.presetWindowIds);
-            void* key;
-            while (Set_IteratorNext(&iter, &key)) {
-                int windowID = *(int*)key;
-                Window* window = WindowWithID(windowID);
-                if (window->nextPresentTime < nearestDeadline) {
-                    nearestDeadline = window->nextPresentTime;
-                    nearestWindow   = window;
-                    nearestWindowID = windowID;
-                }
+        uint64 nearestDeadline = UINT64_MAX;
+        for (int i=0; i<Windows_Count(&GUI.displayManager.windows); i++) {
+            Window* window = Windows_WindowAt(&GUI.displayManager.windows, i);
+            if (window->waitingToPresent && window->nextPresentTime < nearestDeadline) {
+                nearestDeadline = window->nextPresentTime;
+                nearestWindow = window;
             }
         }
 
-        // If the set is non-empty, wait on the nearest window only.
-        if (nearestWindow)
-        {
-            Window_WaitForPresentation(nearestWindow, &GUI.displayManager, 0);
+        // Wait for vblank of nearest window to present
+        Window_WaitForPresentation(nearestWindow, &GUI.displayManager, 0);
+        nearestWindow->nextPresentTime = nu_time() + nearestWindow->refreshDuration;
 
-            // This is the ONLY place a window's nextPresentTime is corrected.
-            // Absolute lattice: advance by one period, skipping missed slots.
-            // Warmup (0) is handled naturally: the first advance lands on the
-            // next real slot after now.
-            uint64 t = nu_time();
-            if (nearestWindow->nextPresentTime == 0) {
-                nearestWindow->nextPresentTime = t + nearestWindow->refreshDuration;
-            }
-            else {
-                nearestWindow->nextPresentTime += nearestWindow->refreshDuration;
-                while (nearestWindow->nextPresentTime <= t) {
-                    nearestWindow->nextPresentTime += nearestWindow->refreshDuration;
-                }
-            }
-
-            // Remove the nearest window from the set
-            Set_Delete(&GUI.displayManager.presetWindowIds, &nearestWindowID);
-            WindowWithID(nearestWindowID)->waitingPresent = false;
-
-            // Remove all windows still in the present set whose deadlines have expired (safety)
+        // Update status of all windows whose deadlines have expired OR
+        // share a display with "nearestWindow"
+        uint64 now = nu_time();
+        for (int i=0; i<Windows_Count(&GUI.displayManager.windows); i++) {
+            Window* window = Windows_WindowAt(&GUI.displayManager.windows, i);
+            if (window->waitingToPresent && ((window->nextPresentTime <= now) || (window->displayID == nearestWindow->displayID)))
             {
-                uint64 now = nu_time();
-                int staleIds[64]; int staleCount = 0;
-                SetIterator iter = Set_CreateIterator(&GUI.displayManager.presetWindowIds);
-                void* key;
-                while (Set_IteratorNext(&iter, &key)) {
-                    int windowID = *(int*)key;
-                    Window* window = WindowWithID(windowID);
-                    if (window->displayID == nearestWindow->displayID) {
-                        staleIds[staleCount++] = windowID;
-                        window->nextPresentTime = nearestWindow->nextPresentTime;
-                    }
-                    else if (window->nextPresentTime <= now) {
-                        staleIds[staleCount++] = windowID;
-                    }
+                if (window->displayID == nearestWindow->displayID) {
+                    window->nextPresentTime = nearestWindow->nextPresentTime;
                 }
-                for (int i=0; i<staleCount; i++) {
-                    Set_Delete(&GUI.displayManager.presetWindowIds, &staleIds[i]);
-                    WindowWithID(staleIds[i])->waitingPresent = false;
-                }
+                window->waitingToPresent = false;
+                GUI.displayManager.numWindowsWaitingToPresent--;
             }
         }
+    }
+    else
+    {
+        SDL_Delay(4);
     }
 
     return SDL_APP_CONTINUE;
@@ -863,13 +814,13 @@ _EXPORT void NU_SET_TEXT_COLOR(NuNode* node, NuColor color) {
 
 _EXPORT void NU_WINDOW_SET_TITLE(NuWindow* window, const char* string) {
     Node* nodeP = (Node*)(window);
-    Window* win = Winalloc_Window(&GUI.displayManager.winalloc, nodeP->windowID);
+    Window* win = Windows_Window(&GUI.displayManager.windows, nodeP->windowID);
     SDL_SetWindowTitle(win->sdlWin, string);
 }
 
 _EXPORT void NU_WINDOW_SET_FULLSCREEN(NuWindow* window) {
     Node* nodeP = (Node*)(window);
-    Window* win = Winalloc_Window(&GUI.displayManager.winalloc, nodeP->windowID);
+    Window* win = Windows_Window(&GUI.displayManager.windows, nodeP->windowID);
     Uint32 flags = SDL_GetWindowFlags(win->sdlWin);
     if (flags & SDL_WINDOW_FULLSCREEN) return;
     SDL_SetWindowFullscreen(win->sdlWin, true);
@@ -878,7 +829,7 @@ _EXPORT void NU_WINDOW_SET_FULLSCREEN(NuWindow* window) {
 
 _EXPORT void NU_WINDOW_SET_WINDOWED(NuWindow* window) {
     Node* nodeP = (Node*)(window);
-    Window* win = Winalloc_Window(&GUI.displayManager.winalloc, nodeP->windowID);
+    Window* win = Windows_Window(&GUI.displayManager.windows, nodeP->windowID);
     Uint32 flags = SDL_GetWindowFlags(win->sdlWin);
     if (!(flags & SDL_WINDOW_FULLSCREEN)) return;
     SDL_SetWindowFullscreen(win->sdlWin, false);

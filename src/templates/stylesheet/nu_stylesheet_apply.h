@@ -5,12 +5,15 @@
 // ---------------------------------------
 #include "nu_stylesheet_structs.h"
 #include "nu_stylesheet_tokens.h"
-#define STYLE_APPLY_LAYOUT_FLAG(prop, layout_mask) if ((item->propertyFlags & (prop)) && !(node->overrideStyleFlags & (prop))) node->layoutFlags = (node->layoutFlags & ~(layout_mask)) | (item->layoutFlags & (layout_mask))
-#define STYLE_SHOULD_APPLY_TO_NODE(mask) (item->propertyFlags & mask) && !(node->overrideStyleFlags & mask)
+#define STYLE_APPLY_LAYOUT_FLAG(prop, layout_mask) if (propertiesToApplyFlags & (prop)) node->layoutFlags = (node->layoutFlags & ~(layout_mask)) | (item->layoutFlags & (layout_mask))
+#define STYLE_SHOULD_APPLY_TO_NODE(mask) (propertiesToApplyFlags & (mask))
 
 // This should be optimised (branchless)
 static void Stylesheet_ApplyStyleItemToNode(StyleItem* item, Node* node)
 {
+    // Bitflags of properties that should apply
+    uint64_t propertiesToApplyFlags = item->propertyFlags & ~node->overrideStyleFlags;
+
     STYLE_APPLY_LAYOUT_FLAG(PROPERTY_FLAG_LAYOUT_DIR, LAYOUT_VERTICAL);
     STYLE_APPLY_LAYOUT_FLAG(PROPERTY_FLAG_GROW, GROW_HORIZONTAL);
     STYLE_APPLY_LAYOUT_FLAG(PROPERTY_FLAG_GROW, GROW_VERTICAL);
@@ -21,20 +24,40 @@ static void Stylesheet_ApplyStyleItemToNode(StyleItem* item, Node* node)
     STYLE_APPLY_LAYOUT_FLAG(PROPERTY_FLAG_IGNORE_MOUSE, IGNORE_MOUSE);                    // Ignore mouse or not
     STYLE_APPLY_LAYOUT_FLAG(PROPERTY_FLAG_HIDE_BACKGROUND, HIDE_BACKGROUND);              // Hide background (or not)
     if (STYLE_SHOULD_APPLY_TO_NODE(PROPERTY_FLAG_GAP)) node->base.gap = item->gap;
-    if (STYLE_SHOULD_APPLY_TO_NODE(PROPERTY_FLAG_PREFERRED_WIDTH)) node->base.preferredWidth = item->preferredWidth;
-    if (STYLE_SHOULD_APPLY_TO_NODE(PROPERTY_FLAG_MIN_WIDTH)) node->base.minWidth = item->minWidth;
-    if (STYLE_SHOULD_APPLY_TO_NODE(PROPERTY_FLAG_MAX_WIDTH)) node->base.maxWidth = item->maxWidth;
-    if (STYLE_SHOULD_APPLY_TO_NODE(PROPERTY_FLAG_PREFERRED_HEIGHT)) node->base.preferredHeight = item->preferredHeight;
-    if (STYLE_SHOULD_APPLY_TO_NODE(PROPERTY_FLAG_MIN_HEIGHT)) node->base.minHeight = item->minHeight;
-    if (STYLE_SHOULD_APPLY_TO_NODE(PROPERTY_FLAG_MAX_HEIGHT)) node->base.maxHeight = item->maxHeight;
+
+    // Optimisation -> properties are usually set together (ACCELERATE THE "FALSE" CASE)
+    if ((propertiesToApplyFlags & PROPERTY_FLAG_PREFERRED_WIDTH) ||
+        (propertiesToApplyFlags & PROPERTY_FLAG_MIN_WIDTH) ||
+        (propertiesToApplyFlags & PROPERTY_FLAG_MAX_WIDTH) ||
+        (propertiesToApplyFlags & PROPERTY_FLAG_PREFERRED_HEIGHT) ||
+        (propertiesToApplyFlags & PROPERTY_FLAG_MIN_HEIGHT) ||
+        (propertiesToApplyFlags & PROPERTY_FLAG_MAX_HEIGHT)
+    ) {
+        if (STYLE_SHOULD_APPLY_TO_NODE(PROPERTY_FLAG_PREFERRED_WIDTH)) node->base.preferredWidth = item->preferredWidth;
+        if (STYLE_SHOULD_APPLY_TO_NODE(PROPERTY_FLAG_MIN_WIDTH)) node->base.minWidth = item->minWidth;
+        if (STYLE_SHOULD_APPLY_TO_NODE(PROPERTY_FLAG_MAX_WIDTH)) node->base.maxWidth = item->maxWidth;
+        if (STYLE_SHOULD_APPLY_TO_NODE(PROPERTY_FLAG_PREFERRED_HEIGHT)) node->base.preferredHeight = item->preferredHeight;
+        if (STYLE_SHOULD_APPLY_TO_NODE(PROPERTY_FLAG_MIN_HEIGHT)) node->base.minHeight = item->minHeight;
+        if (STYLE_SHOULD_APPLY_TO_NODE(PROPERTY_FLAG_MAX_HEIGHT)) node->base.maxHeight = item->maxHeight;
+    }
+
     if (STYLE_SHOULD_APPLY_TO_NODE(PROPERTY_FLAG_ALIGN_H)) node->horizontalAlignment = item->horizontalAlignment;
     if (STYLE_SHOULD_APPLY_TO_NODE(PROPERTY_FLAG_ALIGN_V)) node->verticalAlignment = item->verticalAlignment;
     if (STYLE_SHOULD_APPLY_TO_NODE(PROPERTY_FLAG_TEXT_ALIGN_H)) node->horizontalTextAlignment = item->horizontalTextAlignment;
     if (STYLE_SHOULD_APPLY_TO_NODE(PROPERTY_FLAG_TEXT_ALIGN_V)) node->verticalTextAlignment = item->verticalTextAlignment;
-    if (STYLE_SHOULD_APPLY_TO_NODE(PROPERTY_FLAG_LEFT)) node->base.left = item->left;
-    if (STYLE_SHOULD_APPLY_TO_NODE(PROPERTY_FLAG_RIGHT)) node->base.right = item->right;
-    if (STYLE_SHOULD_APPLY_TO_NODE(PROPERTY_FLAG_TOP)) node->base.top = item->top;
-    if (STYLE_SHOULD_APPLY_TO_NODE(PROPERTY_FLAG_BOTTOM)) node->base.bottom = item->bottom;
+
+    // Optimisation -> properties are usually set together (ACCELERATE THE "FALSE" CASE)
+    if ((propertiesToApplyFlags & PROPERTY_FLAG_LEFT) ||
+        (propertiesToApplyFlags & PROPERTY_FLAG_RIGHT) ||
+        (propertiesToApplyFlags & PROPERTY_FLAG_TOP) ||
+        (propertiesToApplyFlags & PROPERTY_FLAG_BOTTOM)
+    ) {
+        if (STYLE_SHOULD_APPLY_TO_NODE(PROPERTY_FLAG_LEFT)) node->base.left = item->left;
+        if (STYLE_SHOULD_APPLY_TO_NODE(PROPERTY_FLAG_RIGHT)) node->base.right = item->right;
+        if (STYLE_SHOULD_APPLY_TO_NODE(PROPERTY_FLAG_TOP)) node->base.top = item->top;
+        if (STYLE_SHOULD_APPLY_TO_NODE(PROPERTY_FLAG_BOTTOM)) node->base.bottom = item->bottom;
+    }
+
     if (STYLE_SHOULD_APPLY_TO_NODE(PROPERTY_FLAG_BACKGROUND)) {
         node->base.backgroundR = item->backgroundR;
         node->base.backgroundG = item->backgroundG;
@@ -51,18 +74,43 @@ static void Stylesheet_ApplyStyleItemToNode(StyleItem* item, Node* node)
         node->special.text.textG = item->textG;
         node->special.text.textB = item->textB;
     }
-    if (STYLE_SHOULD_APPLY_TO_NODE(PROPERTY_FLAG_BORDER_TOP)) node->base.borderTop = item->borderTop;
-    if (STYLE_SHOULD_APPLY_TO_NODE(PROPERTY_FLAG_BORDER_BOTTOM)) node->base.borderBottom = item->borderBottom;
-    if (STYLE_SHOULD_APPLY_TO_NODE(PROPERTY_FLAG_BORDER_LEFT)) node->base.borderLeft = item->borderLeft;
-    if (STYLE_SHOULD_APPLY_TO_NODE(PROPERTY_FLAG_BORDER_RIGHT)) node->base.borderRight = item->borderRight;
-    if (STYLE_SHOULD_APPLY_TO_NODE(PROPERTY_FLAG_BORDER_RADIUS_TL)) node->base.borderRadiusTl = item->borderRadiusTl;
-    if (STYLE_SHOULD_APPLY_TO_NODE(PROPERTY_FLAG_BORDER_RADIUS_TR)) node->base.borderRadiusTr = item->borderRadiusTr;
-    if (STYLE_SHOULD_APPLY_TO_NODE(PROPERTY_FLAG_BORDER_RADIUS_BL)) node->base.borderRadiusBl = item->borderRadiusBl;
-    if (STYLE_SHOULD_APPLY_TO_NODE(PROPERTY_FLAG_BORDER_RADIUS_BR)) node->base.borderRadiusBr = item->borderRadiusBr;
-    if (STYLE_SHOULD_APPLY_TO_NODE(PROPERTY_FLAG_PAD_TOP)) node->base.padTop = item->padTop;
-    if (STYLE_SHOULD_APPLY_TO_NODE(PROPERTY_FLAG_PAD_BOTTOM)) node->base.padBottom = item->padBottom;
-    if (STYLE_SHOULD_APPLY_TO_NODE(PROPERTY_FLAG_PAD_LEFT)) node->base.padLeft = item->padLeft;
-    if (STYLE_SHOULD_APPLY_TO_NODE(PROPERTY_FLAG_PAD_RIGHT)) node->base.padRight = item->padRight;
+
+    // Optimisation -> properties are usually set together (ACCELERATE THE "FALSE" CASE)
+    if ((propertiesToApplyFlags & PROPERTY_FLAG_BORDER_TOP) ||
+        (propertiesToApplyFlags & PROPERTY_FLAG_BORDER_BOTTOM) ||
+        (propertiesToApplyFlags & PROPERTY_FLAG_BORDER_LEFT) ||
+        (propertiesToApplyFlags & PROPERTY_FLAG_BORDER_RIGHT)
+    ) {
+        if (STYLE_SHOULD_APPLY_TO_NODE(PROPERTY_FLAG_BORDER_TOP)) node->base.borderTop = item->borderTop;
+        if (STYLE_SHOULD_APPLY_TO_NODE(PROPERTY_FLAG_BORDER_BOTTOM)) node->base.borderBottom = item->borderBottom;
+        if (STYLE_SHOULD_APPLY_TO_NODE(PROPERTY_FLAG_BORDER_LEFT)) node->base.borderLeft = item->borderLeft;
+        if (STYLE_SHOULD_APPLY_TO_NODE(PROPERTY_FLAG_BORDER_RIGHT)) node->base.borderRight = item->borderRight;
+    }
+
+    // Optimisation -> properties are usually set together (ACCELERATE THE "FALSE" CASE)
+    if ((propertiesToApplyFlags & PROPERTY_FLAG_BORDER_RADIUS_TL) ||
+        (propertiesToApplyFlags & PROPERTY_FLAG_BORDER_RADIUS_TR) ||
+        (propertiesToApplyFlags & PROPERTY_FLAG_BORDER_RADIUS_BL) ||
+        (propertiesToApplyFlags & PROPERTY_FLAG_BORDER_RADIUS_BR)
+    ) {
+        if (STYLE_SHOULD_APPLY_TO_NODE(PROPERTY_FLAG_BORDER_RADIUS_TL)) node->base.borderRadiusTl = item->borderRadiusTl;
+        if (STYLE_SHOULD_APPLY_TO_NODE(PROPERTY_FLAG_BORDER_RADIUS_TR)) node->base.borderRadiusTr = item->borderRadiusTr;
+        if (STYLE_SHOULD_APPLY_TO_NODE(PROPERTY_FLAG_BORDER_RADIUS_BL)) node->base.borderRadiusBl = item->borderRadiusBl;
+        if (STYLE_SHOULD_APPLY_TO_NODE(PROPERTY_FLAG_BORDER_RADIUS_BR)) node->base.borderRadiusBr = item->borderRadiusBr;
+    }
+
+    // Optimisation -> properties are usually set together (ACCELERATE THE "FALSE" CASE)
+    if ((propertiesToApplyFlags & PROPERTY_FLAG_PAD_TOP) ||
+        (propertiesToApplyFlags & PROPERTY_FLAG_PAD_BOTTOM) ||
+        (propertiesToApplyFlags & PROPERTY_FLAG_PAD_LEFT) ||
+        (propertiesToApplyFlags & PROPERTY_FLAG_PAD_RIGHT)
+    ) {
+        if (STYLE_SHOULD_APPLY_TO_NODE(PROPERTY_FLAG_PAD_TOP)) node->base.padTop = item->padTop;
+        if (STYLE_SHOULD_APPLY_TO_NODE(PROPERTY_FLAG_PAD_BOTTOM)) node->base.padBottom = item->padBottom;
+        if (STYLE_SHOULD_APPLY_TO_NODE(PROPERTY_FLAG_PAD_LEFT)) node->base.padLeft = item->padLeft;
+        if (STYLE_SHOULD_APPLY_TO_NODE(PROPERTY_FLAG_PAD_RIGHT)) node->base.padRight = item->padRight;
+    }
+
     if (STYLE_SHOULD_APPLY_TO_NODE(PROPERTY_FLAG_IMAGE) && node->type == NU_TYPE_IMAGE) {
         node->special.image.imageHandle = item->imageHandle;
     }
@@ -104,7 +152,9 @@ void Stylesheet_ApplyVariations(Stylesheet* ss, StyleItem* item, Node* node, int
     }
 }
 
-void Stylesheet_ApplyStyleToNode(Stylesheet* ss, Node* node)
+void Stylesheet_ApplyToNode(Styleshee* ss, Node* node)
+
+void Stylesheet_ApplyStyleToNode(Stylesheet* ss, Node* node, StylePseudoClass pseudo)
 {
     // Get containing screen width
     Window* win = DisplayManager_GetNodeWindow(&GUI.displayManager, node);
@@ -273,6 +323,8 @@ int NU_Internal_Apply_Stylesheet(Stylesheet* stylesheet)
     }
     return 1; // success
 }
+
+
 
 
 

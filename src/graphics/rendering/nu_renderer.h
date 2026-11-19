@@ -23,7 +23,7 @@ void NU_DrawVertexSDFList(
     vkCmdBindPipeline(
         cmd,
         VK_PIPELINE_BIND_POINT_GRAPHICS,
-        MSAA_4X ? displayManager->vertexRGBPipelineMSAA4X.handle : displayManager->vertexRGBPipeline.handle
+        MSAA_4X ? displayManager->pipelines.vertexRGBPipelineMSAA4X.handle : displayManager->pipelines.vertexRGBPipeline.handle
     );
 
     // Viewport / scissor
@@ -53,7 +53,7 @@ void NU_DrawVertexSDFList(
         offsetX,
         offsetY
     };
-    vkCmdPushConstants(cmd, displayManager->vertexRGBPipeline.layout, VK_SHADER_STAGE_VERTEX_BIT, 0, sizeof(push), push);
+    vkCmdPushConstants(cmd, displayManager->pipelines.vertexRGBPipeline.layout, VK_SHADER_STAGE_VERTEX_BIT, 0, sizeof(push), push);
 
     // Allocate vertex buffer space in the GPU arena
     VkDeviceSize vertBytes = VertexSDFList_VertexBytes(vertexList);
@@ -98,7 +98,7 @@ void NU_DrawBorderRects(
     vkCmdBindPipeline(
         cmd,
         VK_PIPELINE_BIND_POINT_GRAPHICS,
-        MSAA_4X ? displayManager->borderRectPipelineMSAA4X.handle : displayManager->borderRectPipeline.handle
+        MSAA_4X ? displayManager->pipelines.borderRectPipelineMSAA4X.handle : displayManager->pipelines.borderRectPipeline.handle
     );
 
     // Dynamic viewport / scissor (full window)
@@ -120,7 +120,7 @@ void NU_DrawBorderRects(
 
     // ---- Push constants: screen width / height ----
     float push[2] = { screenWidth, screenHeight };
-    vkCmdPushConstants(cmd, displayManager->borderRectPipeline.layout, VK_SHADER_STAGE_VERTEX_BIT, 0, sizeof(push), push);
+    vkCmdPushConstants(cmd, displayManager->pipelines.borderRectPipeline.layout, VK_SHADER_STAGE_VERTEX_BIT, 0, sizeof(push), push);
 
     // ---- Allocate instance data from the arena ----
     //
@@ -170,7 +170,7 @@ void NU_DrawCanvasRenderTarget(
     bool MSAA_4X)
 {
     VkCommandBuffer cmd = Window_CurrentCommandBuffer(window);
-    NuPipeline pipeline = MSAA_4X ? displayManager->imagePipelineMSAA4X : displayManager->imagePipeline;
+    NuPipeline pipeline = MSAA_4X ? displayManager->pipelines.imagePipelineMSAA4X : displayManager->pipelines.imagePipeline;
 
     vkCmdBindPipeline(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, pipeline.handle);
 
@@ -242,7 +242,7 @@ void NU_DrawImages(
     VkCommandBuffer cmd = Window_CurrentCommandBuffer(window);
 
     // Image pipeline
-    NuPipeline pipeline = MSAA_4X ? displayManager->imagePipelineMSAA4X : displayManager->imagePipeline;
+    NuPipeline pipeline = MSAA_4X ? displayManager->pipelines.imagePipelineMSAA4X : displayManager->pipelines.imagePipeline;
 
     // Bind pipeline
     vkCmdBindPipeline(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, pipeline.handle);
@@ -314,8 +314,8 @@ void NU_DrawText(
     VkCommandBuffer cmd = Window_CurrentCommandBuffer(window);
 
     // Select pipeline
-    NuPipeline pipeline = MSAA_4X ? displayManager->monoTextPipelineMSAA4X : displayManager->monoTextPipeline;
-    if (font->subpixelRendering) pipeline = MSAA_4X ? displayManager->subpixelTextPipelineMSAA4X : displayManager->subpixelTextPipeline;
+    NuPipeline pipeline = MSAA_4X ? displayManager->pipelines.monoTextPipelineMSAA4X : displayManager->pipelines.monoTextPipeline;
+    if (font->subpixelRendering) pipeline = MSAA_4X ? displayManager->pipelines.subpixelTextPipelineMSAA4X : displayManager->pipelines.subpixelTextPipeline;
 
     // Bind pipeline
     vkCmdBindPipeline(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, pipeline.handle);
@@ -385,8 +385,8 @@ void NU_DrawClippedText(
     VkCommandBuffer cmd = Window_CurrentCommandBuffer(window);
 
     // Select pipeline
-    NuPipeline pipeline = MSAA_4X ? displayManager->clippedMonoTextPipelineMSAA4X : displayManager->clippedMonoTextPipeline;
-    if (font->subpixelRendering) pipeline = MSAA_4X ? displayManager->clippedSubpixelTextPipelineMSAA4X : displayManager->clippedSubpixelTextPipeline;
+    NuPipeline pipeline = MSAA_4X ? displayManager->pipelines.clippedMonoTextPipelineMSAA4X : displayManager->pipelines.clippedMonoTextPipeline;
+    if (font->subpixelRendering) pipeline = MSAA_4X ? displayManager->pipelines.clippedSubpixelTextPipelineMSAA4X : displayManager->pipelines.clippedSubpixelTextPipeline;
 
     // Bind pipeline
     vkCmdBindPipeline(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, pipeline.handle);

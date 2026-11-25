@@ -79,8 +79,6 @@ void AddTextInputRenderData(Node* node, ClipBounds* clip, Array* textRenderData,
     Font* font = Stylesheet_Get_Font(&GUI.stylesheet, node->fontIdx);
     TextInput* textInput = Container_Get(&GUI.textInputs, node->special.input.textInputHandle);
 
-    if (textInput->numBytes == 0) return;
-
     // Recompute text offset
     if (textInput->updateOffsetsPostLayout) {
         textInput->updateOffsetsPostLayout = false;
@@ -138,10 +136,10 @@ void AddTextInputRenderData(Node* node, ClipBounds* clip, Array* textRenderData,
         renderData->borderBottom = 0;
         renderData->borderLeft = 0;
         renderData->borderRight = 0;
-        renderData->clipTop = 0;
-        renderData->clipBottom = 16000;
-        renderData->clipLeft = 0;
-        renderData->clipRight = 16000;
+        renderData->clipTop = clip->top;
+        renderData->clipBottom = clip->bottom;
+        renderData->clipLeft = clip->left;
+        renderData->clipRight = clip->right;
         renderData->clipRadiusTopLeft = 0;
         renderData->clipRadiusTopRight = 0;
         renderData->clipRadiusBottomLeft = 0;
@@ -163,7 +161,7 @@ void AddTextInputRenderData(Node* node, ClipBounds* clip, Array* textRenderData,
         renderData->x = x;
         renderData->y = y;
         renderData->z = ComputeZ(node->layer + ABSOLUTE_Z_LAYER * NodeStatePosAbsolute(node), 3);
-        renderData->w = 2;
+        renderData->w = 3;
         renderData->h = innerHeight;
         renderData->backgroundRGBA = packedColor;
         renderData->borderRGBA = packedColor;
@@ -175,10 +173,10 @@ void AddTextInputRenderData(Node* node, ClipBounds* clip, Array* textRenderData,
         renderData->borderBottom = 0;
         renderData->borderLeft = 0;
         renderData->borderRight = 0;
-        renderData->clipTop = 0;
-        renderData->clipBottom = 16000;
-        renderData->clipLeft = 0;
-        renderData->clipRight = 16000;
+        renderData->clipTop = clip->top;
+        renderData->clipBottom = clip->bottom;
+        renderData->clipLeft = clip->left;
+        renderData->clipRight = clip->right;
         renderData->clipRadiusTopLeft = 0;
         renderData->clipRadiusTopRight = 0;
         renderData->clipRadiusBottomLeft = 0;
@@ -188,7 +186,7 @@ void AddTextInputRenderData(Node* node, ClipBounds* clip, Array* textRenderData,
 
 void Add_NodeRectRenderData(
     Node* node, float z,
-    float clipTop, float clipBottom, float clipLeft, float clipRight,
+    ClipBounds* clip,
     Array* borderRects
 )
 {
@@ -240,10 +238,27 @@ void Add_NodeRectRenderData(
     renderData->borderBottom = n->borderBottom;
     renderData->borderLeft = n->borderLeft;
     renderData->borderRight = n->borderRight;
-    renderData->clipTop = clipTop;
-    renderData->clipBottom = clipBottom;
-    renderData->clipLeft = clipLeft;
-    renderData->clipRight = clipRight;
+
+    if (clip) {
+        renderData->clipTop = clip->top;
+        renderData->clipBottom = clip->bottom;
+        renderData->clipLeft = clip->left;
+        renderData->clipRight = clip->right;
+        renderData->clipRadiusTopLeft = clip->radiusTL;
+        renderData->clipRadiusTopRight = clip->radiusTR;
+        renderData->clipRadiusBottomLeft = clip->radiusBL;
+        renderData->clipRadiusBottomRight = clip->radiusBR;
+    }
+    else {
+        renderData->clipTop = 0;
+        renderData->clipBottom = 16000;
+        renderData->clipLeft = 0;
+        renderData->clipRight = 16000;
+        renderData->clipRadiusTopLeft = 0;
+        renderData->clipRadiusTopRight = 0;
+        renderData->clipRadiusBottomLeft = 0;
+        renderData->clipRadiusBottomRight = 0;
+    }
 }
 
 void Add_ScrollbarRenderData(
@@ -795,7 +810,7 @@ void NU_Draw()
             Node* node = *(Node**)Array_Get(&drawList->drawNodes, n);
 
             // Border rect render data
-            Add_NodeRectRenderData(node, ComputeZ(node->layer + ABSOLUTE_Z_LAYER * NodeStatePosAbsolute(node), 0), 0.0f, winH, 0.0f, winW, &GUI.borderRectsRenderData);
+            Add_NodeRectRenderData(node, ComputeZ(node->layer + ABSOLUTE_Z_LAYER * NodeStatePosAbsolute(node), 0), NULL, &GUI.borderRectsRenderData);
             if ((node->layoutFlags & OVERFLOW_VERTICAL_SCROLL) && node->base.contentHeight > NODE_INNER_HEIGHT(node)) {
                 Add_ScrollbarRenderData(node, ComputeZ(node->layer + ABSOLUTE_Z_LAYER * NodeStatePosAbsolute(node), 1), &GUI.stylesheet.scrollbarStyle, &GUI.borderRectsRenderData);
             }
@@ -862,7 +877,7 @@ void NU_Draw()
 
             // Border rect render data
             ClipBounds* clip = Array_Get(&GUI.displayManager.clipArray, node->clipIndex);
-            Add_NodeRectRenderData(node, ComputeZ(node->layer + ABSOLUTE_Z_LAYER * NodeStatePosAbsolute(node), 0), clip->top, clip->bottom, clip->left, clip->right, &GUI.borderRectsRenderData);
+            Add_NodeRectRenderData(node, ComputeZ(node->layer + ABSOLUTE_Z_LAYER * NodeStatePosAbsolute(node), 0), clip, &GUI.borderRectsRenderData);
 
             // Text content render data
             if (NODE_HAS_TEXT_CONTENT(node)) {

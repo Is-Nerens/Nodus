@@ -210,6 +210,18 @@ static SDL_AppResult SDLCALL NU_Internal_Iterate(void *appstate)
     // Call frame callback if there is one
     if (GUI.frameCallback) GUI.frameCallback(GUI.frameCallbackArgs);
 
+    // Process text input if there is one focused
+    if (GUI.focused_node != NULL) {
+        Node* node = GUI.focused_node;
+        Font* font = Stylesheet_Get_Font(&GUI.stylesheet, node->fontIdx);
+        TextInput* inputText = Container_Get(&GUI.textInputs, node->special.input.textInputHandle);
+        float mouseX, mouseY;
+        DisplayManager_GetLocalMouseCoords(&GUI.displayManager, &mouseX, &mouseY);
+        if (InputText_MouseDrag(inputText, node, font, mouseX)) {
+            SetNodeWindowRepaint(node);
+        }
+    }
+
     // Render UI if something changed
     if (GUI.displayManager.uiChanged)
     {
@@ -890,7 +902,7 @@ _EXPORT void NU_INPUT_FOCUS(NuInput* input) {
         Stylesheet_ApplyStyleToNode(&GUI.stylesheet, GUI.focused_node, PSEUDO_FOCUS);
         Font* font = Stylesheet_Get_Font(&GUI.stylesheet, GUI.focused_node->fontIdx);
         TextInput* textInput = Container_Get(&GUI.textInputs, GUI.focused_node->special.input.textInputHandle);
-        InputText_MousePlaceCursor(textInput, GUI.focused_node, font, 1000000.0f);
+        InputText_MousePlaceCursor(textInput, GUI.focused_node, font, 1000000.0f, false);
         SDL_StartTextInput(DisplayManager_GetNodeSDLWindow(&GUI.displayManager, GUI.focused_node));
         SetNodeWindowRepaint(GUI.focused_node);
 

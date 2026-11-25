@@ -85,98 +85,98 @@ bool HandleEvent(SDL_Event* event)
 
         case SDL_EVENT_KEY_DOWN: {
 
-            // if in text edit mode
+            // Platform
+            bool windows = stringEquals(SDL_GetPlatform(), "Windows");
+            bool linux = stringEquals(SDL_GetPlatform(), "Linux");
+            bool macOS = stringEquals(SDL_GetPlatform(), "macOS");
+
             if (GUI.focused_node != NULL)
             {
+                // Get structs
                 Node* inputNode = GUI.focused_node;
                 Font* font = Stylesheet_Get_Font(&GUI.stylesheet, inputNode->fontIdx);
                 TextInput* inputText = Container_Get(&GUI.textInputs, inputNode->special.input.textInputHandle);
-                SDL_Keymod mods = event->key.mod;
 
+                // Key commands
+                SDL_Keymod mods = event->key.mod;
+                bool controlEquivalent = (((windows || linux) && (mods & SDL_KMOD_CTRL)) || macOS && (mods & SDL_KMOD_GUI));
+
+                // Apply stylesheet if input updated
                 bool textChanged = false;
 
-                // backspace pressed
-                if (event->key.key == SDLK_BACKSPACE) {
-                    // highlight + backspace
-                    if (InputText_IsHighlighting(inputText)) {
-                        InputText_RemoveHighlightedText(inputText, inputNode, font);
-                        SetNodeWindowRepaint(inputNode);
-                        textChanged = true;
+                // Backspace pressed
+                if (event->key.key == SDLK_BACKSPACE)
+                {
+                    // Highlight + Backspace
+                    if (InputText_IsHighlighting(inputText) && InputText_RemoveHighlightedText(inputText, inputNode, font)) {
+                        SetNodeWindowRepaint(inputNode); textChanged = true;
                     }
-                    // control + backspace
-                    else if (mods & SDL_KMOD_CTRL && InputText_BackspaceWord(inputText, inputNode, font)) {
-                        SetNodeWindowRepaint(inputNode);
-                        textChanged = true;
+                    // Control + Backspace
+                    else if (controlEquivalent && InputText_BackspaceWord(inputText, inputNode, font)) {
+                        SetNodeWindowRepaint(inputNode); textChanged = true;
                     }
-                    // backspace
+                    // Backspace only
                     else if (InputText_Backspace(inputText, inputNode, font)) {
-                        SetNodeWindowRepaint(inputNode);
-                        textChanged = true;
+                        SetNodeWindowRepaint(inputNode); textChanged = true;
                     }
                 }
 
-                // left arrow pressed
+                // Left arrow pressed
                 else if (event->key.key == SDLK_LEFT) {
-                    // control = left arrow
-                    if (mods & SDL_KMOD_CTRL && InputText_MoveCursorLeftSpan(inputText, inputNode, font)) SetNodeWindowRepaint(inputNode);
-                    // only backspace
-                    else if (InputText_MoveCursorLeft(inputText, inputNode, font)) SetNodeWindowRepaint(inputNode);
+                    // Control + left arrow
+                    if (controlEquivalent && InputText_MoveCursorLeftSpan(inputText, inputNode, font)) {
+                        SetNodeWindowRepaint(inputNode);
+                    }
+                    // Left arrow only
+                    else if (InputText_MoveCursorLeft(inputText, inputNode, font)) {
+                        SetNodeWindowRepaint(inputNode);
+                    }
                 }
 
-                // right arrow pressed
+                // Right arrow pressed
                 else if (event->key.key == SDLK_RIGHT) {
-                    // control = right arrow
-                    if (mods & SDL_KMOD_CTRL && InputText_MoveCursorRightSpan(inputText, inputNode, font)) SetNodeWindowRepaint(inputNode);
-                    // only backspace
-                    else if (InputText_MoveCursorRight(inputText, inputNode, font)) SetNodeWindowRepaint(inputNode);
-                }
-
-                // if control|command + c AND highliting text -> copy to clipboard
-                if (InputText_IsHighlighting(inputText)) {
-                    if (event->key.key == SDLK_C && (mods & (SDL_KMOD_CTRL | SDL_KMOD_GUI))) {
-                        InputText_CopyToClipboard(inputText);
+                    // Control + right arrow
+                    if (controlEquivalent && InputText_MoveCursorRightSpan(inputText, inputNode, font)) {
+                        SetNodeWindowRepaint(inputNode);
+                    }
+                    // Right arrow only
+                    else if (InputText_MoveCursorRight(inputText, inputNode, font)) {
+                        SetNodeWindowRepaint(inputNode);
                     }
                 }
 
-                // if control|command + v -> paste
-                if (event->key.key == SDLK_V && (mods & (SDL_KMOD_CTRL | SDL_KMOD_GUI))) {
-                    if (InputText_IsHighlighting(inputText)) {
-                        InputText_RemoveHighlightedText(inputText, inputNode, font);
-                        InputText_PasteFromClipboard(inputText, inputNode, font);
-                    }
-                    else {
-                        InputText_PasteFromClipboard(inputText, inputNode, font);
-                    }
+                // If controlEquivalent + c AND highliting text -> copy to clipboard
+                if (event->key.key == SDLK_C && controlEquivalent && InputText_IsHighlighting(inputText)) {
+                    InputText_CopyToClipboard(inputText);
+                }
+
+                // If controlEquivalent + v -> paste
+                if (event->key.key == SDLK_V && controlEquivalent && InputText_PasteFromClipboard(inputText, inputNode, font)) {
                     SetNodeWindowRepaint(inputNode);
                     textChanged = true;
                 }
 
-                // if control|command + a -> select all
-                if (event->key.key == SDLK_A && (mods & (SDL_KMOD_CTRL | SDL_KMOD_GUI))) {
+                // If controlEquivalent + a -> select all
+                if (event->key.key == SDLK_A && controlEquivalent) {
                     InputText_SelectAll(inputText, font);
                     SetNodeWindowRepaint(inputNode);
                 }
 
+                // Update styling
                 if (textChanged) {
                     TriggerOnInputChangedEvent(inputNode, "");
                     Stylesheet_ApplyStyleToNode(&GUI.stylesheet, GUI.focused_node, PSEUDO_FOCUS);
                 }
             }
 
-            // toggle window fullscreen with f11 (on windows and linux)
-            if (event->key.key == SDLK_F11 &&
-                (stringEquals(SDL_GetPlatform(), "Windows") || stringEquals(SDL_GetPlatform(), "Linux")))
-            {
+            // Toggle fullscreen with f11 (on windows and linux)
+            if (event->key.key == SDLK_F11 && (windows || linux)) {
                 bool fullscreen = (SDL_GetWindowFlags(GUI.displayManager.lastClickedWindow) & SDL_WINDOW_FULLSCREEN) != 0;
                 SDL_SetWindowFullscreen(GUI.displayManager.lastClickedWindow, !fullscreen);
             }
 
-            // toggle fullscreen with control + command + f (on macOS)
-            if (event->key.key == SDLK_F &&
-                stringEquals(SDL_GetPlatform(), "macOS") &&
-                (event->key.mod & SDL_KMOD_CTRL) &&
-                (event->key.mod & SDL_KMOD_GUI))
-            {
+            // Toggle fullscreen with control + command + f (on macOS)
+            if (event->key.key == SDLK_F && macOS && (event->key.mod & SDL_KMOD_CTRL) && (event->key.mod & SDL_KMOD_GUI)) {
                 bool fullscreen = (SDL_GetWindowFlags(GUI.displayManager.lastClickedWindow) & SDL_WINDOW_FULLSCREEN) != 0;
                 SDL_SetWindowFullscreen(GUI.displayManager.lastClickedWindow, !fullscreen);
             }
@@ -195,20 +195,19 @@ bool HandleEvent(SDL_Event* event)
             TriggerAllOnTypeEvents(event->text.text);
 
             if (GUI.focused_node) {
+
+                // Get structs
                 Font* font = Stylesheet_Get_Font(&GUI.stylesheet, GUI.focused_node->fontIdx);
                 TextInput* inputText = Container_Get(&GUI.textInputs, GUI.focused_node->special.input.textInputHandle);
 
-                int updated = 0;
-                if (InputText_IsHighlighting(inputText)) {
-                    InputText_RemoveHighlightedText(inputText, GUI.focused_node, font);
-                    InputText_Write(inputText, GUI.focused_node, font, event->text.text);
-                    updated = 1;
-                }
-                else {
-                    updated = InputText_Write(inputText, GUI.focused_node, font, event->text.text);
-                }
+                // Set true if text changed
+                bool textChanged = false;
 
-                if (updated) {
+                // Write
+                textChanged = InputText_Write(inputText, GUI.focused_node, font, event->text.text);
+
+                // Update style
+                if (textChanged) {
                     TriggerOnInputChangedEvent(GUI.focused_node, event->text.text);
                     Stylesheet_ApplyStyleToNode(&GUI.stylesheet, GUI.focused_node, PSEUDO_FOCUS);
                 }
@@ -284,6 +283,9 @@ bool HandleEvent(SDL_Event* event)
             SDL_Window* sdlWin = SDL_GetWindowFromID(event->button.windowID);
             GUI.displayManager.lastClickedWindow = sdlWin;
 
+            // Special states
+            bool doubleClick = (event->button.button == SDL_BUTTON_LEFT) && (event->button.clicks == 2);
+
             // If mouse hasn't moved yet the hovered window and node will not have been set -> set both of these
             if (!GUI.displayManager.hoveredWindowNode) {
                 DisplayManager_SetHoveredWindow(&GUI.displayManager, sdlWin);
@@ -331,14 +333,13 @@ bool HandleEvent(SDL_Event* event)
                 Font* font = Stylesheet_Get_Font(&GUI.stylesheet, GUI.focused_node->fontIdx);
                 TextInput* inputText = Container_Get(&GUI.textInputs, GUI.focused_node->special.input.textInputHandle);
 
-                if (GUI.focused_node != prevFocusedNode) {
-                    InputText_MousePlaceCursor(inputText, GUI.focused_node, font, mouseX);
-
-                    // Trigger focus event
+                if (GUI.focused_node != prevFocusedNode)
+                {
+                    InputText_MousePlaceCursor(inputText, GUI.focused_node, font, mouseX, doubleClick);
                     TriggerOnInputFocusEvent(GUI.focused_node);
                 }
                 else {
-                    InputText_MousePlaceCursor(inputText, GUI.focused_node, font, mouseX);
+                    InputText_MousePlaceCursor(inputText, GUI.focused_node, font, mouseX, doubleClick);
                 }
                 SetNodeWindowRepaint(GUI.focused_node);
             }

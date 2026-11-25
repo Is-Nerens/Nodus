@@ -157,7 +157,7 @@ int NU_CreateBorderRectPipeline(DisplayManager* dm, NuPipeline* pipeline, bool M
     attrs[7].location = 7;   // clipTop | clipBottom
     attrs[7].binding  = 1;
     attrs[7].format   = VK_FORMAT_R32_UINT;
-    attrs[7].offset   = offsetof(BorderRectRenderData, clipLeft);
+    attrs[7].offset   = offsetof(BorderRectRenderData, clipTop);
 
     attrs[8].location = 8;   // clipLeft | clipRight
     attrs[8].binding  = 1;

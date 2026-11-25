@@ -149,6 +149,8 @@ typedef union NodeSpecialUnion {
 
 typedef struct TextInput {
     char* buffer;
+    uint64 lastDragTime;
+    float32 dragStartMouseX;
     float32 cursorOffset;
     float32 highlightOffset;
     float32 textOffset;

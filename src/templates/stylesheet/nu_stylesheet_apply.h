@@ -70,9 +70,9 @@ static void Stylesheet_ApplyStyleItemToNode(StyleItem* item, Node* node)
         node->base.borderB = item->borderB;
     }
     if (STYLE_SHOULD_APPLY_TO_NODE(PROPERTY_FLAG_TEXT_COLOUR) && NODE_CAN_HAVE_TEXT_CONTENT(node)) {
-        node->special.text.textR = item->textR;
-        node->special.text.textG = item->textG;
-        node->special.text.textB = item->textB;
+        node->textR = item->textR;
+        node->textG = item->textG;
+        node->textB = item->textB;
     }
 
     // Optimisation -> properties are usually set together (ACCELERATE THE "FALSE" CASE)
@@ -127,8 +127,8 @@ static void Stylesheet_ApplyStyleItemToNode(StyleItem* item, Node* node)
         node->special.image.repeat = item->imageRepeat;
     }
     if (STYLE_SHOULD_APPLY_TO_NODE(PROPERTY_FLAG_INPUT_TYPE) && node->type == NU_TYPE_INPUT) {
-        InputText* inputText = Container_Get(&GUI.textInputs, node->special.input.textInputHandle);
-        inputText->type = item->inputType;
+        TextInput* textInput = Container_Get(&GUI.textInputs, node->special.input.textInputHandle);
+        textInput->type = item->inputType;
     }
     if (STYLE_SHOULD_APPLY_TO_NODE(PROPERTY_FLAG_FONT)) node->fontIdx = item->fontIdx;
 }
@@ -178,84 +178,72 @@ void Stylesheet_ApplyStyleToNode(Stylesheet* ss, Node* node, StylePseudoClass ps
     }
 
     // Get class style items
-    if (node->class)
-    {
-        uint32* itemIndex = LinearStringmap_Get(&ss->classIndexMap, node->class);
-        if (itemIndex)
-        {
-            classItem = Array_Get(&ss->items, *itemIndex);
-            if (pseudo == PSEUDO_HOVER) {
-                classPseudoItem = Array_Get(&ss->items, classItem->hoverPseudoItemIndex);
-            }
-            else if (pseudo == PSEUDO_PRESS) {
-                classPseudoItem = Array_Get(&ss->items, classItem->pressPseudoItemIndex);
-            }
-            else if (pseudo == PSEUDO_FOCUS) {
-                classPseudoItem = Array_Get(&ss->items, classItem->focusPseudoItemIndex);
-            }
+    if (node->classStyleIndex != -1) {
+        classItem = Array_Get(&ss->items, node->classStyleIndex);
+        int classPseudoIndex = -1;
+        switch (pseudo) {
+            case PSEUDO_HOVER: classPseudoIndex = classItem->hoverPseudoItemIndex; break;
+            case PSEUDO_PRESS: classPseudoIndex = classItem->pressPseudoItemIndex; break;
+            case PSEUDO_FOCUS: classPseudoIndex = classItem->focusPseudoItemIndex; break;
+            default: break;
         }
+        if (classPseudoIndex != -1) classPseudoItem = Array_Get(&ss->items, classPseudoIndex);
     }
 
     // Get id style items
-    if (node->id)
-    {
-        int* itemIndex = LinearStringmap_Get(&ss->idIndexMap, node->id);
-        if (itemIndex)
-        {
-            idItem = Array_Get(&ss->items, *itemIndex);
-            if (pseudo == PSEUDO_HOVER) {
-                idPseudoItem = Array_Get(&ss->items, idItem->hoverPseudoItemIndex);
-            }
-            else if (pseudo == PSEUDO_PRESS) {
-                idPseudoItem = Array_Get(&ss->items, idItem->pressPseudoItemIndex);
-            }
-            else if (pseudo == PSEUDO_FOCUS) {
-                idPseudoItem = Array_Get(&ss->items, idItem->focusPseudoItemIndex);
-            }
+    if (node->idStyleIndex != -1) {
+        idItem = Array_Get(&ss->items, node->idStyleIndex);
+        int idPseudoIndex = -1;
+        switch (pseudo) {
+            case PSEUDO_HOVER: idPseudoIndex = idItem->hoverPseudoItemIndex; break;
+            case PSEUDO_PRESS: idPseudoIndex = idItem->pressPseudoItemIndex; break;
+            case PSEUDO_FOCUS: idPseudoIndex = idItem->focusPseudoItemIndex; break;
+            default: break;
         }
+        if (idPseudoIndex != -1) idPseudoItem = Array_Get(&ss->items, idPseudoIndex);
     }
 
     // Apply style items in order
     Stylesheet_ApplyStyleItemToNode(defaultItem, node);
     Stylesheet_ApplyVariations(ss, defaultItem, node, screenWidth);
-    if (tagItem) {
 
+    if (tagItem)
+    {
         // Base tag item
         Stylesheet_ApplyStyleItemToNode(tagItem, node);
         Stylesheet_ApplyVariations(ss, tagItem, node, screenWidth);
-
-        // Pseudo tag item
-        if (pseudo != PSEUDO_NONE) {
-            Stylesheet_ApplyStyleItemToNode(tagPseudoItem, node);
-            Stylesheet_ApplyVariations(ss, tagPseudoItem, node, screenWidth);
-        }
     }
-    if (classItem) {
 
+    if (classItem)
+    {
         // Base class item
         Stylesheet_ApplyStyleItemToNode(classItem, node);
         Stylesheet_ApplyVariations(ss, classItem, node, screenWidth);
-
-        printf("applying class item. the pseudo is: %d\n", pseudo);
-
-        // Pseudo class item
-        if (classPseudoItem) {
-            printf("applying class pseudo item\n");
-            Stylesheet_ApplyStyleItemToNode(classPseudoItem, node);
-            Stylesheet_ApplyVariations(ss, classPseudoItem, node, screenWidth);
-        }
     }
-    if (idItem) {
 
+    if (idItem)
+    {
         // Base id item
         Stylesheet_ApplyStyleItemToNode(idItem, node);
         Stylesheet_ApplyVariations(ss, idItem, node, screenWidth);
+    }
 
-        // Pseudo id item
-        if (idPseudoItem) {
-            Stylesheet_ApplyStyleItemToNode(idPseudoItem, node);
-            Stylesheet_ApplyVariations(ss, idPseudoItem, node, screenWidth);
-        }
+    // Pseudo tag item
+    if (tagPseudoItem) {
+        Stylesheet_ApplyStyleItemToNode(tagPseudoItem, node);
+        Stylesheet_ApplyVariations(ss, tagPseudoItem, node, screenWidth);
+    }
+
+    // Pseudo class item
+    if (classPseudoItem) {
+        Stylesheet_ApplyStyleItemToNode(classPseudoItem, node);
+        Stylesheet_ApplyVariations(ss, classPseudoItem, node, screenWidth);
+    }
+
+    // Pseudo id item
+    if (idPseudoItem) {
+        Stylesheet_ApplyStyleItemToNode(idPseudoItem, node);
+        Stylesheet_ApplyVariations(ss, idPseudoItem, node, screenWidth);
     }
 }
 

@@ -29,7 +29,9 @@ typedef struct BorderRectRenderData {
     uint32 borderRGBA;
     float32 radiusTl, radiusTr, radiusBl, radiusBr;
     float32 borderTop, borderBottom, borderLeft, borderRight;
-    float32 scissorTop, scissorBottom, scissorLeft, scissorRight;
+    uint16 clipTop, clipBottom, clipLeft, clipRight;
+    uint8 clipRadiusTopLeft, clipRadiusTopRight;
+    uint8 clipRadiusBottomLeft, clipRadiusBottomRight;
 } BorderRectRenderData;
 
 typedef struct GlyphRenderData {

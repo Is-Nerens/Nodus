@@ -371,7 +371,7 @@ float NU_Calculate_LText_Unwrapped_Width(Font* font, const char* string, size_t 
 
 void NU_Generate_Text_Renderdata(
     Array* glyphRenderData,
-    Font* font, NU_ClipBounds* clip, const char* string,
+    Font* font, ClipBounds* clip, const char* string,
     float x, float y, float z,
     NuColor color,
     float maxWidth)

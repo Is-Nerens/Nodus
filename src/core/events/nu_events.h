@@ -218,14 +218,14 @@ void NU_DissociateNode(Node* node)
             break;
         }
         case NU_TYPE_INPUT: {
-            InputText* inputText = Container_Get(&GUI.textInputs, node->special.input.textInputHandle);
+            TextInput* inputText = Container_Get(&GUI.textInputs, node->special.input.textInputHandle);
             InputText_Free(inputText);
             Container_Remove(&GUI.textInputs, node->special.input.textInputHandle);
             break;
         }
         default: break;
     }
-    if (node->id != NULL) Stringmap_Delete(&GUI.id_node_map, node->id);
+    if (node->idStyleIndex != -1) Hashmap_Delete(&GUI.idStyleIndexToNodeMap, &node->idStyleIndex);
     if (node == GUI.hovered_node) GUI.hovered_node = NULL;
     if (node == GUI.mouse_down_node)  GUI.mouse_down_node = NULL;
     if (node == GUI.scroll_hovered_node) GUI.scroll_hovered_node = NULL;

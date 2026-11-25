@@ -33,9 +33,7 @@ struct NU_GUI
     // Datastructures
     Set deletedNodesWithRegisteredEvents;
     StringArena nodeTextArena;
-    Stringset class_string_set;
-    Stringset id_string_set;
-    Stringmap id_node_map;
+    Hashmap idStyleIndexToNodeMap;
     Container canvasContexts;
     Container textInputs;
     Container timers;

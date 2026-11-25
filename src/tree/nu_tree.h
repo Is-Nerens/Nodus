@@ -167,7 +167,6 @@ void TreeReparentNode(Tree* tree, Node* node, Node* newParent)
     node->parent = newParent;
     node->prevSibling = newParent->lastChild;
     node->nextSibling = NULL;
-    node->clippedAncestor = NULL;
     node->layer = newParent->layer + 1;
     if (node->type != NU_TYPE_WINDOW) {
         node->windowID = newParent->windowID;

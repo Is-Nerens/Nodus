@@ -12,7 +12,7 @@ layout(location = 0) out vec4 FragColor;
 
 layout(set = 0, binding = 0) uniform sampler2D uTextures[8];
 
-float insideRoundedRect(vec2 p, vec4 rect, vec4 r)
+float insideClipping(vec2 p, vec4 rect, vec4 r)
 {
     if (p.x < rect.x || p.x > rect.z || p.y < rect.y || p.y > rect.w) return 0.0;
 
@@ -49,7 +49,7 @@ void main()
         discard;
     }
 
-    if (insideRoundedRect(vScreenPos, vClipRect, vClipRadii) == 0.0) {
+    if (insideClipping(vScreenPos, vClipRect, vClipRadii) == 0.0) {
         discard;
     }
 

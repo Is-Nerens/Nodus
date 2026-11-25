@@ -1,7 +1,7 @@
 #pragma once
 
-// Initialises an InputText struct and allocated memory for the UTF8 string
-void InputText_Init(InputText* text)
+// Initialises an TextInput struct and allocated memory for the UTF8 string
+void InputText_Init(TextInput* text)
 {
     text->capacity = 64;
     text->buffer = malloc(text->capacity);
@@ -19,7 +19,7 @@ void InputText_Init(InputText* text)
 }
 
 // Frees the underlying UTF8 string memory
-void InputText_Free(InputText* text)
+void InputText_Free(TextInput* text)
 {
     free(text->buffer);
     text->buffer = NULL;

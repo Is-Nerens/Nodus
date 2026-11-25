@@ -12,7 +12,7 @@ layout(location = 0) out vec4 FragColor;
 layout(set = 0, binding = 0) uniform sampler2D uFontTexture;
 
 // Returns 1.0 if inside the (optionally rounded) clip rect, else 0.0.
-float insideRoundedRect(vec2 p, vec4 rect, vec4 r)
+float insideClipping(vec2 p, vec4 rect, vec4 r)
 {
     if (p.x < rect.x || p.x > rect.z || p.y < rect.y || p.y > rect.w) return 0.0;
 
@@ -44,12 +44,7 @@ float insideRoundedRect(vec2 p, vec4 rect, vec4 r)
 
 void main()
 {
-    if (vScreenPos.x < vClipRect.x || vScreenPos.x > vClipRect.z ||
-        vScreenPos.y < vClipRect.y || vScreenPos.y > vClipRect.w) {
-        discard;
-    }
-
-    if (insideRoundedRect(vScreenPos, vClipRect, vClipRadii) == 0.0) {
+    if (insideClipping(vScreenPos, vClipRect, vClipRadii) == 0.0) {
         discard;
     }
 

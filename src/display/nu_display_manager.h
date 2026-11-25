@@ -303,7 +303,7 @@ int DisplayManager_Init(DisplayManager* displayManager)
     displayManager->recycledSDLWindowCount = 0;
     displayManager->lastClickedWindow = NULL;
     Array_Init(&displayManager->absoluteRootNodes, sizeof(Node*), 8);
-    Hashmap_Init(&displayManager->clipMap, sizeof(Node*), sizeof(NU_ClipBounds), 16);
+    Array_Init(&displayManager->clipArray, sizeof(ClipBounds), 32);
     Windows_Init(&displayManager->windows);
 
     // Success
@@ -360,7 +360,7 @@ void DisplayManager_Free(DisplayManager* displayManager)
 
     // 8. Free display manager allocations
     Array_Free(&displayManager->absoluteRootNodes);
-    Hashmap_Free(&displayManager->clipMap);
+    Array_Free(&displayManager->clipArray);
     displayManager->hoveredWindowNode = NULL;
 }
 

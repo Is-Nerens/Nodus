@@ -2,7 +2,7 @@
 #include "nu_text_input_struct.h"
 
 // Updates the cursorOffset and textOffset
-void InputText_UpdateCusorTextOffsets(InputText* text, Node* node, Font* font, int8 moveDelta)
+void InputText_UpdateCusorTextOffsets(TextInput* text, Node* node, Font* font, int8 moveDelta)
 {
     // calculate text width from start to cursor
     char temp = text->buffer[text->cursorBytes];
@@ -37,7 +37,7 @@ void InputText_UpdateCusorTextOffsets(InputText* text, Node* node, Font* font, i
     }
 }
 
-void InputText_ComputeCursorTextOffset_PlaceEnd(InputText* text, Node* node, Font* font)
+void InputText_ComputeCursorTextOffset_PlaceEnd(TextInput* text, Node* node, Font* font)
 {
     // Compute offsets
     float32 textWidth = NU_Calculate_Text_Unwrapped_Width(font, text->buffer);
@@ -52,7 +52,7 @@ void InputText_ComputeCursorTextOffset_PlaceEnd(InputText* text, Node* node, Fon
 }
 
 // Updates the highlightOffset and textOffset
-void InputText_UpdateHighlightTextOffsets(InputText* text, Node* node, Font* font, int8 moveDelta)
+void InputText_UpdateHighlightTextOffsets(TextInput* text, Node* node, Font* font, int8 moveDelta)
 {
     // calculate text width from start to cursor
     char temp = text->buffer[text->highlightBytes];
@@ -88,23 +88,23 @@ void InputText_UpdateHighlightTextOffsets(InputText* text, Node* node, Font* fon
 }
 
 // Resets the cursor position, cursor offset and text offset
-void InputText_Defocus(InputText* text)
+void InputText_Defocus(TextInput* text)
 {
     text->dragging = false;
 }
 
-void InputText_MouseUp(InputText* text)
+void InputText_MouseUp(TextInput* text)
 {
     text->dragging = false;
 }
 
-inline int InputText_IsHighlighting(InputText* text)
+inline int InputText_IsHighlighting(TextInput* text)
 {
     return text->cursorBytes != text->highlightBytes;
 }
 
 // Writes to text at cursorBytes position -> returns 1 if updated
-int InputText_Write(InputText* text, Node* node, Font* font, const char* string)
+int InputText_Write(TextInput* text, Node* node, Font* font, const char* string)
 {
     // if stores numeric value
     if (text->type == 1) {
@@ -141,7 +141,7 @@ int InputText_Write(InputText* text, Node* node, Font* font, const char* string)
 
 /* Unsafe function to remove the codepoint immediately preceeding the cursor
    IMPORTANT! This function assumes there is / are codepoint(s) to the left of the cursor */
-void InputText_RemoveCodepointBeforeCursor(InputText* text)
+void InputText_RemoveCodepointBeforeCursor(TextInput* text)
 {
     uint32 i = text->cursorBytes - 1;
     while (i > 0 && ((unsigned char)text->buffer[i] & 0xC0) == 0x80) i--;
@@ -160,7 +160,7 @@ void InputText_RemoveCodepointBeforeCursor(InputText* text)
 }
 
 // Removes one char at cursorBytes position -> returns 1 if updated
-int InputText_Backspace(InputText* text, Node* node, Font* font)
+int InputText_Backspace(TextInput* text, Node* node, Font* font)
 {
     if (text->cursorBytes == 0) return 0;
 
@@ -176,7 +176,7 @@ int InputText_Backspace(InputText* text, Node* node, Font* font)
 }
 
 // Removes one word before cursorBytes position -> returns 1 if updated
-int InputText_BackspaceWord(InputText* text, Node* node, Font* font)
+int InputText_BackspaceWord(TextInput* text, Node* node, Font* font)
 {
     if (text->cursorBytes == 0) return 0;
 
@@ -251,7 +251,7 @@ int InputText_BackspaceWord(InputText* text, Node* node, Font* font)
     return 1;
 }
 
-int InputText_RemoveHighlightedText(InputText* text, Node* node, Font* font)
+int InputText_RemoveHighlightedText(TextInput* text, Node* node, Font* font)
 {
     // Compute highlight start end
     uint16 highlightStart = text->highlightBytes;
@@ -292,7 +292,7 @@ int InputText_RemoveHighlightedText(InputText* text, Node* node, Font* font)
 }
 
 // Moves the cursor on space to the left -> returns 1 if cursor moved
-int InputText_MoveCursorLeft(InputText* text, Node* node, Font* font)
+int InputText_MoveCursorLeft(TextInput* text, Node* node, Font* font)
 {
     // can't move any further left
     if (text->cursorBytes == 0) return 0;
@@ -309,7 +309,7 @@ int InputText_MoveCursorLeft(InputText* text, Node* node, Font* font)
 }
 
 // Moves the cursor on space to the right -> returns 1 if cursor moved
-int InputText_MoveCursorRight(InputText* text, Node* node, Font* font)
+int InputText_MoveCursorRight(TextInput* text, Node* node, Font* font)
 {
     // can't move any further right
     if (text->cursorBytes >= text->numBytes) return 0;
@@ -328,7 +328,7 @@ int InputText_MoveCursorRight(InputText* text, Node* node, Font* font)
 }
 
 // Moves the cursor on space to the left of the preceeding word -> returns 1 if cursor moved
-int InputText_MoveCursorLeftSpan(InputText* text, Node* node, Font* font)
+int InputText_MoveCursorLeftSpan(TextInput* text, Node* node, Font* font)
 {
     // can't move any further left
     if (text->cursorBytes == 0) return 0;
@@ -363,7 +363,7 @@ int InputText_MoveCursorLeftSpan(InputText* text, Node* node, Font* font)
 }
 
 // Moves the cursor on space to the right of the proceeding word -> returns 1 if cursor moved
-int InputText_MoveCursorRightSpan(InputText* text, Node* node, Font* font)
+int InputText_MoveCursorRightSpan(TextInput* text, Node* node, Font* font)
 {
     // can't move any further right
     if (text->cursorBytes >= text->numBytes) return 0;
@@ -401,7 +401,7 @@ int InputText_MoveCursorRightSpan(InputText* text, Node* node, Font* font)
     return 1;
 }
 
-void InputText_MousePlaceCursor(InputText* text, Node* node, Font* font, float32 mouseX)
+void InputText_MousePlaceCursor(TextInput* text, Node* node, Font* font, float32 mouseX)
 {
     float32 inputLeftX = node->base.x + node->base.padLeft + node->base.borderLeft;
     float32 mouseRelX = mouseX - inputLeftX - text->textOffset;
@@ -421,7 +421,7 @@ void InputText_MousePlaceCursor(InputText* text, Node* node, Font* font, float32
     text->dragging = true;
 }
 
-int InputText_MouseDrag(InputText* text, Node* node, Font* font, float32 mouseX)
+int InputText_MouseDrag(TextInput* text, Node* node, Font* font, float32 mouseX)
 {
     if (!text->dragging) return 0;
 
@@ -444,7 +444,7 @@ int InputText_MouseDrag(InputText* text, Node* node, Font* font, float32 mouseX)
     return prevHighlightBytes != text->highlightBytes;
 }
 
-void InputText_SelectAll(InputText* text, Font* font)
+void InputText_SelectAll(TextInput* text, Font* font)
 {
     text->highlightBytes = 0;
     text->cursorBytes = text->numBytes;
@@ -452,7 +452,7 @@ void InputText_SelectAll(InputText* text, Font* font)
     text->cursorOffset = NU_Calculate_Text_Unwrapped_Width(font, text->buffer) - text->textOffset;
 }
 
-void InputText_CopyToClipboard(InputText* text)
+void InputText_CopyToClipboard(TextInput* text)
 {
     // Compute highlight start and end
     uint16 highlightStart = text->highlightBytes;
@@ -475,7 +475,7 @@ void InputText_CopyToClipboard(InputText* text)
     text->buffer[highlightEnd] = temp;
 }
 
-void InputText_SetText(InputText* text, Node* node, Font* font, const char* str)
+void InputText_SetText(TextInput* text, Node* node, Font* font, const char* str)
 {
     if (!str) return;  // nothing to paste
 
@@ -572,7 +572,7 @@ void InputText_SetText(InputText* text, Node* node, Font* font, const char* str)
     text->updateOffsetsPostLayout = true;
 }
 
-static inline void InputText_PasteFromClipboard(InputText* text, Node* node, Font* font)
+static inline void InputText_PasteFromClipboard(TextInput* text, Node* node, Font* font)
 {
     // Get clipboard text
     char* clip = SDL_GetClipboardText();

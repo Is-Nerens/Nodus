@@ -7,8 +7,8 @@ static bool NU_MouseIsOverNode(Node* node, float mouseX, float mouseY)
     float right_wall = node->base.x + node->base.width;
     float top_wall = node->base.y;
     float bottom_wall = node->base.y + node->base.height;
-    if (node->clippedAncestor) {
-        NU_ClipBounds* clip = Hashmap_Get(&GUI.displayManager.clipMap, &node->clippedAncestor);
+    if (node->clipIndex != -1) {
+        ClipBounds* clip = Array_Get(&GUI.displayManager.clipArray, node->clipIndex);
         left_wall = max(clip->left, node->base.x);
         right_wall = min(clip->right, node->base.x + node->base.width);
         top_wall = max(clip->top, node->base.y);
@@ -209,7 +209,6 @@ void NU_Mouse_Hover()
     if (GUI.hovered_node != GUI.prev_hovered_node) {
         if (GUI.prev_hovered_node != NULL && GUI.prev_hovered_node != GUI.mouse_down_node && GUI.prev_hovered_node != GUI.focused_node) Stylesheet_ApplyStyleToNode(&GUI.stylesheet, GUI.prev_hovered_node, PSEUDO_NONE);
         if (GUI.hovered_node != GUI.mouse_down_node && GUI.hovered_node != GUI.focused_node) {
-            printf("applying hover style to: %p\n", GUI.hovered_node);
             Stylesheet_ApplyStyleToNode(&GUI.stylesheet, GUI.hovered_node, PSEUDO_HOVER);
         }
         if (GUI.prev_hovered_node) SetNodeWindowRepaint(GUI.prev_hovered_node);

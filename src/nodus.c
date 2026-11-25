@@ -26,9 +26,7 @@ void NU_FREE()
     }
     ImageResourceManager_Free(&GUI.imageResourceManager, &GUI.displayManager);
     ErrorSystem_Free(&GUI.errorSystem);
-    Stringmap_Free(&GUI.id_node_map);
-    Stringset_Free(&GUI.class_string_set);
-    Stringset_Free(&GUI.id_string_set);
+    Hashmap_Free(&GUI.idStyleIndexToNodeMap);
     StringArena_Free(&GUI.nodeTextArena);
     Stylesheet_Free(&GUI.stylesheet, GUI.displayManager.device, GUI.displayManager.fontPool);
     DisplayManager_Free(&GUI.displayManager);
@@ -77,14 +75,12 @@ static SDL_AppResult SDLCALL NU_Internal_Init(void **appstate, int argc, char *a
 
     // Init data structures
     StringArena_Init(&GUI.nodeTextArena, 1024);
-    Stringset_Init(&GUI.class_string_set, 1024, 100);
-    Stringset_Init(&GUI.id_string_set, 1024, 100);
-    Stringmap_Init(&GUI.id_node_map, sizeof(Node*), 128, 2048);
+    Hashmap_Init(&GUI.idStyleIndexToNodeMap, sizeof(int), sizeof(Node*), 256);
     Array_Init(&GUI.layoutScrollAutoNodes, sizeof(Node*), 20);
 
     // Init canvas context and text input containers
     GUI.canvasContexts = Container_Create(sizeof(NU_Canvas_Context));
-    GUI.textInputs = Container_Create(sizeof(InputText));
+    GUI.textInputs = Container_Create(sizeof(TextInput));
     GUI.timers = Container_Create(sizeof(NU_Timer));
     GUI.widgets = Container_Create(sizeof(NU_Widget));
 
@@ -173,9 +169,11 @@ static SDL_AppResult SDLCALL NU_Internal_Init(void **appstate, int argc, char *a
     }
 
     // Apply css
+    timer_start();
     if (!NU_Internal_Apply_Stylesheet_Parallel(&GUI.stylesheet, &GUI.threadPool)) {
         NU_FREE(); return SDL_APP_FAILURE;
     }
+    timer_stop();
 
     // Initial layout calculation
     NU_Layout();
@@ -560,9 +558,9 @@ _EXPORT NuInput* NU_INPUT(NuNode* parent) {
     if (parent == NULL) return NULL;
     Node* parentP = (Node*)(parent);
     Node* node = TreeCreateNode(&GUI.tree, parentP, NU_TYPE_INPUT);
-    InputText inputText;
-    InputText_Init(&inputText);
-    node->special.input.textInputHandle = Container_Add(&GUI.textInputs, &inputText);
+    TextInput textInput;
+    InputText_Init(&textInput);
+    node->special.input.textInputHandle = Container_Add(&GUI.textInputs, &textInput);
     Stylesheet_ApplyStyleToNode(&GUI.stylesheet, node, PSEUDO_NONE);
     SetNodeWindowRepaint(node);
     return (NuInput*)(node);
@@ -805,9 +803,9 @@ _EXPORT void NU_SET_BORDER_COLOR(NuNode* node, NuColor color) {
 
 _EXPORT void NU_SET_TEXT_COLOR(NuNode* node, NuColor color) {
     Node* nodeP = (Node*)node;
-    nodeP->special.text.textR = color.r;
-    nodeP->special.text.textB = color.g;
-    nodeP->special.text.textB = color.b;
+    nodeP->textR = color.r;
+    nodeP->textB = color.g;
+    nodeP->textB = color.b;
     nodeP->overrideStyleFlags |= PROPERTY_FLAG_TEXT_COLOUR;
     SetNodeWindowRepaint(nodeP);
 }
@@ -851,8 +849,8 @@ _EXPORT void NU_BUTTON_SET_TEXT_CONTENT(NuButton* button, char* string) {
 _EXPORT void NU_INPUT_SET_TEXT_CONTENT(NuNode* node, char* string) {
     Node* nodeP = (Node*)(node);
     Font* font = Stylesheet_Get_Font(&GUI.stylesheet, nodeP->fontIdx);
-    InputText* inputText = Container_Get(&GUI.textInputs, nodeP->special.input.textInputHandle);
-    InputText_SetText(inputText, nodeP, font, string);
+    TextInput* textInput = Container_Get(&GUI.textInputs, nodeP->special.input.textInputHandle);
+    InputText_SetText(textInput, nodeP, font, string);
     TriggerOnInputChangedEvent(nodeP, "");
     SetNodeWindowRepaint(nodeP);
 }
@@ -869,8 +867,8 @@ _EXPORT void NU_INPUT_FOCUS(NuInput* input) {
         // Defocus prev focused input node
         if (prevFocusedNode != NULL)
         {
-            InputText* inputText = Container_Get(&GUI.textInputs, prevFocusedNode->special.input.textInputHandle);
-            InputText_Defocus(inputText);
+            TextInput* textInput = Container_Get(&GUI.textInputs, prevFocusedNode->special.input.textInputHandle);
+            InputText_Defocus(textInput);
 
             // Trigger defocus event
             TriggerOnInputDefocusEvent(prevFocusedNode);
@@ -891,13 +889,13 @@ _EXPORT void NU_INPUT_FOCUS(NuInput* input) {
         // Focus on input node
         Stylesheet_ApplyStyleToNode(&GUI.stylesheet, GUI.focused_node, PSEUDO_FOCUS);
         Font* font = Stylesheet_Get_Font(&GUI.stylesheet, GUI.focused_node->fontIdx);
-        InputText* inputText = Container_Get(&GUI.textInputs, GUI.focused_node->special.input.textInputHandle);
-        InputText_MousePlaceCursor(inputText, GUI.focused_node, font, 1000000.0f);
+        TextInput* textInput = Container_Get(&GUI.textInputs, GUI.focused_node->special.input.textInputHandle);
+        InputText_MousePlaceCursor(textInput, GUI.focused_node, font, 1000000.0f);
         SDL_StartTextInput(DisplayManager_GetNodeSDLWindow(&GUI.displayManager, GUI.focused_node));
         SetNodeWindowRepaint(GUI.focused_node);
 
         // Defer offsets calculation
-        inputText->updateOffsetsPostLayout = true;
+        textInput->updateOffsetsPostLayout = true;
 
         // Trigger focus event
         TriggerOnInputFocusEvent(nodeP);
@@ -906,8 +904,8 @@ _EXPORT void NU_INPUT_FOCUS(NuInput* input) {
 
 _EXPORT const char* NU_INPUT_GET_TEXT_CONTENT(const NuInput* input) {
     Node* nodeP = (Node*)(input);
-    InputText* inputText = Container_Get(&GUI.textInputs, nodeP->special.input.textInputHandle);
-    return inputText->buffer;
+    TextInput* textInput = Container_Get(&GUI.textInputs, nodeP->special.input.textInputHandle);
+    return textInput->buffer;
 }
 
 _EXPORT void NU_SHIFT_NODE_IN_PARENT(NuNode* node, int index) {
@@ -1003,20 +1001,29 @@ _EXPORT void NU_BACKGROUND_VISIBILITY_ENABLE_STYLESHEET(NuNode* node) {
 }
 
 _EXPORT NuNode* NU_NODE_WITH_ID(const char* id) {
-    void* found = Stringmap_Get(&GUI.id_node_map, id);
-    if (found == NULL) return NULL;
-    Node* node = *(Node**)found;
-    return (NuNode*)(node);
+    int* indexGet = LinearStringmap_Get(&GUI.stylesheet.idIndexMap, id);
+    if (indexGet) {
+        int index = *indexGet;
+        void* found = Hashmap_Get(&GUI.idStyleIndexToNodeMap, &index);
+        if (found == NULL) return NULL;
+        Node* node = *(Node**)found;
+        return (NuNode*)(node);
+    }
+    return NULL;
 }
 
-_EXPORT NuNodelist NU_NODES_WITH_CLASS(const char* class) {
-
+_EXPORT NuNodelist NU_NODES_WITH_CLASS(const char* class)
+{
     NU_Nodelist_Internal result;
     NU_Nodelist_Init(&result, 8);
+
+    int* indexGet = LinearStringmap_Get(&GUI.stylesheet.classIndexMap, class);
+    if (!indexGet) return result.nodelist;
+
     DepthFirstSearch dfs = DepthFirstSearch_Create(GUI.tree.root);
     Node* node;
     while(DepthFirstSearch_Next(&dfs, &node)) {
-        if (node->class != NULL && strcmp(class, node->class) == 0) {
+        if (node->classStyleIndex == *indexGet) {
             NU_Nodelist_Push(&result, (NuNode*)(node));
         }
     }
@@ -1039,13 +1046,18 @@ _EXPORT NuNodelist NU_NODES_WITH_TYPE(const uint8 type) {
 }
 
 _EXPORT NuNodelist NU_DESCENDENTS_WITH_CLASS(const NuNode* node, const char* class) {
-    Node* nodeP = (Node*)(node);
+
     NU_Nodelist_Internal result;
     NU_Nodelist_Init(&result, 8);
+
+    int* indexGet = LinearStringmap_Get(&GUI.stylesheet.classIndexMap, class);
+    if (!indexGet) return result.nodelist;
+
+    Node* nodeP = (Node*)(node);
     DepthFirstSearch dfs = DepthFirstSearch_Create(nodeP);
     Node* currNode;
     while(DepthFirstSearch_Next(&dfs, &currNode)) {
-        if (currNode->class != NULL && strcmp(class, currNode->class) == 0) {
+        if (currNode->classStyleIndex == *indexGet) {
             NU_Nodelist_Push(&result, (NuNode*)(currNode));
         }
     }
@@ -1081,12 +1093,16 @@ _EXPORT NuNodelist NU_CHILDREN(const NuNode* node) {
 }
 
 _EXPORT NuNode* NU_FIRST_DESCENDENT_WITH_CLASS(const NuNode* node, const char* class) {
+
+    int* indexGet = LinearStringmap_Get(&GUI.stylesheet.classIndexMap, class);
+    if (!indexGet) return NULL;
+
     Node* nodeP = (Node*)(node);
     NuNode* result = NULL;
     BreadthFirstSearch_Reset(&GUI.bfs, nodeP);
     Node* bfsNode;
     while(BreadthFirstSearch_Next(&GUI.bfs, &bfsNode)) {
-        if (strcmp(bfsNode->class, class) == 0) {
+        if (bfsNode->classStyleIndex == *indexGet) {
             result = (NuNode*)(bfsNode);
             break;
         }
@@ -1127,27 +1143,28 @@ _EXPORT void NU_NODELIST_FREE(NuNodelist* nodelist) {
 
 _EXPORT void NU_SET_CLASS(NuNode* node, const char* class) {
     Node* nodeP = (Node*)(node);
-    if (class == nodeP->class) return;
+    int* styleIndexGet = LinearStringmap_Get(&GUI.stylesheet.classIndexMap, class);
+    if (styleIndexGet && nodeP->classStyleIndex != *styleIndexGet) {
+        nodeP->classStyleIndex = *styleIndexGet;
 
-    nodeP->class = NULL;
+        // Update styling
+        if (nodeP == GUI.scroll_mouse_down_node) {
+            Stylesheet_ApplyStyleToNode(&GUI.stylesheet, nodeP, PSEUDO_PRESS);
+        } else if (nodeP == GUI.hovered_node) {
+            Stylesheet_ApplyStyleToNode(&GUI.stylesheet, nodeP, PSEUDO_HOVER);
+        } else if (nodeP == GUI.focused_node) {
+            Stylesheet_ApplyStyleToNode(&GUI.stylesheet, nodeP, PSEUDO_FOCUS);
+        } else {
+            Stylesheet_ApplyStyleToNode(&GUI.stylesheet, nodeP, PSEUDO_NONE);
+        }
+        SetNodeWindowRepaint(nodeP);
+    }
+}
 
-    // Look for class in gui class string set
-    char* gui_class_get = Stringset_Get(&GUI.class_string_set, class);
-    if (gui_class_get) {
-        nodeP->class = gui_class_get;
-    }
-    // Not found? Look in the stylesheet
-    else {
-        void* found = LinearStringmap_Get(&GUI.stylesheet.classIndexMap, class);
-        if (found) {
-            // Add it to the gui class set
-            nodeP->class = Stringset_Add(&GUI.class_string_set, class);
-        }
-        // Class does not exist
-        else {
-            return;
-        }
-    }
+_EXPORT void NU_REMOVE_CLASS(NuNode* node) {
+    Node* nodeP = (Node*)(node);
+    if (nodeP->classStyleIndex == -1) return;
+    nodeP->classStyleIndex = -1;
 
     // Update styling
     if (nodeP == GUI.scroll_mouse_down_node) {
@@ -1158,21 +1175,6 @@ _EXPORT void NU_SET_CLASS(NuNode* node, const char* class) {
         Stylesheet_ApplyStyleToNode(&GUI.stylesheet, nodeP, PSEUDO_FOCUS);
     } else {
         Stylesheet_ApplyStyleToNode(&GUI.stylesheet, nodeP, PSEUDO_NONE);
-    }
-    SetNodeWindowRepaint(nodeP);
-}
-
-_EXPORT void NU_REMOVE_CLASS(NuNode* node) {
-    Node* nodeP = (Node*)(node);
-    if (nodeP->class == NULL) return;
-    nodeP->class = NULL;
-
-    // Update styling
-    Stylesheet_ApplyStyleToNode(&GUI.stylesheet, nodeP, PSEUDO_NONE);
-    if (nodeP == GUI.scroll_mouse_down_node) {
-        Stylesheet_ApplyStyleToNode(&GUI.stylesheet, nodeP, PSEUDO_PRESS);
-    } else if (nodeP == GUI.hovered_node) {
-        Stylesheet_ApplyStyleToNode(&GUI.stylesheet, nodeP, PSEUDO_HOVER);
     }
     SetNodeWindowRepaint(nodeP);
 }

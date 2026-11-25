@@ -58,7 +58,6 @@ static bool XML_ParseHexcode(const char* hexcode, uint32 length, NuColor* result
     return true;
 }
 
-
 void NU_Parse_Property(const enum NU_XML_TOKEN token, Node* currentNode, char* ptext, struct Text_Ref* current_text_ref)
 {
     char c = ptext[0];
@@ -67,18 +66,45 @@ void NU_Parse_Property(const enum NU_XML_TOKEN token, Node* currentNode, char* p
     {
         // Set id
         case ID_PROPERTY: {
-            char* id_get = Stringset_Get(&GUI.id_string_set, ptext);
-            if (id_get == NULL) {
-                currentNode->id = Stringset_Add(&GUI.id_string_set, ptext);
-                Stringmap_Set(&GUI.id_node_map, ptext, &currentNode);
+
+            // Check if there is a mapping from id -> style index
+            int* styleIndexGet = LinearStringmap_Get(&GUI.stylesheet.idIndexMap, ptext);
+            int styleIndex;
+
+            // If there isnt a mapping then trivially no node has used this ID before
+            // Create a dummy style item for thsi id and make the mapping
+            if (!styleIndexGet) {
+                StyleItem* dummyItem = Array_PushEmptyZero(&GUI.stylesheet.items);
+                dummyItem->nextVariationIndex = -1;
+                dummyItem->screenQueryIndex = -1;
+                dummyItem->hoverPseudoItemIndex = -1;
+                dummyItem->pressPseudoItemIndex = -1;
+                dummyItem->focusPseudoItemIndex = -1;
+                styleIndex = Array_Length(&GUI.stylesheet.items) - 1;
+                LinearStringmap_Set(&GUI.stylesheet.idIndexMap, ptext, &styleIndex);
+
+                // Set the current node to point to the dummy style item
+                currentNode->idStyleIndex = styleIndex;
+                Hashmap_Set(&GUI.idStyleIndexToNodeMap, &styleIndex, &currentNode);
+            }
+            else
+            {
+                styleIndex = *styleIndexGet;
+                void* foundNode = Hashmap_Get(&GUI.idStyleIndexToNodeMap, &styleIndex);
+                if (!foundNode) {
+                    currentNode->idStyleIndex = styleIndex;
+                    Hashmap_Set(&GUI.idStyleIndexToNodeMap, &styleIndex, &currentNode);
+                }
             }
             break;
         }
 
         // Set class
-        case CLASS_PROPERTY:
-            currentNode->class = Stringset_Add(&GUI.class_string_set, ptext);
+        case CLASS_PROPERTY: {
+            int* itemIndex = LinearStringmap_Get(&GUI.stylesheet.classIndexMap, ptext);
+            if (itemIndex) currentNode->classStyleIndex = *itemIndex;
             break;
+        }
 
         // Set layout direction
         case LAYOUT_DIRECTION_PROPERTY:
@@ -370,9 +396,9 @@ void NU_Parse_Property(const enum NU_XML_TOKEN token, Node* currentNode, char* p
             NuColor color;
             if (NODE_CAN_HAVE_TEXT_CONTENT(currentNode) && XML_ParseHexcode(ptext, current_text_ref->char_count, &color)) {
                 currentNode->overrideStyleFlags |= PROPERTY_FLAG_TEXT_COLOUR;
-                currentNode->special.text.textR = color.r;
-                currentNode->special.text.textG = color.g;
-                currentNode->special.text.textB = color.b;
+                currentNode->textR = color.r;
+                currentNode->textG = color.g;
+                currentNode->textB = color.b;
             }
             break;
         }
@@ -565,11 +591,11 @@ void NU_Parse_Property(const enum NU_XML_TOKEN token, Node* currentNode, char* p
         case INPUT_TYPE_PROPERTY: {
             if (currentNode->type != NU_TYPE_INPUT) break;
             currentNode->overrideStyleFlags |= PROPERTY_FLAG_INPUT_TYPE;
-            InputText* inputText = Container_Get(&GUI.textInputs, currentNode->special.input.textInputHandle);
+            TextInput* textInput = Container_Get(&GUI.textInputs, currentNode->special.input.textInputHandle);
             if (stringEquals(ptext, "number")) {
-                inputText->type = 1;
+                textInput->type = 1;
             } else {
-                inputText->type = 0;
+                textInput->type = 0;
             }
             break;
         }
@@ -652,8 +678,8 @@ int NU_Parse_Component(
                     DisplayManager_CreateWindow(&GUI.displayManager, currentNode, "", 400, 400);
                 }
                 else if (currentNode->type == NU_TYPE_INPUT) {
-                    InputText inputText; InputText_Init(&inputText);
-                    currentNode->special.input.textInputHandle = Container_Add(&GUI.textInputs, &inputText);
+                    TextInput textInput; InputText_Init(&textInput);
+                    currentNode->special.input.textInputHandle = Container_Add(&GUI.textInputs, &textInput);
                 }
                 else if (currentNode->type == NU_TYPE_TABLE) {
                     ctx = GENCTX_IN_CONTENT_OF_TABLE_WITHOUT_CHILDREN;
@@ -869,8 +895,8 @@ int NU_Generate_Tree(
                     if (currentNode->type == NU_TYPE_WINDOW) { // If node is a window -> create SDL window
                         DisplayManager_CreateWindow(&GUI.displayManager, currentNode, "", 100, 100);
                     } else if (currentNode->type == NU_TYPE_INPUT) {
-                        InputText inputText; InputText_Init(&inputText);
-                        currentNode->special.input.textInputHandle = Container_Add(&GUI.textInputs, &inputText);
+                        TextInput textInput; InputText_Init(&textInput);
+                        currentNode->special.input.textInputHandle = Container_Add(&GUI.textInputs, &textInput);
                     }
                     else if (currentNode->type == NU_TYPE_TABLE) {
                         ctx = GENCTX_IN_CONTENT_OF_TABLE_WITHOUT_CHILDREN;

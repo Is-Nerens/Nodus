@@ -117,44 +117,63 @@ int NU_CreateBorderRectPipeline(DisplayManager* dm, NuPipeline* pipeline, bool M
     bindings[1].binding   = 1;
     bindings[1].stride    = sizeof(BorderRectRenderData);
     bindings[1].inputRate = VK_VERTEX_INPUT_RATE_INSTANCE;
-    VkVertexInputAttributeDescription attrs[8] = {0};
+    VkVertexInputAttributeDescription attrs[10] = {0};
+
     attrs[0].location = 0;   // aQuad
     attrs[0].binding  = 0;
     attrs[0].format   = VK_FORMAT_R32G32_SFLOAT;
     attrs[0].offset   = 0;
+
     attrs[1].location = 1;   // iPos
     attrs[1].binding  = 1;
     attrs[1].format   = VK_FORMAT_R32G32B32_SFLOAT;
     attrs[1].offset   = offsetof(BorderRectRenderData, x);
+
     attrs[2].location = 2;   // iSize
     attrs[2].binding  = 1;
     attrs[2].format   = VK_FORMAT_R32G32_SFLOAT;
     attrs[2].offset   = offsetof(BorderRectRenderData, w);
+
     attrs[3].location = 3;   // iBgColor
     attrs[3].binding  = 1;
     attrs[3].format   = VK_FORMAT_R32_UINT;
     attrs[3].offset   = offsetof(BorderRectRenderData, backgroundRGBA);
+
     attrs[4].location = 4;   // iBorderColor
     attrs[4].binding  = 1;
     attrs[4].format   = VK_FORMAT_R32_UINT;
     attrs[4].offset   = offsetof(BorderRectRenderData, borderRGBA);
+
     attrs[5].location = 5;   // iRadius (vec4: Tl, Tr, Bl, Br)
     attrs[5].binding  = 1;
     attrs[5].format   = VK_FORMAT_R32G32B32A32_SFLOAT;
     attrs[5].offset   = offsetof(BorderRectRenderData, radiusTl);
+
     attrs[6].location = 6;   // iBorder (vec4: Top, Bottom, Left, Right)
     attrs[6].binding  = 1;
     attrs[6].format   = VK_FORMAT_R32G32B32A32_SFLOAT;
     attrs[6].offset   = offsetof(BorderRectRenderData, borderTop);
-    attrs[7].location = 7;   // iScissor (vec4: Top, Bottom, Left, Right)
+
+    attrs[7].location = 7;   // clipTop | clipBottom
     attrs[7].binding  = 1;
-    attrs[7].format   = VK_FORMAT_R32G32B32A32_SFLOAT;
-    attrs[7].offset   = offsetof(BorderRectRenderData, scissorTop);
+    attrs[7].format   = VK_FORMAT_R32_UINT;
+    attrs[7].offset   = offsetof(BorderRectRenderData, clipLeft);
+
+    attrs[8].location = 8;   // clipLeft | clipRight
+    attrs[8].binding  = 1;
+    attrs[8].format   = VK_FORMAT_R32_UINT;
+    attrs[8].offset   = offsetof(BorderRectRenderData, clipLeft);
+
+    attrs[9].location = 9;   // 4 x uint8 radii
+    attrs[9].binding  = 1;
+    attrs[9].format   = VK_FORMAT_R32_UINT;
+    attrs[9].offset   = offsetof(BorderRectRenderData, clipRadiusTopLeft);
+
     VkPipelineVertexInputStateCreateInfo vis = {0};
     vis.sType                           = VK_STRUCTURE_TYPE_PIPELINE_VERTEX_INPUT_STATE_CREATE_INFO;
     vis.vertexBindingDescriptionCount   = 2;
     vis.pVertexBindingDescriptions      = bindings;
-    vis.vertexAttributeDescriptionCount = 8;
+    vis.vertexAttributeDescriptionCount = 10;
     vis.pVertexAttributeDescriptions    = attrs;
 
     // Input assembly
@@ -300,7 +319,7 @@ int NU_CreateImagePipeline(DisplayManager* displayManager, NuPipeline* pipeline,
         return 0;
     }
 
-    // ---- Shader stages ----
+    // Shader stages
     VkPipelineShaderStageCreateInfo stages[2] = {0};
 
     stages[0].sType  = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
@@ -313,7 +332,7 @@ int NU_CreateImagePipeline(DisplayManager* displayManager, NuPipeline* pipeline,
     stages[1].module = fragModule;
     stages[1].pName  = "main";
 
-    // ---- Vertex input ----
+    // Vertex input
     VkVertexInputBindingDescription bindings[2] = {0};
     bindings[0].binding   = 0;
     bindings[0].stride    = sizeof(float) * 2;      // aQuad (vec2)

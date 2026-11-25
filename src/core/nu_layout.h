@@ -35,7 +35,7 @@ static void NU_Prepass(BreadthFirstSearch* bfs, Array* scrollAutoNodes)
 
         // Reset state
         node->stateFlags = 0;
-        node->clippedAncestor = NULL;
+        node->clipIndex = -1;
 
         // Set node hidden (if explicitly hidden OR inherent hiddeness from parent unless node is a window)
         if (node->layoutFlags & HIDDEN || (node->type != NU_TYPE_WINDOW && node->parent && NodeStateHidden(node->parent))) {

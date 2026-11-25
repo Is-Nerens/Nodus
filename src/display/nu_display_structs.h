@@ -82,7 +82,7 @@ typedef struct DisplayManager
     SDL_Window* recycledSDLWindows[NU_RECYCLED_WINDOWS_CAPACITY];
     int recycledSDLWindowCount;
     Array absoluteRootNodes;
-    Hashmap clipMap;
+    Array clipArray;
     Node* hoveredWindowNode;
     SDL_Window* lastClickedWindow;
     int8 rootWindowID;

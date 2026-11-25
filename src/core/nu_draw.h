@@ -38,7 +38,7 @@ inline int NodeOutsideBounds(Node* node, float left, float right, float top, flo
            (node->base.x > right);
 }
 
-void NU_AddNodeTextToRenderDataArray(Node* node, NU_ClipBounds* clip, float z, Array* textRenderData)
+void NU_AddNodeTextToRenderDataArray(Node* node, ClipBounds* clip, float z, Array* textRenderData)
 {
     // Compute node inner dimensions
     float inner_width  = NODE_INNER_WIDTH(node);
@@ -55,9 +55,9 @@ void NU_AddNodeTextToRenderDataArray(Node* node, NU_ClipBounds* clip, float z, A
     // Add glyph render data
     Font* node_font = Stylesheet_Get_Font(&GUI.stylesheet, node->fontIdx);
     NuColor color = {
-        node->special.text.textR,
-        node->special.text.textG,
-        node->special.text.textB,
+        node->textR,
+        node->textG,
+        node->textB,
         255
     };
     NU_Generate_Text_Renderdata(
@@ -73,85 +73,91 @@ void NU_AddNodeTextToRenderDataArray(Node* node, NU_ClipBounds* clip, float z, A
     );
 }
 
-void AddTextInputRenderData(Node* node, NU_ClipBounds* clip, Array* textRenderData, Array* borderRectRenderData)
+void AddTextInputRenderData(Node* node, ClipBounds* clip, Array* textRenderData, Array* borderRectRenderData)
 {
-    // Get font and inout text datastructure
+    // Get font and textinput datastructure
     Font* font = Stylesheet_Get_Font(&GUI.stylesheet, node->fontIdx);
-    InputText* inputText = Container_Get(&GUI.textInputs, node->special.input.textInputHandle);
+    TextInput* textInput = Container_Get(&GUI.textInputs, node->special.input.textInputHandle);
+
+    if (textInput->numBytes == 0) return;
 
     // Recompute text offset
-    if (inputText->updateOffsetsPostLayout) {
-        inputText->updateOffsetsPostLayout = false;
-        InputText_ComputeCursorTextOffset_PlaceEnd(inputText, node, font);
+    if (textInput->updateOffsetsPostLayout) {
+        textInput->updateOffsetsPostLayout = false;
+        InputText_ComputeCursorTextOffset_PlaceEnd(textInput, node, font);
     }
 
     // Add text render data
-    float textPosX = floorf(node->base.x + node->base.borderLeft + node->base.padLeft + inputText->textOffset);
+    float textPosX = floorf(node->base.x + node->base.borderLeft + node->base.padLeft + textInput->textOffset);
     float textPosY = floorf(node->base.y + node->base.borderTop  + node->base.padTop);
     NuColor textColor = {
-        node->special.text.textR,
-        node->special.text.textG,
-        node->special.text.textB,
+        node->textR,
+        node->textG,
+        node->textB,
         255
     };
     NU_Generate_Text_Renderdata(
         textRenderData,
         font,
-        NULL,
-        inputText->buffer,
+        clip,
+        textInput->buffer,
         textPosX,
         textPosY,
-        ComputeZ(node->layer + ABSOLUTE_Z_LAYER * NodeStatePosAbsolute(node), 1),
+        ComputeZ(node->layer + ABSOLUTE_Z_LAYER * NodeStatePosAbsolute(node), 2),
         textColor,
         -1.0f
     );
 
     // Text highlight rect
-    if (node == GUI.focused_node && InputText_IsHighlighting(inputText))
+    if (node == GUI.focused_node && InputText_IsHighlighting(textInput))
     {
         NodePublicBase* n = &node->base;
-        float cursorX = n->x + n->borderLeft + n->padLeft + inputText->cursorOffset;
-        float highlightX = n->x + n->borderLeft + n->padLeft + inputText->highlightOffset;
+        float cursorX = n->x + n->borderLeft + n->padLeft + textInput->cursorOffset;
+        float highlightX = n->x + n->borderLeft + n->padLeft + textInput->highlightOffset;
         float x = highlightX; if (cursorX < x) x = cursorX;
         float y = n->y + n->borderTop + n->padTop;
         float width = fabs(cursorX - highlightX);
         float height = n->height - n->borderTop - n->borderBottom - n->padTop - n->padBottom;
 
         NuColor highlightColor = { 66, 137, 244, 255 };
-        float32 packedColor = PackColorIntoUint32(highlightColor);
+        uint32 packedColor = PackColorIntoUint32(highlightColor);
 
         BorderRectRenderData* renderData = Array_PushEmpty(borderRectRenderData);
         renderData->x = x;
         renderData->y = y;
-        renderData->z = ComputeZ(node->layer + ABSOLUTE_Z_LAYER * NodeStatePosAbsolute(node), 2);
+        renderData->z = ComputeZ(node->layer + ABSOLUTE_Z_LAYER * NodeStatePosAbsolute(node), 1);
         renderData->w = width;
         renderData->h = height;
         renderData->backgroundRGBA = packedColor;
         renderData->borderRGBA = packedColor;
-        renderData->radiusTl = 0;
-        renderData->radiusTr = 0;
-        renderData->radiusBl = 0;
-        renderData->radiusBr = 0;
+        renderData->radiusTl = 2;
+        renderData->radiusTr = 2;
+        renderData->radiusBl = 2;
+        renderData->radiusBr = 2;
         renderData->borderTop = 0;
         renderData->borderBottom = 0;
         renderData->borderLeft = 0;
         renderData->borderRight = 0;
-        renderData->scissorTop = clip->top;
-        renderData->scissorBottom = clip->bottom;
-        renderData->scissorLeft = clip->left;
-        renderData->scissorRight = clip->right;
+        renderData->clipTop = 0;
+        renderData->clipBottom = 16000;
+        renderData->clipLeft = 0;
+        renderData->clipRight = 16000;
+        renderData->clipRadiusTopLeft = 0;
+        renderData->clipRadiusTopRight = 0;
+        renderData->clipRadiusBottomLeft = 0;
+        renderData->clipRadiusBottomRight = 0;
     }
 
     // Add cursor rect
-    if (node == GUI.focused_node && !InputText_IsHighlighting(inputText))
+    if (node == GUI.focused_node && !InputText_IsHighlighting(textInput))
     {
         NodePublicBase* n = &node->base;
-        float x = n->x + n->borderLeft + n->padLeft + inputText->cursorOffset;
+        float x = n->x + n->borderLeft + n->padLeft + textInput->cursorOffset;
         float y = n->y + n->borderTop + n->padTop;
         float innerHeight = n->height - n->borderTop - n->borderBottom - n->padTop - n->padBottom;
 
         NuColor cursorColor = { 255, 255, 255, 255 };
-        float32 packedColor = PackColorIntoUint32(cursorColor);
+        Uint32 packedColor = PackColorIntoUint32(cursorColor);
 
         BorderRectRenderData* renderData = Array_PushEmpty(borderRectRenderData);
         renderData->x = x;
@@ -169,16 +175,20 @@ void AddTextInputRenderData(Node* node, NU_ClipBounds* clip, Array* textRenderDa
         renderData->borderBottom = 0;
         renderData->borderLeft = 0;
         renderData->borderRight = 0;
-        renderData->scissorTop = clip->top;
-        renderData->scissorBottom = clip->bottom;
-        renderData->scissorLeft = clip->left;
-        renderData->scissorRight = clip->right;
+        renderData->clipTop = 0;
+        renderData->clipBottom = 16000;
+        renderData->clipLeft = 0;
+        renderData->clipRight = 16000;
+        renderData->clipRadiusTopLeft = 0;
+        renderData->clipRadiusTopRight = 0;
+        renderData->clipRadiusBottomLeft = 0;
+        renderData->clipRadiusBottomRight = 0;
     }
 }
 
 void Add_NodeRectRenderData(
     Node* node, float z,
-    float scissorTop, float scissorBottom, float scissorLeft, float scissorRight,
+    float clipTop, float clipBottom, float clipLeft, float clipRight,
     Array* borderRects
 )
 {
@@ -230,12 +240,11 @@ void Add_NodeRectRenderData(
     renderData->borderBottom = n->borderBottom;
     renderData->borderLeft = n->borderLeft;
     renderData->borderRight = n->borderRight;
-    renderData->scissorTop = scissorTop;
-    renderData->scissorBottom = scissorBottom;
-    renderData->scissorLeft = scissorLeft;
-    renderData->scissorRight = scissorRight;
+    renderData->clipTop = clipTop;
+    renderData->clipBottom = clipBottom;
+    renderData->clipLeft = clipLeft;
+    renderData->clipRight = clipRight;
 }
-
 
 void Add_ScrollbarRenderData(
     Node* node, float z,
@@ -350,10 +359,10 @@ void Add_ScrollbarRenderData(
     trackRData->borderBottom = scrollbarStyle->trackBorderBottom;
     trackRData->borderLeft = scrollbarStyle->trackBorderLeft;
     trackRData->borderRight = scrollbarStyle->trackBorderRight;
-    trackRData->scissorTop = 0.0f;
-    trackRData->scissorBottom = 10000000.0f;
-    trackRData->scissorLeft = 0.0f;
-    trackRData->scissorRight = 10000000.0f;
+    trackRData->clipTop = 0;
+    trackRData->clipBottom = 16000;
+    trackRData->clipLeft = 0;
+    trackRData->clipRight = 16000;
 
     // Thumb
     BorderRectRenderData* thumbRData = Array_PushEmpty(borderRects);
@@ -384,10 +393,10 @@ void Add_ScrollbarRenderData(
     thumbRData->borderBottom = scrollbarStyle->thumbBorderBottom;
     thumbRData->borderLeft = scrollbarStyle->thumbBorderLeft;
     thumbRData->borderRight = scrollbarStyle->thumbBorderRight;
-    thumbRData->scissorTop = 0.0f;
-    thumbRData->scissorBottom = 10000000.0f;
-    thumbRData->scissorLeft = 0.0f;
-    thumbRData->scissorRight = 10000000.0f;
+    thumbRData->clipTop = 0;
+    thumbRData->clipBottom = 16000;
+    thumbRData->clipLeft = 0;
+    thumbRData->clipRight = 16000;
 }
 
 
@@ -404,8 +413,8 @@ void NU_GenerateDrawlists()
         Array_Clear(&win->drawlist.canvasNodes);
     }
 
-    // Clear hashmaps
-    Hashmap_Clear(&GUI.displayManager.clipMap);
+    // Clear datastructures
+    Array_Clear(&GUI.displayManager.clipArray);
     Array_Clear(&GUI.displayManager.absoluteRootNodes);
 
     // Add root to drawlist
@@ -471,25 +480,33 @@ void NU_GenerateDrawlists()
                 // child overlaps parent boundary
                 else if (verticalOverlap == NODE_OVERLAP_PARTIAL) {
 
-                    // determine clipping
-                    NU_ClipBounds clip;
-                    clip.top = fmaxf(child->base.y - 1, nodeInnerY);
-                    clip.bottom = fminf(child->base.y + child->base.height, nodeInnerY + nodeInnerHeight);
-                    clip.left = -1.0f;
-                    clip.right = 1000000.0f;
-
-                    // if parent is also clipped -> merge clips (stack clipping behaviour)
-                    if (node->clippedAncestor) {
-                        NU_ClipBounds* parent_clip = Hashmap_Get(&GUI.displayManager.clipMap, &node->clippedAncestor);
-                        clip.top = fmaxf(clip.top, parent_clip->top);
-                        clip.bottom = fminf(clip.bottom, parent_clip->bottom);
+                    // Add clip bounds
+                    ClipBounds* clip = NULL;
+                    if (child->clipIndex == -1) {
+                        clip = Array_PushEmptyZero(&GUI.displayManager.clipArray);
+                        clip->right = 16000;
+                        clip->parentClipIndex = -1;
+                        child->clipIndex = Array_Length(&GUI.displayManager.clipArray) - 1;
+                    }
+                    else {
+                        clip = Array_Get(&GUI.displayManager.clipArray, child->clipIndex);
                     }
 
-                    // add clipping to hashmap
-                    child->clippedAncestor = child; // Set clip root to self
-                    Hashmap_Set(&GUI.displayManager.clipMap, &child->clippedAncestor, &clip);
+                    // Set child clip (top, bottom) to parent (top, bottom)
+                    clip->top = fmaxf(child->base.y - 1, nodeInnerY);
+                    clip->bottom = fminf(child->base.y + child->base.height, nodeInnerY + nodeInnerHeight);
 
-                    // append node to correct window clipped node list
+                    // If parent is also clipped -> merge clips (stack clipping behaviour)
+                    if (node->clipIndex != -1) {
+                        ClipBounds* parentClip = Array_Get(&GUI.displayManager.clipArray, node->clipIndex);
+                        clip->top = fmaxf(clip->top, parentClip->top);
+                        clip->bottom = fminf(clip->bottom, parentClip->bottom);
+
+                        // Add parent to clip chain
+                        clip->parentClipIndex = node->clipIndex;
+                    }
+
+                    // Append node to correct window clipped node list
                     SetNodeDrawlist_Clipped(&GUI.displayManager, child);
                     if (child->type == NU_TYPE_CANVAS) SetNodeDrawlist_Canvas(&GUI.displayManager, child);
                 }
@@ -502,14 +519,16 @@ void NU_GenerateDrawlists()
             }
 
             // Otherwise if only the parent is clipped -> child inherits clip from parent
-            else if (node->clippedAncestor) {
-                NU_ClipBounds* clip = Hashmap_Get(&GUI.displayManager.clipMap, &node->clippedAncestor);
+            else if (node->clipIndex != -1) {
+
+                ClipBounds* clip = Array_Get(&GUI.displayManager.clipArray, node->clipIndex);
+
                 // Totally ignore children outside of inherited clip bounds
                 if (NodeOutsideBounds(child, clip->left, clip->right, clip->top, clip->bottom)) {
                     child->stateFlags |= STATE_FLAG_HIDDEN;
                 }
                 else {
-                    child->clippedAncestor = node->clippedAncestor;
+                    child->clipIndex = node->clipIndex;
                     SetNodeDrawlist_Clipped(&GUI.displayManager, child);
                     if (child->type == NU_TYPE_CANVAS) SetNodeDrawlist_Canvas(&GUI.displayManager, child);
                 }
@@ -611,7 +630,7 @@ void NU_CanvasDraw(NU_Canvas_Context* ctx, Window* window)
 {
     Node* node = ctx->node;
     CanvasRenderTarget* rt = &ctx->renderTarget;
-    NU_ClipBounds* clip = (NU_ClipBounds*)Hashmap_Get(&GUI.displayManager.clipMap, &node->clippedAncestor);
+    ClipBounds* clip = Array_Get(&GUI.displayManager.clipArray, node->clipIndex);
 
     // Compute offsets and clipping bounds
     float offsetX = roundf(node->base.x + node->base.borderLeft + node->base.padLeft);
@@ -789,13 +808,17 @@ void NU_Draw()
 
             // Text input render data
             else if (node->type == NU_TYPE_INPUT) {
-                NU_ClipBounds clip = {0};
-                clip.top = node->base.y;
+                ClipBounds clip = {0};
+                clip.top = node->base.y + node->base.borderTop + node->base.padTop;
                 clip.left = node->base.x + node->base.borderLeft + node->base.padLeft;
                 clip.right = node->base.x + node->base.width - node->base.borderRight - node->base.padRight;
-                clip.bottom = node->base.y + node->base.height + 1000;
-                Array* textRenderData = Array_Get(&GUI.perFontTextRenderData, node->fontIdx);
-                AddTextInputRenderData(node, &clip, textRenderData, &GUI.borderRectsRenderData);
+                clip.bottom = node->base.y + node->base.height - node->base.borderBottom - node->base.padBottom;
+                clip.radiusTL = 0;
+                clip.radiusTR = 0;
+                clip.radiusBL = 0;
+                clip.radiusBR = 0;
+                Array* clippedTextRenderData = Array_Get(&GUI.perFontClippedTextRenderData, node->fontIdx);
+                AddTextInputRenderData(node, &clip, clippedTextRenderData, &GUI.borderRectsRenderData);
             }
 
             // Image render data
@@ -820,9 +843,9 @@ void NU_Draw()
                 renderData->u1 = imageView->u1;
                 renderData->v1 = imageView->v1;
                 renderData->clipTop = 0;
-                renderData->clipBottom = 60000;
+                renderData->clipBottom = 16000;
                 renderData->clipLeft = 0;
-                renderData->clipRight = 60000;
+                renderData->clipRight = 16000;
                 renderData->clipRadiusTopLeft = 0;
                 renderData->clipRadiusTopRight = 0;
                 renderData->clipRadiusBottomLeft = 0;
@@ -838,7 +861,7 @@ void NU_Draw()
             Node* node = *(Node**)Array_Get(&drawList->clippedDrawNodes, n);
 
             // Border rect render data
-            NU_ClipBounds* clip = (NU_ClipBounds*)Hashmap_Get(&GUI.displayManager.clipMap, &node->clippedAncestor);
+            ClipBounds* clip = Array_Get(&GUI.displayManager.clipArray, node->clipIndex);
             Add_NodeRectRenderData(node, ComputeZ(node->layer + ABSOLUTE_Z_LAYER * NodeStatePosAbsolute(node), 0), clip->top, clip->bottom, clip->left, clip->right, &GUI.borderRectsRenderData);
 
             // Text content render data
@@ -850,14 +873,22 @@ void NU_Draw()
 
             // Text input render data
             else if (node->type == NU_TYPE_INPUT) {
-                InputText* inputText = Container_Get(&GUI.textInputs, node->special.input.textInputHandle);
-                if (inputText->numBytes > 0) {
-                    NU_ClipBounds innerClip = *clip;
-                    innerClip.left += node->base.borderLeft + node->base.padLeft;
-                    innerClip.right -= node->base.borderRight + node->base.padRight;
-                    Array* textRenderData = Array_Get(&GUI.perFontTextRenderData, node->fontIdx);
-                    AddTextInputRenderData(node, &innerClip, textRenderData, &GUI.borderRectsRenderData);
-                }
+                TextInput* textInput = Container_Get(&GUI.textInputs, node->special.input.textInputHandle);
+                ClipBounds innerClip;
+                innerClip.top = node->base.y + node->base.borderTop + node->base.padTop;
+                innerClip.left = node->base.x + node->base.borderLeft + node->base.padLeft;
+                innerClip.right = node->base.x + node->base.width - node->base.borderRight - node->base.padRight;
+                innerClip.bottom = node->base.y + node->base.height - node->base.borderBottom - node->base.padBottom;
+                innerClip.top = fmax(innerClip.top, clip->top);
+                innerClip.bottom = fmin(innerClip.bottom, clip->bottom);
+                innerClip.left = fmax(innerClip.left, clip->left);
+                innerClip.right = fmin(innerClip.right, clip->right);
+                innerClip.radiusTL = 0;
+                innerClip.radiusTR = 0;
+                innerClip.radiusBL = 0;
+                innerClip.radiusBR = 0;
+                Array* clippedTextRenderData = Array_Get(&GUI.perFontClippedTextRenderData, node->fontIdx);
+                AddTextInputRenderData(node, &innerClip, clippedTextRenderData, &GUI.borderRectsRenderData);
             }
 
             // Image render data
@@ -885,10 +916,10 @@ void NU_Draw()
                 renderData->clipBottom = clip->bottom;
                 renderData->clipLeft = clip->left;
                 renderData->clipRight = clip->right;
-                renderData->clipRadiusTopLeft = 0;
-                renderData->clipRadiusTopRight = 0;
-                renderData->clipRadiusBottomLeft = 0;
-                renderData->clipRadiusBottomRight = 0;
+                renderData->clipRadiusTopLeft = clip->radiusTL;
+                renderData->clipRadiusTopRight = clip->radiusBR;
+                renderData->clipRadiusBottomLeft = clip->radiusTL;
+                renderData->clipRadiusBottomRight = clip->radiusBR;
                 renderData->textureIndex = groupImageIndex;
                 renderData->filter = node->special.image.filter;
                 renderData->repeat = node->special.image.repeat;
@@ -935,9 +966,9 @@ void NU_Draw()
                 renderData.u1 = 1.0f;
                 renderData.v1 = 1.0f;
                 renderData.clipTop = 0;
-                renderData.clipBottom = 60000;
+                renderData.clipBottom = 16000;
                 renderData.clipLeft = 0;
-                renderData.clipRight = 60000;
+                renderData.clipRight = 16000;
                 renderData.clipRadiusTopLeft = 0;
                 renderData.clipRadiusTopRight = 0;
                 renderData.clipRadiusBottomLeft = 0;

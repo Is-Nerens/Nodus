@@ -90,7 +90,7 @@ bool HandleEvent(SDL_Event* event)
             {
                 Node* inputNode = GUI.focused_node;
                 Font* font = Stylesheet_Get_Font(&GUI.stylesheet, inputNode->fontIdx);
-                InputText* inputText = Container_Get(&GUI.textInputs, inputNode->special.input.textInputHandle);
+                TextInput* inputText = Container_Get(&GUI.textInputs, inputNode->special.input.textInputHandle);
                 SDL_Keymod mods = event->key.mod;
 
                 bool textChanged = false;
@@ -196,7 +196,7 @@ bool HandleEvent(SDL_Event* event)
 
             if (GUI.focused_node) {
                 Font* font = Stylesheet_Get_Font(&GUI.stylesheet, GUI.focused_node->fontIdx);
-                InputText* inputText = Container_Get(&GUI.textInputs, GUI.focused_node->special.input.textInputHandle);
+                TextInput* inputText = Container_Get(&GUI.textInputs, GUI.focused_node->special.input.textInputHandle);
 
                 int updated = 0;
                 if (InputText_IsHighlighting(inputText)) {
@@ -263,7 +263,7 @@ bool HandleEvent(SDL_Event* event)
             if (GUI.focused_node != NULL) {
                 Node* node = GUI.focused_node;
                 Font* font = Stylesheet_Get_Font(&GUI.stylesheet, node->fontIdx);
-                InputText* inputText = Container_Get(&GUI.textInputs, node->special.input.textInputHandle);
+                TextInput* inputText = Container_Get(&GUI.textInputs, node->special.input.textInputHandle);
                 if (InputText_MouseDrag(inputText, node, font, mouseX)) {
                     SetNodeWindowRepaint(node);
                 }
@@ -272,7 +272,6 @@ bool HandleEvent(SDL_Event* event)
         }
 
         case SDL_EVENT_WINDOW_FOCUS_GAINED: {
-            break;
             // Update last clicked window
             GUI.displayManager.lastClickedWindow = SDL_GetWindowFromID(event->button.windowID);
             GUI.mouse_down_node = GUI.hovered_node;
@@ -330,7 +329,7 @@ bool HandleEvent(SDL_Event* event)
             if (GUI.focused_node != NULL)
             {
                 Font* font = Stylesheet_Get_Font(&GUI.stylesheet, GUI.focused_node->fontIdx);
-                InputText* inputText = Container_Get(&GUI.textInputs, GUI.focused_node->special.input.textInputHandle);
+                TextInput* inputText = Container_Get(&GUI.textInputs, GUI.focused_node->special.input.textInputHandle);
 
                 if (GUI.focused_node != prevFocusedNode) {
                     InputText_MousePlaceCursor(inputText, GUI.focused_node, font, mouseX);
@@ -347,7 +346,7 @@ bool HandleEvent(SDL_Event* event)
             // Defocus prev focused input node
             if (prevFocusedNode != NULL && prevFocusedNode->type == NU_TYPE_INPUT && prevFocusedNode != GUI.focused_node)
             {
-                InputText* inputText = Container_Get(&GUI.textInputs, prevFocusedNode->special.input.textInputHandle);
+                TextInput* inputText = Container_Get(&GUI.textInputs, prevFocusedNode->special.input.textInputHandle);
 
                 InputText_Defocus(inputText);
 
@@ -413,7 +412,7 @@ bool HandleEvent(SDL_Event* event)
 
             // if focused on input text node
             if (GUI.focused_node != NULL) {
-                InputText* inputText = Container_Get(&GUI.textInputs, GUI.focused_node->special.input.textInputHandle);
+                TextInput* inputText = Container_Get(&GUI.textInputs, GUI.focused_node->special.input.textInputHandle);
                 InputText_MouseUp(inputText);
                 SetNodeWindowRepaint(GUI.focused_node);
             }

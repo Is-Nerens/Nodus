@@ -44,7 +44,6 @@ void main()
     float cLeft   = float( iClipLeftRight        & 0xFFFFu);
     float cRight  = float((iClipLeftRight >> 16) & 0xFFFFu);
     vClipRect = vec4(cLeft, cTop, cRight, cBottom);
-
     vClipRadii = vec4(
         float( iClipRadii        & 0xFFu),
         float((iClipRadii >>  8) & 0xFFu),

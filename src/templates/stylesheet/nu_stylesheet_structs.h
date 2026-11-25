@@ -2,10 +2,10 @@
 
 typedef enum StylePseudoClass
 {
-    PSEUDO_NONE,
-    PSEUDO_HOVER,
-    PSEUDO_PRESS,
-    PSEUDO_FOCUS
+    PSEUDO_HOVER = 0,
+    PSEUDO_PRESS = 1,
+    PSEUDO_FOCUS = 2,
+    PSEUDO_NONE = -1
 } StylePseudoClass;
 
 #include "nu_stylesheet_tokens.h"

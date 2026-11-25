@@ -126,7 +126,6 @@ typedef struct NuInputSpecial {
 
 typedef struct NuTextSpecial {
     char* textContent;
-    uint8 textR, textG, textB;
 } NuTextSpecial;
 
 typedef struct NuImageSpecial {
@@ -148,7 +147,7 @@ typedef union NodeSpecialUnion {
     NuCanvasSpecial canvas;
 } NodeSpecialUnion;
 
-typedef struct InputText {
+typedef struct TextInput {
     char* buffer;
     float32 cursorOffset;
     float32 highlightOffset;
@@ -161,7 +160,7 @@ typedef struct InputText {
     uint8 type; // 0 -> text, 1 -> number
     bool dragging;
     bool updateOffsetsPostLayout;
-} InputText;
+} TextInput;
 
 /* Private node storing public and private members */
 typedef struct Node
@@ -171,11 +170,11 @@ typedef struct Node
     struct Node* prevSibling;      // Prev sibling in linked-list style array
     struct Node* firstChild;       // First child in linked-list style child array
     struct Node* lastChild;        // Last child in linked-list style child array
-    struct Node* clippedAncestor;  // Optional ancestor that has render clipping -> for calculating clipping union
     NodePublicBase base;           // Publicly readible to library user
     NodeSpecialUnion special;      // Node type-specific data
-    char* class;
-    char* id;
+    int classStyleIndex;
+    int idStyleIndex;
+    int clipIndex;
     uint64 overrideStyleFlags;     // Bitflags determine which style properties ignore the stylesheet
     int32 widgetID;
     uint32 subtreeSize;
@@ -188,6 +187,7 @@ typedef struct Node
     uint8 stateFlags;              // State bitflags (eg. "STATE_FLAG_HIDDEN")
     uint8 fontIdx;                 // Index of a font stored in an array
     int8  windowID;                // Index of a window stored in a container
+    uint8 textR, textG, textB;
     uint8 horizontalAlignment;     // Left, Center, Right [0, 1, 2]
     uint8 verticalAlignment;       // Top, Center, Bottom [0, 1, 2]
     uint8 horizontalTextAlignment; // Left, Center, Right [0, 1, 2]
@@ -200,13 +200,18 @@ typedef struct NU_NodeDimensions
     float32 width, height;
 } NU_NodeDimensions;
 
-typedef struct NU_ClipBounds
+typedef struct ClipBounds
 {
-    float32 top;
-    float32 bottom;
-    float32 left;
-    float32 right;
-} NU_ClipBounds;
+    int parentClipIndex;
+    uint16 top;
+    uint16 bottom;
+    uint16 left;
+    uint16 right;
+    uint8 radiusTL;
+    uint8 radiusTR;
+    uint8 radiusBL;
+    uint8 radiusBR;
+} ClipBounds;
 
 typedef enum NodeOverlap
 {
@@ -282,6 +287,8 @@ void ApplyNodeDefaults(Node* node, Node* parent, uint8 type, uint16 layer)
     node->type = type;
 
     // Set specific fields to default values
+    node->classStyleIndex = -1;
+    node->idStyleIndex = -1;
     node->base.maxWidth = node->base.maxHeight = UINT16_MAX;
     node->base.backgroundR = node->base.backgroundG = node->base.backgroundB = 50;
     node->base.borderR = node->base.borderG = node->base.borderB = 100;
@@ -289,9 +296,12 @@ void ApplyNodeDefaults(Node* node, Node* parent, uint8 type, uint16 layer)
     node->verticalTextAlignment = 1;
     node->widgetID = -1;
     node->subtreeSize = 1;
+    node->textR = 240;
+    node->textG = 240;
+    node->textB = 240;
 
     if (NODE_CAN_HAVE_TEXT_CONTENT(node)) {
-        node->special.text.textR = node->special.text.textG = node->special.text.textB = 255;
+        node->textR = node->textG = node->textB = 255;
     }
 
     // Set defaults based on node type

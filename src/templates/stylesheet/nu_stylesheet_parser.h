@@ -1749,7 +1749,7 @@ int Stylesheet_Parse(
                     char* classStr = &src[textRef->srcIndex];
 
                     // Search for item belonging to class
-                    StyleItem* baseItem; int32 baseItemIndex;
+                    int32 baseItemIndex;
                     int32* itemIndexGet = LinearStringmap_Get(&ss->classIndexMap, classStr);
 
                     // Found
@@ -1758,7 +1758,7 @@ int Stylesheet_Parse(
                     }
                     // Not found -> create it
                     else {
-                        baseItem = Array_PushEmptyZero(&ss->items);
+                        StyleItem* baseItem = Array_PushEmptyZero(&ss->items);
                         baseItem->nextVariationIndex = -1;
                         baseItem->screenQueryIndex = -1;
                         baseItem->hoverPseudoItemIndex = -1;
@@ -1790,10 +1790,9 @@ int Stylesheet_Parse(
                         else return 0;
                         iAdvance = 3;
 
-                        printf("pseudo class: %d\n", pseudoClass);
-
                         // Get pseudo item index from base item if pseudo item exists
                         int pseudoItemIndex = -1;
+                        StyleItem* baseItem = Array_Get(&ss->items, baseItemIndex);
                         if (pseudoClass == PSEUDO_HOVER) pseudoItemIndex = baseItem->hoverPseudoItemIndex;
                         else if (pseudoClass == PSEUDO_PRESS) pseudoItemIndex = baseItem->pressPseudoItemIndex;
                         else if (pseudoClass == PSEUDO_FOCUS) pseudoItemIndex = baseItem->focusPseudoItemIndex;
@@ -1801,8 +1800,6 @@ int Stylesheet_Parse(
 
                         // Pseudo item does not exist yet -> create it
                         if (pseudoItemIndex == -1) {
-
-                            printf("creating pseudo item\n");
 
                             // Create item
                             StyleItem* pseudoItem = Array_PushEmptyZero(&ss->items);
@@ -1814,6 +1811,7 @@ int Stylesheet_Parse(
                             int32 itemIndex = Array_Length(&ss->items) - 1;
 
                             // Give pseudo item index to base item
+                            baseItem = Array_Get(&ss->items, baseItemIndex);
                             if (pseudoClass == PSEUDO_HOVER) baseItem->hoverPseudoItemIndex = itemIndex;
                             else if (pseudoClass == PSEUDO_PRESS) baseItem->pressPseudoItemIndex = itemIndex;
                             else if (pseudoClass == PSEUDO_FOCUS) baseItem->focusPseudoItemIndex = itemIndex;
@@ -1822,7 +1820,6 @@ int Stylesheet_Parse(
                             selectorIndexes[selectorCount++] = itemIndex;
                         }
                         else {
-                            printf("adding pseudo item to selectors\n");
                             // Add item index to selectors
                             selectorIndexes[selectorCount++] = pseudoItemIndex;
                         }
@@ -1842,7 +1839,7 @@ int Stylesheet_Parse(
                     char* idStr = &src[textRef->srcIndex];
 
                     // Search for item belonging to id
-                    StyleItem* baseItem; int32 baseItemIndex;
+                    int32 baseItemIndex;
                     int32* itemIndexGet = LinearStringmap_Get(&ss->idIndexMap, idStr);
 
                     // Found
@@ -1851,7 +1848,7 @@ int Stylesheet_Parse(
                     }
                     // Not found -> create it
                     else {
-                        baseItem = Array_PushEmptyZero(&ss->items);
+                        StyleItem* baseItem = Array_PushEmptyZero(&ss->items);
                         baseItem->nextVariationIndex = -1;
                         baseItem->screenQueryIndex = -1;
                         baseItem->hoverPseudoItemIndex = -1;
@@ -1885,6 +1882,7 @@ int Stylesheet_Parse(
 
                         // Get pseudo item index from base item if pseudo item exists
                         int pseudoItemIndex = -1;
+                        StyleItem* baseItem = Array_Get(&ss->items, baseItemIndex);
                         if (pseudoClass == PSEUDO_HOVER) pseudoItemIndex = baseItem->hoverPseudoItemIndex;
                         else if (pseudoClass == PSEUDO_PRESS) pseudoItemIndex = baseItem->pressPseudoItemIndex;
                         else if (pseudoClass == PSEUDO_FOCUS) pseudoItemIndex = baseItem->focusPseudoItemIndex;
@@ -1903,9 +1901,10 @@ int Stylesheet_Parse(
                             int32 itemIndex = Array_Length(&ss->items) - 1;
 
                             // Give pseudo item index to base item
+                            baseItem = Array_Get(&ss->items, baseItemIndex);
                             if (pseudoClass == PSEUDO_HOVER) baseItem->hoverPseudoItemIndex = itemIndex;
-                            else if (pseudoClass == PSEUDO_HOVER) baseItem->pressPseudoItemIndex = itemIndex;
-                            else if (pseudoClass == PSEUDO_HOVER) baseItem->focusPseudoItemIndex = itemIndex;
+                            else if (pseudoClass == PSEUDO_PRESS) baseItem->pressPseudoItemIndex = itemIndex;
+                            else if (pseudoClass == PSEUDO_FOCUS) baseItem->focusPseudoItemIndex = itemIndex;
 
                             // Add item index to selectors
                             selectorIndexes[selectorCount++] = itemIndex;

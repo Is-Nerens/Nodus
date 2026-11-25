@@ -8,16 +8,19 @@ layout(location = 3) in uint iBgColor;
 layout(location = 4) in uint iBorderColor;
 layout(location = 5) in vec4 iRadius;
 layout(location = 6) in vec4 iBorder;
-layout(location = 7) in vec4 iScissor;
+layout(location = 7) in uint iClipTopBottom;   // low 16 = top,  high 16 = bottom
+layout(location = 8) in uint iClipLeftRight;   // low 16 = left, high 16 = right
+layout(location = 9) in uint iClipRadii;       // bits 0-7=TL, 8-15=TR, 16-23=BL, 24-31=BR
 
 layout(location = 0) out vec2 vLocalPos;
 layout(location = 1) out vec2 vScreenPos;
 layout(location = 2) out vec2 vSize;
 layout(location = 3) out vec4 vRadius;
 layout(location = 4) out vec4 vBorder;
-layout(location = 5) out vec4 vScissor;
-layout(location = 6) out vec4 vBgColor;
-layout(location = 7) out vec4 vBorderColor;
+layout(location = 5) flat out vec4 vClipRect;   // x=left, y=top, z=right, w=bottom
+layout(location = 6) flat out vec4 vClipRadii;  // x=TL, y=TR, z=BL, w=BR
+layout(location = 7) out vec4 vBgColor;
+layout(location = 8) out vec4 vBorderColor;
 
 layout(push_constant) uniform PushConstants {
     float uScreenWidth;
@@ -46,7 +49,19 @@ void main()
     vSize        = iSize;
     vRadius      = iRadius;
     vBorder      = iBorder;
-    vScissor     = iScissor;
     vBgColor     = unpackRGBA(iBgColor);
     vBorderColor = unpackRGBA(iBorderColor);
+
+    // Unpack clip data (little-endian)
+    float cTop    = float( iClipTopBottom        & 0xFFFFu);
+    float cBottom = float((iClipTopBottom >> 16) & 0xFFFFu);
+    float cLeft   = float( iClipLeftRight        & 0xFFFFu);
+    float cRight  = float((iClipLeftRight >> 16) & 0xFFFFu);
+    vClipRect = vec4(cLeft, cTop, cRight, cBottom);
+    vClipRadii = vec4(
+        float( iClipRadii        & 0xFFu),
+        float((iClipRadii >>  8) & 0xFFu),
+        float((iClipRadii >> 16) & 0xFFu),
+        float((iClipRadii >> 24) & 0xFFu)
+    );
 }

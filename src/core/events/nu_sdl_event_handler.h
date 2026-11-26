@@ -69,17 +69,9 @@ bool HandleEvent(SDL_Event* event)
             SDL_Window* sdlWin = SDL_GetWindowFromID(event->window.windowID);
             Node* windowNode = DisplayManager_GetWindowNodeWithSDLWindow(&GUI.displayManager, sdlWin);
             Window* window = DisplayManager_GetNodeWindow(&GUI.displayManager, windowNode);
-
-            int prevScreenWidth = window->screenWidth;
             Window_UpdateRenderScaleAndDisplaySize(window);
-
-            // If screen width changed -> reapply stylesheet
-            // This allows screen queries to be re-evaluated
-            if (prevScreenWidth != window->screenWidth) {
-                Stylesheet_ApplyToBranch(&GUI.stylesheet, windowNode);
-                SetWindowRepaint(window);
-            }
-
+            Stylesheet_ApplyToBranch(&GUI.stylesheet, windowNode);
+            SetWindowRepaint(window);
             break;
         }
 

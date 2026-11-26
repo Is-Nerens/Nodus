@@ -14,12 +14,13 @@ typedef struct NuWindowDrawlist
 } NuWindowDrawlist;
 
 typedef struct {
-
+    // External members
     SDL_Window* sdlWin;
+    Node* windowNode;
 
+    // Vulkan info
     Surface surface;
     Swapchain swapchain;
-
     VkCommandPool   commandPool;
     VkCommandBuffer commandBuffers[NU_FRAMES_IN_FLIGHT];
     uint64 nextPresentTime;
@@ -27,10 +28,11 @@ typedef struct {
 
     // Draw info
     NuWindowDrawlist drawlist;
-    Node* windowNode;
+
+    // State
     int displayID;
-    int screenWidth;
-    int screenHeight;
+    int displayWidthPx;
+    int displayHeightPx;
     float renderScale;
     bool repaint;
     bool waitingToPresent;

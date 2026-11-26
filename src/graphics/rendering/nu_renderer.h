@@ -85,8 +85,6 @@ void NU_DrawBorderRects(
     Window* window,
     DisplayManager* displayManager,
     Array* borderRects,
-    float screenWidth,
-    float screenHeight,
     bool MSAA_4X)
 {
     if (Array_Length(borderRects) == 0) return;
@@ -119,7 +117,10 @@ void NU_DrawBorderRects(
     vkCmdSetScissor(cmd, 0, 1, &sc);
 
     // ---- Push constants: screen width / height ----
-    float push[2] = { screenWidth, screenHeight };
+    float push[2] = {
+        Swapchain_Width(&window->swapchain),
+        Swapchain_Height(&window->swapchain)
+    };
     vkCmdPushConstants(cmd, displayManager->pipelines.borderRectPipeline.layout, VK_SHADER_STAGE_VERTEX_BIT, 0, sizeof(push), push);
 
     // ---- Allocate instance data from the arena ----

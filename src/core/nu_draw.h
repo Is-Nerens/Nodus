@@ -942,7 +942,7 @@ void NU_Draw()
         }
 
         // Draw unclipped border rects (1 draw call)
-        NU_DrawBorderRects(win, &GUI.displayManager, &GUI.borderRectsRenderData, winW, winH, false);
+        NU_DrawBorderRects(win, &GUI.displayManager, &GUI.borderRectsRenderData, false);
 
         // Draw unclipped text (1 draw call per font)
         for (uint32 t=0; t<Array_Length(&GUI.stylesheet.fonts); t++) {

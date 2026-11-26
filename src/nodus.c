@@ -436,8 +436,8 @@ _EXPORT void NU_GET_SCREEN_DIMENSIONS(
 {
     Node* nodeP = (Node*)(node);
     Window* win = DisplayManager_GetNodeWindow(&GUI.displayManager, nodeP);
-    *screenWidthOut = win->screenWidth;
-    *screenHeightOut = win->screenHeight;
+    *screenWidthOut = win->displayWidthPx;
+    *screenHeightOut = win->displayHeightPx;
 }
 
 

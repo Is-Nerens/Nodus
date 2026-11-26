@@ -158,7 +158,7 @@ void Stylesheet_ApplyStyleToNode(Stylesheet* ss, Node* node, StylePseudoClass ps
 
     // Get containing screen width
     Window* win = DisplayManager_GetNodeWindow(&GUI.displayManager, node);
-    int screenWidth = win->screenWidth;
+    int displayWidthPx = win->displayWidthPx;
 
     // Get the style items
     StyleItem* defaultItem = Array_Get(&ss->items, 0);
@@ -205,45 +205,45 @@ void Stylesheet_ApplyStyleToNode(Stylesheet* ss, Node* node, StylePseudoClass ps
 
     // Apply style items in order
     Stylesheet_ApplyStyleItemToNode(defaultItem, node);
-    Stylesheet_ApplyVariations(ss, defaultItem, node, screenWidth);
+    Stylesheet_ApplyVariations(ss, defaultItem, node, displayWidthPx);
 
     if (tagItem)
     {
         // Base tag item
         Stylesheet_ApplyStyleItemToNode(tagItem, node);
-        Stylesheet_ApplyVariations(ss, tagItem, node, screenWidth);
+        Stylesheet_ApplyVariations(ss, tagItem, node, displayWidthPx);
     }
 
     if (classItem)
     {
         // Base class item
         Stylesheet_ApplyStyleItemToNode(classItem, node);
-        Stylesheet_ApplyVariations(ss, classItem, node, screenWidth);
+        Stylesheet_ApplyVariations(ss, classItem, node, displayWidthPx);
     }
 
     if (idItem)
     {
         // Base id item
         Stylesheet_ApplyStyleItemToNode(idItem, node);
-        Stylesheet_ApplyVariations(ss, idItem, node, screenWidth);
+        Stylesheet_ApplyVariations(ss, idItem, node, displayWidthPx);
     }
 
     // Pseudo tag item
     if (tagPseudoItem) {
         Stylesheet_ApplyStyleItemToNode(tagPseudoItem, node);
-        Stylesheet_ApplyVariations(ss, tagPseudoItem, node, screenWidth);
+        Stylesheet_ApplyVariations(ss, tagPseudoItem, node, displayWidthPx);
     }
 
     // Pseudo class item
     if (classPseudoItem) {
         Stylesheet_ApplyStyleItemToNode(classPseudoItem, node);
-        Stylesheet_ApplyVariations(ss, classPseudoItem, node, screenWidth);
+        Stylesheet_ApplyVariations(ss, classPseudoItem, node, displayWidthPx);
     }
 
     // Pseudo id item
     if (idPseudoItem) {
         Stylesheet_ApplyStyleItemToNode(idPseudoItem, node);
-        Stylesheet_ApplyVariations(ss, idPseudoItem, node, screenWidth);
+        Stylesheet_ApplyVariations(ss, idPseudoItem, node, displayWidthPx);
     }
 }
 

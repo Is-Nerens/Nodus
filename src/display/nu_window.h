@@ -225,16 +225,18 @@ void Window_UpdateRenderScaleAndDisplaySize(Window* window)
     SDL_GetWindowSize(window->sdlWin, &winPtsW, &winPtsH);
     SDL_GetWindowSizeInPixels(window->sdlWin, &winPxW, &winPxH);
     window->renderScale = (float)winPxW / (float)winPtsW;
-    window->screenWidth = winPxW;
-    window->screenHeight = winPxH;
 
     // Update refresh duration
     SDL_DisplayID displayID = SDL_GetDisplayForWindow(window->sdlWin);
     const SDL_DisplayMode* mode = SDL_GetCurrentDisplayMode(displayID);
-    if (mode && mode->refresh_rate_numerator > 0 && mode->refresh_rate_denominator > 0)
+    if (mode)
     {
-        window->refreshDuration = 1000000000ULL * (uint64)mode->refresh_rate_denominator / (uint64)mode->refresh_rate_numerator;
-        window->nextPresentTime = 0;
+        if (mode->refresh_rate_numerator > 0 && mode->refresh_rate_denominator > 0) {
+            window->refreshDuration = 1000000000ULL * (uint64)mode->refresh_rate_denominator / (uint64)mode->refresh_rate_numerator;
+            window->nextPresentTime = 0;
+        }
+        window->displayWidthPx = mode->w;
+        window->displayHeightPx = mode->h;
     }
     window->displayID = displayID;
 }
